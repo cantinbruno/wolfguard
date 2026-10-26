@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="x-dns-prefetch-control" content="off">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WolfGuard</title>
+<link rel="icon" type="image/svg+xml" href="images/logo-loup.svg">
+<link rel="stylesheet" href="css/base.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/workspaces.css">
+<link rel="stylesheet" href="css/documents.css">
+<link rel="stylesheet" href="css/layout.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/settings.css">
+<link rel="stylesheet" href="css/navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/connection.css">
+<link rel="stylesheet" href="css/reader.css">
+<link rel="stylesheet" href="css/branding.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocols.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/search.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/workspace-controls.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/library-navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/unlock-transition.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/section-transition.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/top-navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/item-actions.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/collection-search.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/network-tools.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/item-relations.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/section-catalogs.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/desktop.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/access.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocol-matrix.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan-console.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan-visual.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/document-reader.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocol-polish.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/unified-library.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/toolbox.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/modules.css">
+<link rel="stylesheet" href="css/dialogs.css">
+</head>
+<body>
+
+<div id="connectionGate" class="connection-gate access-screen">
+  <div class="connection-bg"></div>
+  <div class="connection-card access-panel">
+    <header class="access-brand">
+      <div class="connection-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="68" height="68"></div>
+    </header>
+    <div class="access-heading"><h2 id="connectionHeading">Connecter la base</h2></div>
+    <div class="actions connection-actions">
+      <button type="button" class="primary" id="connectRequiredBtn">Autoriser la base</button>
+    </div>
+    <div class="access-status-slot"><div id="connectionStatus" class="connection-status" role="status" aria-live="polite" hidden></div></div>
+  </div>
+</div>
+<div id="lock" class="access-screen hidden">
+  <div class="lock-card access-panel">
+    <header class="access-brand">
+      <div class="lock-logo"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="68" height="68"></div>
+    </header>
+    <div class="access-heading"><h2>Déverrouiller la base</h2></div>
+    <div id="pinDots" class="pin-dots" aria-label="Code à quatre chiffres"></div>
+    <div id="keypad" class="keypad" aria-label="Clavier du code d'accès"></div>
+    <div id="lockError" class="lock-error" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header class="topbar">
+    <button type="button" class="brand brand-logo" id="brand" title="Mes fiches" aria-label="Mes fiches">
+      <img class="wolf-logo" src="images/logo-loup.svg" alt="" aria-hidden="true" width="60" height="60">
+    </button>
+    <div class="search">
+      <span class="global-search-icon" aria-hidden="true"><svg class="lucide lucide-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input id="globalSearch" type="search" maxlength="200" placeholder="Rechercher une fiche, une commande, un port…" aria-label="Rechercher dans la bibliothèque" role="combobox" aria-autocomplete="list" aria-controls="globalSearchList" aria-expanded="false" autocomplete="off" spellcheck="false" title="Rechercher (Ctrl+K)">
+      <button type="button" id="clearGlobalSearch" class="global-search-clear" aria-label="Effacer la recherche" title="Effacer la recherche" hidden><svg class="lucide lucide-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+      <div id="searchResults" class="search-results hidden" hidden></div>
+    </div>
+    <div class="top-actions">
+      <nav class="global-tabs">
+        <button data-section="library">Mémo</button>
+        <button data-section="tools">Outils</button>
+        <button data-section="vault">Coffre-fort</button>
+      </nav>
+    </div>
+    <button id="settingsBtn" class="icon-btn settings-icon-btn" title="Paramètres" aria-label="Paramètres">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M9.98 4.47 L10.44 2.12 L13.56 2.12 L14.02 4.47 A7.8 7.8 0 0 1 17.52 6.48 L19.77 5.71 L21.34 8.42 L19.53 9.98 A7.8 7.8 0 0 1 19.53 14.02 L21.34 15.58 L19.77 18.29 L17.52 17.52 A7.8 7.8 0 0 1 14.02 19.53 L13.56 21.88 L10.44 21.88 L9.98 19.53 A7.8 7.8 0 0 1 6.48 17.52 L4.23 18.29 L2.66 15.58 L4.47 14.02 A7.8 7.8 0 0 1 4.47 9.98 L2.66 8.42 L4.23 5.71 L6.48 6.48 A7.8 7.8 0 0 1 9.98 4.47 Z"/>
+        <circle cx="12" cy="12" r="3.2"/>
+      </svg>
+    </button>
+  </header>
+  <div class="main">
+    <aside id="sidebar" class="sidebar hidden"></aside>
+    <main id="content" class="content"></main>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<!-- Scripts share the local page context; app.js must load last. -->
+<script src="vendor/minisearch-7.2.0.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="vendor/ipaddr-2.5.0.js"></script>
+<script src="js/data/modules.js"></script>
+<script src="js/core.js?v=cleanup-20261020"></script>
+<script src="js/desktop.js?v=cleanup-20261020"></script>
+<script src="js/data/database.js?v=cleanup-20261020"></script>
+<script src="js/security.js?v=cleanup-20261020"></script>
+<script src="js/network/ip-tools.js?v=cleanup-20261020"></script>
+<script src="vendor/hash-wasm-4.12.0-md5.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha1.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha256.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha384.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha512.min.js"></script>
+<script src="js/network/hash-tools.js?v=cleanup-20261020"></script>
+<script src="js/data/item-relations.js?v=cleanup-20261020"></script>
+<script src="js/data/legacy-library.js"></script>
+<script src="js/data/memo-quality.js"></script>
+<script src="js/data/workspace-layout.js?v=cleanup-20261020"></script>
+<script src="js/data/workspace-mode.js?v=cleanup-20261020"></script>
+<script src="js/data/workspace-file.js?v=cleanup-20261020"></script>
+<script src="js/data/library-model.js?v=cleanup-20261020"></script>
+<script src="js/data/library-migration.js?v=cleanup-20261020"></script>
+<script src="js/ui/shared-icons.js"></script>
+<script src="js/ui/helpers.js?v=cleanup-20261020"></script>
+<script src="js/ui/unlock-transition.js?v=cleanup-20261020"></script>
+<script src="js/ui/section-transition.js?v=cleanup-20261020"></script>
+<script src="js/ui/item-actions.js?v=cleanup-20261020"></script>
+<script src="js/ui/workspace-controls.js?v=cleanup-20261020"></script>
+<script src="js/ui/collection-search.js?v=cleanup-20261020"></script>
+<script src="js/ui/collection-pagination.js?v=cleanup-20261020"></script>
+<script src="js/ui/primary-workspaces.js?v=cleanup-20261020"></script>
+<script src="js/ui/top-navigation.js?v=cleanup-20261020"></script>
+<script src="js/ui/dialogs.js"></script>
+<script src="js/ui/item-relations.js?v=cleanup-20261020"></script>
+<script src="js/ui/navigation.js?v=cleanup-20261020"></script>
+<script src="js/ui/context-menu.js?v=cleanup-20261020"></script>
+<script src="js/ui/rich-editor.js?v=cleanup-20261020"></script>
+<script src="js/ui/items.js?v=cleanup-20261020"></script>
+<script src="js/views/vault-catalog.js?v=cleanup-20261020"></script>
+<script src="js/views/vault.js?v=cleanup-20261020"></script>
+<script src="js/views/protocols.js?v=cleanup-20261020"></script>
+<script src="js/data/protocol-diagnostics.js?v=cleanup-20261020"></script>
+<script src="js/views/protocol-reference.js?v=cleanup-20261020"></script>
+<script src="js/views/protocol-matrix.js?v=cleanup-20261020"></script>
+<script src="js/views/document-reader.js?v=cleanup-20261020"></script>
+<script src="js/views/library.js?v=cleanup-20261020"></script>
+<script src="js/views/network-tools.js?v=cleanup-20261020"></script>
+<script src="js/views/text-tools.js"></script>
+<script src="js/views/scan-console.js?v=cleanup-20261020"></script>
+<script src="js/views/passive-workbench.js?v=cleanup-20261020"></script>
+<script src="js/views/passive-scan.js?v=cleanup-20261020"></script>
+<script src="js/views/scan.js?v=cleanup-20261020"></script>
+<script src="js/views/toolbox.js?v=cleanup-20261020"></script>
+<script src="js/views/settings.js?v=cleanup-20261020"></script>
+<script src="js/search/engine.js?v=cleanup-20261020"></script>
+<script src="js/search/controller.js?v=cleanup-20261020"></script>
+<script src="js/app.js?v=cleanup-20261020"></script>
+</body>
+</html>

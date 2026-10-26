@@ -1,0 +1,1300 @@
+:root {
+  --protocol: var(--workspace-tools)
+}
+
+.global-tabs button[data-section="protocol"].active {
+  background: color-mix(in srgb, var(--protocol) 32%, #141a20) !important
+}
+
+.content.protocol-content {
+  overflow: hidden
+}
+
+.protocol-workspace {
+  height: 100%;
+  min-height: 0;
+  min-width: 0
+}
+
+.protocol-workspace .detail-pane {
+  padding: 18px 20px;
+  container-type: inline-size;
+  container-name: protocol-pane
+}
+
+.protocol-workspace .explorer-pane {
+  border-top: 3px solid var(--protocol)
+}
+
+.protocol-workspace .explorer-head {
+  padding: 14px 12px;
+  background: transparent
+}
+
+.protocol-navigation-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0
+}
+
+.protocol-navigation-heading>div {
+  min-width: 0
+}
+
+.protocol-navigation-heading h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere
+}
+
+.protocol-navigation-heading p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted)
+}
+
+.protocol-navigation-heading .protocol-heading-symbol svg {
+  width: 23px;
+  height: 23px
+}
+
+.protocol-navigation-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 14px
+}
+
+.protocol-workspace .protocol-navigation-toggle,
+.protocol-workspace .protocol-navigation-close,
+.protocol-navigation-backdrop {
+  display: none
+}
+
+.protocol-navigation-backdrop[hidden] {
+  display: none !important
+}
+
+.protocol-detail-start {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0
+}
+
+.protocol-workspace * {
+  letter-spacing: 0
+}
+
+.protocol-catalog {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  gap: 16px
+}
+
+.protocol-catalog [hidden] {
+  display: none !important
+}
+
+.protocol-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: none
+}
+
+.protocol-heading-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0
+}
+
+.protocol-heading-symbol {
+  color: var(--protocol);
+  display: grid;
+  place-items: center;
+  flex: none
+}
+
+.protocol-heading-symbol svg {
+  width: 30px;
+  height: 30px
+}
+
+.protocol-heading h1 {
+  font-size: 21px;
+  margin: 0 0 4px
+}
+
+.protocol-heading p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted)
+}
+
+.protocol-heading .actions {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  flex: none;
+  align-items: center
+}
+
+.protocol-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 6px;
+  min-height: 34px;
+  font-size: 12px
+}
+
+.protocol-button svg,
+.protocol-icon svg {
+  width: 17px;
+  height: 17px;
+  flex: none
+}
+
+.protocol-view-switch {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px;
+  background: #12161c;
+  gap: 2px
+}
+
+.protocol-view-switch .protocol-icon {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 4px
+}
+
+.protocol-view-switch button:focus-visible,
+.protocol-family-filter:focus-visible {
+  outline: 2px solid var(--protocol);
+  outline-offset: 2px
+}
+
+.protocol-families {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: #3d4945 transparent;
+  padding: 10px 8px
+}
+
+.protocol-families [hidden] {
+  display: none !important
+}
+
+.protocol-family-filter {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+  white-space: normal
+}
+
+.protocol-family-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.4
+}
+
+.protocol-family-filter>svg {
+  width: 17px;
+  height: 17px;
+  color: var(--family-color, var(--protocol));
+  flex: none
+}
+
+.protocol-family-filter:hover {
+  background: #191e24;
+  color: var(--text)
+}
+
+.protocol-family-filter[aria-pressed="true"] {
+  background: #1d2a28;
+  color: #e3f5ee;
+  box-shadow: inset 3px 0 var(--family-color, var(--protocol))
+}
+
+.protocol-family-filter.is-empty:not([aria-pressed="true"]) {
+  opacity: .5
+}
+
+.protocol-family-count {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 14px;
+  text-align: right
+}
+
+.family-all {
+  --family-color: var(--protocol)
+}
+
+.family-web {
+  --family-color: #76bde8
+}
+
+.family-network {
+  --family-color: #7dc9ab
+}
+
+.family-identity {
+  --family-color: #e6c274
+}
+
+.family-remote {
+  --family-color: #e29fba
+}
+
+.family-data {
+  --family-color: #88c7d2
+}
+
+.family-messaging {
+  --family-color: #e99c83
+}
+
+.family-monitoring {
+  --family-color: #b2c5a0
+}
+
+.family-other {
+  --family-color: #b1adc9
+}
+
+.protocol-family-caption {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--family-color, var(--muted));
+  font-size: 11px;
+  min-width: 0;
+  line-height: 1.4
+}
+
+.protocol-family-caption svg {
+  width: 19px;
+  height: 19px;
+  flex: none
+}
+
+.section-accent-protocol .primary {
+  background: var(--protocol);
+  border-color: var(--protocol);
+  color: #211a08
+}
+
+.protocol-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 130px 160px 34px;
+  gap: 10px;
+  align-items: end;
+  flex: none
+}
+
+.protocol-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0
+}
+
+.protocol-filters input,
+.protocol-filters select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  background: #101720;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 12px
+}
+
+.protocol-search-field {
+  position: relative
+}
+
+.protocol-search-field>svg {
+  position: absolute;
+  left: 11px;
+  bottom: 10px;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  color: var(--muted)
+}
+
+.protocol-filters .protocol-search-field input {
+  padding-left: 35px
+}
+
+.protocol-filters input:focus-visible,
+.protocol-filters select:focus-visible {
+  outline: 2px solid var(--protocol);
+  outline-offset: 2px
+}
+
+.protocol-icon {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  flex: none
+}
+
+.protocol-icon:focus-visible,
+.protocol-service:focus-visible {
+  outline: 2px solid var(--protocol);
+  outline-offset: 2px
+}
+
+.protocol-icon:disabled {
+  opacity: .35;
+  cursor: default
+}
+
+.protocol-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scroll-padding-top: 46px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain
+}
+
+.protocol-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  padding: 2px 3px 14px 2px
+}
+
+.protocol-card {
+  display: grid;
+  grid-template-rows: 44px 40px 48px 34px;
+  gap: 10px;
+  height: 226px;
+  min-width: 0;
+  padding: 14px;
+  background: #14181e;
+  border: 1px solid #30363e;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+  position: relative;
+  box-shadow: inset 0 2px var(--family-color)
+}
+
+.protocol-card:hover,
+.protocol-card:focus-within {
+  background: #1a2025;
+  border-color: var(--family-color)
+}
+
+.protocol-card.is-selected {
+  border-color: var(--family-color);
+  background: #192324
+}
+
+.protocol-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0
+}
+
+.protocol-card-port {
+  min-width: 0;
+  flex: none
+}
+
+.protocol-card-port .label {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  margin-bottom: 3px
+}
+
+.protocol-card-port strong {
+  display: block;
+  color: var(--text);
+  font-family: Consolas, monospace;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums
+}
+
+.protocol-card-top .protocol-family-caption {
+  align-self: center;
+  justify-content: flex-end;
+  text-align: right;
+  max-width: 160px
+}
+
+.protocol-card h2 {
+  margin: 0;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 20px
+}
+
+.protocol-card .protocol-service {
+  font-size: 15px;
+  line-height: 20px;
+  padding: 0;
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden
+}
+
+.protocol-card-usage {
+  font-size: 12px;
+  line-height: 16px;
+  color: #a9b4c0;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden
+}
+
+.protocol-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  min-width: 0
+}
+
+.protocol-card .protocol-icon {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  border-color: #333e43;
+  background: transparent
+}
+
+.protocol-card .protocol-icon:hover {
+  background: #2a3338;
+  color: white
+}
+
+.protocol-card .protocol-icon[data-copy-port]:has(.lucide-check) {
+  color: #91dec3;
+  border-color: #4b7869
+}
+
+.protocol-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px
+}
+
+.protocol-table col:nth-child(1) {
+  width: 78px
+}
+
+.protocol-table col:nth-child(2) {
+  width: 102px
+}
+
+.protocol-table col:nth-child(3) {
+  width: 190px
+}
+
+.protocol-table col:nth-child(5) {
+  width: 92px
+}
+
+.protocol-table th {
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #101720;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600
+}
+
+.protocol-table th,
+.protocol-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #202b38;
+  vertical-align: middle;
+  overflow-wrap: anywhere
+}
+
+.protocol-table th {
+  height: 38px
+}
+
+.protocol-table tbody tr {
+  cursor: pointer;
+  transition: background-color 100ms ease
+}
+
+.protocol-table tbody tr:hover,
+.protocol-table tbody tr:focus-within {
+  background: #111d24
+}
+
+.protocol-table tbody tr.is-selected {
+  background: color-mix(in srgb, var(--protocol) 12%, #10151b)
+}
+
+.protocol-table tbody tr.is-selected td:first-child {
+  box-shadow: inset 3px 0 var(--protocol)
+}
+
+.protocol-table td:first-child {
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  color: var(--protocol)
+}
+
+.protocol-table td:nth-child(4) {
+  color: #b4c0ce;
+  line-height: 1.55
+}
+
+.protocol-service {
+  background: none;
+  border: 0;
+  padding: 5px 0;
+  text-align: left;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-wrap: anywhere
+}
+
+.protocol-table .protocol-service {
+  display: flex;
+  align-items: center;
+  gap: 8px
+}
+
+.protocol-table .protocol-service svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--family-color)
+}
+
+.protocol-service:hover {
+  color: var(--protocol)
+}
+
+.protocol-transports {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap
+}
+
+.protocol-transport {
+  font-size: 10px;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #25302e;
+  color: #bacdc6;
+  white-space: nowrap;
+  line-height: 1.2;
+  font-weight: 600
+}
+
+.protocol-transport.is-tcp {
+  background: #1e3442;
+  color: #91c9e6
+}
+
+.protocol-transport.is-udp {
+  background: #3a3020;
+  color: #eac381
+}
+
+.protocol-transport.is-other {
+  background: #2e2c3a;
+  color: #c5bddf
+}
+
+.protocol-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end
+}
+
+.protocol-empty {
+  padding: 48px 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px
+}
+
+.protocol-empty>svg {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 12px;
+  color: var(--protocol)
+}
+
+.protocol-empty h2 {
+  font-size: 15px;
+  color: var(--text);
+  margin: 0 0 18px
+}
+
+.protocol-detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 0 12px;
+  flex: none
+}
+
+.protocol-detail-nav {
+  display: flex;
+  gap: 6px;
+  align-items: center
+}
+
+.protocol-detail-position {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 6px;
+  white-space: nowrap
+}
+
+.protocol-workspace .detail-head {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 14px;
+  flex-wrap: wrap;
+  gap: 10px
+}
+
+.protocol-workspace .detail-title>.muted {
+  display: none
+}
+
+.protocol-workspace .detail-head h2 {
+  font-size: 22px
+}
+
+.protocol-facts {
+  display: grid;
+  grid-template-columns: 150px 130px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+  flex: none
+}
+
+.protocol-facts .label {
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 6px
+}
+
+.protocol-facts .value {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  line-height: 1.6
+}
+
+.protocol-facts .value code {
+  color: var(--protocol)
+}
+
+.protocol-detail-port {
+  display: flex;
+  align-items: center;
+  gap: 10px
+}
+
+.protocol-detail-port code {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: anywhere
+}
+
+.protocol-detail-port.has-no-port code {
+  font-size: 13px
+}
+
+.protocol-facts .protocol-family-caption {
+  font-size: 12px;
+  min-height: 25px
+}
+
+.protocol-facts .wide {
+  grid-column: 1/-1
+}
+
+.protocol-workspace .memo-document {
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+  padding: 18px 0
+}
+
+.protocol-workspace .memo-paper {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 13px
+}
+
+.protocol-workspace .memo-paper h1,
+.protocol-workspace .memo-paper h2,
+.protocol-workspace .memo-paper h3 {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.4;
+  margin: 22px 0 10px
+}
+
+.protocol-workspace .memo-paper>h2:first-of-type {
+  margin-top: 0
+}
+
+.protocol-workspace .memo-paper p,
+.protocol-workspace .memo-paper li {
+  color: #b8c4d2;
+  line-height: 1.7
+}
+
+.protocol-workspace .memo-paper table {
+  width: 100%;
+  font-size: 12px;
+  background: transparent
+}
+
+.protocol-workspace .memo-paper th,
+.protocol-workspace .memo-paper td {
+  border-color: var(--line);
+  color: var(--text);
+  padding: 10px;
+  background: transparent
+}
+
+.protocol-workspace .memo-paper th {
+  background: #101720
+}
+
+.protocol-workspace .memo-paper table th {
+  white-space: nowrap;
+  width: 110px
+}
+
+.protocol-workspace .memo-paper pre {
+  background: #101720;
+  color: #dce7f2;
+  border-color: var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 12px
+}
+
+.protocol-workspace .memo-paper a {
+  color: var(--protocol)
+}
+
+.protocol-workspace .edit-shell {
+  overflow-y: auto;
+  padding: 0 2px 18px
+}
+
+.protocol-editor-fields {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0
+}
+
+.protocol-editor-fields .field {
+  margin: 0;
+  min-width: 0
+}
+
+.protocol-editor-fields [hidden] {
+  display: none !important
+}
+
+.protocol-editor-fields .wide {
+  grid-column: 1/-1
+}
+
+.protocol-workspace .word-toolbar {
+  flex-wrap: wrap
+}
+
+.protocol-workspace .word-page-wrap {
+  overflow: auto
+}
+
+@media(max-width:1000px) {
+  .protocol-table col:nth-child(3) {
+    width: 160px
+  }
+}
+
+@media(max-width:760px) {
+  .content.protocol-content {
+    padding: 8px
+  }
+
+  .protocol-workspace {
+    grid-template-columns: minmax(0, 1fr) !important
+  }
+
+  .protocol-workspace .detail-pane {
+    grid-column: 1;
+    padding: 14px 12px;
+    border-radius: 8px !important
+  }
+
+  .protocol-workspace .workspace-splitter {
+    display: none
+  }
+
+  .protocol-workspace .explorer-pane {
+    display: none;
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: min(300px, calc(100% - 32px));
+    height: 100%;
+    max-height: none;
+    background-color: #10151b !important;
+    z-index: 42;
+    border-radius: 8px !important
+  }
+
+  .protocol-workspace.navigation-open .explorer-pane {
+    display: flex
+  }
+
+  .protocol-workspace .protocol-navigation-toggle,
+  .protocol-workspace .protocol-navigation-close {
+    display: inline-grid
+  }
+
+  .protocol-workspace .explorer-head {
+    position: relative;
+    padding-top: 12px
+  }
+
+  .protocol-navigation-heading {
+    padding-right: 30px
+  }
+
+  .protocol-navigation-close {
+    position: absolute;
+    right: 8px;
+    top: 6px
+  }
+
+  .protocol-navigation-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 41;
+    background: #0008;
+    border: 0;
+    display: block;
+    padding: 0;
+    border-radius: 0
+  }
+
+  .protocol-catalog {
+    gap: 12px
+  }
+
+  .protocol-heading {
+    gap: 8px
+  }
+
+  .protocol-heading h1 {
+    font-size: 18px
+  }
+
+  .protocol-heading p {
+    font-size: 11px
+  }
+
+  .protocol-heading .actions {
+    gap: 6px
+  }
+
+  .protocol-heading-title {
+    gap: 8px
+  }
+
+  .protocol-heading-symbol svg {
+    width: 26px;
+    height: 26px
+  }
+
+  .protocol-heading .actions .protocol-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    padding: 0
+  }
+
+  .protocol-action-label {
+    display: none
+  }
+
+  .protocol-filters {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+    gap: 8px
+  }
+
+  .protocol-search-field {
+    grid-column: 1/-1
+  }
+
+  .protocol-transport-field {
+    grid-column: 1;
+    grid-row: 2
+  }
+
+  .protocol-sort-field {
+    grid-column: 2;
+    grid-row: 2
+  }
+
+  .protocol-filters .protocol-icon {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: end
+  }
+
+  .protocol-table,
+  .protocol-table tbody {
+    display: block
+  }
+
+  .protocol-table colgroup,
+  .protocol-table thead {
+    display: none
+  }
+
+  .protocol-table tr {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) 72px;
+    column-gap: 8px;
+    row-gap: 5px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line)
+  }
+
+  .protocol-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+    min-width: 0
+  }
+
+  .protocol-table td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+    padding-top: 7px
+  }
+
+  .protocol-table td:nth-child(2) {
+    grid-column: 2;
+    grid-row: 2
+  }
+
+  .protocol-table td:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1
+  }
+
+  .protocol-table td:nth-child(4) {
+    grid-column: 2/-1;
+    grid-row: 3;
+    font-size: 11px;
+    margin: 2px 0 4px
+  }
+
+  .protocol-table td:nth-child(5) {
+    grid-column: 3;
+    grid-row: 1
+  }
+
+  .protocol-table tbody tr.is-selected td:first-child {
+    box-shadow: none
+  }
+
+  .protocol-table tbody tr.is-selected {
+    box-shadow: inset 2px 0 var(--protocol)
+  }
+
+  .protocol-facts {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 12px
+  }
+
+  .protocol-facts>:nth-child(3) {
+    grid-column: 1/-1
+  }
+
+  .protocol-editor-fields {
+    grid-template-columns: 1fr 1fr
+  }
+
+  .protocol-editor-fields>:first-child {
+    grid-column: 1/-1
+  }
+
+  .protocol-workspace .procedure-reader {
+    grid-template-columns: 1fr
+  }
+
+  .protocol-workspace .procedure-toc {
+    display: none
+  }
+
+  .protocol-workspace .memo-paper {
+    padding: 0
+  }
+}
+
+@container protocol-pane (max-width:760px) {
+  .protocol-heading {
+    gap: 8px
+  }
+
+  .protocol-heading h1 {
+    font-size: 18px
+  }
+
+  .protocol-heading p {
+    font-size: 11px
+  }
+
+  .protocol-heading .actions {
+    gap: 6px
+  }
+
+  .protocol-heading .actions .protocol-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    padding: 0
+  }
+
+  .protocol-action-label {
+    display: none
+  }
+
+  .protocol-filters {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
+    gap: 8px
+  }
+
+  .protocol-search-field {
+    grid-column: 1/-1
+  }
+
+  .protocol-transport-field {
+    grid-column: 1;
+    grid-row: 2
+  }
+
+  .protocol-sort-field {
+    grid-column: 2;
+    grid-row: 2
+  }
+
+  .protocol-filters .protocol-icon {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: end
+  }
+
+  .protocol-table,
+  .protocol-table tbody {
+    display: block
+  }
+
+  .protocol-table colgroup,
+  .protocol-table thead {
+    display: none
+  }
+
+  .protocol-table tr {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) 72px;
+    column-gap: 8px;
+    row-gap: 5px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line)
+  }
+
+  .protocol-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+    min-width: 0
+  }
+
+  .protocol-table td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+    padding-top: 7px
+  }
+
+  .protocol-table td:nth-child(2) {
+    grid-column: 2;
+    grid-row: 2
+  }
+
+  .protocol-table td:nth-child(3) {
+    grid-column: 2;
+    grid-row: 1
+  }
+
+  .protocol-table td:nth-child(4) {
+    grid-column: 2/-1;
+    grid-row: 3;
+    font-size: 11px;
+    margin: 2px 0 4px
+  }
+
+  .protocol-table td:nth-child(5) {
+    grid-column: 3;
+    grid-row: 1
+  }
+
+  .protocol-facts {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 12px
+  }
+
+  .protocol-facts>:nth-child(3) {
+    grid-column: 1/-1
+  }
+
+  .protocol-editor-fields {
+    grid-template-columns: 1fr 1fr
+  }
+
+  .protocol-editor-fields>:first-child {
+    grid-column: 1/-1
+  }
+
+  .protocol-workspace .procedure-reader {
+    grid-template-columns: 1fr
+  }
+
+  .protocol-workspace .procedure-toc {
+    display: none
+  }
+}
+
+@container protocol-pane (max-width:450px) {
+  .protocol-heading .actions {
+    width: 100%;
+    justify-content: flex-end
+  }
+
+  .protocol-detail-position {
+    display: none
+  }
+
+  .protocol-facts {
+    grid-template-columns: 130px minmax(0, 1fr)
+  }
+}
+
+@media(max-width:450px) {
+  .protocol-heading .actions {
+    width: 100%;
+    justify-content: flex-end
+  }
+
+  .protocol-card-grid {
+    gap: 10px
+  }
+
+  .protocol-facts {
+    grid-template-columns: 130px minmax(0, 1fr)
+  }
+
+  .protocol-detail-port code {
+    font-size: 25px
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+
+  .protocol-table tbody tr,
+  .protocol-card {
+    transition: none
+  }
+}

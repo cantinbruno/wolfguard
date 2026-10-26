@@ -1,0 +1,4198 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-15",
+  "scope": "Qualification documentaire des identités exactes IANA. Le numéro de port seul ne détermine jamais la protection.",
+  "sources": [
+    {
+      "id": "959",
+      "title": "RFC 959 — FTP",
+      "url": "https://www.rfc-editor.org/rfc/rfc959.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4217",
+      "title": "RFC 4217 — FTPS explicite",
+      "url": "https://www.rfc-editor.org/rfc/rfc4217.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "ssh",
+      "title": "OpenSSH — Configuration du serveur",
+      "url": "https://man.openbsd.org/sshd_config",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "854",
+      "title": "RFC 854 — Telnet",
+      "url": "https://www.rfc-editor.org/rfc/rfc854.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5321",
+      "title": "RFC 5321 — SMTP",
+      "url": "https://www.rfc-editor.org/rfc/rfc5321.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8907",
+      "title": "RFC 8907 — TACACS+",
+      "url": "https://www.rfc-editor.org/rfc/rfc8907.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1035",
+      "title": "RFC 1035 — DNS",
+      "url": "https://www.rfc-editor.org/rfc/rfc1035.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2131",
+      "title": "RFC 2131 — DHCPv4",
+      "url": "https://www.rfc-editor.org/rfc/rfc2131.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1350",
+      "title": "RFC 1350 — TFTP",
+      "url": "https://www.rfc-editor.org/rfc/rfc1350.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "9110",
+      "title": "RFC 9110 — HTTP / HTTPS",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "ad",
+      "title": "Microsoft — Flux Active Directory",
+      "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1939",
+      "title": "RFC 1939 — POP3",
+      "url": "https://www.rfc-editor.org/rfc/rfc1939.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8314",
+      "title": "RFC 8314 — TLS pour la messagerie",
+      "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1833",
+      "title": "RFC 1833 — rpcbind",
+      "url": "https://www.rfc-editor.org/rfc/rfc1833.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5905",
+      "title": "RFC 5905 — NTPv4",
+      "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "windows",
+      "title": "Microsoft — Ports des services Windows",
+      "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "9051",
+      "title": "RFC 9051 — IMAP",
+      "url": "https://www.rfc-editor.org/rfc/rfc9051.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "3417",
+      "title": "RFC 3417 — SNMP transports",
+      "url": "https://www.rfc-editor.org/rfc/rfc3417.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4271",
+      "title": "RFC 4271 — BGP",
+      "url": "https://www.rfc-editor.org/rfc/rfc4271.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "9114",
+      "title": "RFC 9114 — HTTP/3",
+      "url": "https://www.rfc-editor.org/rfc/rfc9114.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "ipsec",
+      "title": "strongSwan — Protocoles IPsec",
+      "url": "https://docs.strongswan.org/docs/latest/howtos/ipsecProtocol.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5426",
+      "title": "RFC 5426 — Syslog UDP",
+      "url": "https://www.rfc-editor.org/rfc/rfc5426.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1179",
+      "title": "RFC 1179 — LPD",
+      "url": "https://www.rfc-editor.org/rfc/rfc1179.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2453",
+      "title": "RFC 2453 — RIPv2",
+      "url": "https://www.rfc-editor.org/rfc/rfc2453.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2080",
+      "title": "RFC 2080 — RIPng",
+      "url": "https://www.rfc-editor.org/rfc/rfc2080.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8415",
+      "title": "RFC 8415 — DHCPv6",
+      "url": "https://www.rfc-editor.org/rfc/rfc8415.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6409",
+      "title": "RFC 6409 — SMTP Submission",
+      "url": "https://www.rfc-editor.org/rfc/rfc6409.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8010",
+      "title": "RFC 8010 — IPP",
+      "url": "https://www.rfc-editor.org/rfc/rfc8010.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6242",
+      "title": "RFC 6242 — NETCONF SSH",
+      "url": "https://www.rfc-editor.org/rfc/rfc6242.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7858",
+      "title": "RFC 7858 — DNS over TLS",
+      "url": "https://www.rfc-editor.org/rfc/rfc7858.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "9250",
+      "title": "RFC 9250 — DNS over QUIC",
+      "url": "https://datatracker.ietf.org/doc/html/rfc9250",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "rsync",
+      "title": "Rsync — Configuration du daemon",
+      "url": "https://download.samba.org/pub/rsync/rsyncd.conf.5",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "openvpn",
+      "title": "OpenVPN — Manuel 2.6",
+      "url": "https://openvpn.net/community-docs/community-articles/openvpn-2-6-manual.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "sqlserver",
+      "title": "Microsoft — Connexions SQL Server",
+      "url": "https://learn.microsoft.com/en-us/sql/sql-server/install/configure-the-windows-firewall-to-allow-sql-server-access?view=sql-server-ver17",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "oracle",
+      "title": "Oracle — Adresses du listener",
+      "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/netrf/protocol-address-configuration.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2865",
+      "title": "RFC 2865 — RADIUS",
+      "url": "https://www.rfc-editor.org/rfc/rfc2865.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2866",
+      "title": "RFC 2866 — RADIUS Accounting",
+      "url": "https://www.rfc-editor.org/rfc/rfc2866.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "rabbit-mqtt",
+      "title": "RabbitMQ — MQTT",
+      "url": "https://www.rabbitmq.com/docs/mqtt",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "1813",
+      "title": "RFC 1813 — NFSv3",
+      "url": "https://www.rfc-editor.org/rfc/rfc1813.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7530",
+      "title": "RFC 7530 — NFSv4",
+      "url": "https://www.rfc-editor.org/rfc/rfc7530.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6614",
+      "title": "RFC 6614 — RADIUS TLS",
+      "url": "https://www.rfc-editor.org/rfc/rfc6614.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "docker",
+      "title": "Docker — Protection de l'API",
+      "url": "https://docs.docker.com/engine/security/protect-access/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "swarm",
+      "title": "Docker — Réseau overlay",
+      "url": "https://docs.docker.com/engine/network/drivers/overlay/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "kubernetes",
+      "title": "Kubernetes — Ports des composants",
+      "url": "https://kubernetes.io/docs/reference/networking/ports-and-protocols/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7143",
+      "title": "RFC 7143 — iSCSI",
+      "url": "https://www.rfc-editor.org/rfc/rfc7143.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "mysql",
+      "title": "MySQL — Ports et sens des flux",
+      "url": "https://dev.mysql.com/doc/mysql-port-reference/en/mysql-port-reference-tables.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "mariadb",
+      "title": "MariaDB — Connexion au serveur",
+      "url": "https://mariadb.com/wp-content/uploads/2021/08/mariadb-standard-developer_cheat-sheet_1113.pdf",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "rdp",
+      "title": "Microsoft — Ports RDS",
+      "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/remote/ports-used-by-rds",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5389",
+      "title": "RFC 5389 — STUN",
+      "url": "https://www.rfc-editor.org/rfc/rfc5389.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8656",
+      "title": "RFC 8656 — TURN",
+      "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5881",
+      "title": "RFC 5881 — BFD single-hop",
+      "url": "https://datatracker.ietf.org/doc/html/rfc5881",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5176",
+      "title": "RFC 5176 — RADIUS CoA",
+      "url": "https://datatracker.ietf.org/doc/html/rfc5176",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "rabbitmq",
+      "title": "RabbitMQ — Réseau et ports",
+      "url": "https://www.rabbitmq.com/docs/networking",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "8915",
+      "title": "RFC 8915 — NTS",
+      "url": "https://www.rfc-editor.org/rfc/rfc8915.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7011",
+      "title": "RFC 7011 — IPFIX",
+      "url": "https://www.rfc-editor.org/rfc/rfc7011.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7348",
+      "title": "RFC 7348 — VXLAN",
+      "url": "https://www.rfc-editor.org/rfc/rfc7348.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5883",
+      "title": "RFC 5883 — BFD multihop",
+      "url": "https://www.rfc-editor.org/rfc/rfc5883.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "3550",
+      "title": "RFC 3550 — RTP / RTCP",
+      "url": "https://www.rfc-editor.org/rfc/rfc3550.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "3261",
+      "title": "RFC 3261 — SIP",
+      "url": "https://www.rfc-editor.org/rfc/rfc3261.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5415",
+      "title": "RFC 5415 — CAPWAP",
+      "url": "https://www.rfc-editor.org/rfc/rfc5415.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6762",
+      "title": "RFC 6762 — mDNS",
+      "url": "https://www.rfc-editor.org/rfc/rfc6762.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6887",
+      "title": "RFC 6887 — PCP",
+      "url": "https://www.rfc-editor.org/rfc/rfc6887.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4795",
+      "title": "RFC 4795 — LLMNR",
+      "url": "https://www.rfc-editor.org/rfc/rfc4795.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "postgres",
+      "title": "PostgreSQL — Connexions",
+      "url": "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "6143",
+      "title": "RFC 6143 — RFB / VNC",
+      "url": "https://www.rfc-editor.org/rfc/rfc6143.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "winrm",
+      "title": "Microsoft — Sécurité de WinRM",
+      "url": "https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/winrm-security?view=powershell-7.6",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "3176",
+      "title": "RFC 3176 — sFlow",
+      "url": "https://www.rfc-editor.org/rfc/rfc3176.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "redis",
+      "title": "Redis — Sécurité",
+      "url": "https://redis.io/docs/latest/operate/oss_and_stack/management/security/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "redis-start",
+      "title": "Redis — Démarrage",
+      "url": "https://redis.io/docs/latest/develop/get-started/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "7589",
+      "title": "RFC 7589 — NETCONF TLS",
+      "url": "https://www.rfc-editor.org/rfc/rfc7589.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5425",
+      "title": "RFC 5425 — Syslog TLS",
+      "url": "https://www.rfc-editor.org/rfc/rfc5425.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "tomcat",
+      "title": "Apache Tomcat — Connecteur HTTP",
+      "url": "https://tomcat.apache.org/tomcat-10.1-doc/config/http.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "git",
+      "title": "Git — Daemon",
+      "url": "https://git-scm.com/docs/git-daemon",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "memcached",
+      "title": "Memcached — Configuration",
+      "url": "https://docs.memcached.org/serverguide/configuring/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "mongodb",
+      "title": "MongoDB 8.0 — Ports par rôle",
+      "url": "https://www.mongodb.com/docs/v8.0/reference/default-mongodb-port/",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "792",
+      "title": "RFC 792 — ICMPv4",
+      "url": "https://www.rfc-editor.org/rfc/rfc792.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4443",
+      "title": "RFC 4443 — ICMPv6",
+      "url": "https://www.rfc-editor.org/rfc/rfc4443.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2784",
+      "title": "RFC 2784 — GRE",
+      "url": "https://www.rfc-editor.org/rfc/rfc2784.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4303",
+      "title": "RFC 4303 — IPsec ESP",
+      "url": "https://www.rfc-editor.org/rfc/rfc4303.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "4302",
+      "title": "RFC 4302 — IPsec AH",
+      "url": "https://www.rfc-editor.org/rfc/rfc4302.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "2328",
+      "title": "RFC 2328 — OSPFv2",
+      "url": "https://www.rfc-editor.org/rfc/rfc2328.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "5798",
+      "title": "RFC 5798 — VRRP",
+      "url": "https://www.rfc-editor.org/rfc/rfc5798.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "ftps-implicit",
+      "title": "Microsoft — FTPS implicite",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ftps/dbdd0923-8c29-4984-a95e-58dd6b0aff44",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "jetdirect",
+      "title": "HP — Ports Jetdirect",
+      "url": "https://support.hp.com/ie-en/document/c02480766",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "gnmi",
+      "title": "Cisco IOS XE 17.13 — gNMI",
+      "url": "https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1713/b_1713_programmability_cg/m_1713_prog_gnmi.html",
+      "checkedAt": "2026-10-14"
+    },
+    {
+      "id": "zabbix-agent",
+      "title": "Zabbix — Vérifications actives et passives",
+      "url": "https://www.zabbix.com/documentation/current/en/manual/appendix/items/activepassive",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "ceph-ports",
+      "title": "Ceph — Configuration réseau",
+      "url": "https://docs.ceph.com/en/latest/rados/configuration/network-config-ref/",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "otel-ports",
+      "title": "OpenTelemetry — Configuration OTLP",
+      "url": "https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "couchdb-http",
+      "title": "Apache CouchDB — Serveur HTTP",
+      "url": "https://docs.couchdb.org/en/stable/config/http.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "socks-rfc",
+      "title": "RFC 1928 — SOCKS5",
+      "url": "https://www.rfc-editor.org/rfc/rfc1928.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "xmpp-rfc",
+      "title": "RFC 6120 — XMPP",
+      "url": "https://www.rfc-editor.org/rfc/rfc6120.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "nntp-rfc",
+      "title": "RFC 3977 — NNTP",
+      "url": "https://www.rfc-editor.org/rfc/rfc3977.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "nntps-rfc",
+      "title": "RFC 4642 — NNTP et TLS",
+      "url": "https://www.rfc-editor.org/rfc/rfc4642.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "pgbouncer-config",
+      "title": "PgBouncer — Configuration",
+      "url": "https://www.pgbouncer.org/config.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "nut-port",
+      "title": "Network UPS Tools — upsd.conf",
+      "url": "https://networkupstools.org/docs/man/upsd.conf.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "ssdp-upnp",
+      "title": "UPnP — Device Architecture 2.0",
+      "url": "https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "neo4j-ports",
+      "title": "Neo4j — Ports réseau",
+      "url": "https://neo4j.com/docs/operations-manual/current/configuration/ports/",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "modbus-security",
+      "title": "Modbus Organization — TCP Security 2.1",
+      "url": "https://modbus.org/docs/MB-TCP-Security-v21_2018-07-24.pdf",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "ollama-api",
+      "title": "Ollama — Configuration du serveur",
+      "url": "https://docs.ollama.com/faq",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "opcua-discovery",
+      "title": "OPC Foundation — Découverte OPC UA sur TCP",
+      "url": "https://reference.opcfoundation.org/specs/OPC-10000-12/annex-c",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-1078",
+      "title": "RFC 1078 — tcpmux",
+      "url": "https://www.rfc-editor.org/rfc/rfc1078.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-862",
+      "title": "RFC 862 — echo",
+      "url": "https://www.rfc-editor.org/rfc/rfc862.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-863",
+      "title": "RFC 863 — discard",
+      "url": "https://www.rfc-editor.org/rfc/rfc863.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-866",
+      "title": "RFC 866 — systat",
+      "url": "https://www.rfc-editor.org/rfc/rfc866.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-867",
+      "title": "RFC 867 — daytime",
+      "url": "https://www.rfc-editor.org/rfc/rfc867.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-865",
+      "title": "RFC 865 — qotd",
+      "url": "https://www.rfc-editor.org/rfc/rfc865.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-864",
+      "title": "RFC 864 — chargen",
+      "url": "https://www.rfc-editor.org/rfc/rfc864.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-868",
+      "title": "RFC 868 — time",
+      "url": "https://www.rfc-editor.org/rfc/rfc868.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-1436",
+      "title": "RFC 1436 — gopher",
+      "url": "https://www.rfc-editor.org/rfc/rfc1436.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-1288",
+      "title": "RFC 1288 — finger",
+      "url": "https://www.rfc-editor.org/rfc/rfc1288.html",
+      "checkedAt": "2026-10-15"
+    },
+    {
+      "id": "protection-rfc-1413",
+      "title": "RFC 1413 — auth",
+      "url": "https://www.rfc-editor.org/rfc/rfc1413.html",
+      "checkedAt": "2026-10-15"
+    }
+  ],
+  "entries": [
+    {
+      "kind": "ip",
+      "endpoint": "1",
+      "transport": "IP",
+      "service": "ICMP",
+      "protection": "clear",
+      "security": "Filtrer selon les types et codes utiles ; préserver les erreurs nécessaires au fonctionnement réseau.",
+      "notes": "Le ping utilise ICMP ; il n'existe pas de port TCP/UDP ICMP.",
+      "profileIds": [
+        "icmp"
+      ],
+      "sources": [
+        {
+          "id": "792",
+          "title": "RFC 792 — ICMPv4",
+          "url": "https://www.rfc-editor.org/rfc/rfc792.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "47",
+      "transport": "IP",
+      "service": "GRE",
+      "protection": "clear",
+      "security": "Limiter aux extrémités et ajouter une protection si le transport n'est pas de confiance.",
+      "notes": "47 est un numéro de protocole IP, pas un port ; GRE seul ne chiffre pas.",
+      "profileIds": [
+        "gre"
+      ],
+      "sources": [
+        {
+          "id": "2784",
+          "title": "RFC 2784 — GRE",
+          "url": "https://www.rfc-editor.org/rfc/rfc2784.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "50",
+      "transport": "IP",
+      "service": "ESP",
+      "protection": "native",
+      "security": "Contrôler les associations de sécurité et la politique de chiffrement et d'intégrité.",
+      "notes": "ESP est un protocole IP ; avec NAT-T, il peut être encapsulé dans UDP/4500.",
+      "profileIds": [
+        "esp"
+      ],
+      "sources": [
+        {
+          "id": "4303",
+          "title": "RFC 4303 — IPsec ESP",
+          "url": "https://www.rfc-editor.org/rfc/rfc4303.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "ipsec",
+          "title": "strongSwan — Protocoles IPsec",
+          "url": "https://docs.strongswan.org/docs/latest/howtos/ipsecProtocol.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "51",
+      "transport": "IP",
+      "service": "AH",
+      "protection": "native",
+      "security": "Vérifier la compatibilité du trajet et choisir ESP si la confidentialité est nécessaire.",
+      "notes": "AH apporte l'intégrité, pas la confidentialité ; ce n'est pas un port TCP/UDP.",
+      "profileIds": [
+        "ah"
+      ],
+      "sources": [
+        {
+          "id": "4302",
+          "title": "RFC 4302 — IPsec AH",
+          "url": "https://www.rfc-editor.org/rfc/rfc4302.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "58",
+      "transport": "IP",
+      "service": "IPv6-ICMP",
+      "protection": "clear",
+      "security": "Éviter un blocage global ; vérifier les types nécessaires à la découverte et à la MTU.",
+      "notes": "Les fonctions de contrôle IPv6 n'utilisent pas un port TCP/UDP.",
+      "profileIds": [
+        "icmpv6"
+      ],
+      "sources": [
+        {
+          "id": "4443",
+          "title": "RFC 4443 — ICMPv6",
+          "url": "https://www.rfc-editor.org/rfc/rfc4443.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "89",
+      "transport": "IP",
+      "service": "OSPFIGP",
+      "protection": "configurable",
+      "security": "Limiter aux interfaces prévues et contrôler l'authentification du routage.",
+      "notes": "Le numéro IP 89 n'est pas un port ; zones et paramètres du voisinage doivent correspondre.",
+      "profileIds": [
+        "ospf"
+      ],
+      "sources": [
+        {
+          "id": "2328",
+          "title": "RFC 2328 — OSPFv2",
+          "url": "https://www.rfc-editor.org/rfc/rfc2328.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "ip",
+      "endpoint": "112",
+      "transport": "IP",
+      "service": "VRRP",
+      "protection": "configurable",
+      "security": "Limiter aux interfaces et pairs prévus ; vérifier les priorités et la version.",
+      "notes": "Protocole IP de redondance ; distinct d'un service sur le port 112.",
+      "profileIds": [
+        "vrrp"
+      ],
+      "sources": [
+        {
+          "id": "5798",
+          "title": "RFC 5798 — VRRP",
+          "url": "https://www.rfc-editor.org/rfc/rfc5798.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1",
+      "transport": "TCP",
+      "service": "tcpmux",
+      "protection": "clear",
+      "security": "La sélection initiale du service TCPMUX est échangée sans chiffrement ; le protocole choisi ensuite a ses propres garanties.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-1078",
+          "title": "RFC 1078 — tcpmux",
+          "url": "https://www.rfc-editor.org/rfc/rfc1078.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "7",
+      "transport": "TCP",
+      "service": "echo",
+      "protection": "clear",
+      "security": "Echo renvoie les données reçues sans mécanisme de chiffrement du protocole.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-862",
+          "title": "RFC 862 — echo",
+          "url": "https://www.rfc-editor.org/rfc/rfc862.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "7",
+      "transport": "UDP",
+      "service": "echo",
+      "protection": "clear",
+      "security": "Echo renvoie les données reçues sans mécanisme de chiffrement du protocole.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-862",
+          "title": "RFC 862 — echo",
+          "url": "https://www.rfc-editor.org/rfc/rfc862.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9",
+      "transport": "TCP",
+      "service": "discard",
+      "protection": "clear",
+      "security": "Discard reçoit puis ignore les données sans protection cryptographique native.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-863",
+          "title": "RFC 863 — discard",
+          "url": "https://www.rfc-editor.org/rfc/rfc863.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9",
+      "transport": "UDP",
+      "service": "discard",
+      "protection": "clear",
+      "security": "Discard reçoit puis ignore les données sans protection cryptographique native.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-863",
+          "title": "RFC 863 — discard",
+          "url": "https://www.rfc-editor.org/rfc/rfc863.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "11",
+      "transport": "TCP",
+      "service": "systat",
+      "protection": "clear",
+      "security": "Le service Active Users transmet une liste d'utilisateurs sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-866",
+          "title": "RFC 866 — systat",
+          "url": "https://www.rfc-editor.org/rfc/rfc866.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "11",
+      "transport": "UDP",
+      "service": "systat",
+      "protection": "clear",
+      "security": "Le service Active Users transmet une liste d'utilisateurs sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-866",
+          "title": "RFC 866 — systat",
+          "url": "https://www.rfc-editor.org/rfc/rfc866.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "13",
+      "transport": "TCP",
+      "service": "daytime",
+      "protection": "clear",
+      "security": "Daytime transmet une représentation textuelle de l'heure sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-867",
+          "title": "RFC 867 — daytime",
+          "url": "https://www.rfc-editor.org/rfc/rfc867.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "13",
+      "transport": "UDP",
+      "service": "daytime",
+      "protection": "clear",
+      "security": "Daytime transmet une représentation textuelle de l'heure sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-867",
+          "title": "RFC 867 — daytime",
+          "url": "https://www.rfc-editor.org/rfc/rfc867.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "17",
+      "transport": "TCP",
+      "service": "qotd",
+      "protection": "clear",
+      "security": "Quote of the Day transmet un texte court sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-865",
+          "title": "RFC 865 — qotd",
+          "url": "https://www.rfc-editor.org/rfc/rfc865.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "17",
+      "transport": "UDP",
+      "service": "qotd",
+      "protection": "clear",
+      "security": "Quote of the Day transmet un texte court sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-865",
+          "title": "RFC 865 — qotd",
+          "url": "https://www.rfc-editor.org/rfc/rfc865.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "19",
+      "transport": "TCP",
+      "service": "chargen",
+      "protection": "clear",
+      "security": "Character Generator émet des caractères sans chiffrement natif ; limiter ce service de diagnostic au besoin réel.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-864",
+          "title": "RFC 864 — chargen",
+          "url": "https://www.rfc-editor.org/rfc/rfc864.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "19",
+      "transport": "UDP",
+      "service": "chargen",
+      "protection": "clear",
+      "security": "Character Generator émet des caractères sans chiffrement natif ; limiter ce service de diagnostic au besoin réel.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-864",
+          "title": "RFC 864 — chargen",
+          "url": "https://www.rfc-editor.org/rfc/rfc864.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "20",
+      "transport": "TCP",
+      "service": "ftp-data",
+      "protection": "clear",
+      "security": "Préférer SFTP ; borner les flux et la plage passive si FTP est imposé.",
+      "notes": "En mode passif, le serveur utilise une plage configurée ; le port 20 seul ne suffit pas.",
+      "profileIds": [
+        "ftp-data"
+      ],
+      "sources": [
+        {
+          "id": "959",
+          "title": "RFC 959 — FTP",
+          "url": "https://www.rfc-editor.org/rfc/rfc959.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "21",
+      "transport": "TCP",
+      "service": "ftp",
+      "protection": "upgrade",
+      "security": "Exiger TLS sur le contrôle et les données ; contrôler le certificat.",
+      "notes": "AUTH TLS protège le contrôle ; PROT P protège les données. Une plage passive reste nécessaire.",
+      "profileIds": [
+        "ftps-explicit"
+      ],
+      "sources": [
+        {
+          "id": "4217",
+          "title": "RFC 4217 — FTPS explicite",
+          "url": "https://www.rfc-editor.org/rfc/rfc4217.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "22",
+      "transport": "TCP",
+      "service": "ssh",
+      "protection": "native",
+      "security": "Privilégier les clés, limiter les comptes et les sources autorisées.",
+      "notes": "SFTP utilise SSH ; aucun port FTP ni plage passive n'est nécessaire.",
+      "profileIds": [
+        "ssh"
+      ],
+      "sources": [
+        {
+          "id": "ssh",
+          "title": "OpenSSH — Configuration du serveur",
+          "url": "https://man.openbsd.org/sshd_config",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "23",
+      "transport": "TCP",
+      "service": "telnet",
+      "protection": "clear",
+      "security": "Remplacer par SSH ; réserver les exceptions à un réseau d'administration isolé.",
+      "notes": "Les sessions ordinaires ne protègent pas le contenu par chiffrement.",
+      "profileIds": [
+        "telnet"
+      ],
+      "sources": [
+        {
+          "id": "854",
+          "title": "RFC 854 — Telnet",
+          "url": "https://www.rfc-editor.org/rfc/rfc854.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "25",
+      "transport": "TCP",
+      "service": "smtp",
+      "protection": "upgrade",
+      "security": "Éviter un relais ouvert ; vérifier les restrictions de relais et TLS.",
+      "notes": "Le chiffrement STARTTLS dépend des serveurs et de la politique ; ce n'est pas le port de soumission utilisateur.",
+      "profileIds": [
+        "smtp"
+      ],
+      "sources": [
+        {
+          "id": "5321",
+          "title": "RFC 5321 — SMTP",
+          "url": "https://www.rfc-editor.org/rfc/rfc5321.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "37",
+      "transport": "TCP",
+      "service": "time",
+      "protection": "clear",
+      "security": "Time transmet une valeur temporelle sans chiffrement ni authentification native.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-868",
+          "title": "RFC 868 — time",
+          "url": "https://www.rfc-editor.org/rfc/rfc868.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "37",
+      "transport": "UDP",
+      "service": "time",
+      "protection": "clear",
+      "security": "Time transmet une valeur temporelle sans chiffrement ni authentification native.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-868",
+          "title": "RFC 868 — time",
+          "url": "https://www.rfc-editor.org/rfc/rfc868.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "49",
+      "transport": "TCP",
+      "service": "tacacs",
+      "protection": "configurable",
+      "security": "Limiter aux équipements connus et au réseau AAA ; gérer les secrets séparément.",
+      "notes": "La protection historique par secret partagé ne remplace pas un transport moderne sécurisé.",
+      "profileIds": [
+        "tacacs"
+      ],
+      "sources": [
+        {
+          "id": "8907",
+          "title": "RFC 8907 — TACACS+",
+          "url": "https://www.rfc-editor.org/rfc/rfc8907.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "53",
+      "transport": "TCP",
+      "service": "domain",
+      "protection": "clear",
+      "security": "Limiter la récursion aux clients attendus et les transferts aux secondaires.",
+      "notes": "UDP et TCP sont utilisés ; filtrer TCP peut casser les réponses volumineuses ou les transferts de zone.",
+      "profileIds": [
+        "dns"
+      ],
+      "sources": [
+        {
+          "id": "1035",
+          "title": "RFC 1035 — DNS",
+          "url": "https://www.rfc-editor.org/rfc/rfc1035.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "53",
+      "transport": "UDP",
+      "service": "domain",
+      "protection": "clear",
+      "security": "Limiter la récursion aux clients attendus et les transferts aux secondaires.",
+      "notes": "UDP et TCP sont utilisés ; filtrer TCP peut casser les réponses volumineuses ou les transferts de zone.",
+      "profileIds": [
+        "dns"
+      ],
+      "sources": [
+        {
+          "id": "1035",
+          "title": "RFC 1035 — DNS",
+          "url": "https://www.rfc-editor.org/rfc/rfc1035.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "67",
+      "transport": "UDP",
+      "service": "bootps",
+      "protection": "clear",
+      "security": "Limiter les serveurs et relais autorisés ; surveiller les offres DHCP inattendues.",
+      "notes": "Le relais permet de traverser un réseau routé ; les diffusions du client ne traversent pas seules les routeurs.",
+      "profileIds": [
+        "dhcp-server"
+      ],
+      "sources": [
+        {
+          "id": "2131",
+          "title": "RFC 2131 — DHCPv4",
+          "url": "https://www.rfc-editor.org/rfc/rfc2131.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "68",
+      "transport": "UDP",
+      "service": "bootpc",
+      "protection": "clear",
+      "security": "Contrôler le VLAN et les règles de relais avant de conclure à un blocage du client.",
+      "notes": "Complément du port serveur 67 ; tenir compte du relais et des diffusions.",
+      "profileIds": [
+        "dhcp-client"
+      ],
+      "sources": [
+        {
+          "id": "2131",
+          "title": "RFC 2131 — DHCPv4",
+          "url": "https://www.rfc-editor.org/rfc/rfc2131.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "69",
+      "transport": "UDP",
+      "service": "tftp",
+      "protection": "clear",
+      "security": "Réserver au provisioning isolé ; aucun secret dans les fichiers transmis.",
+      "notes": "Le port 69 reçoit la demande initiale ; les paquets suivants utilisent les identifiants de transfert UDP.",
+      "profileIds": [
+        "tftp"
+      ],
+      "sources": [
+        {
+          "id": "1350",
+          "title": "RFC 1350 — TFTP",
+          "url": "https://www.rfc-editor.org/rfc/rfc1350.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "70",
+      "transport": "TCP",
+      "service": "gopher",
+      "protection": "clear",
+      "security": "Le protocole Gopher décrit échange requêtes et contenus sans TLS natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-1436",
+          "title": "RFC 1436 — gopher",
+          "url": "https://www.rfc-editor.org/rfc/rfc1436.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "79",
+      "transport": "TCP",
+      "service": "finger",
+      "protection": "clear",
+      "security": "Finger transmet des informations utilisateur sans chiffrement natif.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-1288",
+          "title": "RFC 1288 — finger",
+          "url": "https://www.rfc-editor.org/rfc/rfc1288.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "80",
+      "transport": "TCP",
+      "service": "http",
+      "protection": "clear",
+      "security": "Utiliser HTTPS pour les données sensibles ; vérifier les redirections et le proxy.",
+      "notes": "Une redirection vers HTTPS ne chiffre pas la première requête HTTP.",
+      "profileIds": [
+        "http"
+      ],
+      "sources": [
+        {
+          "id": "9110",
+          "title": "RFC 9110 — HTTP / HTTPS",
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "80",
+      "transport": "TCP",
+      "service": "www",
+      "protection": "clear",
+      "security": "Utiliser HTTPS pour les données sensibles ; vérifier les redirections et le proxy.",
+      "notes": "Une redirection vers HTTPS ne chiffre pas la première requête HTTP.",
+      "profileIds": [
+        "http"
+      ],
+      "sources": [
+        {
+          "id": "9110",
+          "title": "RFC 9110 — HTTP / HTTPS",
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "80",
+      "transport": "TCP",
+      "service": "www-http",
+      "protection": "clear",
+      "security": "Utiliser HTTPS pour les données sensibles ; vérifier les redirections et le proxy.",
+      "notes": "Une redirection vers HTTPS ne chiffre pas la première requête HTTP.",
+      "profileIds": [
+        "http"
+      ],
+      "sources": [
+        {
+          "id": "9110",
+          "title": "RFC 9110 — HTTP / HTTPS",
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "88",
+      "transport": "TCP",
+      "service": "kerberos",
+      "protection": "native",
+      "security": "Vérifier DNS, horloge et SPN avant d'élargir les règles réseau.",
+      "notes": "Les tickets dépendent de l'identité des services et d'une heure cohérente.",
+      "profileIds": [
+        "kerberos"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "88",
+      "transport": "UDP",
+      "service": "kerberos",
+      "protection": "native",
+      "security": "Vérifier DNS, horloge et SPN avant d'élargir les règles réseau.",
+      "notes": "Les tickets dépendent de l'identité des services et d'une heure cohérente.",
+      "profileIds": [
+        "kerberos"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "110",
+      "transport": "TCP",
+      "service": "pop3",
+      "protection": "upgrade",
+      "security": "Exiger le chiffrement ou utiliser POP3S ; éviter l'authentification en clair.",
+      "notes": "TLS peut être négocié avec STLS ; POP3S utilise 995.",
+      "profileIds": [
+        "pop3"
+      ],
+      "sources": [
+        {
+          "id": "1939",
+          "title": "RFC 1939 — POP3",
+          "url": "https://www.rfc-editor.org/rfc/rfc1939.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "111",
+      "transport": "TCP",
+      "service": "sunrpc",
+      "protection": "clear",
+      "security": "Limiter aux clients nécessaires ; fixer les ports auxiliaires lorsque possible.",
+      "notes": "Le portmap indique les ports des services ; autoriser seulement 111 n'autorise pas le service découvert.",
+      "profileIds": [
+        "rpcbind"
+      ],
+      "sources": [
+        {
+          "id": "1833",
+          "title": "RFC 1833 — rpcbind",
+          "url": "https://www.rfc-editor.org/rfc/rfc1833.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "111",
+      "transport": "UDP",
+      "service": "sunrpc",
+      "protection": "clear",
+      "security": "Limiter aux clients nécessaires ; fixer les ports auxiliaires lorsque possible.",
+      "notes": "Le portmap indique les ports des services ; autoriser seulement 111 n'autorise pas le service découvert.",
+      "profileIds": [
+        "rpcbind"
+      ],
+      "sources": [
+        {
+          "id": "1833",
+          "title": "RFC 1833 — rpcbind",
+          "url": "https://www.rfc-editor.org/rfc/rfc1833.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "113",
+      "transport": "TCP",
+      "service": "auth",
+      "protection": "clear",
+      "security": "Identification transmet la réponse en clair ; elle ne constitue pas une preuve d'identité forte.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-1413",
+          "title": "RFC 1413 — auth",
+          "url": "https://www.rfc-editor.org/rfc/rfc1413.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "113",
+      "transport": "TCP",
+      "service": "ident",
+      "protection": "clear",
+      "security": "Identification transmet la réponse en clair ; elle ne constitue pas une preuve d'identité forte.",
+      "notes": "Qualification du protocole historique décrit dans la RFC ; vérifier le service réellement déployé.",
+      "profileIds": [],
+      "sources": [
+        {
+          "id": "protection-rfc-1413",
+          "title": "RFC 1413 — ident",
+          "url": "https://www.rfc-editor.org/rfc/rfc1413.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "119",
+      "transport": "TCP",
+      "service": "nntp",
+      "protection": "upgrade",
+      "security": "Exiger une protection adaptée pour les comptes.",
+      "notes": "TLS peut être négocié ; NNTP non sécurisé reste possible.",
+      "profileIds": [
+        "nntp"
+      ],
+      "sources": [
+        {
+          "id": "nntp-rfc",
+          "title": "RFC 3977 — NNTP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3977.html",
+          "checkedAt": "2026-10-15"
+        },
+        {
+          "id": "nntps-rfc",
+          "title": "RFC 4642 — NNTP et TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc4642.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "123",
+      "transport": "UDP",
+      "service": "ntp",
+      "protection": "configurable",
+      "security": "Utiliser des sources de temps connues et limiter les requêtes de contrôle.",
+      "notes": "NTP classique n'offre pas une protection équivalente à NTS ; l'heure affecte aussi Kerberos et les certificats.",
+      "profileIds": [
+        "ntp"
+      ],
+      "sources": [
+        {
+          "id": "5905",
+          "title": "RFC 5905 — NTPv4",
+          "url": "https://www.rfc-editor.org/rfc/rfc5905.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "135",
+      "transport": "TCP",
+      "service": "epmap",
+      "protection": "configurable",
+      "security": "Limiter aux hôtes d'administration ; vérifier le service RPC et sa plage réelle.",
+      "notes": "La session RPC utilise ensuite un autre port, souvent dans 49152–65535 sur Windows récent.",
+      "profileIds": [
+        "rpc-endpoint"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "137",
+      "transport": "UDP",
+      "service": "netbios-ns",
+      "protection": "clear",
+      "security": "Réduire les dépendances NetBIOS et les réponses de machines non autorisées.",
+      "notes": "Utilisé par des dépendances anciennes ; DNS/FQDN peut remplacer ce besoin.",
+      "profileIds": [
+        "netbios-name"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "138",
+      "transport": "UDP",
+      "service": "netbios-dgm",
+      "protection": "clear",
+      "security": "Réserver aux segments hérités qui en ont encore besoin.",
+      "notes": "À distinguer des sessions TCP/139 et du SMB direct TCP/445.",
+      "profileIds": [
+        "netbios-dgram"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "139",
+      "transport": "TCP",
+      "service": "netbios-ssn",
+      "protection": "configurable",
+      "security": "Privilégier SMB moderne et limiter aux serveurs de fichiers connus.",
+      "notes": "SMB direct utilise 445 ; la version SMB et sa protection doivent être vérifiées.",
+      "profileIds": [
+        "netbios-session"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "143",
+      "transport": "TCP",
+      "service": "imap",
+      "protection": "upgrade",
+      "security": "Exiger TLS avant les identifiants et contrôler le certificat du serveur.",
+      "notes": "STARTTLS peut protéger la session ; IMAPS utilise 993.",
+      "profileIds": [
+        "imap"
+      ],
+      "sources": [
+        {
+          "id": "9051",
+          "title": "RFC 9051 — IMAP",
+          "url": "https://www.rfc-editor.org/rfc/rfc9051.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "161",
+      "transport": "UDP",
+      "service": "snmp",
+      "protection": "configurable",
+      "security": "Utiliser SNMPv3 authPriv et des droits limités ; filtrer les collecteurs.",
+      "notes": "SNMPv3 authPriv peut chiffrer ; les communautés SNMPv1/v2c ne constituent pas un canal chiffré.",
+      "profileIds": [
+        "snmp"
+      ],
+      "sources": [
+        {
+          "id": "3417",
+          "title": "RFC 3417 — SNMP transports",
+          "url": "https://www.rfc-editor.org/rfc/rfc3417.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "162",
+      "transport": "UDP",
+      "service": "snmptrap",
+      "protection": "configurable",
+      "security": "Limiter les émetteurs attendus et choisir le niveau de protection SNMP approprié.",
+      "notes": "Le sens du flux est inverse de l'interrogation sur 161.",
+      "profileIds": [
+        "snmptrap"
+      ],
+      "sources": [
+        {
+          "id": "3417",
+          "title": "RFC 3417 — SNMP transports",
+          "url": "https://www.rfc-editor.org/rfc/rfc3417.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "179",
+      "transport": "TCP",
+      "service": "bgp",
+      "protection": "configurable",
+      "security": "Limiter aux pairs déclarés ; contrôler les routes reçues et les protections du voisinage.",
+      "notes": "Le voisinage doit correspondre aux adresses, AS et politiques configurés.",
+      "profileIds": [
+        "bgp"
+      ],
+      "sources": [
+        {
+          "id": "4271",
+          "title": "RFC 4271 — BGP",
+          "url": "https://www.rfc-editor.org/rfc/rfc4271.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "389",
+      "transport": "TCP",
+      "service": "ldap",
+      "protection": "upgrade",
+      "security": "Exiger une liaison protégée et limiter les comptes de service.",
+      "notes": "STARTTLS peut chiffrer sur 389 ; LDAPS démarre TLS sur 636.",
+      "profileIds": [
+        "ldap"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "389",
+      "transport": "UDP",
+      "service": "ldap",
+      "protection": "clear",
+      "security": "Limiter aux réseaux membres et aux contrôleurs attendus.",
+      "notes": "Le flux UDP/389 ne correspond pas à une session LDAP TCP ni à LDAPS.",
+      "profileIds": [
+        "cldap"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "443",
+      "transport": "TCP",
+      "service": "https",
+      "protection": "tls",
+      "security": "Contrôler le certificat, le nom visé et l'authentification applicative.",
+      "notes": "Le port 443 peut héberger plusieurs applications selon le nom DNS et SNI.",
+      "profileIds": [
+        "https"
+      ],
+      "sources": [
+        {
+          "id": "9110",
+          "title": "RFC 9110 — HTTP / HTTPS",
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "443",
+      "transport": "UDP",
+      "service": "https",
+      "protection": "tls",
+      "security": "Vérifier le support QUIC du proxy et du pare-feu ainsi que le certificat.",
+      "notes": "Distinct du HTTPS sur TCP ; le port peut être annoncé par le serveur.",
+      "profileIds": [
+        "http3"
+      ],
+      "sources": [
+        {
+          "id": "9114",
+          "title": "RFC 9114 — HTTP/3",
+          "url": "https://www.rfc-editor.org/rfc/rfc9114.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "445",
+      "transport": "TCP",
+      "service": "microsoft-ds",
+      "protection": "configurable",
+      "security": "Limiter aux serveurs nécessaires ; activer les protections adaptées aux clients.",
+      "notes": "Signature et chiffrement sont distincts ; la protection dépend de la version et de la configuration.",
+      "profileIds": [
+        "smb"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "464",
+      "transport": "TCP",
+      "service": "kpasswd",
+      "protection": "native",
+      "security": "Limiter aux clients et contrôleurs concernés ; vérifier également DNS et l'heure.",
+      "notes": "Complément de l'authentification par tickets sur 88.",
+      "profileIds": [
+        "kerberos-password"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "464",
+      "transport": "UDP",
+      "service": "kpasswd",
+      "protection": "native",
+      "security": "Limiter aux clients et contrôleurs concernés ; vérifier également DNS et l'heure.",
+      "notes": "Complément de l'authentification par tickets sur 88.",
+      "profileIds": [
+        "kerberos-password"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "465",
+      "transport": "TCP",
+      "service": "submissions",
+      "protection": "tls",
+      "security": "Exiger une authentification utilisateur et vérifier le certificat.",
+      "notes": "TLS commence dès la connexion ; les relais entre serveurs utilisent généralement 25.",
+      "profileIds": [
+        "smtp-tls"
+      ],
+      "sources": [
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "465",
+      "transport": "TCP",
+      "service": "urd",
+      "protection": "tls",
+      "security": "Exiger une authentification utilisateur et vérifier le certificat.",
+      "notes": "TLS commence dès la connexion ; les relais entre serveurs utilisent généralement 25.",
+      "profileIds": [
+        "smtp-tls"
+      ],
+      "sources": [
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "500",
+      "transport": "UDP",
+      "service": "isakmp",
+      "protection": "native",
+      "security": "Vérifier les pairs, les propositions, les identités et la traversée NAT.",
+      "notes": "Avec NAT, le trafic peut basculer vers UDP/4500 ; ESP est un protocole IP distinct.",
+      "profileIds": [
+        "ike"
+      ],
+      "sources": [
+        {
+          "id": "ipsec",
+          "title": "strongSwan — Protocoles IPsec",
+          "url": "https://docs.strongswan.org/docs/latest/howtos/ipsecProtocol.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "502",
+      "transport": "TCP",
+      "service": "mbap",
+      "protection": "clear",
+      "security": "Limiter aux automates et superviseurs prévus, avec segmentation industrielle.",
+      "notes": "Modbus TCP classique ; distinct du transport sécurisé.",
+      "profileIds": [
+        "modbus-tcp"
+      ],
+      "sources": [
+        {
+          "id": "modbus-security",
+          "title": "Modbus Organization — TCP Security 2.1",
+          "url": "https://modbus.org/docs/MB-TCP-Security-v21_2018-07-24.pdf",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "514",
+      "transport": "UDP",
+      "service": "syslog",
+      "protection": "clear",
+      "security": "Préférer Syslog TLS si disponible ; filtrer les émetteurs de journaux.",
+      "notes": "Le transport UDP ne garantit ni livraison ni confidentialité.",
+      "profileIds": [
+        "syslog"
+      ],
+      "sources": [
+        {
+          "id": "5426",
+          "title": "RFC 5426 — Syslog UDP",
+          "url": "https://www.rfc-editor.org/rfc/rfc5426.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "515",
+      "transport": "TCP",
+      "service": "printer",
+      "protection": "clear",
+      "security": "Limiter au réseau d'impression et aux serveurs autorisés.",
+      "notes": "Protocole d'impression historique ; distinct d'IPP sur 631.",
+      "profileIds": [
+        "lpd"
+      ],
+      "sources": [
+        {
+          "id": "1179",
+          "title": "RFC 1179 — LPD",
+          "url": "https://www.rfc-editor.org/rfc/rfc1179.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "520",
+      "transport": "UDP",
+      "service": "router",
+      "protection": "configurable",
+      "security": "Limiter aux interfaces et voisins concernés ; contrôler l'authentification disponible.",
+      "notes": "Le besoin dépend de l'activation de RIP ; ne pas ouvrir pour un autre protocole de routage.",
+      "profileIds": [
+        "rip"
+      ],
+      "sources": [
+        {
+          "id": "2453",
+          "title": "RFC 2453 — RIPv2",
+          "url": "https://www.rfc-editor.org/rfc/rfc2453.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "521",
+      "transport": "UDP",
+      "service": "ripng",
+      "protection": "clear",
+      "security": "Réserver au domaine de routage attendu et protéger les interfaces de voisinage.",
+      "notes": "Distinct de RIPv2 ; les politiques IPv6 doivent être vérifiées séparément.",
+      "profileIds": [
+        "ripng"
+      ],
+      "sources": [
+        {
+          "id": "2080",
+          "title": "RFC 2080 — RIPng",
+          "url": "https://www.rfc-editor.org/rfc/rfc2080.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "546",
+      "transport": "UDP",
+      "service": "dhcpv6-client",
+      "protection": "clear",
+      "security": "Vérifier le relais et les serveurs approuvés sur le segment IPv6.",
+      "notes": "Complément du port serveur 547 ; les flux IPv6 nécessitent leurs propres règles.",
+      "profileIds": [
+        "dhcpv6-client"
+      ],
+      "sources": [
+        {
+          "id": "8415",
+          "title": "RFC 8415 — DHCPv6",
+          "url": "https://www.rfc-editor.org/rfc/rfc8415.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "547",
+      "transport": "UDP",
+      "service": "dhcpv6-server",
+      "protection": "clear",
+      "security": "Limiter les relais et serveurs attendus ; vérifier le préfixe et les options.",
+      "notes": "Ne pas appliquer automatiquement les ports DHCPv4 67/68 à IPv6.",
+      "profileIds": [
+        "dhcpv6-server"
+      ],
+      "sources": [
+        {
+          "id": "8415",
+          "title": "RFC 8415 — DHCPv6",
+          "url": "https://www.rfc-editor.org/rfc/rfc8415.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "554",
+      "transport": "TCP",
+      "service": "rtsp",
+      "protection": "configurable",
+      "security": "Limiter aux caméras et serveurs autorisés ; vérifier aussi les flux médias.",
+      "notes": "Les médias RTP/RTCP utilisent des flux distincts du contrôle RTSP.",
+      "profileIds": [
+        "rtsp"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "563",
+      "transport": "TCP",
+      "service": "nntps",
+      "protection": "tls",
+      "security": "Vérifier le certificat et les droits de publication.",
+      "notes": "TLS démarre dès la connexion.",
+      "profileIds": [
+        "nntps"
+      ],
+      "sources": [
+        {
+          "id": "nntps-rfc",
+          "title": "RFC 4642 — NNTP et TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc4642.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "587",
+      "transport": "TCP",
+      "service": "submission",
+      "protection": "upgrade",
+      "security": "Exiger TLS avant l'authentification et contrôler les permissions de soumission.",
+      "notes": "STARTTLS doit être imposé par la configuration ; le port seul ne prouve pas le chiffrement.",
+      "profileIds": [
+        "smtp-submission"
+      ],
+      "sources": [
+        {
+          "id": "6409",
+          "title": "RFC 6409 — SMTP Submission",
+          "url": "https://www.rfc-editor.org/rfc/rfc6409.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "631",
+      "transport": "TCP",
+      "service": "ipp",
+      "protection": "configurable",
+      "security": "Privilégier IPPS et limiter les fonctions d'administration.",
+      "notes": "IPPS protège la session par TLS ; vérifier l'URI et les capacités de l'imprimante.",
+      "profileIds": [
+        "ipp"
+      ],
+      "sources": [
+        {
+          "id": "8010",
+          "title": "RFC 8010 — IPP",
+          "url": "https://www.rfc-editor.org/rfc/rfc8010.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "636",
+      "transport": "TCP",
+      "service": "ldaps",
+      "protection": "tls",
+      "security": "Valider la chaîne de confiance et limiter les comptes applicatifs.",
+      "notes": "Le nom du serveur doit correspondre au certificat ; distinct de STARTTLS sur 389.",
+      "profileIds": [
+        "ldaps"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "802",
+      "transport": "TCP",
+      "service": "mbap-s",
+      "protection": "tls",
+      "security": "Contrôler les certificats et les autorisations industrielles.",
+      "notes": "Port de Modbus Security ; vérifier le support du produit.",
+      "profileIds": [
+        "modbus-tls"
+      ],
+      "sources": [
+        {
+          "id": "modbus-security",
+          "title": "Modbus Organization — TCP Security 2.1",
+          "url": "https://modbus.org/docs/MB-TCP-Security-v21_2018-07-24.pdf",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "830",
+      "transport": "TCP",
+      "service": "netconf-ssh",
+      "protection": "native",
+      "security": "Limiter aux comptes d'automatisation et vérifier les clés hôte.",
+      "notes": "Le service NETCONF et le sous-système SSH doivent être activés.",
+      "profileIds": [
+        "netconf-ssh"
+      ],
+      "sources": [
+        {
+          "id": "6242",
+          "title": "RFC 6242 — NETCONF SSH",
+          "url": "https://www.rfc-editor.org/rfc/rfc6242.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "853",
+      "transport": "TCP",
+      "service": "domain-s",
+      "protection": "tls",
+      "security": "Autoriser les résolveurs approuvés et vérifier la confiance TLS.",
+      "notes": "TLS protège le transport DNS ; les noms et certificats du résolveur restent à valider.",
+      "profileIds": [
+        "dot"
+      ],
+      "sources": [
+        {
+          "id": "7858",
+          "title": "RFC 7858 — DNS over TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc7858.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "853",
+      "transport": "UDP",
+      "service": "domain-s",
+      "protection": "tls",
+      "security": "Vérifier la prise en charge QUIC du résolveur et du filtrage.",
+      "notes": "Partage le numéro avec DoT mais utilise UDP ; ce sont deux transports distincts.",
+      "profileIds": [
+        "doq"
+      ],
+      "sources": [
+        {
+          "id": "9250",
+          "title": "RFC 9250 — DNS over QUIC",
+          "url": "https://datatracker.ietf.org/doc/html/rfc9250",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "873",
+      "transport": "TCP",
+      "service": "rsync",
+      "protection": "clear",
+      "security": "Limiter les modules, les droits et les sources ; préférer SSH pour la confidentialité.",
+      "notes": "Rsync sur SSH utilise le port SSH, souvent 22 ; le mode daemon n'est pas ce tunnel.",
+      "profileIds": [
+        "rsync"
+      ],
+      "sources": [
+        {
+          "id": "rsync",
+          "title": "Rsync — Configuration du daemon",
+          "url": "https://download.samba.org/pub/rsync/rsyncd.conf.5",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "990",
+      "transport": "TCP",
+      "service": "ftps",
+      "protection": "tls",
+      "security": "Valider le certificat et les règles de données ; ne pas le confondre avec SFTP sur SSH.",
+      "notes": "Les connexions de données restent distinctes et peuvent utiliser une plage passive configurée.",
+      "profileIds": [
+        "ftps-implicit"
+      ],
+      "sources": [
+        {
+          "id": "ftps-implicit",
+          "title": "Microsoft — FTPS implicite",
+          "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-ftps/dbdd0923-8c29-4984-a95e-58dd6b0aff44",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "993",
+      "transport": "TCP",
+      "service": "imaps",
+      "protection": "tls",
+      "security": "Vérifier le certificat et la politique d'authentification de la boîte.",
+      "notes": "TLS démarre immédiatement ; IMAP avec STARTTLS utilise 143.",
+      "profileIds": [
+        "imaps"
+      ],
+      "sources": [
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "995",
+      "transport": "TCP",
+      "service": "pop3s",
+      "protection": "tls",
+      "security": "Vérifier le certificat et les paramètres de conservation des messages.",
+      "notes": "Distinct de POP3 avec STLS sur 110.",
+      "profileIds": [
+        "pop3s"
+      ],
+      "sources": [
+        {
+          "id": "8314",
+          "title": "RFC 8314 — TLS pour la messagerie",
+          "url": "https://www.rfc-editor.org/rfc/rfc8314.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1080",
+      "transport": "TCP",
+      "service": "socks",
+      "protection": "configurable",
+      "security": "Exiger l'authentification et limiter les destinations.",
+      "notes": "UDP ASSOCIATE négocie un relais UDP ; le contrôle reste TCP.",
+      "profileIds": [
+        "socks5"
+      ],
+      "sources": [
+        {
+          "id": "socks-rfc",
+          "title": "RFC 1928 — SOCKS5",
+          "url": "https://www.rfc-editor.org/rfc/rfc1928.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1194",
+      "transport": "TCP",
+      "service": "openvpn",
+      "protection": "configurable",
+      "security": "Valider certificats, chiffrement, routes et option proto des deux côtés.",
+      "notes": "1194 est le port par défaut ; transport, port et modes cryptographiques sont configurables.",
+      "profileIds": [
+        "openvpn"
+      ],
+      "sources": [
+        {
+          "id": "openvpn",
+          "title": "OpenVPN — Manuel 2.6",
+          "url": "https://openvpn.net/community-docs/community-articles/openvpn-2-6-manual.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1194",
+      "transport": "UDP",
+      "service": "openvpn",
+      "protection": "configurable",
+      "security": "Valider certificats, chiffrement, routes et option proto des deux côtés.",
+      "notes": "1194 est le port par défaut ; transport, port et modes cryptographiques sont configurables.",
+      "profileIds": [
+        "openvpn"
+      ],
+      "sources": [
+        {
+          "id": "openvpn",
+          "title": "OpenVPN — Manuel 2.6",
+          "url": "https://openvpn.net/community-docs/community-articles/openvpn-2-6-manual.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1433",
+      "transport": "TCP",
+      "service": "ms-sql-s",
+      "protection": "configurable",
+      "security": "Limiter aux applications requises et imposer le chiffrement adapté.",
+      "notes": "Port de l'instance par défaut ; les instances nommées peuvent utiliser un autre port.",
+      "profileIds": [
+        "mssql"
+      ],
+      "sources": [
+        {
+          "id": "sqlserver",
+          "title": "Microsoft — Connexions SQL Server",
+          "url": "https://learn.microsoft.com/en-us/sql/sql-server/install/configure-the-windows-firewall-to-allow-sql-server-access?view=sql-server-ver17",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1434",
+      "transport": "UDP",
+      "service": "ms-sql-m",
+      "protection": "clear",
+      "security": "Autoriser seulement si la découverte est nécessaire ; vérifier le port SQL retourné.",
+      "notes": "Peut être évité lorsque le client connaît déjà le port exact de l'instance.",
+      "profileIds": [
+        "sql-browser"
+      ],
+      "sources": [
+        {
+          "id": "sqlserver",
+          "title": "Microsoft — Connexions SQL Server",
+          "url": "https://learn.microsoft.com/en-us/sql/sql-server/install/configure-the-windows-firewall-to-allow-sql-server-access?view=sql-server-ver17",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1701",
+      "transport": "UDP",
+      "service": "l2tp",
+      "protection": "clear",
+      "security": "Vérifier l'association IPsec avant d'autoriser l'usage VPN.",
+      "notes": "L2TP seul ne chiffre pas ; L2TP/IPsec ajoute les flux IKE, NAT-T et IPsec.",
+      "profileIds": [
+        "l2tp"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1723",
+      "transport": "TCP",
+      "service": "pptp",
+      "protection": "configurable",
+      "security": "Préférer un VPN actuel ; isoler les dépendances PPTP restantes.",
+      "notes": "Les données utilisent GRE, protocole IP 47, et non TCP/47.",
+      "profileIds": [
+        "pptp"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1812",
+      "transport": "UDP",
+      "service": "radius",
+      "protection": "configurable",
+      "security": "Limiter les clients AAA et renouveler les secrets ; évaluer RadSec si compatible.",
+      "notes": "Le secret partagé ne chiffre pas l'ensemble du paquet RADIUS ; RadSec utilise TLS.",
+      "profileIds": [
+        "radius"
+      ],
+      "sources": [
+        {
+          "id": "2865",
+          "title": "RFC 2865 — RADIUS",
+          "url": "https://www.rfc-editor.org/rfc/rfc2865.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1813",
+      "transport": "UDP",
+      "service": "radius-acct",
+      "protection": "configurable",
+      "security": "Vérifier la réception des sessions et limiter aux équipements autorisés.",
+      "notes": "Flux distinct de l'authentification sur 1812.",
+      "profileIds": [
+        "radius-account"
+      ],
+      "sources": [
+        {
+          "id": "2866",
+          "title": "RFC 2866 — RADIUS Accounting",
+          "url": "https://www.rfc-editor.org/rfc/rfc2866.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1883",
+      "transport": "TCP",
+      "service": "mqtt",
+      "protection": "clear",
+      "security": "Utiliser TLS pour les liens sensibles et appliquer des ACL par sujet.",
+      "notes": "Le listener MQTT ordinaire est distinct du listener TLS sur 8883.",
+      "profileIds": [
+        "mqtt"
+      ],
+      "sources": [
+        {
+          "id": "rabbit-mqtt",
+          "title": "RabbitMQ — MQTT",
+          "url": "https://www.rabbitmq.com/docs/mqtt",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "1900",
+      "transport": "UDP",
+      "service": "ssdp",
+      "protection": "clear",
+      "security": "Limiter au réseau local et contrôler les équipements annoncés.",
+      "notes": "SSDP utilise UDP pour découverte et annonces.",
+      "profileIds": [
+        "ssdp"
+      ],
+      "sources": [
+        {
+          "id": "ssdp-upnp",
+          "title": "UPnP — Device Architecture 2.0",
+          "url": "https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2049",
+      "transport": "TCP",
+      "service": "nfs",
+      "protection": "configurable",
+      "security": "Limiter les exports et fixer les ports auxiliaires si un filtrage strict est requis.",
+      "notes": "Des services RPC auxiliaires comme mountd et lockd peuvent nécessiter d'autres ports.",
+      "profileIds": [
+        "nfs3",
+        "nfs4"
+      ],
+      "sources": [
+        {
+          "id": "1813",
+          "title": "RFC 1813 — NFSv3",
+          "url": "https://www.rfc-editor.org/rfc/rfc1813.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "7530",
+          "title": "RFC 7530 — NFSv4",
+          "url": "https://www.rfc-editor.org/rfc/rfc7530.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2049",
+      "transport": "UDP",
+      "service": "nfs",
+      "protection": "configurable",
+      "security": "Limiter les exports et fixer les ports auxiliaires si un filtrage strict est requis.",
+      "notes": "Des services RPC auxiliaires comme mountd et lockd peuvent nécessiter d'autres ports.",
+      "profileIds": [
+        "nfs3"
+      ],
+      "sources": [
+        {
+          "id": "1813",
+          "title": "RFC 1813 — NFSv3",
+          "url": "https://www.rfc-editor.org/rfc/rfc1813.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2083",
+      "transport": "TCP",
+      "service": "radsec",
+      "protection": "tls",
+      "security": "Contrôler les certificats des pairs et les clients AAA autorisés.",
+      "notes": "Distinct de RADIUS/UDP ; le support et l'authentification par certificat dépendent du produit.",
+      "profileIds": [
+        "radsec"
+      ],
+      "sources": [
+        {
+          "id": "6614",
+          "title": "RFC 6614 — RADIUS TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc6614.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2375",
+      "transport": "TCP",
+      "service": "docker",
+      "protection": "clear",
+      "security": "Éviter cette exposition ; utiliser SSH ou une API TLS authentifiée.",
+      "notes": "Convention pour une API exposée sans TLS ; son activation donne des pouvoirs élevés sur l'hôte.",
+      "profileIds": [
+        "docker-clear"
+      ],
+      "sources": [
+        {
+          "id": "docker",
+          "title": "Docker — Protection de l'API",
+          "url": "https://docs.docker.com/engine/security/protect-access/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2376",
+      "transport": "TCP",
+      "service": "docker-s",
+      "protection": "tls",
+      "security": "Exiger les certificats client et limiter aux postes d'administration.",
+      "notes": "Convention TLS ; vérifier l'authentification des clients et le listener configuré.",
+      "profileIds": [
+        "docker-tls"
+      ],
+      "sources": [
+        {
+          "id": "docker",
+          "title": "Docker — Protection de l'API",
+          "url": "https://docs.docker.com/engine/security/protect-access/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2377",
+      "transport": "TCP",
+      "service": "swarm",
+      "protection": "native",
+      "security": "Limiter aux nœuds du cluster et protéger les jetons d'enrôlement.",
+      "notes": "Port de contrôle par défaut, configurable ; ne transporte pas seul le trafic overlay.",
+      "profileIds": [
+        "swarm-control"
+      ],
+      "sources": [
+        {
+          "id": "swarm",
+          "title": "Docker — Réseau overlay",
+          "url": "https://docs.docker.com/engine/network/drivers/overlay/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2379",
+      "transport": "TCP",
+      "service": "etcd-client",
+      "protection": "configurable",
+      "security": "Exiger TLS et l'authentification ; limiter aux composants autorisés.",
+      "notes": "La configuration choisit HTTP ou HTTPS et les certificats.",
+      "profileIds": [
+        "etcd-client"
+      ],
+      "sources": [
+        {
+          "id": "kubernetes",
+          "title": "Kubernetes — Ports des composants",
+          "url": "https://kubernetes.io/docs/reference/networking/ports-and-protocols/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2380",
+      "transport": "TCP",
+      "service": "etcd-server",
+      "protection": "configurable",
+      "security": "Limiter aux pairs du cluster et vérifier les certificats mutuels.",
+      "notes": "Distinct de l'API client sur 2379.",
+      "profileIds": [
+        "etcd-peer"
+      ],
+      "sources": [
+        {
+          "id": "kubernetes",
+          "title": "Kubernetes — Ports des composants",
+          "url": "https://kubernetes.io/docs/reference/networking/ports-and-protocols/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "2484",
+      "transport": "TCP",
+      "service": "ttc-ssl",
+      "protection": "tls",
+      "security": "Valider le wallet et les certificats côté client et serveur.",
+      "notes": "Port recommandé pour TCPS ; un autre port peut être configuré.",
+      "profileIds": [
+        "oracle-tls"
+      ],
+      "sources": [
+        {
+          "id": "oracle",
+          "title": "Oracle — Adresses du listener",
+          "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/netrf/protocol-address-configuration.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3260",
+      "transport": "TCP",
+      "service": "iscsi-target",
+      "protection": "configurable",
+      "security": "Isoler le réseau de stockage et limiter les initiateurs aux volumes prévus.",
+      "notes": "Le port iSCSI ne signifie pas que les données sont chiffrées ; réseau et authentification sont séparés.",
+      "profileIds": [
+        "iscsi"
+      ],
+      "sources": [
+        {
+          "id": "7143",
+          "title": "RFC 7143 — iSCSI",
+          "url": "https://www.rfc-editor.org/rfc/rfc7143.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3268",
+      "transport": "TCP",
+      "service": "msft-gc",
+      "protection": "upgrade",
+      "security": "Protéger les liaisons et limiter les requêtes aux services concernés.",
+      "notes": "Le catalogue global TLS implicite utilise 3269.",
+      "profileIds": [
+        "gc"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3269",
+      "transport": "TCP",
+      "service": "msft-gc-ssl",
+      "protection": "tls",
+      "security": "Vérifier le certificat du contrôleur et les permissions de la liaison.",
+      "notes": "Certificat et chaîne de confiance doivent être valides.",
+      "profileIds": [
+        "gc-tls"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3300",
+      "transport": "TCP",
+      "service": "ceph",
+      "protection": "configurable",
+      "security": "Vérifier les modes de sécurité et l'authentification Ceph.",
+      "notes": "Port par défaut du protocole msgr2.",
+      "profileIds": [
+        "ceph-mon-v2"
+      ],
+      "sources": [
+        {
+          "id": "ceph-ports",
+          "title": "Ceph — Configuration réseau",
+          "url": "https://docs.ceph.com/en/latest/rados/configuration/network-config-ref/",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3306",
+      "transport": "TCP",
+      "service": "mysql",
+      "protection": "configurable",
+      "security": "Exiger une liaison protégée et limiter les comptes et les sources.",
+      "notes": "Port du protocole MySQL classique ; configurable par port.",
+      "profileIds": [
+        "mysql"
+      ],
+      "sources": [
+        {
+          "id": "mysql",
+          "title": "MySQL — Ports et sens des flux",
+          "url": "https://dev.mysql.com/doc/mysql-port-reference/en/mysql-port-reference-tables.html",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "mariadb",
+          "title": "MariaDB — Connexion au serveur",
+          "url": "https://mariadb.com/wp-content/uploads/2021/08/mariadb-standard-developer_cheat-sheet_1113.pdf",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3389",
+      "transport": "TCP",
+      "service": "ms-wbt-server",
+      "protection": "configurable",
+      "security": "Utiliser NLA et une passerelle ou un VPN ; restreindre les sources.",
+      "notes": "TCP et UDP peuvent être utilisés ; le port d'écoute est configurable.",
+      "profileIds": [
+        "rdp"
+      ],
+      "sources": [
+        {
+          "id": "rdp",
+          "title": "Microsoft — Ports RDS",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/remote/ports-used-by-rds",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3389",
+      "transport": "UDP",
+      "service": "ms-wbt-server",
+      "protection": "configurable",
+      "security": "Utiliser NLA et une passerelle ou un VPN ; restreindre les sources.",
+      "notes": "TCP et UDP peuvent être utilisés ; le port d'écoute est configurable.",
+      "profileIds": [
+        "rdp"
+      ],
+      "sources": [
+        {
+          "id": "rdp",
+          "title": "Microsoft — Ports RDS",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/remote/ports-used-by-rds",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "TCP",
+      "service": "stun",
+      "protection": "clear",
+      "security": "Limiter les serveurs approuvés et vérifier les besoins de la solution voix/vidéo.",
+      "notes": "Ne relaie pas les médias ; TURN remplit le rôle de relais.",
+      "profileIds": [
+        "stun"
+      ],
+      "sources": [
+        {
+          "id": "5389",
+          "title": "RFC 5389 — STUN",
+          "url": "https://www.rfc-editor.org/rfc/rfc5389.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "TCP",
+      "service": "stun-behavior",
+      "protection": "clear",
+      "security": "Limiter les serveurs approuvés et vérifier les besoins de la solution voix/vidéo.",
+      "notes": "Ne relaie pas les médias ; TURN remplit le rôle de relais.",
+      "profileIds": [
+        "stun"
+      ],
+      "sources": [
+        {
+          "id": "5389",
+          "title": "RFC 5389 — STUN",
+          "url": "https://www.rfc-editor.org/rfc/rfc5389.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "TCP",
+      "service": "turn",
+      "protection": "configurable",
+      "security": "Exiger une authentification et borner la plage de relais réellement utilisée.",
+      "notes": "Le listener 3478 ne couvre pas la plage de relais des médias.",
+      "profileIds": [
+        "turn"
+      ],
+      "sources": [
+        {
+          "id": "8656",
+          "title": "RFC 8656 — TURN",
+          "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "UDP",
+      "service": "stun",
+      "protection": "clear",
+      "security": "Limiter les serveurs approuvés et vérifier les besoins de la solution voix/vidéo.",
+      "notes": "Ne relaie pas les médias ; TURN remplit le rôle de relais.",
+      "profileIds": [
+        "stun"
+      ],
+      "sources": [
+        {
+          "id": "5389",
+          "title": "RFC 5389 — STUN",
+          "url": "https://www.rfc-editor.org/rfc/rfc5389.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "UDP",
+      "service": "stun-behavior",
+      "protection": "clear",
+      "security": "Limiter les serveurs approuvés et vérifier les besoins de la solution voix/vidéo.",
+      "notes": "Ne relaie pas les médias ; TURN remplit le rôle de relais.",
+      "profileIds": [
+        "stun"
+      ],
+      "sources": [
+        {
+          "id": "5389",
+          "title": "RFC 5389 — STUN",
+          "url": "https://www.rfc-editor.org/rfc/rfc5389.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3478",
+      "transport": "UDP",
+      "service": "turn",
+      "protection": "configurable",
+      "security": "Exiger une authentification et borner la plage de relais réellement utilisée.",
+      "notes": "Le listener 3478 ne couvre pas la plage de relais des médias.",
+      "profileIds": [
+        "turn"
+      ],
+      "sources": [
+        {
+          "id": "8656",
+          "title": "RFC 8656 — TURN",
+          "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3493",
+      "transport": "TCP",
+      "service": "nut",
+      "protection": "configurable",
+      "security": "Limiter les utilisateurs et les actions autorisées.",
+      "notes": "Port par défaut, configurable par LISTEN.",
+      "profileIds": [
+        "nut"
+      ],
+      "sources": [
+        {
+          "id": "nut-port",
+          "title": "Network UPS Tools — upsd.conf",
+          "url": "https://networkupstools.org/docs/man/upsd.conf.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3784",
+      "transport": "UDP",
+      "service": "bfd-control",
+      "protection": "configurable",
+      "security": "Limiter aux voisins configurés et vérifier les paramètres de session.",
+      "notes": "BFD peut interrompre un voisinage de routage lorsqu'une session tombe.",
+      "profileIds": [
+        "bfd"
+      ],
+      "sources": [
+        {
+          "id": "5881",
+          "title": "RFC 5881 — BFD single-hop",
+          "url": "https://datatracker.ietf.org/doc/html/rfc5881",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3785",
+      "transport": "UDP",
+      "service": "bfd-echo",
+      "protection": "configurable",
+      "security": "Vérifier le support et les politiques sur les interfaces concernées.",
+      "notes": "Utilisé uniquement si la fonction Echo est activée.",
+      "profileIds": [
+        "bfd-echo"
+      ],
+      "sources": [
+        {
+          "id": "5881",
+          "title": "RFC 5881 — BFD single-hop",
+          "url": "https://datatracker.ietf.org/doc/html/rfc5881",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "3799",
+      "transport": "UDP",
+      "service": "radius-dynauth",
+      "protection": "configurable",
+      "security": "Autoriser seulement les serveurs CoA déclarés et vérifier le secret partagé.",
+      "notes": "Le sens est inverse de l'authentification RADIUS ; certains produits utilisent un autre port.",
+      "profileIds": [
+        "radius-coa"
+      ],
+      "sources": [
+        {
+          "id": "5176",
+          "title": "RFC 5176 — RADIUS CoA",
+          "url": "https://datatracker.ietf.org/doc/html/rfc5176",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4317",
+      "transport": "TCP",
+      "service": "opentelemetry",
+      "protection": "configurable",
+      "security": "Vérifier TLS, authentification et limites d'ingestion.",
+      "notes": "Endpoint OTLP/gRPC par défaut.",
+      "profileIds": [
+        "otel-grpc"
+      ],
+      "sources": [
+        {
+          "id": "otel-ports",
+          "title": "OpenTelemetry — Configuration OTLP",
+          "url": "https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4369",
+      "transport": "TCP",
+      "service": "epmd",
+      "protection": "clear",
+      "security": "Garder ce flux dans le réseau du cluster et limiter les outils CLI.",
+      "notes": "La découverte est suivie d'une connexion au port de distribution du nœud.",
+      "profileIds": [
+        "epmd"
+      ],
+      "sources": [
+        {
+          "id": "rabbitmq",
+          "title": "RabbitMQ — Réseau et ports",
+          "url": "https://www.rabbitmq.com/docs/networking",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4460",
+      "transport": "TCP",
+      "service": "ntske",
+      "protection": "tls",
+      "security": "Vérifier le certificat NTS et autoriser aussi le flux NTP associé.",
+      "notes": "Le trafic temporel utilise ensuite NTP sur UDP/123.",
+      "profileIds": [
+        "nts"
+      ],
+      "sources": [
+        {
+          "id": "8915",
+          "title": "RFC 8915 — NTS",
+          "url": "https://www.rfc-editor.org/rfc/rfc8915.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4500",
+      "transport": "UDP",
+      "service": "ipsec-nat-t",
+      "protection": "native",
+      "security": "Vérifier les translations NAT, les pairs et les associations de sécurité.",
+      "notes": "Encapsule les échanges nécessaires à IPsec ; IKE démarre souvent sur UDP/500.",
+      "profileIds": [
+        "nat-t"
+      ],
+      "sources": [
+        {
+          "id": "ipsec",
+          "title": "strongSwan — Protocoles IPsec",
+          "url": "https://docs.strongswan.org/docs/latest/howtos/ipsecProtocol.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4739",
+      "transport": "SCTP",
+      "service": "ipfix",
+      "protection": "configurable",
+      "security": "Limiter aux collecteurs connus et vérifier templates, transport et taux d'export.",
+      "notes": "Transport et protection dépendent du couple exportateur/collecteur configuré.",
+      "profileIds": [
+        "ipfix"
+      ],
+      "sources": [
+        {
+          "id": "7011",
+          "title": "RFC 7011 — IPFIX",
+          "url": "https://www.rfc-editor.org/rfc/rfc7011.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4739",
+      "transport": "TCP",
+      "service": "ipfix",
+      "protection": "configurable",
+      "security": "Limiter aux collecteurs connus et vérifier templates, transport et taux d'export.",
+      "notes": "Transport et protection dépendent du couple exportateur/collecteur configuré.",
+      "profileIds": [
+        "ipfix"
+      ],
+      "sources": [
+        {
+          "id": "7011",
+          "title": "RFC 7011 — IPFIX",
+          "url": "https://www.rfc-editor.org/rfc/rfc7011.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4739",
+      "transport": "UDP",
+      "service": "ipfix",
+      "protection": "configurable",
+      "security": "Limiter aux collecteurs connus et vérifier templates, transport et taux d'export.",
+      "notes": "Transport et protection dépendent du couple exportateur/collecteur configuré.",
+      "profileIds": [
+        "ipfix"
+      ],
+      "sources": [
+        {
+          "id": "7011",
+          "title": "RFC 7011 — IPFIX",
+          "url": "https://www.rfc-editor.org/rfc/rfc7011.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4784",
+      "transport": "UDP",
+      "service": "bfd-multi-ctl",
+      "protection": "configurable",
+      "security": "Limiter aux pairs distants configurés et vérifier TTL et authentification disponible.",
+      "notes": "Distinct du contrôle single-hop sur 3784.",
+      "profileIds": [
+        "bfd-multi"
+      ],
+      "sources": [
+        {
+          "id": "5883",
+          "title": "RFC 5883 — BFD multihop",
+          "url": "https://www.rfc-editor.org/rfc/rfc5883.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4789",
+      "transport": "UDP",
+      "service": "vxlan",
+      "protection": "clear",
+      "security": "Limiter aux VTEP et vérifier MTU, VNI et protection du réseau de transport.",
+      "notes": "L'encapsulation VXLAN seule ne chiffre pas les données.",
+      "profileIds": [
+        "vxlan"
+      ],
+      "sources": [
+        {
+          "id": "7348",
+          "title": "RFC 7348 — VXLAN",
+          "url": "https://www.rfc-editor.org/rfc/rfc7348.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "4840",
+      "transport": "TCP",
+      "service": "opcua-tcp",
+      "protection": "configurable",
+      "security": "Vérifier les politiques de sécurité, les certificats et les droits industriels.",
+      "notes": "Port conventionnel de découverte ; les endpoints peuvent être configurés autrement.",
+      "profileIds": [
+        "opcua-tcp"
+      ],
+      "sources": [
+        {
+          "id": "opcua-discovery",
+          "title": "OPC Foundation — Découverte OPC UA sur TCP",
+          "url": "https://reference.opcfoundation.org/specs/OPC-10000-12/annex-c",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5004",
+      "transport": "UDP",
+      "service": "avt-profile-1",
+      "protection": "configurable",
+      "security": "Lire la plage média du produit et utiliser SRTP lorsque disponible.",
+      "notes": "5004 est une valeur conventionnelle ; les ports médias sont souvent négociés ou configurés.",
+      "profileIds": [
+        "rtp"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "3550",
+          "title": "RFC 3550 — RTP / RTCP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3550.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5005",
+      "transport": "UDP",
+      "service": "avt-profile-2",
+      "protection": "configurable",
+      "security": "Vérifier la négociation média et la cohérence avec la plage RTP.",
+      "notes": "Souvent associé à RTP ; la numérotation dépend de la session et du produit.",
+      "profileIds": [
+        "rtcp"
+      ],
+      "sources": [
+        {
+          "id": "windows",
+          "title": "Microsoft — Ports des services Windows",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/service-overview-and-network-port-requirements",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "3550",
+          "title": "RFC 3550 — RTP / RTCP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3550.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5060",
+      "transport": "TCP",
+      "service": "sip",
+      "protection": "clear",
+      "security": "Limiter aux téléphones, SBC et serveurs ; préférer TLS pour la signalisation.",
+      "notes": "SIP ne transporte pas lui-même les médias RTP ; les flux sont distincts.",
+      "profileIds": [
+        "sip"
+      ],
+      "sources": [
+        {
+          "id": "3261",
+          "title": "RFC 3261 — SIP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3261.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5060",
+      "transport": "UDP",
+      "service": "sip",
+      "protection": "clear",
+      "security": "Limiter aux téléphones, SBC et serveurs ; préférer TLS pour la signalisation.",
+      "notes": "SIP ne transporte pas lui-même les médias RTP ; les flux sont distincts.",
+      "profileIds": [
+        "sip"
+      ],
+      "sources": [
+        {
+          "id": "3261",
+          "title": "RFC 3261 — SIP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3261.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5061",
+      "transport": "TCP",
+      "service": "sips",
+      "protection": "tls",
+      "security": "Valider les certificats et la protection du flux média.",
+      "notes": "TLS de signalisation ne chiffre pas automatiquement les médias ; vérifier SRTP.",
+      "profileIds": [
+        "sips"
+      ],
+      "sources": [
+        {
+          "id": "3261",
+          "title": "RFC 3261 — SIP",
+          "url": "https://www.rfc-editor.org/rfc/rfc3261.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5222",
+      "transport": "TCP",
+      "service": "xmpp-client",
+      "protection": "upgrade",
+      "security": "Exiger TLS et vérifier l'identité du domaine.",
+      "notes": "TLS se négocie par STARTTLS.",
+      "profileIds": [
+        "xmpp-client"
+      ],
+      "sources": [
+        {
+          "id": "xmpp-rfc",
+          "title": "RFC 6120 — XMPP",
+          "url": "https://www.rfc-editor.org/rfc/rfc6120.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5246",
+      "transport": "UDP",
+      "service": "capwap-control",
+      "protection": "configurable",
+      "security": "Limiter aux bornes gérées et vérifier certificats et versions.",
+      "notes": "Le canal de contrôle est distinct du canal de données ; vérifier la négociation DTLS.",
+      "profileIds": [
+        "capwap-control"
+      ],
+      "sources": [
+        {
+          "id": "5415",
+          "title": "RFC 5415 — CAPWAP",
+          "url": "https://www.rfc-editor.org/rfc/rfc5415.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5247",
+      "transport": "UDP",
+      "service": "capwap-data",
+      "protection": "configurable",
+      "security": "Vérifier l'encapsulation, la MTU et le mode de protection retenu.",
+      "notes": "La protection du canal de données dépend de la configuration.",
+      "profileIds": [
+        "capwap-data"
+      ],
+      "sources": [
+        {
+          "id": "5415",
+          "title": "RFC 5415 — CAPWAP",
+          "url": "https://www.rfc-editor.org/rfc/rfc5415.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5269",
+      "transport": "TCP",
+      "service": "xmpp-server",
+      "protection": "upgrade",
+      "security": "Vérifier les domaines autorisés et TLS.",
+      "notes": "Transport serveur à serveur, distinct des clients.",
+      "profileIds": [
+        "xmpp-server"
+      ],
+      "sources": [
+        {
+          "id": "xmpp-rfc",
+          "title": "RFC 6120 — XMPP",
+          "url": "https://www.rfc-editor.org/rfc/rfc6120.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5349",
+      "transport": "TCP",
+      "service": "stun-behaviors",
+      "protection": "tls",
+      "security": "Valider les certificats et les comptes ; contrôler également la plage média.",
+      "notes": "Les médias relayés utilisent aussi les ports de relais configurés.",
+      "profileIds": [
+        "turn-tls"
+      ],
+      "sources": [
+        {
+          "id": "8656",
+          "title": "RFC 8656 — TURN",
+          "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5349",
+      "transport": "TCP",
+      "service": "stuns",
+      "protection": "tls",
+      "security": "Valider les certificats et les comptes ; contrôler également la plage média.",
+      "notes": "Les médias relayés utilisent aussi les ports de relais configurés.",
+      "profileIds": [
+        "turn-tls"
+      ],
+      "sources": [
+        {
+          "id": "8656",
+          "title": "RFC 8656 — TURN",
+          "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5349",
+      "transport": "TCP",
+      "service": "turns",
+      "protection": "tls",
+      "security": "Valider les certificats et les comptes ; contrôler également la plage média.",
+      "notes": "Les médias relayés utilisent aussi les ports de relais configurés.",
+      "profileIds": [
+        "turn-tls"
+      ],
+      "sources": [
+        {
+          "id": "8656",
+          "title": "RFC 8656 — TURN",
+          "url": "https://www.rfc-editor.org/rfc/rfc8656.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5351",
+      "transport": "UDP",
+      "service": "pcp",
+      "protection": "clear",
+      "security": "Activer uniquement sur les segments qui en ont besoin et contrôler les mappings.",
+      "notes": "Un mapping ouvre une possibilité d'accès ; ce n'est pas un simple flux DNS.",
+      "profileIds": [
+        "pcp"
+      ],
+      "sources": [
+        {
+          "id": "6887",
+          "title": "RFC 6887 — PCP",
+          "url": "https://www.rfc-editor.org/rfc/rfc6887.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5353",
+      "transport": "UDP",
+      "service": "mdns",
+      "protection": "clear",
+      "security": "Limiter les relais aux services nécessaires et éviter une diffusion excessive.",
+      "notes": "La portée locale diffère du DNS unicast ; des relais peuvent étendre cette portée.",
+      "profileIds": [
+        "mdns"
+      ],
+      "sources": [
+        {
+          "id": "6762",
+          "title": "RFC 6762 — mDNS",
+          "url": "https://www.rfc-editor.org/rfc/rfc6762.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5355",
+      "transport": "TCP",
+      "service": "llmnr",
+      "protection": "clear",
+      "security": "Réduire l'usage lorsque DNS suffit et surveiller les réponses inattendues.",
+      "notes": "Les réponses viennent du lien local ; ne pas les traiter comme un DNS de confiance.",
+      "profileIds": [
+        "llmnr"
+      ],
+      "sources": [
+        {
+          "id": "4795",
+          "title": "RFC 4795 — LLMNR",
+          "url": "https://www.rfc-editor.org/rfc/rfc4795.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5355",
+      "transport": "UDP",
+      "service": "llmnr",
+      "protection": "clear",
+      "security": "Réduire l'usage lorsque DNS suffit et surveiller les réponses inattendues.",
+      "notes": "Les réponses viennent du lien local ; ne pas les traiter comme un DNS de confiance.",
+      "profileIds": [
+        "llmnr"
+      ],
+      "sources": [
+        {
+          "id": "4795",
+          "title": "RFC 4795 — LLMNR",
+          "url": "https://www.rfc-editor.org/rfc/rfc4795.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5432",
+      "transport": "TCP",
+      "service": "postgresql",
+      "protection": "configurable",
+      "security": "Limiter les réseaux admis et exiger le niveau TLS approprié.",
+      "notes": "Port configurable ; listen_addresses et les règles d'accès définissent l'exposition.",
+      "profileIds": [
+        "postgres"
+      ],
+      "sources": [
+        {
+          "id": "postgres",
+          "title": "PostgreSQL — Connexions",
+          "url": "https://www.postgresql.org/docs/current/runtime-config-connection.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5671",
+      "transport": "TCP",
+      "service": "amqps",
+      "protection": "tls",
+      "security": "Valider le certificat et limiter les comptes, vhosts et permissions.",
+      "notes": "RabbitMQ permet de configurer et de désactiver les listeners sans TLS.",
+      "profileIds": [
+        "amqps"
+      ],
+      "sources": [
+        {
+          "id": "rabbitmq",
+          "title": "RabbitMQ — Réseau et ports",
+          "url": "https://www.rabbitmq.com/docs/networking",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5672",
+      "transport": "TCP",
+      "service": "amqp",
+      "protection": "clear",
+      "security": "Utiliser TLS pour les échanges sensibles et des comptes applicatifs limités.",
+      "notes": "Le listener AMQP non TLS est distinct de 5671.",
+      "profileIds": [
+        "amqp"
+      ],
+      "sources": [
+        {
+          "id": "rabbitmq",
+          "title": "RabbitMQ — Réseau et ports",
+          "url": "https://www.rabbitmq.com/docs/networking",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5900",
+      "transport": "TCP",
+      "service": "rfb",
+      "protection": "configurable",
+      "security": "Employer une implémentation protégée ou un tunnel SSH/VPN ; limiter les sources.",
+      "notes": "Les extensions d'authentification et de chiffrement varient selon le serveur.",
+      "profileIds": [
+        "vnc"
+      ],
+      "sources": [
+        {
+          "id": "6143",
+          "title": "RFC 6143 — RFB / VNC",
+          "url": "https://www.rfc-editor.org/rfc/rfc6143.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5984",
+      "transport": "TCP",
+      "service": "couchdb",
+      "protection": "clear",
+      "security": "Préférer HTTPS et limiter les administrateurs.",
+      "notes": "Listener HTTP configurable.",
+      "profileIds": [
+        "couchdb-http"
+      ],
+      "sources": [
+        {
+          "id": "couchdb-http",
+          "title": "Apache CouchDB — Serveur HTTP",
+          "url": "https://docs.couchdb.org/en/stable/config/http.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5985",
+      "transport": "TCP",
+      "service": "wsman",
+      "protection": "native",
+      "security": "Préférer Kerberos, contrôler TrustedHosts et les délégations ; éviter les modes non protégés.",
+      "notes": "Avec Kerberos/NTLM, les messages sont chiffrés après authentification malgré HTTP ; vérifier le mode utilisé.",
+      "profileIds": [
+        "winrm-http"
+      ],
+      "sources": [
+        {
+          "id": "winrm",
+          "title": "Microsoft — Sécurité de WinRM",
+          "url": "https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/winrm-security?view=powershell-7.6",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "5986",
+      "transport": "TCP",
+      "service": "wsmans",
+      "protection": "tls",
+      "security": "Valider le certificat et limiter les endpoints de remoting accessibles.",
+      "notes": "Le listener HTTPS nécessite un certificat serveur adapté.",
+      "profileIds": [
+        "winrm-https"
+      ],
+      "sources": [
+        {
+          "id": "winrm",
+          "title": "Microsoft — Sécurité de WinRM",
+          "url": "https://learn.microsoft.com/en-us/powershell/scripting/security/remoting/winrm-security?view=powershell-7.6",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "6343",
+      "transport": "UDP",
+      "service": "sflow",
+      "protection": "clear",
+      "security": "Limiter les exportateurs et collecteurs ; vérifier le taux d'échantillonnage.",
+      "notes": "Les échantillons et compteurs peuvent révéler des détails du réseau.",
+      "profileIds": [
+        "sflow"
+      ],
+      "sources": [
+        {
+          "id": "3176",
+          "title": "RFC 3176 — sFlow",
+          "url": "https://www.rfc-editor.org/rfc/rfc3176.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "6379",
+      "transport": "TCP",
+      "service": "redis",
+      "protection": "configurable",
+      "security": "Limiter aux applications prévues et activer les protections de liaison et d'accès.",
+      "notes": "Le port ne garantit ni TLS ni contrôle d'accès ; vérifier listeners, ACL et protected mode.",
+      "profileIds": [
+        "redis"
+      ],
+      "sources": [
+        {
+          "id": "redis",
+          "title": "Redis — Sécurité",
+          "url": "https://redis.io/docs/latest/operate/oss_and_stack/management/security/",
+          "checkedAt": "2026-10-14"
+        },
+        {
+          "id": "redis-start",
+          "title": "Redis — Démarrage",
+          "url": "https://redis.io/docs/latest/develop/get-started/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "6432",
+      "transport": "TCP",
+      "service": "pgbouncer",
+      "protection": "configurable",
+      "security": "Vérifier TLS côté client et côté base ainsi que le mode de pooling.",
+      "notes": "Port par défaut du listener PgBouncer.",
+      "profileIds": [
+        "pgbouncer"
+      ],
+      "sources": [
+        {
+          "id": "pgbouncer-config",
+          "title": "PgBouncer — Configuration",
+          "url": "https://www.pgbouncer.org/config.html",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "6513",
+      "transport": "TCP",
+      "service": "netconf-tls",
+      "protection": "tls",
+      "security": "Valider les certificats et les identités client autorisées.",
+      "notes": "Le service NETCONF TLS est distinct de NETCONF SSH/830.",
+      "profileIds": [
+        "netconf-tls"
+      ],
+      "sources": [
+        {
+          "id": "7589",
+          "title": "RFC 7589 — NETCONF TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc7589.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "6514",
+      "transport": "TCP",
+      "service": "syslog-tls",
+      "protection": "tls",
+      "security": "Contrôler la confiance TLS, les files d'attente et les émetteurs autorisés.",
+      "notes": "Différent du Syslog UDP/514 et de l'OFTP Fortinet TCP/514.",
+      "profileIds": [
+        "syslog-tls"
+      ],
+      "sources": [
+        {
+          "id": "5425",
+          "title": "RFC 5425 — Syslog TLS",
+          "url": "https://www.rfc-editor.org/rfc/rfc5425.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "7474",
+      "transport": "TCP",
+      "service": "neo4j",
+      "protection": "clear",
+      "security": "Préférer HTTPS et limiter les comptes.",
+      "notes": "Port HTTP configurable.",
+      "profileIds": [
+        "neo4j-http"
+      ],
+      "sources": [
+        {
+          "id": "neo4j-ports",
+          "title": "Neo4j — Ports réseau",
+          "url": "https://neo4j.com/docs/operations-manual/current/configuration/ports/",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "7687",
+      "transport": "TCP",
+      "service": "bolt",
+      "protection": "configurable",
+      "security": "Vérifier TLS côté pilote et serveur.",
+      "notes": "Le chiffrement dépend du connecteur.",
+      "profileIds": [
+        "neo4j-bolt"
+      ],
+      "sources": [
+        {
+          "id": "neo4j-ports",
+          "title": "Neo4j — Ports réseau",
+          "url": "https://neo4j.com/docs/operations-manual/current/configuration/ports/",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "8080",
+      "transport": "TCP",
+      "service": "http-alt",
+      "protection": "clear",
+      "security": "Éviter une exposition du backend sans authentification ; protéger les données sensibles.",
+      "notes": "8080 est une convention de déploiement ; identifier le processus réel.",
+      "profileIds": [
+        "http-alt"
+      ],
+      "sources": [
+        {
+          "id": "tomcat",
+          "title": "Apache Tomcat — Connecteur HTTP",
+          "url": "https://tomcat.apache.org/tomcat-10.1-doc/config/http.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "8883",
+      "transport": "TCP",
+      "service": "secure-mqtt",
+      "protection": "tls",
+      "security": "Vérifier certificats, identités clients et permissions publish/subscribe.",
+      "notes": "Le listener TLS doit être activé ; les ACL de sujets restent nécessaires.",
+      "profileIds": [
+        "mqtt-tls"
+      ],
+      "sources": [
+        {
+          "id": "rabbit-mqtt",
+          "title": "RabbitMQ — MQTT",
+          "url": "https://www.rabbitmq.com/docs/mqtt",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9100",
+      "transport": "TCP",
+      "service": "hp-pdl-datastr",
+      "protection": "clear",
+      "security": "Limiter aux serveurs d'impression et ne pas exposer directement l'imprimante.",
+      "notes": "Partage le numéro avec Node Exporter ; la destination et le processus déterminent l'usage.",
+      "profileIds": [
+        "jetdirect"
+      ],
+      "sources": [
+        {
+          "id": "jetdirect",
+          "title": "HP — Ports Jetdirect",
+          "url": "https://support.hp.com/ie-en/document/c02480766",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9100",
+      "transport": "TCP",
+      "service": "pdl-datastream",
+      "protection": "clear",
+      "security": "Limiter aux serveurs d'impression et ne pas exposer directement l'imprimante.",
+      "notes": "Partage le numéro avec Node Exporter ; la destination et le processus déterminent l'usage.",
+      "profileIds": [
+        "jetdirect"
+      ],
+      "sources": [
+        {
+          "id": "jetdirect",
+          "title": "HP — Ports Jetdirect",
+          "url": "https://support.hp.com/ie-en/document/c02480766",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9339",
+      "transport": "TCP",
+      "service": "gnmi-gnoi",
+      "protection": "configurable",
+      "security": "Exiger TLS et les identités clients nécessaires ; lire la configuration du listener.",
+      "notes": "Port du listener sécurisé dans IOS XE 17.13 ; port et modes varient selon le produit.",
+      "profileIds": [
+        "gnmi"
+      ],
+      "sources": [
+        {
+          "id": "gnmi",
+          "title": "Cisco IOS XE 17.13 — gNMI",
+          "url": "https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/prog/configuration/1713/b_1713_programmability_cg/m_1713_prog_gnmi.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9389",
+      "transport": "TCP",
+      "service": "adws",
+      "protection": "configurable",
+      "security": "Limiter aux postes d'administration et aux comptes autorisés.",
+      "notes": "Complète les flux LDAP et Kerberos ; vérifier que le service ADWS fonctionne.",
+      "profileIds": [
+        "adws"
+      ],
+      "sources": [
+        {
+          "id": "ad",
+          "title": "Microsoft — Flux Active Directory",
+          "url": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/active-directory/config-firewall-for-ad-domains-and-trusts",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "9418",
+      "transport": "TCP",
+      "service": "git",
+      "protection": "clear",
+      "security": "Privilégier SSH/HTTPS pour les dépôts privés et contrôler les exports.",
+      "notes": "Ce transport ne fournit pas la protection d'une connexion SSH ou HTTPS.",
+      "profileIds": [
+        "git-daemon"
+      ],
+      "sources": [
+        {
+          "id": "git",
+          "title": "Git — Daemon",
+          "url": "https://git-scm.com/docs/git-daemon",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "10050",
+      "transport": "TCP",
+      "service": "zabbix-agent",
+      "protection": "configurable",
+      "security": "Restreindre les collecteurs autorisés et vérifier PSK ou certificats.",
+      "notes": "Le mode passif reçoit les demandes ; TLS dépend de la configuration.",
+      "profileIds": [
+        "zabbix-passive"
+      ],
+      "sources": [
+        {
+          "id": "zabbix-agent",
+          "title": "Zabbix — Vérifications actives et passives",
+          "url": "https://www.zabbix.com/documentation/current/en/manual/appendix/items/activepassive",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "10051",
+      "transport": "TCP",
+      "service": "zabbix-trapper",
+      "protection": "configurable",
+      "security": "Vérifier le nom d'hôte déclaré et la politique TLS.",
+      "notes": "Le mode actif initie la connexion depuis l'agent.",
+      "profileIds": [
+        "zabbix-active"
+      ],
+      "sources": [
+        {
+          "id": "zabbix-agent",
+          "title": "Zabbix — Vérifications actives et passives",
+          "url": "https://www.zabbix.com/documentation/current/en/manual/appendix/items/activepassive",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "11211",
+      "transport": "TCP",
+      "service": "memcache",
+      "protection": "configurable",
+      "security": "Limiter au réseau applicatif et désactiver les listeners inutiles.",
+      "notes": "La disponibilité d'UDP et de TLS dépend de la version et des options ; ne pas supposer UDP activé.",
+      "profileIds": [
+        "memcached"
+      ],
+      "sources": [
+        {
+          "id": "memcached",
+          "title": "Memcached — Configuration",
+          "url": "https://docs.memcached.org/serverguide/configuring/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "11434",
+      "transport": "TCP",
+      "service": "ollama",
+      "protection": "clear",
+      "security": "Conserver l'accès local ou utiliser une passerelle authentifiée avec TLS.",
+      "notes": "Écoute sur 127.0.0.1 par défaut, modifiable par OLLAMA_HOST.",
+      "profileIds": [
+        "ollama-http"
+      ],
+      "sources": [
+        {
+          "id": "ollama-api",
+          "title": "Ollama — Configuration du serveur",
+          "url": "https://docs.ollama.com/faq",
+          "checkedAt": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "27017",
+      "transport": "TCP",
+      "service": "mongodb",
+      "protection": "configurable",
+      "security": "Exiger authentification, permissions minimales et TLS adapté.",
+      "notes": "Port par défaut de mongod et mongos, configurable.",
+      "profileIds": [
+        "mongodb"
+      ],
+      "sources": [
+        {
+          "id": "mongodb",
+          "title": "MongoDB 8.0 — Ports par rôle",
+          "url": "https://www.mongodb.com/docs/v8.0/reference/default-mongodb-port/",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    },
+    {
+      "kind": "port",
+      "endpoint": "33060",
+      "transport": "TCP",
+      "service": "mysqlx",
+      "protection": "configurable",
+      "security": "Limiter les clients nécessaires et vérifier la négociation TLS.",
+      "notes": "Le port X est configuré séparément du protocole classique.",
+      "profileIds": [
+        "mysql-x"
+      ],
+      "sources": [
+        {
+          "id": "mysql",
+          "title": "MySQL — Ports et sens des flux",
+          "url": "https://dev.mysql.com/doc/mysql-port-reference/en/mysql-port-reference-tables.html",
+          "checkedAt": "2026-10-14"
+        }
+      ]
+    }
+  ]
+}

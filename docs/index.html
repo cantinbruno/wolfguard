@@ -1,71 +1,164 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
-  <meta name="referrer" content="no-referrer">
-  <meta name="description" content="WolfGuard : mémos, outils et coffre chiffré sur votre appareil.">
-  <title>WolfGuard — Espace personnel</title>
-  <link rel="icon" href="logo-loup.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css">
-  <script type="module" src="app.js"></script>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="x-dns-prefetch-control" content="off">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WolfGuard</title>
+<link rel="icon" type="image/svg+xml" href="images/logo-loup.svg">
+<link rel="stylesheet" href="css/base.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/workspaces.css">
+<link rel="stylesheet" href="css/documents.css">
+<link rel="stylesheet" href="css/layout.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/settings.css">
+<link rel="stylesheet" href="css/navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/connection.css">
+<link rel="stylesheet" href="css/reader.css">
+<link rel="stylesheet" href="css/branding.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocols.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/search.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/workspace-controls.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/library-navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/unlock-transition.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/section-transition.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/top-navigation.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/item-actions.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/collection-search.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/network-tools.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/item-relations.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/section-catalogs.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/desktop.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/access.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocol-matrix.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan-console.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/scan-visual.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/document-reader.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/protocol-polish.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/unified-library.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/toolbox.css?v=cleanup-20261020">
+<link rel="stylesheet" href="css/modules.css">
+<link rel="stylesheet" href="css/dialogs.css">
+<link rel="stylesheet" href="browser/access.css">
 </head>
 <body>
-  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-  <main id="gate" class="gate">
-    <div class="gate-card">
-      <div class="identity"><img src="logo-loup.svg" alt="" width="60" height="60"><span>WolfGuard<small>ESPACE PERSONNEL</small></span></div>
-      <span class="eyebrow">VOS DONNÉES, SUR VOTRE APPAREIL</span>
-      <h1 id="gate-title">Votre espace.<br>Votre clé.</h1>
-      <p id="gate-description">Mémo, outils et coffre-fort. Un espace chiffré qui reste dans votre navigateur.</p>
-      <form id="auth-form">
-        <label for="master">Mot de passe maître</label>
-        <input id="master" type="password" autocomplete="new-password" maxlength="1024" required aria-describedby="password-help">
-        <div id="confirmation"><label for="master-confirm">Confirmer le mot de passe</label><input id="master-confirm" type="password" autocomplete="new-password" maxlength="1024"></div>
-        <p class="hint" id="password-help">14 caractères minimum. Privilégiez plusieurs mots aléatoires. Ce mot de passe ne peut pas être récupéré.</p>
-        <button class="primary wide" id="auth-submit" type="submit">Créer mon espace chiffré <span aria-hidden="true">→</span></button>
-        <p id="auth-error" class="error" role="alert"></p>
-      </form>
-      <button id="restore-locked" class="text-button" type="button">Ouvrir une sauvegarde chiffrée</button>
-      <button id="cancel-restore" class="text-button" type="button" hidden>Revenir à mon espace local</button>
-      <div class="gate-foot"><span class="status-dot"></span>Chiffrement local · Aucun compte · Aucun envoi de données</div>
-      <p class="hint">Exportez régulièrement une sauvegarde : effacer les données du navigateur supprime votre espace local.</p>
-      <noscript>JavaScript est nécessaire au chiffrement local. Activez-le pour ouvrir WolfGuard.</noscript>
-    </div>
-    <div class="gate-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><img src="logo-loup.svg" alt=""><div class="art-caption">Gardez l’essentiel.<br><strong>À l’abri.</strong></div></div>
-  </main>
 
-  <div id="workspace" hidden>
-    <header class="topbar">
-      <a class="identity" href="#memo" aria-label="WolfGuard, mes mémos"><img src="logo-loup.svg" alt="" width="40" height="40"><span>WolfGuard<small>ESPACE PERSONNEL</small></span></a>
-      <nav aria-label="Sections"><button type="button" data-section="memo" aria-current="page">Mémo</button><button type="button" data-section="tools">Outils</button><button type="button" data-section="vault">Coffre-fort</button></nav>
-      <div class="header-actions"><span class="local-badge"><span class="status-dot"></span>Chiffré sur cet appareil</span><button type="button" id="settings-button" class="secondary">Paramètres</button><button type="button" id="lock-button" class="icon-button" title="Verrouiller" aria-label="Verrouiller">↪</button></div>
+<div id="connectionGate" class="connection-gate access-screen hidden">
+  <div class="connection-bg"></div>
+  <div class="connection-card access-panel">
+    <header class="access-brand">
+      <div class="connection-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="68" height="68"></div>
     </header>
-    <main class="workspace-main">
-      <section id="collection-view">
-        <div class="page-heading"><div><span class="eyebrow" id="section-eyebrow">VOTRE BIBLIOTHÈQUE PERSONNELLE</span><h1 id="section-title">Mes mémos<span class="accent">.</span></h1><p id="section-description">Une place pour vos idées, vos procédures et vos références.</p></div><button type="button" id="new-item" class="primary">＋ Nouveau mémo</button></div>
-        <div class="collection-layout">
-          <aside class="sidebar"><div class="sidebar-label">COLLECTIONS <button type="button" id="new-folder" class="icon-button" aria-label="Créer un dossier">＋</button></div><div id="folders"></div><div class="storage-note"><span class="status-dot"></span><strong>Un espace privé</strong><p>Vos titres et vos contenus sont chiffrés au repos.</p></div></aside>
-          <div class="collection-body"><div class="collection-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Rechercher dans mes mémos…" maxlength="200" autocomplete="off" aria-label="Rechercher"></label><span id="item-count" class="hint"></span></div><div id="items" class="items"></div></div>
-        </div>
-      </section>
-      <section id="tools-view" hidden><div class="page-heading"><div><span class="eyebrow">UNE BOÎTE À OUTILS LOCALE</span><h1>Les outils<span class="accent">.</span></h1><p>Des utilitaires qui travaillent uniquement dans votre navigateur.</p></div></div>
-        <div class="tool-grid">
-          <article class="panel"><span class="tool-symbol">✳</span><h2>Générateur de mots de passe</h2><p>Une génération aléatoire avec Web Crypto.</p><label for="password-length">Longueur</label><input type="number" id="password-length" min="12" max="128" value="24"><div class="generated"><output id="generated-password"></output></div><div class="actions"><button type="button" id="generate-password" class="primary">Générer</button><button type="button" id="copy-generated" class="secondary">Copier</button></div></article>
-          <article class="panel"><span class="tool-symbol">{ }</span><h2>JSON et texte</h2><label for="tool-input">Texte à transformer</label><textarea id="tool-input" rows="6" spellcheck="false" placeholder='{"bonjour":"WolfGuard"}'></textarea><div class="actions wrap"><button type="button" data-transform="json" class="secondary">Formater JSON</button><button type="button" data-transform="encode" class="secondary">Base64 →</button><button type="button" data-transform="decode" class="secondary">← Base64</button><button type="button" data-transform="url" class="secondary">Encoder URL</button><button type="button" data-transform="unurl" class="secondary">Décoder URL</button></div><pre id="tool-output" tabindex="0"></pre><button type="button" id="copy-tool" class="text-button">Copier le résultat</button></article>
-          <article class="panel"><span class="tool-symbol">#</span><h2>Empreinte SHA-256</h2><p>Vérifiez l’empreinte d’un fichier sans l’envoyer.</p><label for="hash-file">Fichier (32 Mo maximum)</label><input type="file" id="hash-file"><pre id="hash-output" tabindex="0"></pre></article>
-          <article class="panel muted-panel"><span class="tool-symbol">⌘</span><h2>Outils Windows</h2><p>Les scans réseau, l’observation des connexions et les commandes système restent disponibles dans l’application Windows. Le navigateur n’autorise pas ces accès.</p></article>
-        </div>
-      </section>
-    </main>
-    <footer class="footer"><span>WolfGuard Web</span><span id="save-state" role="status">Espace chiffré enregistré</span><span>Verrouillage après 5 min d’inactivité</span></footer>
+    <div class="access-heading"><h2 id="connectionHeading">Connecter la base</h2></div>
+    <div class="actions connection-actions">
+      <button type="button" class="primary" id="connectRequiredBtn">Autoriser la base</button>
+    </div>
+    <div class="access-status-slot"><div id="connectionStatus" class="connection-status" role="status" aria-live="polite" hidden></div></div>
   </div>
+</div>
+<div id="lock" class="access-screen hidden">
+  <div class="lock-card access-panel">
+    <header class="access-brand">
+      <div class="lock-logo"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="68" height="68"></div>
+    </header>
+    <div class="access-heading"><h2>Déverrouiller la base</h2></div>
+    <div id="pinDots" class="pin-dots" aria-label="Code à quatre chiffres"></div>
+    <div id="keypad" class="keypad" aria-label="Clavier du code d'accès"></div>
+    <div id="lockError" class="lock-error" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+</div>
 
-  <dialog id="editor-dialog" aria-labelledby="editor-title"><form id="editor-form"><div class="dialog-heading"><div><span class="eyebrow" id="editor-eyebrow">MÉMO</span><h2 id="editor-title">Nouveau mémo</h2></div><button type="button" class="icon-button" data-close="editor-dialog" aria-label="Fermer">×</button></div><input type="hidden" id="item-id"><label for="item-title">Titre</label><input id="item-title" maxlength="250" required><label for="item-folder">Dossier</label><select id="item-folder"></select><div id="vault-fields" hidden><label for="item-username">Identifiant</label><input id="item-username" maxlength="2000" autocomplete="off"><label for="item-password">Mot de passe</label><div class="password-row"><input id="item-password" type="password" maxlength="2000" autocomplete="new-password"><button type="button" id="toggle-password" class="secondary">Afficher</button><button type="button" id="fill-password" class="secondary">Générer</button><button type="button" id="copy-password" class="secondary">Copier</button></div><label for="item-url">Adresse du site ou du serveur</label><input id="item-url" maxlength="2000" placeholder="https://…" autocomplete="off"></div><label for="item-content" id="content-label">Contenu</label><textarea id="item-content" rows="12" maxlength="500000" spellcheck="true"></textarea><p class="hint">Tout le contenu de cette fiche est chiffré lors de l’enregistrement.</p><div class="actions dialog-actions"><button type="button" id="delete-item" class="danger" hidden>Supprimer</button><button type="button" class="secondary" data-close="editor-dialog">Annuler</button><button type="submit" id="save-item" class="primary">Enregistrer</button></div><p id="editor-error" class="error" role="alert"></p></form></dialog>
+<div id="app" class="hidden">
+  <header class="topbar">
+    <button type="button" class="brand brand-logo" id="brand" title="Mes fiches" aria-label="Mes fiches">
+      <img class="wolf-logo" src="images/logo-loup.svg" alt="" aria-hidden="true" width="60" height="60">
+    </button>
+    <div class="search">
+      <span class="global-search-icon" aria-hidden="true"><svg class="lucide lucide-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input id="globalSearch" type="search" maxlength="200" placeholder="Rechercher une fiche, une commande, un port…" aria-label="Rechercher dans la bibliothèque" role="combobox" aria-autocomplete="list" aria-controls="globalSearchList" aria-expanded="false" autocomplete="off" spellcheck="false" title="Rechercher (Ctrl+K)">
+      <button type="button" id="clearGlobalSearch" class="global-search-clear" aria-label="Effacer la recherche" title="Effacer la recherche" hidden><svg class="lucide lucide-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
+      <div id="searchResults" class="search-results hidden" hidden></div>
+    </div>
+    <div class="top-actions">
+      <nav class="global-tabs">
+        <button data-section="library">Mémo</button>
+        <button data-section="tools">Outils</button>
+        <button data-section="vault">Coffre-fort</button>
+      </nav>
+    </div>
+    <button id="settingsBtn" class="icon-btn settings-icon-btn" title="Paramètres" aria-label="Paramètres">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M9.98 4.47 L10.44 2.12 L13.56 2.12 L14.02 4.47 A7.8 7.8 0 0 1 17.52 6.48 L19.77 5.71 L21.34 8.42 L19.53 9.98 A7.8 7.8 0 0 1 19.53 14.02 L21.34 15.58 L19.77 18.29 L17.52 17.52 A7.8 7.8 0 0 1 14.02 19.53 L13.56 21.88 L10.44 21.88 L9.98 19.53 A7.8 7.8 0 0 1 6.48 17.52 L4.23 18.29 L2.66 15.58 L4.47 14.02 A7.8 7.8 0 0 1 4.47 9.98 L2.66 8.42 L4.23 5.71 L6.48 6.48 A7.8 7.8 0 0 1 9.98 4.47 Z"/>
+        <circle cx="12" cy="12" r="3.2"/>
+      </svg>
+    </button>
+  </header>
+  <div class="main">
+    <aside id="sidebar" class="sidebar hidden"></aside>
+    <main id="content" class="content"></main>
+  </div>
+</div>
+<div id="modalRoot"></div>
 
-  <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="dialog-heading"><h2 id="settings-title">Paramètres</h2><button type="button" data-close="settings-dialog" class="icon-button" aria-label="Fermer">×</button></div><section class="settings-section"><h3>Vos sauvegardes</h3><p>Votre espace reste dans ce navigateur, sur cet appareil. Exportez une copie chiffrée pour le retrouver ailleurs.</p><div class="actions wrap"><button type="button" id="export-backup" class="primary">Exporter une sauvegarde</button><button type="button" id="restore-backup" class="secondary">Restaurer une sauvegarde</button></div></section><section class="settings-section"><h3>Mot de passe maître</h3><p>Le changement rechiffre l’espace local. Les anciennes sauvegardes conservent leur ancien mot de passe.</p><form id="change-password-form"><label for="current-password">Mot de passe actuel</label><input id="current-password" type="password" required autocomplete="current-password" maxlength="1024"><label for="new-password">Nouveau mot de passe (14 caractères minimum)</label><input id="new-password" type="password" required minlength="14" maxlength="1024" autocomplete="new-password"><label for="new-password-confirm">Confirmer</label><input id="new-password-confirm" type="password" required minlength="14" maxlength="1024" autocomplete="new-password"><button type="submit" class="secondary">Changer le mot de passe</button><p id="settings-error" class="error" role="alert"></p></form></section><section class="settings-section"><h3>Protection de la session</h3><p>Verrouillage après 5 minutes d’inactivité et dès que l’onglet est masqué. Le mot de passe reste nécessaire à chaque ouverture.</p><p class="hint">Aucun système de récupération. Conservez votre mot de passe maître en lieu sûr. Le site et le navigateur doivent rester dignes de confiance lorsque l’espace est ouvert.</p></section></dialog>
-  <dialog id="folder-dialog" aria-labelledby="folder-title"><form id="folder-form"><div class="dialog-heading"><h2 id="folder-title">Nouveau dossier</h2><button type="button" data-close="folder-dialog" class="icon-button" aria-label="Fermer">×</button></div><label for="folder-name">Nom du dossier</label><input id="folder-name" maxlength="100" required><div class="actions dialog-actions"><button type="button" data-close="folder-dialog" class="secondary">Annuler</button><button type="submit" class="primary">Créer</button></div></form></dialog>
-  <input type="file" id="backup-file" accept=".wgweb,application/json" hidden>
+<!-- Scripts share the local page context; app.js must load last. -->
+<script src="vendor/minisearch-7.2.0.min.js"></script>
+<script src="vendor/purify.min.js"></script>
+<script src="vendor/ipaddr-2.5.0.js"></script>
+<script src="js/data/modules.js"></script>
+<script src="js/core.js?v=cleanup-20261020"></script>
+<script src="js/desktop.js?v=cleanup-20261020"></script>
+<script src="js/data/database.js?v=cleanup-20261020"></script>
+<script src="js/security.js?v=cleanup-20261020"></script>
+<script src="js/network/ip-tools.js?v=cleanup-20261020"></script>
+<script src="vendor/hash-wasm-4.12.0-md5.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha1.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha256.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha384.min.js"></script>
+<script src="vendor/hash-wasm-4.12.0-sha512.min.js"></script>
+<script src="js/network/hash-tools.js?v=cleanup-20261020"></script>
+<script src="js/data/item-relations.js?v=cleanup-20261020"></script>
+<script src="js/data/legacy-library.js"></script>
+<script src="js/data/memo-quality.js"></script>
+<script src="js/data/workspace-layout.js?v=cleanup-20261020"></script>
+<script src="js/data/workspace-mode.js?v=cleanup-20261020"></script>
+<script src="js/data/workspace-file.js?v=cleanup-20261020"></script>
+<script src="js/data/library-model.js?v=cleanup-20261020"></script>
+<script src="js/data/library-migration.js?v=cleanup-20261020"></script>
+<script src="js/ui/shared-icons.js"></script>
+<script src="js/ui/helpers.js?v=cleanup-20261020"></script>
+<script src="js/ui/unlock-transition.js?v=cleanup-20261020"></script>
+<script src="js/ui/section-transition.js?v=cleanup-20261020"></script>
+<script src="js/ui/item-actions.js?v=cleanup-20261020"></script>
+<script src="js/ui/workspace-controls.js?v=cleanup-20261020"></script>
+<script src="js/ui/collection-search.js?v=cleanup-20261020"></script>
+<script src="js/ui/collection-pagination.js?v=cleanup-20261020"></script>
+<script src="js/ui/primary-workspaces.js?v=cleanup-20261020"></script>
+<script src="js/ui/top-navigation.js?v=cleanup-20261020"></script>
+<script src="js/ui/dialogs.js"></script>
+<script src="js/ui/item-relations.js?v=cleanup-20261020"></script>
+<script src="js/ui/navigation.js?v=cleanup-20261020"></script>
+<script src="js/ui/context-menu.js?v=cleanup-20261020"></script>
+<script src="js/ui/rich-editor.js?v=cleanup-20261020"></script>
+<script src="js/ui/items.js?v=cleanup-20261020"></script>
+<script src="js/views/vault-catalog.js?v=cleanup-20261020"></script>
+<script src="js/views/vault.js?v=cleanup-20261020"></script>
+<script src="js/views/protocols.js?v=cleanup-20261020"></script>
+<script src="js/data/protocol-diagnostics.js?v=cleanup-20261020"></script>
+<script src="js/views/protocol-reference.js?v=cleanup-20261020"></script>
+<script src="js/views/protocol-matrix.js?v=cleanup-20261020"></script>
+<script src="js/views/document-reader.js?v=cleanup-20261020"></script>
+<script src="js/views/library.js?v=cleanup-20261020"></script>
+<script src="js/views/network-tools.js?v=cleanup-20261020"></script>
+<script src="js/views/text-tools.js"></script>
+<script src="js/views/scan-console.js?v=cleanup-20261020"></script>
+<script src="js/views/passive-workbench.js?v=cleanup-20261020"></script>
+<script src="js/views/passive-scan.js?v=cleanup-20261020"></script>
+<script src="js/views/scan.js?v=cleanup-20261020"></script>
+<script src="js/views/toolbox.js?v=cleanup-20261020"></script>
+<script src="js/views/settings.js?v=cleanup-20261020"></script>
+<script src="js/search/engine.js?v=cleanup-20261020"></script>
+<script src="js/search/controller.js?v=cleanup-20261020"></script>
+<script src="browser/adapter.js"></script>
 </body>
 </html>
