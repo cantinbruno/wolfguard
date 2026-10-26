@@ -127,8 +127,9 @@ const webWorkspace = (() => {
     $('#webPassword').autocomplete=exists ? 'current-password' : 'new-password';
     $('#webPassword').minLength=exists ? 1 : 8;
     $('#webPassword').maxLength=exists ? 1024 : 8;
-    if (exists) $('#webPassword').removeAttribute('pattern'); else $('#webPassword').pattern='[A-Za-z]{8}';
-    $('.web-access-hint').textContent=exists ? 'Saisis ton code. Pour une base existante, son ancien mot de passe reste accepté.' : '8 lettres de A à Z, sans chiffre ni espace. Les majuscules et minuscules sont distinguées.';
+    $('#webPassword').inputMode='numeric';
+    if (exists) $('#webPassword').removeAttribute('pattern'); else $('#webPassword').pattern='[0-9]{8}';
+    $('.web-access-hint').textContent=exists ? 'Saisis ton code. Pour une base existante, son ancien mot de passe reste accepté.' : '8 chiffres de 0 à 9. Les zéros au début sont autorisés.';
     $('#webUnlock').textContent=exists ? 'Déverrouiller' : 'Créer et ouvrir';
     $('#webUnlock').disabled=busy || locking;
     $('#webCancelRestore').hidden=!pendingBackup;
@@ -235,7 +236,7 @@ const webWorkspace = (() => {
   changeWorkspaceFromSettings=() => $('#webBackupFile').click();
   changeAccessCode=rotatePassword;
   showChangeCodeForm=() => {
-    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 lettres<input id="newAccessCode" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
+    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
     $('#webChangePassword').onclick=rotatePassword;
   };
   openSettings=async initialTab => {
@@ -245,7 +246,7 @@ const webWorkspace = (() => {
     $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent='Code d’accès';
-    security.querySelector('.settings-row-desc').textContent='8 lettres · Chiffrement de la base complète';
+    security.querySelector('.settings-row-desc').textContent='8 chiffres · Chiffrement de la base complète';
     const note=$('.settings-security-note div'); if (note) note.textContent='Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
@@ -264,10 +265,10 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=b3e28ad78241bea9'),import('./storage.js?wg=b3e28ad78241bea9')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=2cf1200d07145b5a'),import('./storage.js?wg=2cf1200d07145b5a')]);
     $('#pinDots').classList.add('hidden'); $('#keypad').classList.add('hidden');
     const form=document.createElement('form'); form.id='webAccessForm';
-    form.innerHTML='<label>Code d’accès<input id="webPassword" type="password" maxlength="1024" autocapitalize="none" spellcheck="false" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le code<input id="webConfirm" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><p class="web-access-hint">Code de 8 lettres pour protéger la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';
+    form.innerHTML='<label>Code d’accès<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le code<input id="webConfirm" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><p class="web-access-hint">Code de 8 chiffres pour protéger la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';
     $('#lockError').before(form); form.onsubmit=authenticate;
     const actions=document.createElement('div'); actions.className='web-access-actions';
     actions.innerHTML='<button type="button" class="secondary" id="webRestore">Ouvrir une sauvegarde</button><button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';

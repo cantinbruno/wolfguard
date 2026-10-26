@@ -37,7 +37,7 @@ Pour travailler uniquement à partir d’un clone GitHub, modifier `app/` et `br
 
 ## Données locales et coffre
 
-Un code d’accès de **huit lettres exactement**, de A à Z, remplace le mot de passe maître dans le même écran d’accès que l’application d’origine. Les majuscules et minuscules sont distinguées ; chiffres, espaces et lettres accentuées sont exclus. Le code est choisi et confirmé à la création, ou changé dans Paramètres → Sécurité. Les bases et sauvegardes existantes restent accessibles avec leur ancien mot de passe jusqu’à leur changement volontaire.
+Un code d’accès de **huit chiffres exactement**, de 0 à 9, remplace le mot de passe maître dans le même écran d’accès que l’application d’origine. Les zéros au début sont conservés ; lettres et espaces sont exclus. Le code est choisi et confirmé à la création, ou changé dans Paramètres → Sécurité. Les bases et sauvegardes existantes restent accessibles avec leur ancien mot de passe jusqu’à leur changement volontaire.
 
 L’espace complet, titres et métadonnées compris, est chiffré avant son enregistrement dans IndexedDB : AES-256-GCM, IV aléatoire par écriture, sel aléatoire, PBKDF2-HMAC-SHA-256 à 600 000 itérations. Aucun code ni vérificateur rapide n’est enregistré. Les clés Web Crypto sont non extractibles. Le coffre conserve également le chiffrement de ses champs.
 
@@ -59,7 +59,7 @@ Pour transférer les bases de l’application Windows sur ce PC, fermer d’abor
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/transfer-myapp.ps1
 ```
 
-Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau code web de huit lettres avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Ouvrir ensuite cette sauvegarde depuis l’écran d’accès du site.
+Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau code web de huit chiffres avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Ouvrir ensuite cette sauvegarde depuis l’écran d’accès du site.
 
 Exporter régulièrement : les données sont propres au domaine et au profil du navigateur. Les effacer, perdre l’appareil ou oublier le code rend l’espace inaccessible. Limite de l’espace chiffré : 32 Mo.
 

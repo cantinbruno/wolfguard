@@ -23,7 +23,7 @@ export function validateEnvelope(value) {
   return {format: value.format, version: value.version, kdf: 'PBKDF2-SHA256', cipher: 'AES-256-GCM', iterations: ITERATIONS, revision: value.revision, salt: value.salt, iv: value.iv, data: value.data};
 }
 export function checkPassword(password) {
-  if (typeof password !== 'string' || password.length !== 8 || !/^[A-Za-z]{8}$/.test(password)) throw new Error('Le code doit contenir exactement 8 lettres de A à Z, sans chiffre ni espace. Les majuscules et minuscules sont distinguées.');
+  if (typeof password !== 'string' || password.length !== 8 || !/^[0-9]{8}$/.test(password)) throw new Error('Le code doit contenir exactement 8 chiffres de 0 à 9, sans lettre ni espace.');
 }
 export async function deriveKey(password, salt) {
   const bytes = encoder.encode(password);

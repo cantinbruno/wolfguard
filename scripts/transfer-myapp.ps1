@@ -7,7 +7,7 @@ $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 $nodePath = if ($nodeCommand) { $nodeCommand.Source } else { Join-Path $env:LOCALAPPDATA 'WolfGuardWeb/runtime/node.exe' }
 if (-not (Test-Path -LiteralPath $nodePath)) { throw 'Node.js 22.13 ou superieur est necessaire pour ce transfert local.' }
 Write-Host 'Ferme l application Windows avant le transfert. Les bases seront lues sans modification.'
-Write-Host 'Le code Windows puis le nouveau code web de 8 lettres seront demandes avec saisie masquee.'
+Write-Host 'Le code Windows puis le nouveau code web de 8 chiffres seront demandes avec saisie masquee.'
 & $nodePath (Join-Path $PSScriptRoot 'migrate-desktop.mjs') --source $SourceRoot --output $Output
 if ($LASTEXITCODE -ne 0) { throw 'Le transfert a ete interrompu. Les bases Windows sont intactes.' }
 Write-Host ('Sauvegarde chiffree : ' + $Output)

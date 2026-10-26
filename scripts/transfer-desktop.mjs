@@ -109,7 +109,7 @@ export async function main() {
   try{
     if(sections.some(section=>section.items.some(item=>item.type==='vault')))pin=await hiddenPrompt('Code Windows actuel (saisie masquée) : ');
     const result=convert(sections,pin);
-    password=await hiddenPrompt('Nouveau code web (8 lettres A-Z, majuscules/minuscules distinguées, saisie masquée) : ');
+    password=await hiddenPrompt('Nouveau code web (8 chiffres de 0 à 9, saisie masquée) : ');
     checkPassword(password);
     confirmation=await hiddenPrompt('Confirmer le code (saisie masquée) : ');
     if(password!==confirmation)throw new Error('Les codes ne correspondent pas.');

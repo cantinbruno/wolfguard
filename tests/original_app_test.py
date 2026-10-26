@@ -8,8 +8,8 @@ import tempfile
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
-PASSWORD = 'AbCdEfGh'
-NEW_PASSWORD = 'XyZaBcDe'
+PASSWORD = '01234567'
+NEW_PASSWORD = '08765432'
 LEGACY_PASSWORD = 'ancien mot de passe de test 643!'
 
 class Quiet(SimpleHTTPRequestHandler):
@@ -101,7 +101,7 @@ def run():
             page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
             assert page.locator('#content').inner_text()==''
-            page.locator('#webPassword').fill(PASSWORD.lower())
+            page.locator('#webPassword').fill('01234568')
             page.locator('#webUnlock').click()
             expect(page.locator('#lockError')).to_contain_text('incorrect')
             page.locator('#webPassword').fill(PASSWORD)
