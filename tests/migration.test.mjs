@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash, createCipheriv, pbkdf2Sync, randomBytes} from 'node:crypto';
 import {convert, encrypt} from '../scripts/migrate-desktop.mjs';
-import {open} from '../browser/crypto.js';
+import {open,checkPassword} from '../browser/crypto.js';
 
 test('desktop vault converts locally to a compatible encrypted web backup', async () => {
   const pin = '1234', salt = randomBytes(16), iv = randomBytes(12);
@@ -20,7 +20,7 @@ test('desktop vault converts locally to a compatible encrypted web backup', asyn
   assert.equal(result.vaultSecrets.get('fixture').password, clear.password);
   assert.equal(result.payload.folders[1].name, 'Sous-dossier');
   assert.equal(result.payload.folders[1].parentId, 'a');
-  const password = 'synthetic fixture password only 734!';
+  const password = 'AbCdEfGh';
   const envelope = encrypt(result.payload, password, result.vaultSecrets);
   assert.equal(JSON.stringify(envelope).includes(clear.password), false);
   const opened = await open(envelope, password);
@@ -35,5 +35,10 @@ test('memo conversion keeps rich text, attachments and command blocks without lo
   const result = convert([{folders:[],settings:[],items:[{id:'note',type:'memo',title:'Note',content:'<p>Bonjour &amp; merci</p>',attachments:[{id:'file'}],updatedAt:'2026-01-01'}]}], '');
   assert.equal(result.payload.items[0].content, '<p>Bonjour &amp; merci</p>');
   assert.deepEqual(result.payload.items[0].attachments,[{id:'file'}]);
-  assert.throws(() => encrypt(result.payload, '1234'), /14/);
+  assert.throws(() => encrypt(result.payload, '1234'), /8 lettres/);
+});
+
+test('new access codes require exactly eight case-sensitive ASCII letters', () => {
+  for (const value of ['AbCdEfGh','abcdefgh','ABCDEFGH']) assert.doesNotThrow(()=>checkPassword(value));
+  for (const value of ['abcdefg','abcdefghi','abcd1234','abcd efG','ébcdefgh','abcdefgh\n',null]) assert.throws(()=>checkPassword(value),/8 lettres/);
 });

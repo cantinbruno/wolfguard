@@ -8,8 +8,9 @@ import tempfile
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
-PASSWORD = 'mot de passe de test uniquement 643!'
-NEW_PASSWORD = 'nouveau mot de passe de test 731!'
+PASSWORD = 'AbCdEfGh'
+NEW_PASSWORD = 'XyZaBcDe'
+LEGACY_PASSWORD = 'ancien mot de passe de test 643!'
 
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self, *_args):
@@ -27,6 +28,9 @@ def run():
             errors=[]
             page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(url)
+            page.locator('#webPassword').fill('Abcd1234')
+            page.locator('#webConfirm').fill('Abcd1234')
+            assert not page.locator('#webPassword').evaluate('input=>input.checkValidity()')
             page.locator('#webPassword').fill(PASSWORD)
             page.locator('#webConfirm').fill(PASSWORD)
             page.locator('#webUnlock').click()
@@ -97,7 +101,7 @@ def run():
             page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
             assert page.locator('#content').inner_text()==''
-            page.locator('#webPassword').fill('mauvais mot de passe')
+            page.locator('#webPassword').fill(PASSWORD.lower())
             page.locator('#webUnlock').click()
             expect(page.locator('#lockError')).to_contain_text('incorrect')
             page.locator('#webPassword').fill(PASSWORD)
@@ -143,9 +147,9 @@ def run():
             legacy_context=browser.new_context(reduced_motion='reduce')
             legacy=legacy_context.new_page()
             legacy.goto(url)
-            legacy.evaluate("""async password=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const result=await c.create({version:1,items:[{id:'old-vault',type:'vault',title:'Ancien acces',username:'legacy',password:'legacy-secret',content:'Ancienne note',url:'',folder:null,updatedAt:'2026-01-01'}],folders:[]},password);await s.write(result.envelope,0)}""",PASSWORD)
+            legacy.evaluate("""async password=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const salt=crypto.getRandomValues(new Uint8Array(16));const key=await c.deriveKey(password,salt);const envelope=await c.seal({version:1,items:[{id:'old-vault',type:'vault',title:'Ancien acces',username:'legacy',password:'legacy-secret',content:'Ancienne note',url:'',folder:null,updatedAt:'2026-01-01'}],folders:[]},key,salt,1);await s.write(envelope,0)}""",LEGACY_PASSWORD)
             legacy.reload()
-            legacy.locator('#webPassword').fill(PASSWORD)
+            legacy.locator('#webPassword').fill(LEGACY_PASSWORD)
             legacy.locator('#webUnlock').click()
             expect(legacy.locator('#app')).to_be_visible(timeout=20000)
             assert legacy.evaluate("async()=> (await vaultData(await get('items','old-vault'))).password")=='legacy-secret'

@@ -23,7 +23,7 @@ export function validateEnvelope(value) {
   return {format: value.format, version: value.version, kdf: 'PBKDF2-SHA256', cipher: 'AES-256-GCM', iterations: ITERATIONS, revision: value.revision, salt: value.salt, iv: value.iv, data: value.data};
 }
 export function checkPassword(password) {
-  if (typeof password !== 'string' || password.length < 14 || password.length > 1024) throw new Error('Choisis un mot de passe maître de 14 à 1 024 caractères. Une phrase de plusieurs mots aléatoires est préférable.');
+  if (typeof password !== 'string' || password.length !== 8 || !/^[A-Za-z]{8}$/.test(password)) throw new Error('Le code doit contenir exactement 8 lettres de A à Z, sans chiffre ni espace. Les majuscules et minuscules sont distinguées.');
 }
 export async function deriveKey(password, salt) {
   const bytes = encoder.encode(password);
@@ -49,7 +49,7 @@ export async function open(envelope, password) {
   let bytes;
   try {
     bytes = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unbase64(value.iv, 12), additionalData: aad(value), tagLength: 128}, key, unbase64(value.data, MAX_BYTES)));
-  } catch { throw new Error('Mot de passe incorrect ou sauvegarde altérée.'); }
+  } catch { throw new Error('Code incorrect ou sauvegarde altérée.'); }
   try { return {payload: JSON.parse(decoder.decode(bytes)), key, salt, envelope: value}; }
   finally { bytes.fill(0); }
 }

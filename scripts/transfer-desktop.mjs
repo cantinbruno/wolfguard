@@ -3,6 +3,7 @@ import {createHash,pbkdf2Sync,createDecipheriv,createCipheriv,randomBytes,timing
 import {writeFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {checkPassword} from '../browser/crypto.js';
 
 const repository=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export function readSection(filename) {
@@ -66,7 +67,7 @@ export function convert(sections,pin) {
   return {payload:{version:2,...Object.fromEntries(Object.entries(stores).map(([store,records])=>[store,[...records.values()]]))},vaultSecrets};
 }
 export function encrypt(snapshot,password,vaultSecrets=new Map()) {
-  if (password.length<14||password.length>1024) throw new Error('Le nouveau mot de passe doit contenir entre 14 et 1 024 caractères.');
+  checkPassword(password);
   const salt=randomBytes(16),iv=randomBytes(12),key=pbkdf2Sync(password,salt,600000,32,'sha256');
   const payload=structuredClone(snapshot);
   try {
@@ -108,9 +109,10 @@ export async function main() {
   try{
     if(sections.some(section=>section.items.some(item=>item.type==='vault')))pin=await hiddenPrompt('Code Windows actuel (saisie masquée) : ');
     const result=convert(sections,pin);
-    password=await hiddenPrompt('Nouveau mot de passe web (14 caractères minimum, saisie masquée) : ');
-    confirmation=await hiddenPrompt('Confirmer le mot de passe (saisie masquée) : ');
-    if(password!==confirmation)throw new Error('Les mots de passe ne correspondent pas.');
+    password=await hiddenPrompt('Nouveau code web (8 lettres A-Z, majuscules/minuscules distinguées, saisie masquée) : ');
+    checkPassword(password);
+    confirmation=await hiddenPrompt('Confirmer le code (saisie masquée) : ');
+    if(password!==confirmation)throw new Error('Les codes ne correspondent pas.');
     writeFileSync(output,JSON.stringify(encrypt(result.payload,password,result.vaultSecrets)),{flag:'wx',mode:0o600});
     process.stdout.write(`Sauvegarde chiffrée créée : ${result.payload.items.length} fiches, ${result.payload.folders.length} dossiers.\nTexte riche, commandes, pièces jointes, sous-dossiers et champs personnalisés conservés.\nLes bases Windows restent intactes. Ouvre la sauvegarde depuis le site.\n`);
   }finally{pin='';password='';confirmation='';}

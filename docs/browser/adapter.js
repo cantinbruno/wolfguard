@@ -122,10 +122,13 @@ const webWorkspace = (() => {
   function showGate() {
     const exists = !!(pendingBackup || envelope);
     $('#connectionGate').classList.add('hidden'); $('#lock').classList.remove('hidden'); $('#app').classList.add('hidden');
-    $('#lock .access-heading h2').textContent = pendingBackup ? 'Ouvrir une sauvegarde' : exists ? 'Déverrouiller la base' : 'Créer le mot de passe de la base';
+    $('#lock .access-heading h2').textContent = pendingBackup ? 'Ouvrir une sauvegarde' : exists ? 'Déverrouiller la base' : 'Créer le code de la base';
     $('#webConfirmRow').hidden=exists; $('#webConfirm').required=!exists;
     $('#webPassword').autocomplete=exists ? 'current-password' : 'new-password';
-    $('#webPassword').minLength=exists ? 1 : 14;
+    $('#webPassword').minLength=exists ? 1 : 8;
+    $('#webPassword').maxLength=exists ? 1024 : 8;
+    if (exists) $('#webPassword').removeAttribute('pattern'); else $('#webPassword').pattern='[A-Za-z]{8}';
+    $('.web-access-hint').textContent=exists ? 'Saisis ton code. Pour une base existante, son ancien mot de passe reste accepté.' : '8 lettres de A à Z, sans chiffre ni espace. Les majuscules et minuscules sont distinguées.';
     $('#webUnlock').textContent=exists ? 'Déverrouiller' : 'Créer et ouvrir';
     $('#webUnlock').disabled=busy || locking;
     $('#webCancelRestore').hidden=!pendingBackup;
@@ -140,7 +143,7 @@ const webWorkspace = (() => {
       let result;
       if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
       else {
-        if (password !== $('#webConfirm').value) throw new Error('Les mots de passe ne correspondent pas.');
+        if (password !== $('#webConfirm').value) throw new Error('Les codes ne correspondent pas.');
         cryptography.checkPassword(password); result=await cryptography.create(await seed(),password);
       }
       result.payload=await upgrade(result);
@@ -199,7 +202,7 @@ const webWorkspace = (() => {
     try {
       if (!current) throw new Error('Espace verrouillé.');
       cryptography.checkPassword(password);
-      if (password !== $('#confirmAccessCode').value) throw new Error('Les mots de passe ne correspondent pas.');
+      if (password !== $('#confirmAccessCode').value) throw new Error('Les codes ne correspondent pas.');
       await cryptography.open(current.envelope,oldPassword);
       const work=queue.then(async () => {
         if (session!==current || epoch!==generation) throw new Error('Espace verrouillé.');
@@ -211,7 +214,7 @@ const webWorkspace = (() => {
         result.envelope=await cryptography.seal(payload,result.key,result.salt,current.envelope.revision+1);
         await storage.write(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
-        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify('Mot de passe modifié. Exporte une nouvelle sauvegarde.'); }
+        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify('Code modifié. Exporte une nouvelle sauvegarde.'); }
       });
       queue=work.catch(() => {}); await work;
     } catch (error) { appNotify(error.message,{kind:'error'}); }
@@ -232,7 +235,7 @@ const webWorkspace = (() => {
   changeWorkspaceFromSettings=() => $('#webBackupFile').click();
   changeAccessCode=rotatePassword;
   showChangeCodeForm=() => {
-    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Mot de passe actuel<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau mot de passe<input id="newAccessCode" type="password" minlength="14" maxlength="1024" autocomplete="new-password"></label><label>Confirmation<input id="confirmAccessCode" type="password" maxlength="1024" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
+    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 lettres<input id="newAccessCode" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
     $('#webChangePassword').onclick=rotatePassword;
   };
   openSettings=async initialTab => {
@@ -241,9 +244,9 @@ const webWorkspace = (() => {
     if (!session) { closeModal(); return; }
     $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');
-    security.querySelector('.settings-row-title').textContent='Mot de passe maître';
-    security.querySelector('.settings-row-desc').textContent='Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent='Conserve ton mot de passe : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    security.querySelector('.settings-row-title').textContent='Code d’accès';
+    security.querySelector('.settings-row-desc').textContent='8 lettres · Chiffrement de la base complète';
+    const note=$('.settings-security-note div'); if (note) note.textContent='Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
   };
@@ -261,10 +264,10 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=be26b62f47c9a379'),import('./storage.js?wg=be26b62f47c9a379')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=b3e28ad78241bea9'),import('./storage.js?wg=b3e28ad78241bea9')]);
     $('#pinDots').classList.add('hidden'); $('#keypad').classList.add('hidden');
     const form=document.createElement('form'); form.id='webAccessForm';
-    form.innerHTML='<label>Mot de passe maître<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le mot de passe<input id="webConfirm" type="password" maxlength="1024" autocomplete="new-password"></label><p class="web-access-hint">14 caractères minimum à la création. Ce mot de passe protège la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';
+    form.innerHTML='<label>Code d’accès<input id="webPassword" type="password" maxlength="1024" autocapitalize="none" spellcheck="false" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le code<input id="webConfirm" type="password" minlength="8" maxlength="8" pattern="[A-Za-z]{8}" autocapitalize="none" spellcheck="false" autocomplete="new-password"></label><p class="web-access-hint">Code de 8 lettres pour protéger la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';
     $('#lockError').before(form); form.onsubmit=authenticate;
     const actions=document.createElement('div'); actions.className='web-access-actions';
     actions.innerHTML='<button type="button" class="secondary" id="webRestore">Ouvrir une sauvegarde</button><button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
