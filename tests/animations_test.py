@@ -3,6 +3,7 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
+import sys
 from playwright.sync_api import sync_playwright, expect
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -11,7 +12,12 @@ class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
 
 TRACE="""(() => {
-  window.motionTrace={phases:[],fragments:0,workspace:[],warnings:[]};
+  window.motionTrace={phases:[],fragments:0,workspace:[],slides:[],warnings:[]};
+  const animate=Element.prototype.animate;
+  Element.prototype.animate=function(frames,options){
+    if(this.id==='content')window.motionTrace.slides.push(frames);
+    return animate.call(this,frames,options);
+  };
   const warning=console.warn.bind(console);
   console.warn=(...args)=>{window.motionTrace.warnings.push(String(args[0]));warning(...args)};
   new MutationObserver(()=>{
@@ -34,12 +40,16 @@ def run():
     Thread(target=server.serve_forever,daemon=True).start()
     try:
         with sync_playwright() as p:
-            browser=p.chromium.launch()
+            browser=p.chromium.launch(channel='msedge' if '--edge' in sys.argv else None)
             # Windows disabled system animations must not remove WolfGuard's intro.
             context=browser.new_context(reduced_motion='reduce',viewport={'width':1280,'height':900})
             context.add_init_script(TRACE)
             page=context.new_page()
             page.goto(f'http://127.0.0.1:{server.server_port}/')
+            page.wait_for_function("()=>window.motionTrace.phases.includes('burst')",timeout=10000)
+            expect(page.locator('#app')).not_to_be_visible()
+            expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
+            print('PASS: animation visible des le demarrage, avant toute saisie du code')
             page.evaluate("""async()=>{
               const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');
               const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'01234567');
@@ -47,6 +57,8 @@ def run():
             }""")
             page.reload()
             expect(page.locator('#keypad')).to_be_visible()
+            expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
+            page.evaluate('()=>{motionTrace.phases=[];motionTrace.fragments=0}')
             page.keyboard.type('01234567')
             page.wait_for_function("()=>window.motionTrace.phases.includes('burst')",timeout=10000)
             assert page.evaluate('window.motionTrace.fragments')>1
@@ -59,11 +71,14 @@ def run():
             print('PASS: agrandissement puis eclatement du loup, meme avec animations Windows reduites')
 
             page.locator('.workspace-section-button[data-section=tools]').click()
+            page.wait_for_function("()=>{const el=document.querySelector('#content');return el.dataset.transitionMode==='direct' && new DOMMatrix(getComputedStyle(el).transform).m41 < -1}")
+            page.screenshot(path=str(cache/'section-slide.png'))
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'forward' in page.evaluate('window.motionTrace.workspace')
             page.locator('.workspace-section-button[data-section=library]').click()
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'backward' in page.evaluate('window.motionTrace.workspace')
+            assert page.evaluate('window.motionTrace.slides.length')>=4
             print('PASS: transitions entre sections dans les deux sens')
 
             page.locator('#settingsBtn').click()

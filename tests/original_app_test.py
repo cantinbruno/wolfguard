@@ -18,6 +18,7 @@ class Quiet(SimpleHTTPRequestHandler):
 
 def enter_code(page, code, creating=False):
     expect(page.locator('#keypad')).to_be_visible()
+    expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
     page.keyboard.type(code)
     if creating:
         expect(page.locator('#lock .access-heading h2')).to_have_text('Confirmer le code')
@@ -167,6 +168,7 @@ def run():
             legacy.goto(url)
             legacy.evaluate("""async password=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const salt=crypto.getRandomValues(new Uint8Array(16));const key=await c.deriveKey(password,salt);const envelope=await c.seal({version:1,items:[{id:'old-vault',type:'vault',title:'Ancien acces',username:'legacy',password:'legacy-secret',content:'Ancienne note',url:'',folder:null,updatedAt:'2026-01-01'}],folders:[]},key,salt,1);await s.write(envelope,0)}""",LEGACY_PASSWORD)
             legacy.reload()
+            expect(legacy.locator('#keypad button').first).to_be_enabled(timeout=10000)
             legacy.evaluate("""password=>{const data=new DataTransfer();data.setData('text',password);document.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}))}""",LEGACY_PASSWORD)
             expect(legacy.locator('#app')).to_be_visible(timeout=20000)
             assert legacy.evaluate("async()=> (await vaultData(await get('items','old-vault'))).password")=='legacy-secret'

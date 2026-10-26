@@ -5,7 +5,16 @@
 const webWorkspace = (() => {
   let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
-  let enteredCode = '', creationCode = '';
+  let enteredCode = '', creationCode = '', booting = true;
+  let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null;
+  const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
+  const accessScope = () => (pendingBackup || envelope)?.salt || '';
+  const accessBlocked = () => attemptScope === accessScope() && attemptState.blockedUntil > Date.now();
+  async function loadAttempts() {
+    const scope=accessScope(), state=await storage.readAttempts(scope);
+    if(scope===accessScope()){attemptScope=scope;attemptState=state;}
+  }
+  const announceAttempts = scope => attemptChannel?.postMessage({scope});
   const originalSettings = openSettings;
   const types = new Set(['vault','memo','procedure','personal','protocol','command','mail','report','template']);
   const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
@@ -121,6 +130,7 @@ const webWorkspace = (() => {
     return validate(payload);
   }
   function renderKeypad() {
+    if(!$('#webAccessForm'))return;
     const exists=!!(pendingBackup || envelope);
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
     $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
@@ -130,8 +140,19 @@ const webWorkspace = (() => {
     $('.web-access-actions').hidden=!pendingBackup;
     $('#pinDots').setAttribute('aria-label',enteredCode.length+' chiffres saisis sur 8');
     $('#pinDots').querySelectorAll('.dot').forEach((dot,index)=>dot.classList.toggle('on',index<enteredCode.length));
-    $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking;});
-    $('#lock').setAttribute('aria-busy',String(busy || locking));
+    const blocked=accessBlocked();
+    $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking || booting || blocked;});
+    $('#webUnlock').disabled=busy || locking || booting || blocked;
+    $('#webCancelRestore').disabled=busy || locking || booting;
+    $('#lock').setAttribute('aria-busy',String(busy || locking || booting));
+    clearTimeout(attemptTimer);attemptTimer=null;
+    if(blocked){
+      $('#lockError').dataset.accessTimeout='true';
+      $('#lockError').textContent='Code incorrect. Réessaie dans '+Math.ceil((attemptState.blockedUntil-Date.now())/1000)+' s.';
+      if(!$('#lock').classList.contains('hidden'))attemptTimer=setTimeout(renderKeypad,Math.min(1000,attemptState.blockedUntil-Date.now()));
+    }else if($('#lockError').dataset.accessTimeout){
+      delete $('#lockError').dataset.accessTimeout;$('#lockError').textContent='';
+    }
   }
   function showGate() {
     const exists = !!(pendingBackup || envelope);
@@ -153,7 +174,7 @@ const webWorkspace = (() => {
     $('#lock').focus({preventScroll:true});
   }
   async function keypadKey(key) {
-    if (busy || locking || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
+    if (busy || locking || booting || accessBlocked() || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
     $('#lockError').textContent='';
     if (key==='C') { enteredCode=''; creationCode=''; }
     else if (key==='Backspace') enteredCode=enteredCode.slice(0,-1);
@@ -171,12 +192,15 @@ const webWorkspace = (() => {
     await authenticate({preventDefault(){}});
   }
   async function authenticate(event) {
-    event.preventDefault(); if (busy || locking) return;
+    event.preventDefault(); if (busy || locking || booting || accessBlocked()) {renderKeypad();return;}
     busy=true; $('#webUnlock').disabled=true; $('#lockError').textContent='';
     renderKeypad();
-    const generation=epoch; let password=$('#webPassword').value, retained=false;
+    const generation=epoch; let password=$('#webPassword').value, retained=false, attemptedScope='';
     try {
       await claimTab(); await queue; envelope=await storage.read();
+      await loadAttempts();
+      if(accessBlocked())return;
+      attemptedScope=accessScope();
       let result;
       if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
       else {
@@ -185,6 +209,9 @@ const webWorkspace = (() => {
       }
       result.payload=await upgrade(result);
       if (generation !== epoch || document.hidden) return;
+      await storage.resetAttempts(attemptedScope);
+      attemptState={failures:0,blockedUntil:0};attemptScope=attemptedScope;
+      announceAttempts(attemptedScope);
       if (pendingBackup && envelope && !await appConfirm('Remplacer l’espace de ce navigateur par cette sauvegarde ? Exporte d’abord les modifications à conserver.')) return;
       if (pendingBackup || !envelope || result.envelope.version !== 2) {
         result.envelope=await cryptography.seal(result.payload,result.key,result.salt,(envelope?.revision || 0)+1);
@@ -201,7 +228,13 @@ const webWorkspace = (() => {
       await unlockTransition.play();
       await scheduleAutoLock(); saveStatus('Enregistré · Chiffré sur cet appareil');
       navigator.storage?.persist?.().catch(() => {});
-    } catch (error) { $('#lockError').textContent=error.message; }
+    } catch (error) {
+      if(error.code==='INVALID_ACCESS_CODE' && attemptedScope){
+        attemptState=await storage.registerFailure(attemptedScope);attemptScope=attemptedScope;
+        announceAttempts(attemptedScope);
+      }
+      $('#lockError').textContent=error.message;
+    }
     finally {
       password=''; busy=false; $('#webUnlock').disabled=false;
       enteredCode=''; creationCode=''; $('#webPassword').value=''; $('#webConfirm').value='';
@@ -220,7 +253,7 @@ const webWorkspace = (() => {
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
     document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
     pendingBackup=null; saveStatus('Espace verrouillé'); showGate();
-    try { await queue; envelope=await storage.read(); }
+    try { await queue; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
   }
   function download(value) {
@@ -237,7 +270,7 @@ const webWorkspace = (() => {
     if (file.size > cryptography.MAX_BYTES*1.4) throw new Error('Sauvegarde trop volumineuse.');
     const backup=cryptography.validateEnvelope(JSON.parse(await file.text()));
     if (session && !await appConfirm('Ouvrir une sauvegarde verrouille la base actuelle. As-tu exporté les modifications à conserver ?')) return;
-    await lock(); pendingBackup=backup; showGate();
+    await lock(); pendingBackup=backup; await loadAttempts(); showGate();
   }
   async function rotatePassword() {
     let oldPassword=$('#oldAccessCode').value, password=$('#newAccessCode').value;
@@ -269,6 +302,8 @@ const webWorkspace = (() => {
   workspaceCanWrite=() => !!session;
   workspaceConnectionLabel=() => 'Navigateur · Enregistrement chiffré';
   ensureSecuritySettings=async () => !!session;
+  // Older desktop listeners must not re-enable the keypad during a web timeout.
+  refreshPinLockout=renderKeypad;
   lockApplication=lock;
   exportDB=exportWorkspace;
   importDB=importWorkspace;
@@ -326,7 +361,7 @@ const webWorkspace = (() => {
       }
     },true);
     document.addEventListener('paste',event=>{
-      if ($('#lock').classList.contains('hidden') || busy || locking || document.querySelector('.app-dialog[open]')) return;
+      if ($('#lock').classList.contains('hidden') || busy || locking || booting || accessBlocked() || document.querySelector('.app-dialog[open]')) return;
       const code=event.clipboardData?.getData('text');
       if (!/^[0-9]{8}$/.test(code || '')) {
         // Keep old encrypted spaces accessible by pasting their original secret,
@@ -348,7 +383,7 @@ const webWorkspace = (() => {
     actions.hidden=true;
     actions.innerHTML='<button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
     $('#lock .lock-card').append(actions);
-    $('#webCancelRestore').onclick=() => { pendingBackup=null; showGate(); };
+    $('#webCancelRestore').onclick=async () => { pendingBackup=null;await loadAttempts();showGate(); };
     $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
     const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status'); document.body.append(status);
     topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
@@ -360,13 +395,21 @@ const webWorkspace = (() => {
       const html=event.clipboardData?.getData('text/html');
       if (html) { event.preventDefault(); event.stopImmediatePropagation(); document.execCommand('insertHTML',false,documentHTML(html)); }
     },true);
-    document.addEventListener('visibilitychange',() => { if (document.hidden) { if (session) lock(); else epoch++; } });
+    document.addEventListener('visibilitychange',() => {
+      if(document.hidden){if(session)lock();else epoch++;}
+      else if(storage && !session)loadAttempts().then(renderKeypad);
+    });
+    if(attemptChannel)attemptChannel.onmessage=event=>{
+      if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
+    };
     window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); $('#content').replaceChildren(); closeModal(); release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
-    envelope=await storage.read(); showGate();
+    envelope=await storage.read();await loadAttempts();showGate();
+    await unlockTransition.play({destination:'lock'});
+    booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
   }
   return {start};
 })();
-webWorkspace.start().catch(error => { $('#lock').classList.remove('hidden'); $('#lockError').textContent=error.message; });
+webWorkspace.start().catch(error => { $('#startupSplash')?.remove();$('#lock').classList.remove('hidden');$('#lockError').textContent=error.message; });

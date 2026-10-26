@@ -23,6 +23,7 @@ def run():
             page=context.new_page()
             page.goto(f'http://127.0.0.1:{server.server_port}/')
             expect(page.locator('#keypad')).to_be_visible()
+            expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
             # A French top-row key reports a symbol until Shift is pressed.
             key(page,'&','Digit1')
             expect(page.locator('#pinDots .dot.on')).to_have_count(1)

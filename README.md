@@ -6,7 +6,7 @@ La version web utilise directement le HTML, les styles, les vues et les outils d
 
 Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
 
-Les animations de l’application d’origine sont conservées sur le web : le loup grandit puis éclate au déverrouillage, les espaces glissent entre Mémo, Outils et Coffre-fort et les paramètres s’ouvrent avec leur animation. L’introduction et les transitions principales restent actives même si Windows réduit ses effets d’animation.
+Une introduction animée apparaît dès l’ouverture du site, avant toute saisie du code. Le loup grandit puis éclate pour révéler le clavier ; l’animation accompagne également le déverrouillage. Les espaces et outils glissent réellement grâce à l’animation directe du contenu, sans dépendre de View Transitions. Les paramètres gardent leur animation d’ouverture. Ces effets restent actifs même si Windows réduit ses animations.
 
 Les six outils d’origine restent visibles : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : un site statique ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
 
@@ -53,6 +53,8 @@ L’espace complet, titres et métadonnées compris, est chiffré avant son enre
 
 Les écritures sont transactionnelles, vérifient leur révision et excluent un deuxième onglet éditeur. Les références aux clés et les contenus affichés sont abandonnés au verrouillage. JavaScript ne garantit pas l’effacement physique immédiat de toutes les chaînes en mémoire. Le délai de verrouillage est réglable dans les paramètres ; masquer l’onglet verrouille aussi l’espace.
 
+Chaque code incorrect au déverrouillage impose un délai croissant : **5 secondes au premier échec, 10 au deuxième, 15 au troisième, puis 5 secondes supplémentaires par échec**. Pendant ce délai, la souris, le clavier physique et le collage ne peuvent pas soumettre un nouveau code. Le compteur et l’échéance, sans secret ni code, sont enregistrés dans IndexedDB pour cet espace et partagés entre les onglets. Recharger la page ne les remet pas à zéro. Un code correct remet le compteur à zéro. Cette limitation est locale au navigateur ; un site uniquement front ne peut pas imposer de limite à une attaque hors ligne sur une copie chiffrée ou à un navigateur dont le stockage a été effacé.
+
 La page ne charge aucune bibliothèque depuis un CDN. Les dépendances d’origine sont incluses dans `app/vendor/` avec leurs licences. La CSP bloque les scripts intégrés et `eval` ; elle autorise les gestionnaires d’événements HTML historiques nécessaires à cette interface et WebAssembly pour les empreintes. Les contenus riches sont nettoyés par DOMPurify lors de la lecture et du collage HTML. Les identifiants des fiches et dossiers sont validés avant leur utilisation dans les vues d’origine.
 
 GitHub Pages ne permet pas de personnaliser tous les en-têtes HTTP, notamment `frame-ancestors`. La protection du compte GitHub, du domaine, de l’appareil et du navigateur reste essentielle : du code compromis peut lire une session ouverte. Cette version est testée automatiquement, sans audit de sécurité indépendant.
@@ -85,6 +87,7 @@ python -m playwright install chromium
 python tests/original_app_test.py
 python tests/keyboard_test.py
 python tests/animations_test.py
+python tests/timeout_test.py
 node --test tests/migration.test.mjs
 ```
 

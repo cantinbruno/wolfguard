@@ -7,18 +7,19 @@ const unlockTransition = (() => {
   const BURST_DELAY_STEP = 34;
   const CURTAIN_DELAY = 780;
   const CURTAIN_DURATION = 980;
-  const reveal = () => {
+  const reveal = (destination = 'app') => {
     $('#connectionGate').classList.add('hidden');
-    $('#lock').classList.add('hidden');
-    $('#app').classList.remove('hidden');
+    $('#lock').classList.toggle('hidden', destination !== 'lock');
+    $('#app').classList.toggle('hidden', destination === 'lock');
+    if (destination === 'lock') $('#startupSplash')?.remove();
   };
   const clean = run => {
     run.animations.forEach(animation => animation.cancel());
     run.overlay.remove();
     if (current === run) {
       current = null;
-      $('#app').inert = false;
-      $('#app').removeAttribute('aria-hidden');
+      run.target.inert = false;
+      run.target.removeAttribute('aria-hidden');
     }
   };
   const animate = (run, element, frames, options) => {
@@ -98,13 +99,14 @@ const unlockTransition = (() => {
       run.cancelled = true;
       clean(run);
     },
-    async play() {
+    async play(options = {}) {
       this.cancel();
+      const destination = options.destination === 'lock' ? 'lock' : 'app';
       if (!Element.prototype.animate) {
-        reveal();
+        reveal(destination);
         return true
       }
-      const logo = $('#lock .wolf-logo');
+      const logo = (destination === 'lock' ? $('#startupSplash .wolf-logo') : null) || $('#lock .wolf-logo');
       const overlay = document.createElement('div');
       overlay.id = 'unlockTransition';
       overlay.className = 'unlock-transition';
@@ -122,6 +124,7 @@ const unlockTransition = (() => {
       overlay.append(curtain, stage);
       const run = {
         overlay,
+        target: $(destination === 'lock' ? '#lock' : '#app'),
         animations: [],
         cancelled: false
       };
@@ -144,9 +147,9 @@ const unlockTransition = (() => {
           transform: `translate(${dx}px,${dy}px)`
         });
         document.body.appendChild(overlay);
-        $('#app').inert = true;
-        $('#app').setAttribute('aria-hidden', 'true');
-        reveal();
+        run.target.inert = true;
+        run.target.setAttribute('aria-hidden', 'true');
+        reveal(destination);
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         if (run.cancelled) return false;
         // Preserve WolfGuard's original intro on the web as well as on Windows.
@@ -178,7 +181,7 @@ const unlockTransition = (() => {
       } catch (error) {
         if (!run.cancelled) {
           console.warn('Unlock animation failed:', error);
-          reveal()
+          reveal(destination)
         }
         return !run.cancelled;
       } finally {

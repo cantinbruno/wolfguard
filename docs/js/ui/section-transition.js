@@ -45,7 +45,7 @@ const sectionTransition = (() => {
     const canRender = () => !run.cancelled && !pending;
     const crossing = primarySectionFor(request.section) !== primarySectionFor(state.section);
     // Keep the original workspace slide on both the web and the desktop.
-    const motion = request.section !== state.section && !app.classList.contains('hidden') && !unlockTransition.active && !!Element.prototype.animate && (crossing || !matchMedia('(prefers-reduced-motion:reduce)').matches);
+    const motion = request.section !== state.section && !app.classList.contains('hidden') && !unlockTransition.active && !!Element.prototype.animate;
     const sections = availablePrimarySections();
     const from = sections.indexOf(primarySectionFor(state.section));
     const to = sections.indexOf(primarySectionFor(request.section));
@@ -69,25 +69,9 @@ const sectionTransition = (() => {
         document.documentElement.dataset.sectionDirection = direction === 1 ? 'forward' : 'backward';
         document.documentElement.dataset.sectionEffect = crossing ? 'workspace' : 'slide';
       }
-      if (motion && typeof document.startViewTransition === 'function') {
-        content.dataset.transitionMode = 'native';
-        try {
-          run.transition = document.startViewTransition(update);
-          const ready = run.transition.ready.then(() => true, () => false);
-          const finished = run.transition.finished.catch(() => {});
-          // Skipping the visual effect does not cancel its asynchronous DOM update.
-          await run.transition.updateCallbackDone;
-          const started = await ready;
-          if (started && canRender()) content.dataset.transitionPhase = 'blend';
-          await finished;
-          if (started || !canRender()) return run.rendered && canRender();
-        } catch (error) {
-          if (run.error) throw run.error;
-          run.transition?.skipTransition();
-          if (!canRender()) return false;
-        }
-      }
-      content.dataset.transitionMode = 'fallback';
+      // Animate the actual content in every browser. Native View Transitions
+      // can finish without displaying any frames under some system settings.
+      content.dataset.transitionMode = 'direct';
       if (motion && !run.rendered) {
         content.dataset.transitionPhase = 'out';
         await animate(run, [{

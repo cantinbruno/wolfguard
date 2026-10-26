@@ -49,7 +49,7 @@ export async function open(envelope, password) {
   let bytes;
   try {
     bytes = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unbase64(value.iv, 12), additionalData: aad(value), tagLength: 128}, key, unbase64(value.data, MAX_BYTES)));
-  } catch { throw new Error('Code incorrect ou sauvegarde altérée.'); }
+  } catch { const error = new Error('Code incorrect ou sauvegarde altérée.'); error.code = 'INVALID_ACCESS_CODE'; throw error; }
   try { return {payload: JSON.parse(decoder.decode(bytes)), key, salt, envelope: value}; }
   finally { bytes.fill(0); }
 }
