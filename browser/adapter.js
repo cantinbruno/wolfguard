@@ -122,7 +122,8 @@ const webWorkspace = (() => {
   }
   function renderKeypad() {
     const exists=!!(pendingBackup || envelope);
-    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? 'Déverrouiller la base' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
     $('#pinDots').classList.remove('hidden');
     $('#keypad').classList.remove('hidden');
     $('#webAccessForm').hidden=true;

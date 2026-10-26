@@ -1,4 +1,6 @@
 /* Keep the Windows application's access panel, logo, palette and layout. */
+#lock .access-heading.web-empty-heading {display:none}
+#lock .access-heading.web-empty-heading + .pin-dots {margin-top:24px}
 #webAccessForm {display:grid;gap:12px;margin-top:10px}
 #webAccessForm[hidden],#webAccessForm [hidden],.web-access-actions[hidden],.web-access-actions [hidden] {display:none!important}
 #lock .pin-dots {display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;margin:0 0 22px}

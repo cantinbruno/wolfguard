@@ -122,7 +122,8 @@ const webWorkspace = (() => {
   }
   function renderKeypad() {
     const exists=!!(pendingBackup || envelope);
-    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? 'Déverrouiller la base' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
     $('#pinDots').classList.remove('hidden');
     $('#keypad').classList.remove('hidden');
     $('#webAccessForm').hidden=true;
@@ -306,7 +307,7 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=09692c0ca0dd1e33'),import('./storage.js?wg=09692c0ca0dd1e33')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=7b3521357a86c929'),import('./storage.js?wg=7b3521357a86c929')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
