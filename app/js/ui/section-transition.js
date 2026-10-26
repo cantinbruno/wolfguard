@@ -44,8 +44,8 @@ const sectionTransition = (() => {
     current = run;
     const canRender = () => !run.cancelled && !pending;
     const crossing = primarySectionFor(request.section) !== primarySectionFor(state.section);
-    // Keep the explicitly requested desktop slide enabled, like the unlock animation.
-    const motion = request.section !== state.section && !app.classList.contains('hidden') && !unlockTransition.active && !!Element.prototype.animate && (desktopBridge.available && crossing || !matchMedia('(prefers-reduced-motion:reduce)').matches);
+    // Keep the original workspace slide on both the web and the desktop.
+    const motion = request.section !== state.section && !app.classList.contains('hidden') && !unlockTransition.active && !!Element.prototype.animate && (crossing || !matchMedia('(prefers-reduced-motion:reduce)').matches);
     const sections = availablePrimarySections();
     const from = sections.indexOf(primarySectionFor(state.section));
     const to = sections.indexOf(primarySectionFor(request.section));

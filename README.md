@@ -6,6 +6,8 @@ La version web utilise directement le HTML, les styles, les vues et les outils d
 
 Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
 
+Les animations de l’application d’origine sont conservées sur le web : le loup grandit puis éclate au déverrouillage, les espaces glissent entre Mémo, Outils et Coffre-fort et les paramètres s’ouvrent avec leur animation. L’introduction et les transitions principales restent actives même si Windows réduit ses effets d’animation.
+
 Les six outils d’origine restent visibles : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : un site statique ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
 
 ## Sources et publication automatique
@@ -82,6 +84,7 @@ python -m pip install -r tests/requirements.txt
 python -m playwright install chromium
 python tests/original_app_test.py
 python tests/keyboard_test.py
+python tests/animations_test.py
 node --test tests/migration.test.mjs
 ```
 

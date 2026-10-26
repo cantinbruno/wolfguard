@@ -79,6 +79,7 @@ def run():
             print('PASS: editeur riche original, commandes integrees, lecture et nettoyage XSS')
 
             page.locator('.workspace-section-button[data-section=vault]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
             page.evaluate('newVault()')
             page.locator('#fTitle').fill('Acces confidentiel de test')
             page.locator('#fUser').fill('synthetic@example.invalid')
@@ -97,11 +98,14 @@ def run():
             print('PASS: coffre original, champs complets, stockage entierement chiffre')
 
             page.locator('.workspace-section-button[data-section=tools]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#toolboxShell')).to_be_visible()
             assert page.locator('[data-toolbox-nav]').count()==6
             page.locator('[data-toolbox-nav=ports]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.protocol-content')).to_be_visible(timeout=15000)
             page.locator('[data-toolbox-nav=active]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanStart')).to_be_disabled()
             assert 'application Windows' in page.locator('#content').inner_text()
             print('PASS: six outils originaux, referentiels ports, scans Windows explicitement indisponibles')

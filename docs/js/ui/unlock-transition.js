@@ -149,19 +149,7 @@ const unlockTransition = (() => {
         reveal();
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         if (run.cancelled) return false;
-        // WolfGuard's requested intro stays enabled independently of Windows effects.
-        if (!desktopBridge.available && matchMedia('(prefers-reduced-motion:reduce)').matches) {
-          overlay.dataset.phase = 'fade';
-          await animate(run, overlay, [{
-            opacity: 1
-          }, {
-            opacity: 0
-          }], {
-            duration: 250,
-            easing: 'ease-out'
-          }).finished;
-          return !run.cancelled;
-        }
+        // Preserve WolfGuard's original intro on the web as well as on Windows.
         overlay.dataset.phase = 'grow';
         const scale = Math.min(330, innerWidth * .66, innerHeight * .48) / size;
         await animate(run, stage, [{

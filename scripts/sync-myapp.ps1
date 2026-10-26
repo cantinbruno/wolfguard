@@ -38,6 +38,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification navigateur echouee. Aucune publication.' }
     & python tests/keyboard_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification du clavier echouee. Aucune publication.' }
+    & python tests/animations_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des animations echouee. Aucune publication.' }
     & $Node --test tests/migration.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser docs scripts tests README.md package.json .gitignore
