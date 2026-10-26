@@ -1,6 +1,4 @@
 /* Keep the Windows application's access panel, logo, palette and layout. */
-.startup-splash {position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:var(--ui-page,#111c2b)}
-.startup-splash .wolf-logo {width:152px;height:152px;object-fit:contain}
 #lock .access-heading.web-empty-heading {display:none}
 #lock .access-heading.web-empty-heading + .pin-dots {margin-top:24px}
 #webAccessForm {display:grid;gap:12px;margin-top:10px}

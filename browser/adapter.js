@@ -407,7 +407,6 @@ const webWorkspace = (() => {
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
     envelope=await storage.read();await loadAttempts();showGate();
-    await unlockTransition.play({destination:'lock'});
     booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
   }
   return {start};

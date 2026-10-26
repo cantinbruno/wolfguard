@@ -46,10 +46,11 @@ def run():
             context.add_init_script(TRACE)
             page=context.new_page()
             page.goto(f'http://127.0.0.1:{server.server_port}/')
-            page.wait_for_function("()=>window.motionTrace.phases.includes('burst')",timeout=10000)
             expect(page.locator('#app')).not_to_be_visible()
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
-            print('PASS: animation visible des le demarrage, avant toute saisie du code')
+            expect(page.locator('#startupSplash,#unlockTransition')).to_have_count(0)
+            assert page.evaluate('window.motionTrace.phases')==[]
+            print('PASS: clavier directement accessible, aucune animation avant le code')
             page.evaluate("""async()=>{
               const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');
               const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'01234567');
@@ -58,6 +59,7 @@ def run():
             page.reload()
             expect(page.locator('#keypad')).to_be_visible()
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
+            assert page.evaluate('window.motionTrace.phases')==[]
             page.evaluate('()=>{motionTrace.phases=[];motionTrace.fragments=0}')
             page.keyboard.type('01234567')
             page.wait_for_function("()=>window.motionTrace.phases.includes('burst')",timeout=10000)

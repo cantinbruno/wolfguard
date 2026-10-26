@@ -38,7 +38,6 @@ settings=settings.replace("['security', 'data', 'interface', 'modules']","['secu
 if (/data-settings-tab="modules"|id="settings-modules"|\$\{moduleManagerHTML\(\)\}/.test(settings)) throw new Error('L’import des sections Windows doit être absent des paramètres web.');
 writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');
-html = html.replace('<body>', '<body>\n<div id="startupSplash" class="startup-splash" role="status" aria-label="Démarrage de WolfGuard"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="152" height="152"></div>');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'unsafe-inline'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');

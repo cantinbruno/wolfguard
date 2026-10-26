@@ -342,7 +342,7 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=56e5ae6c28e25c58'),import('./storage.js?wg=56e5ae6c28e25c58')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=66658de4f56527af'),import('./storage.js?wg=66658de4f56527af')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -407,7 +407,6 @@ const webWorkspace = (() => {
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
     envelope=await storage.read();await loadAttempts();showGate();
-    await unlockTransition.play({destination:'lock'});
     booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
   }
   return {start};
