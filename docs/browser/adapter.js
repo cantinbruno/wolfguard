@@ -5,7 +5,7 @@
 const webWorkspace = (() => {
   let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
-  let enteredCode = '', creationCode = '', legacyAccess = false;
+  let enteredCode = '', creationCode = '';
   const originalSettings = openSettings;
   const types = new Set(['vault','memo','procedure','personal','protocol','command','mail','report','template']);
   const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
@@ -123,12 +123,10 @@ const webWorkspace = (() => {
   function renderKeypad() {
     const exists=!!(pendingBackup || envelope);
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? 'Déverrouiller la base' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
-    $('#pinDots').classList.toggle('hidden',legacyAccess);
-    $('#keypad').classList.toggle('hidden',legacyAccess);
-    $('#webAccessForm').hidden=!legacyAccess;
-    $('#webPassword').inputMode=legacyAccess ? 'text' : 'numeric';
-    $('#webLegacyAccess').hidden=!exists;
-    $('#webLegacyAccess').textContent=legacyAccess ? 'Utiliser le pavé numérique' : 'Ancien mot de passe';
+    $('#pinDots').classList.remove('hidden');
+    $('#keypad').classList.remove('hidden');
+    $('#webAccessForm').hidden=true;
+    $('.web-access-actions').hidden=!pendingBackup;
     $('#pinDots').setAttribute('aria-label',enteredCode.length+' chiffres saisis sur 8');
     $('#pinDots').querySelectorAll('.dot').forEach((dot,index)=>dot.classList.toggle('on',index<enteredCode.length));
     $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking;});
@@ -137,7 +135,7 @@ const webWorkspace = (() => {
   function showGate() {
     const exists = !!(pendingBackup || envelope);
     $('#connectionGate').classList.add('hidden'); $('#lock').classList.remove('hidden'); $('#app').classList.add('hidden');
-    enteredCode=''; creationCode=''; legacyAccess=false;
+    enteredCode=''; creationCode='';
     $('#webConfirmRow').hidden=true; $('#webConfirm').required=!exists;
     $('#webPassword').autocomplete=exists ? 'current-password' : 'new-password';
     $('#webPassword').minLength=exists ? 1 : 8;
@@ -152,7 +150,7 @@ const webWorkspace = (() => {
     renderKeypad();
   }
   async function keypadKey(key) {
-    if (busy || locking || legacyAccess || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
+    if (busy || locking || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
     $('#lockError').textContent='';
     if (key==='C') { enteredCode=''; creationCode=''; }
     else if (key==='Backspace') enteredCode=enteredCode.slice(0,-1);
@@ -306,20 +304,29 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=d6145e3ce27415e2'),import('./storage.js?wg=d6145e3ce27415e2')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=0d4909dec06d0a85'),import('./storage.js?wg=0d4909dec06d0a85')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
     $('#keypad').innerHTML=['1','2','3','4','5','6','7','8','9','Backspace','0','C'].map(key=>'<button type="button" class="key" data-key="'+key+'"'+(key==='Backspace'?' aria-label="Effacer le dernier chiffre"':key==='C'?' aria-label="Effacer le code"':'')+'>'+(key==='Backspace'?'⌫':key==='C'?settingsIcon('rotate-ccw'):key)+'</button>').join('');
     $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};
     document.addEventListener('keydown',event=>{
-      if (legacyAccess || $('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey) return;
+      if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey) return;
       if (/^[0-9]$/.test(event.key) || event.key==='Backspace' || event.key==='Escape') {event.preventDefault();keypadKey(event.key==='Escape'?'C':event.key);}
     });
     document.addEventListener('paste',event=>{
-      if (legacyAccess || $('#lock').classList.contains('hidden')) return;
+      if ($('#lock').classList.contains('hidden') || busy || locking || document.querySelector('.app-dialog[open]')) return;
       const code=event.clipboardData?.getData('text');
-      if (!/^[0-9]{8}$/.test(code || '') || busy || locking) return;
+      if (!/^[0-9]{8}$/.test(code || '')) {
+        // Keep old encrypted spaces accessible by pasting their original secret,
+        // without displaying another field or button on the keypad screen.
+        if ((pendingBackup || envelope) && code && code.length<=1024) {
+          event.preventDefault(); enteredCode=''; creationCode='';
+          $('#webPassword').value=code; $('#webConfirm').value='';
+          authenticate({preventDefault(){}});
+        }
+        return;
+      }
       event.preventDefault();enteredCode='';for(const digit of code)keypadKey(digit);
     });
     const form=document.createElement('form'); form.id='webAccessForm';
@@ -327,15 +334,10 @@ const webWorkspace = (() => {
     form.innerHTML='<label>Ancien mot de passe<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow" hidden>Confirmer le code<input id="webConfirm" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><p class="web-access-hint"></p><button type="submit" class="primary" id="webUnlock">Déverrouiller</button>';
     $('#lockError').before(form); form.onsubmit=authenticate;
     const actions=document.createElement('div'); actions.className='web-access-actions';
-    actions.innerHTML='<button type="button" class="secondary" id="webRestore">Ouvrir une sauvegarde</button><button type="button" class="secondary" id="webLegacyAccess" hidden>Ancien mot de passe</button><button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
+    actions.hidden=true;
+    actions.innerHTML='<button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
     $('#lock .lock-card').append(actions);
-    $('#webRestore').onclick=() => $('#webBackupFile').click();
     $('#webCancelRestore').onclick=() => { pendingBackup=null; showGate(); };
-    $('#webLegacyAccess').onclick=()=>{
-      if(busy || locking)return;
-      legacyAccess=!legacyAccess;enteredCode='';creationCode='';$('#webPassword').value='';$('#webConfirm').value='';$('#lockError').textContent='';
-      renderKeypad();if(legacyAccess)$('#webPassword').focus();
-    };
     $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
     const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status'); document.body.append(status);
     topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
