@@ -10,14 +10,14 @@ Les six outils d’origine restent visibles : analyse IP, référentiels ports/s
 
 ## Sources et publication automatique
 
-- `myapp/general/assets/` : sources communes d’origine, utilisées par l’application Windows et surveillées sur ce PC.
-- `app/` : copie exacte de ces sources dans ce dépôt ; elle n’est pas réécrite pour fabriquer une autre interface.
+- `myapp/` est directement le dépôt Git `cantinbruno/wolfguard`, avec la même arborescence et le même historique que GitHub.
+- `app/` : sources de l’interface d’origine, désormais modifiées directement dans ce dépôt.
 - `browser/` : adaptation du stockage, du code d’accès et des sauvegardes au navigateur.
 - `docs/` : résultat de `scripts/build-web.mjs`, publié par GitHub Pages. `CNAME` conserve le domaine personnalisé.
 
-La surveillance locale `scripts/watch-myapp.ps1` détecte les modifications des sources communes, attend la fin des écritures, les copie dans `app/`, prépare `docs/`, exécute les tests puis crée un commit et pousse sur ce dépôt. GitHub Pages publie chaque push sur `main`.
+La surveillance locale `scripts/watch-myapp.ps1` détecte les modifications de `app/`, `browser/`, `scripts/`, `tests/` et des fichiers de configuration du dépôt, attend la fin des écritures, prépare `docs/`, exécute les tests puis crée un commit et pousse sur GitHub. Les mises à jour distantes sont récupérées quand le dossier local est propre. GitHub Pages publie chaque push sur `main`.
 
-Elle fonctionne pendant que ce PC est allumé, avec la session utilisateur ouverte, Internet et l’accès GitHub disponibles. Elle démarre avec la tâche Windows **WolfGuard-Web-AutoPublish** à l’ouverture de session. Une erreur de test, un conflit distant ou des changements locaux hors de `app/` et `docs/` suspendent le push ; aucun historique n’est forcé et les modifications sont conservées. Le journal est `.cache/auto-publication.log`, exclu de Git. Les échecs de connexion sont réessayés.
+Elle fonctionne pendant que ce PC est allumé, avec la session utilisateur ouverte, Internet et l’accès GitHub disponibles. Elle démarre avec la tâche Windows **WolfGuard-Web-AutoPublish** à l’ouverture de session. Une erreur de test, un conflit distant, une préparation Git en cours ou un fichier hors des sources autorisées suspendent le push ; aucun historique n’est forcé et les modifications sont conservées. Le journal est `.cache/auto-publication.log`, exclu de Git. Les échecs de connexion sont réessayés.
 
 Lancer une synchronisation manuellement depuis ce dépôt :
 
@@ -35,7 +35,9 @@ Enable-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
 Start-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
 ```
 
-Pour travailler uniquement à partir d’un clone GitHub, modifier `app/` et `browser/`, lancer `node scripts/build-web.mjs`, vérifier puis pousser. Sur le PC qui synchronise `myapp`, modifier les sources communes `general/assets/` : elles font autorité pour la copie `app/`. Les adaptations `browser/` restent propres au navigateur.
+Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de copie intermédiaire `github-wolfguard/`. Pour publier manuellement, lancer `node scripts/build-web.mjs`, vérifier puis pousser, ou utiliser `scripts/sync-myapp.ps1`.
+
+Sur ce PC, l’ancienne application Windows complète et ses bases sont conservées dans `.local-archive/windows-original/` ; l’ancienne version web séparée est dans `.local-archive/previous-web/`. L’intégralité de `.local-archive/` est exclue de Git et de la publication. Les empreintes des fichiers de données ont été vérifiées après leur déplacement. L’ancienne application peut être lancée avec `.local-archive/windows-original/WolfGuard.exe`.
 
 ## Données locales et coffre
 
@@ -65,7 +67,7 @@ Pour transférer les bases de l’application Windows sur ce PC, fermer d’abor
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/transfer-myapp.ps1
 ```
 
-Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau code web de huit chiffres avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Ouvrir ensuite cette sauvegarde depuis l’écran d’accès du site.
+Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Sur ce PC, il retrouve automatiquement les anciennes bases dans `.local-archive/windows-original/`. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau code web de huit chiffres avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Importer ensuite cette sauvegarde depuis Paramètres → Données sur le site.
 
 Exporter régulièrement : les données sont propres au domaine et au profil du navigateur. Les effacer, perdre l’appareil ou oublier le code rend l’espace inaccessible. Limite de l’espace chiffré : 32 Mo.
 

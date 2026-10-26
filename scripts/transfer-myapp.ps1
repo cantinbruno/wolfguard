@@ -1,7 +1,12 @@
 param([string]$SourceRoot, [string]$Output)
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-if (-not $SourceRoot) { $SourceRoot = [IO.Path]::GetDirectoryName($repository) }
+if (-not $SourceRoot) {
+  $archivedDesktop = Join-Path $repository '.local-archive/windows-original'
+  if (Test-Path -LiteralPath (Join-Path $archivedDesktop 'general/donnees')) { $SourceRoot = $archivedDesktop }
+  elseif (Test-Path -LiteralPath (Join-Path $repository 'general/donnees')) { $SourceRoot = $repository }
+  else { $SourceRoot = [IO.Path]::GetDirectoryName($repository) }
+}
 if (-not $Output) { $Output = Join-Path ([Environment]::GetFolderPath('Desktop')) ('WolfGuard-transfert-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.wgweb') }
 $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
 $nodePath = if ($nodeCommand) { $nodeCommand.Source } else { Join-Path $env:LOCALAPPDATA 'WolfGuardWeb/runtime/node.exe' }

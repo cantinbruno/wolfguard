@@ -307,7 +307,7 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=7b3521357a86c929'),import('./storage.js?wg=7b3521357a86c929')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=ca2ca112ff43305e'),import('./storage.js?wg=ca2ca112ff43305e')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
