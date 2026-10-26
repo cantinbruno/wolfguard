@@ -51,13 +51,13 @@ Les données créées avec la première version web simplifiée sur ce même dom
 
 Paramètres → Données → Exporter crée une sauvegarde chiffrée complète `.wgweb`. L’import la valide et demande son mot de passe avant de remplacer l’espace local. Les sauvegardes conservent le texte riche, les commandes, images, pièces jointes, sous-dossiers et champs personnalisés. Une ancienne sauvegarde garde son ancien mot de passe après un changement local.
 
-Pour transférer les bases de l’application Windows, fermer d’abord WolfGuard.exe puis, dans un terminal avec Node.js 22.13 ou supérieur :
+Pour transférer les bases de l’application Windows sur ce PC, fermer d’abord WolfGuard.exe puis lancer depuis le dépôt :
 
 ```powershell
-node scripts/migrate-desktop.mjs --source "C:/Users/Cantin/Desktop/myapp" --output "C:/Users/Cantin/Desktop/WolfGuard-transfert.wgweb"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/transfer-myapp.ps1
 ```
 
-Le script ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau mot de passe avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Ouvrir ensuite cette sauvegarde depuis l’écran d’accès du site.
+Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau mot de passe avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Ouvrir ensuite cette sauvegarde depuis l’écran d’accès du site.
 
 Exporter régulièrement : les données sont propres au domaine et au profil du navigateur. Les effacer, perdre l’appareil ou oublier le mot de passe rend l’espace inaccessible. Limite de l’espace chiffré : 32 Mo.
 
