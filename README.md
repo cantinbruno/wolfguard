@@ -43,6 +43,8 @@ Un code d’accès de **huit chiffres exactement**, de 0 à 9, remplace le mot d
 
 La saisie utilise le pavé numérique d’origine avec huit pastilles masquées. Les touches du clavier, le retour arrière et l’effacement sont aussi pris en charge. La huitième touche déverrouille directement ; la création demande de saisir le code une seconde fois pour le confirmer. Aucun bouton de sauvegarde ni d’ancien mot de passe n’apparaît sur l’écran de déverrouillage. Les sauvegardes s’importent depuis les paramètres. Pour une ancienne base, coller son ancien mot de passe sur l’écran du code permet encore de l’ouvrir et de changer ensuite son accès dans les paramètres.
 
+Les touches physiques de la rangée des chiffres fonctionnent aussi sur AZERTY sans Maj. Le pavé numérique fonctionne avec ou sans Verr Num. Retour arrière efface le dernier chiffre ; Suppr et Échap effacent la saisie. Le clavier reste actif après un clic sur les boutons du pavé à l’écran.
+
 L’espace complet, titres et métadonnées compris, est chiffré avant son enregistrement dans IndexedDB : AES-256-GCM, IV aléatoire par écriture, sel aléatoire, PBKDF2-HMAC-SHA-256 à 600 000 itérations. Aucun code ni vérificateur rapide n’est enregistré. Les clés Web Crypto sont non extractibles. Le coffre conserve également le chiffrement de ses champs.
 
 Les écritures sont transactionnelles, vérifient leur révision et excluent un deuxième onglet éditeur. Les références aux clés et les contenus affichés sont abandonnés au verrouillage. JavaScript ne garantit pas l’effacement physique immédiat de toutes les chaînes en mémoire. Le délai de verrouillage est réglable dans les paramètres ; masquer l’onglet verrouille aussi l’espace.
@@ -77,6 +79,7 @@ python -m http.server 4173 --bind 127.0.0.1 --directory docs
 python -m pip install -r tests/requirements.txt
 python -m playwright install chromium
 python tests/original_app_test.py
+python tests/keyboard_test.py
 node --test tests/migration.test.mjs
 ```
 

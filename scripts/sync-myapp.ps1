@@ -63,6 +63,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Preparation du site echouee.' }
     & python tests/original_app_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification navigateur echouee. Aucune publication.' }
+    & python tests/keyboard_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification du clavier echouee. Aucune publication.' }
     & $Node --test tests/migration.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app docs

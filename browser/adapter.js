@@ -148,6 +148,8 @@ const webWorkspace = (() => {
     $('#webCancelRestore').hidden=!pendingBackup;
     $('#webPassword').value=''; $('#webConfirm').value=''; $('#lockError').textContent='';
     renderKeypad();
+    $('#lock').tabIndex=-1;
+    $('#lock').focus({preventScroll:true});
   }
   async function keypadKey(key) {
     if (busy || locking || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
@@ -310,10 +312,18 @@ const webWorkspace = (() => {
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
     $('#keypad').innerHTML=['1','2','3','4','5','6','7','8','9','Backspace','0','C'].map(key=>'<button type="button" class="key" data-key="'+key+'"'+(key==='Backspace'?' aria-label="Effacer le dernier chiffre"':key==='C'?' aria-label="Effacer le code"':'')+'>'+(key==='Backspace'?'⌫':key==='C'?settingsIcon('rotate-ccw'):key)+'</button>').join('');
     $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};
-    document.addEventListener('keydown',event=>{
-      if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (/^[0-9]$/.test(event.key) || event.key==='Backspace' || event.key==='Escape') {event.preventDefault();keypadKey(event.key==='Escape'?'C':event.key);}
-    });
+    window.addEventListener('keydown',event=>{
+      if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || document.querySelector('.app-dialog[open]')) return;
+      // AZERTY reports &, é, etc. on Digit1, Digit2... without Shift. Numpad
+      // codes identify the digits even when NumLock reports navigation keys.
+      const physical=/^(?:Digit|Numpad)([0-9])$/.exec(event.code || '');
+      const digit=/^[0-9]$/.test(event.key) ? event.key : physical?.[1];
+      const action=digit ?? (event.key==='Backspace' ? 'Backspace' : ['Delete','Escape'].includes(event.key) ? 'C' : null);
+      if (action!==null || event.key==='Enter') {
+        event.preventDefault();event.stopPropagation();
+        if(action!==null)keypadKey(action);
+      }
+    },true);
     document.addEventListener('paste',event=>{
       if ($('#lock').classList.contains('hidden') || busy || locking || document.querySelector('.app-dialog[open]')) return;
       const code=event.clipboardData?.getData('text');

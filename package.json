@@ -3,5 +3,5 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "scripts": {"build": "node scripts/build-web.mjs", "test": "python tests/original_app_test.py", "preview": "python -m http.server 4173 --bind 127.0.0.1 --directory docs"}
+  "scripts": {"build": "node scripts/build-web.mjs", "test": "python tests/keyboard_test.py && python tests/original_app_test.py", "preview": "python -m http.server 4173 --bind 127.0.0.1 --directory docs"}
 }
