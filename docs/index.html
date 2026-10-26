@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="WolfGuard : mémos, outils et coffre chiffré sur votre appareil.">
+  <title>WolfGuard — Espace personnel</title>
+  <link rel="icon" href="logo-loup.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <main id="gate" class="gate">
+    <div class="gate-card">
+      <div class="identity"><img src="logo-loup.svg" alt="" width="60" height="60"><span>WolfGuard<small>ESPACE PERSONNEL</small></span></div>
+      <span class="eyebrow">VOS DONNÉES, SUR VOTRE APPAREIL</span>
+      <h1 id="gate-title">Votre espace.<br>Votre clé.</h1>
+      <p id="gate-description">Mémo, outils et coffre-fort. Un espace chiffré qui reste dans votre navigateur.</p>
+      <form id="auth-form">
+        <label for="master">Mot de passe maître</label>
+        <input id="master" type="password" autocomplete="new-password" maxlength="1024" required aria-describedby="password-help">
+        <div id="confirmation"><label for="master-confirm">Confirmer le mot de passe</label><input id="master-confirm" type="password" autocomplete="new-password" maxlength="1024"></div>
+        <p class="hint" id="password-help">14 caractères minimum. Privilégiez plusieurs mots aléatoires. Ce mot de passe ne peut pas être récupéré.</p>
+        <button class="primary wide" id="auth-submit" type="submit">Créer mon espace chiffré <span aria-hidden="true">→</span></button>
+        <p id="auth-error" class="error" role="alert"></p>
+      </form>
+      <button id="restore-locked" class="text-button" type="button">Ouvrir une sauvegarde chiffrée</button>
+      <button id="cancel-restore" class="text-button" type="button" hidden>Revenir à mon espace local</button>
+      <div class="gate-foot"><span class="status-dot"></span>Chiffrement local · Aucun compte · Aucun envoi de données</div>
+      <p class="hint">Exportez régulièrement une sauvegarde : effacer les données du navigateur supprime votre espace local.</p>
+      <noscript>JavaScript est nécessaire au chiffrement local. Activez-le pour ouvrir WolfGuard.</noscript>
+    </div>
+    <div class="gate-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><img src="logo-loup.svg" alt=""><div class="art-caption">Gardez l’essentiel.<br><strong>À l’abri.</strong></div></div>
+  </main>
+
+  <div id="workspace" hidden>
+    <header class="topbar">
+      <a class="identity" href="#memo" aria-label="WolfGuard, mes mémos"><img src="logo-loup.svg" alt="" width="40" height="40"><span>WolfGuard<small>ESPACE PERSONNEL</small></span></a>
+      <nav aria-label="Sections"><button type="button" data-section="memo" aria-current="page">Mémo</button><button type="button" data-section="tools">Outils</button><button type="button" data-section="vault">Coffre-fort</button></nav>
+      <div class="header-actions"><span class="local-badge"><span class="status-dot"></span>Chiffré sur cet appareil</span><button type="button" id="settings-button" class="secondary">Paramètres</button><button type="button" id="lock-button" class="icon-button" title="Verrouiller" aria-label="Verrouiller">↪</button></div>
+    </header>
+    <main class="workspace-main">
+      <section id="collection-view">
+        <div class="page-heading"><div><span class="eyebrow" id="section-eyebrow">VOTRE BIBLIOTHÈQUE PERSONNELLE</span><h1 id="section-title">Mes mémos<span class="accent">.</span></h1><p id="section-description">Une place pour vos idées, vos procédures et vos références.</p></div><button type="button" id="new-item" class="primary">＋ Nouveau mémo</button></div>
+        <div class="collection-layout">
+          <aside class="sidebar"><div class="sidebar-label">COLLECTIONS <button type="button" id="new-folder" class="icon-button" aria-label="Créer un dossier">＋</button></div><div id="folders"></div><div class="storage-note"><span class="status-dot"></span><strong>Un espace privé</strong><p>Vos titres et vos contenus sont chiffrés au repos.</p></div></aside>
+          <div class="collection-body"><div class="collection-toolbar"><label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Rechercher dans mes mémos…" maxlength="200" autocomplete="off" aria-label="Rechercher"></label><span id="item-count" class="hint"></span></div><div id="items" class="items"></div></div>
+        </div>
+      </section>
+      <section id="tools-view" hidden><div class="page-heading"><div><span class="eyebrow">UNE BOÎTE À OUTILS LOCALE</span><h1>Les outils<span class="accent">.</span></h1><p>Des utilitaires qui travaillent uniquement dans votre navigateur.</p></div></div>
+        <div class="tool-grid">
+          <article class="panel"><span class="tool-symbol">✳</span><h2>Générateur de mots de passe</h2><p>Une génération aléatoire avec Web Crypto.</p><label for="password-length">Longueur</label><input type="number" id="password-length" min="12" max="128" value="24"><div class="generated"><output id="generated-password"></output></div><div class="actions"><button type="button" id="generate-password" class="primary">Générer</button><button type="button" id="copy-generated" class="secondary">Copier</button></div></article>
+          <article class="panel"><span class="tool-symbol">{ }</span><h2>JSON et texte</h2><label for="tool-input">Texte à transformer</label><textarea id="tool-input" rows="6" spellcheck="false" placeholder='{"bonjour":"WolfGuard"}'></textarea><div class="actions wrap"><button type="button" data-transform="json" class="secondary">Formater JSON</button><button type="button" data-transform="encode" class="secondary">Base64 →</button><button type="button" data-transform="decode" class="secondary">← Base64</button><button type="button" data-transform="url" class="secondary">Encoder URL</button><button type="button" data-transform="unurl" class="secondary">Décoder URL</button></div><pre id="tool-output" tabindex="0"></pre><button type="button" id="copy-tool" class="text-button">Copier le résultat</button></article>
+          <article class="panel"><span class="tool-symbol">#</span><h2>Empreinte SHA-256</h2><p>Vérifiez l’empreinte d’un fichier sans l’envoyer.</p><label for="hash-file">Fichier (32 Mo maximum)</label><input type="file" id="hash-file"><pre id="hash-output" tabindex="0"></pre></article>
+          <article class="panel muted-panel"><span class="tool-symbol">⌘</span><h2>Outils Windows</h2><p>Les scans réseau, l’observation des connexions et les commandes système restent disponibles dans l’application Windows. Le navigateur n’autorise pas ces accès.</p></article>
+        </div>
+      </section>
+    </main>
+    <footer class="footer"><span>WolfGuard Web</span><span id="save-state" role="status">Espace chiffré enregistré</span><span>Verrouillage après 5 min d’inactivité</span></footer>
+  </div>
+
+  <dialog id="editor-dialog" aria-labelledby="editor-title"><form id="editor-form"><div class="dialog-heading"><div><span class="eyebrow" id="editor-eyebrow">MÉMO</span><h2 id="editor-title">Nouveau mémo</h2></div><button type="button" class="icon-button" data-close="editor-dialog" aria-label="Fermer">×</button></div><input type="hidden" id="item-id"><label for="item-title">Titre</label><input id="item-title" maxlength="250" required><label for="item-folder">Dossier</label><select id="item-folder"></select><div id="vault-fields" hidden><label for="item-username">Identifiant</label><input id="item-username" maxlength="2000" autocomplete="off"><label for="item-password">Mot de passe</label><div class="password-row"><input id="item-password" type="password" maxlength="2000" autocomplete="new-password"><button type="button" id="toggle-password" class="secondary">Afficher</button><button type="button" id="fill-password" class="secondary">Générer</button><button type="button" id="copy-password" class="secondary">Copier</button></div><label for="item-url">Adresse du site ou du serveur</label><input id="item-url" maxlength="2000" placeholder="https://…" autocomplete="off"></div><label for="item-content" id="content-label">Contenu</label><textarea id="item-content" rows="12" maxlength="500000" spellcheck="true"></textarea><p class="hint">Tout le contenu de cette fiche est chiffré lors de l’enregistrement.</p><div class="actions dialog-actions"><button type="button" id="delete-item" class="danger" hidden>Supprimer</button><button type="button" class="secondary" data-close="editor-dialog">Annuler</button><button type="submit" id="save-item" class="primary">Enregistrer</button></div><p id="editor-error" class="error" role="alert"></p></form></dialog>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="dialog-heading"><h2 id="settings-title">Paramètres</h2><button type="button" data-close="settings-dialog" class="icon-button" aria-label="Fermer">×</button></div><section class="settings-section"><h3>Vos sauvegardes</h3><p>Votre espace reste dans ce navigateur, sur cet appareil. Exportez une copie chiffrée pour le retrouver ailleurs.</p><div class="actions wrap"><button type="button" id="export-backup" class="primary">Exporter une sauvegarde</button><button type="button" id="restore-backup" class="secondary">Restaurer une sauvegarde</button></div></section><section class="settings-section"><h3>Mot de passe maître</h3><p>Le changement rechiffre l’espace local. Les anciennes sauvegardes conservent leur ancien mot de passe.</p><form id="change-password-form"><label for="current-password">Mot de passe actuel</label><input id="current-password" type="password" required autocomplete="current-password" maxlength="1024"><label for="new-password">Nouveau mot de passe (14 caractères minimum)</label><input id="new-password" type="password" required minlength="14" maxlength="1024" autocomplete="new-password"><label for="new-password-confirm">Confirmer</label><input id="new-password-confirm" type="password" required minlength="14" maxlength="1024" autocomplete="new-password"><button type="submit" class="secondary">Changer le mot de passe</button><p id="settings-error" class="error" role="alert"></p></form></section><section class="settings-section"><h3>Protection de la session</h3><p>Verrouillage après 5 minutes d’inactivité et dès que l’onglet est masqué. Le mot de passe reste nécessaire à chaque ouverture.</p><p class="hint">Aucun système de récupération. Conservez votre mot de passe maître en lieu sûr. Le site et le navigateur doivent rester dignes de confiance lorsque l’espace est ouvert.</p></section></dialog>
+  <dialog id="folder-dialog" aria-labelledby="folder-title"><form id="folder-form"><div class="dialog-heading"><h2 id="folder-title">Nouveau dossier</h2><button type="button" data-close="folder-dialog" class="icon-button" aria-label="Fermer">×</button></div><label for="folder-name">Nom du dossier</label><input id="folder-name" maxlength="100" required><div class="actions dialog-actions"><button type="button" data-close="folder-dialog" class="secondary">Annuler</button><button type="submit" class="primary">Créer</button></div></form></dialog>
+  <input type="file" id="backup-file" accept=".wgweb,application/json" hidden>
+</body>
+</html>

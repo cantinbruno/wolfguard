@@ -1,0 +1,19 @@
+# Only this independent web directory belongs in its repository.
+node_modules/
+__pycache__/
+test-results/
+.cache/
+.env
+.env.*
+*.sqlite*
+*.db
+*.itw
+*.wgmodule
+*.wgweb
+*.exe
+*.zip
+*.tar
+*.bak
+donnees/
+backups/
+maintenance/

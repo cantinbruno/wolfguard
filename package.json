@@ -1,0 +1,7 @@
+{
+  "name": "wolfguard-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "python tests/browser_test.py", "preview": "python -m http.server 4173 --bind 127.0.0.1 --directory docs"}
+}
