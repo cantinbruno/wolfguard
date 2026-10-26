@@ -261,7 +261,7 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js'),import('./storage.js')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=be26b62f47c9a379'),import('./storage.js?wg=be26b62f47c9a379')]);
     $('#pinDots').classList.add('hidden'); $('#keypad').classList.add('hidden');
     const form=document.createElement('form'); form.id='webAccessForm';
     form.innerHTML='<label>Mot de passe maître<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le mot de passe<input id="webConfirm" type="password" maxlength="1024" autocomplete="new-password"></label><p class="web-access-hint">14 caractères minimum à la création. Ce mot de passe protège la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';
