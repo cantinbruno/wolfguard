@@ -21,12 +21,22 @@ function verify(directory) {
 }
 verify(source);
 verify(path.join(root,'browser'));
+digest.update(readFileSync(fileURLToPath(import.meta.url)));
 const revision=digest.digest('hex').slice(0,16);
 if (output !== path.resolve(root, 'docs') || path.dirname(output) !== root || (existsSync(output) && lstatSync(output).isSymbolicLink())) throw new Error('Répertoire de publication invalide.');
 if (existsSync(output)) rmSync(output, {recursive:true});
 mkdirSync(output);
 cpSync(source, output, {recursive:true});
 cpSync(path.join(root, 'browser'), path.join(output, 'browser'), {recursive:true});
+// All sections ship with the web application. Omit Windows module installation
+// before the settings dialog binds its tabs and keyboard navigation.
+const settingsFile=path.join(output,'js/views/settings.js');
+let settings=readFileSync(settingsFile,'utf8');
+settings=settings.replace(/<button\b[^>]*data-settings-tab="modules"[^>]*>[\s\S]*?<\/button>/g,'');
+settings=settings.replace(/<section\b[^>]*id="settings-modules"[^>]*>[\s\S]*?<\/section>/g,'');
+settings=settings.replace("['security', 'data', 'interface', 'modules']","['security', 'data', 'interface']");
+if (/data-settings-tab="modules"|id="settings-modules"|\$\{moduleManagerHTML\(\)\}/.test(settings)) throw new Error('L’import des sections Windows doit être absent des paramètres web.');
+writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'unsafe-inline'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');

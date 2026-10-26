@@ -241,7 +241,7 @@ const webWorkspace = (() => {
   };
   openSettings=async initialTab => {
     if (!session) return;
-    await originalSettings(initialTab);
+    await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
     if (!session) { closeModal(); return; }
     $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');
@@ -265,7 +265,7 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=2cf1200d07145b5a'),import('./storage.js?wg=2cf1200d07145b5a')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=8276d94bfc9e3443'),import('./storage.js?wg=8276d94bfc9e3443')]);
     $('#pinDots').classList.add('hidden'); $('#keypad').classList.add('hidden');
     const form=document.createElement('form'); form.id='webAccessForm';
     form.innerHTML='<label>Code d’accès<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow">Confirmer le code<input id="webConfirm" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><p class="web-access-hint">Code de 8 chiffres pour protéger la base complète.</p><button type="submit" class="primary" id="webUnlock">Ouvrir</button>';

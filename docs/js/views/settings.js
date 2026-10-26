@@ -108,7 +108,7 @@ async function openSettings(initialTab = 'security') {
   const databaseFiles = db?.native ? db.storageFiles() : [];
   const multipleDatabases = databaseFiles.length > 1;
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
-  const tabName = ['security', 'data', 'interface', 'modules'].includes(initialTab) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface'].includes(initialTab) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -119,7 +119,7 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
+          
         </nav>
         <div class="settings-workspace">
           <strong>${esc(filename)}</strong>
@@ -128,7 +128,7 @@ async function openSettings(initialTab = 'security') {
         </div>
       </aside>
       <div class="settings-main">
-        <section class="settings-panel hidden" id="settings-modules" data-settings-panel="modules" role="tabpanel" aria-labelledby="settings-tab-modules">${moduleManagerHTML()}</section>
+        
         <section class="settings-panel hidden" id="settings-security" data-settings-panel="security" role="tabpanel" aria-labelledby="settings-tab-security">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Sécurité</h3></div><span class="settings-status">Session active</span></header>
           <div class="settings-row">

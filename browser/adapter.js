@@ -241,7 +241,7 @@ const webWorkspace = (() => {
   };
   openSettings=async initialTab => {
     if (!session) return;
-    await originalSettings(initialTab);
+    await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
     if (!session) { closeModal(); return; }
     $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');

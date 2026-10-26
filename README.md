@@ -4,6 +4,8 @@ Site : **https://wolfguard.wavetools.fr/** · GitHub Pages : branche `main`, dos
 
 La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. La navigation, les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes, le coffre avec ses champs personnalisés et les paramètres sont conservés. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
 
+Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
+
 Les six outils d’origine restent visibles : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : un site statique ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
 
 ## Sources et publication automatique
