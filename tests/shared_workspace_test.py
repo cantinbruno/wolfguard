@@ -87,6 +87,18 @@ def run(backend=None):
             print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
 
+            first.evaluate("openSection('scan-passive')");first.wait_for_function('()=>!sectionTransition.active')
+            first.locator('#wgScanPaste').click();first.locator('#wgScanPasteText').fill('[{"address":"192.0.2.77","port":22,"transport":"TCP","status":"listening"}]')
+            first.locator('#wgScanPasteName').fill('Releve partage de test');first.locator('#wgScanAnalyze').click()
+            first.locator('#wgScanSave').click();first.locator('.app-dialog-submit').click()
+            expect(first.locator('#wgScanStatus')).to_contain_text('Relevé enregistré dans',timeout=15000)
+            second.evaluate('lockApplication()');unlock(second)
+            second.evaluate("openSection('scan-passive')");second.wait_for_function('()=>!sectionTransition.active')
+            second.locator('#wgScanSaved').select_option('0')
+            expect(second.locator('#wgScanReportStamp')).to_contain_text('Releve partage de test')
+            second.locator('[data-wg-tab=rows]').click();expect(second.locator('#wgScanRows tbody')).to_contain_text('192.0.2.77')
+            print('PASS: rapport de scan enregistre chiffre et recupere sur un second appareil avec le meme code')
+
             first.evaluate("async()=>{const item=await get('items','memo-test');item.title='Modification du premier appareil';await put('items',item)}")
             # A stale editor must not overwrite the newly committed remote data.
             result=second.evaluate("""async()=>{const item=await get('items','memo-test');item.title='Conflit du second appareil';try{await put('items',item);return 'incorrect'}catch(e){return e.message}}""")

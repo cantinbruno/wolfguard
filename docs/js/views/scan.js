@@ -216,6 +216,7 @@ function scanServiceLabel(port, transport = 'TCP') {
 }
 
 function resetScanTool() {
+  webScanWorkspace.reset();
   $('#passiveObservationDialog')?.close();
   $('#activeObservationDialog')?.close();
   for (const [strategy, view] of Object.entries(scanViews)) {
@@ -253,6 +254,7 @@ desktopBridge.on('scan.progress', update => {
 });
 
 async function renderScanWorkspace() {
+  if (!desktopBridge.available) return webScanWorkspace.render(state.section === 'scan-active' ? 'active' : 'passive');
   scanView = scanViews[state.section === 'scan-active' ? 'active' : 'passive'];
   const view = scanView,
     passive = view.values.strategy === 'passive';

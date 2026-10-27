@@ -44,6 +44,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des animations echouee. Aucune publication.' }
     & python tests/editor_layout_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification de l editeur et de la barre fixe echouee. Aucune publication.' }
+    & python tests/scan_workspace_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des espaces scan echouee. Aucune publication.' }
     & python tests/timeout_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des delais de securite echouee. Aucune publication.' }
     & python tests/security_test.py
