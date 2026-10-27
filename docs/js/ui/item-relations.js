@@ -39,7 +39,7 @@ async function openItemRelations(id) {
   modal('Fiches li\u00e9es', `<div class="relation-picker">
     <div class="relation-picker-source">${ITEM_RELATION_ICON}<span>${esc(source.title||'Sans titre')}</span></div>
     <div class="relation-picker-filters"><label class="workspace-catalog-search">${PROTOCOL_ICONS.search}<input id="relationSearch" type="search" maxlength="200" placeholder="Rechercher une fiche" aria-label="Rechercher une fiche" autocomplete="off">${collectionSearchClearHTML('clearRelationSearch')}</label>
-      <select id="relationSection" aria-label="Section"><option value="all">Toutes les sections</option>${[['library','Mes fiches'],['tools','Outils'],['checklist','Checklist']].map(([section,label])=>'<option value="'+section+'">'+label+'</option>').join('')}</select></div>
+      <select id="relationSection" aria-label="Section"><option value="all">Toutes les sections</option>${[['library','Mes fiches'],['tools','Outils']].map(([section,label])=>'<option value="'+section+'">'+label+'</option>').join('')}</select></div>
     <div class="relation-picker-state"><label><input id="relationSelectedOnly" type="checkbox">S\u00e9lectionn\u00e9es</label><span id="relationCount" role="status" aria-live="polite"></span></div>
     <div id="relationChoices" class="relation-picker-list"></div><p id="relationEmpty" class="item-relations-empty" hidden>Aucune fiche.</p>
     <p id="relationError" class="network-error" role="alert" hidden></p>

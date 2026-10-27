@@ -5,7 +5,7 @@ const topNavigation = (() => {
   const labels = {
     library: 'Mémo',
     tools: 'Outils',
-    checklist: 'Checklist'
+    vault: 'Coffre-fort'
   };
 
   function positionIndicator() {

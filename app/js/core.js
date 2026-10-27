@@ -47,7 +47,6 @@ const timestamp = value => {
   return Number.isFinite(result) ? result : 0
 };
 const typeLabel = t => ({
-  task: 'Tâche',
   vault: 'Coffre',
   memo: 'Fiche',
   personal: 'Note',
@@ -60,7 +59,7 @@ const typeLabel = t => ({
 })[t] || t;
 const storageSectionForItem = item => item.type === 'vault' ? 'vault' : item.type === 'command' ? 'command' : item.type === 'protocol' ? 'protocol' : item.type === 'personal' ? 'personal' : ['memo', 'procedure'].includes(item.type) ? 'memo' : 'template';
 
-const sectionForItem = item => item.type === 'task' ? 'checklist' : ['vault', 'protocol'].includes(item.type) ? item.type : 'library';
+const sectionForItem = item => ['vault', 'protocol'].includes(item.type) ? item.type : 'library';
 
 const isDeleted = x => !!x?.deletedAt;
 async function activeItems() {

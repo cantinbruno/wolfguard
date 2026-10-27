@@ -2,8 +2,8 @@
 
 const primaryWorkspaces = {
   memo: null,
-  checklist: {
-    section: 'checklist',
+  vault: {
+    section: 'vault',
     folder: null,
     item: null,
     mode: 'view'
@@ -16,13 +16,13 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => section === 'modules' ? 'modules' : section === 'checklist' ? 'checklist' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
-const availablePrimarySections = () => ['library', 'tools', 'checklist'].filter(section => workspaceModules.allows(section));
+const primarySectionFor = section => section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const availablePrimarySections = () => ['library', 'tools', 'vault'].filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
   primaryWorkspaces.memo = null;
-  primaryWorkspaces.checklist = {
-    section: 'checklist',
+  primaryWorkspaces.vault = {
+    section: 'vault',
     folder: null,
     item: null,
     mode: 'view'
@@ -47,7 +47,7 @@ function syncMemoDraftIndicator() {
   button?.classList.toggle('has-draft', draft);
   for (const tab of document.querySelectorAll('.workspace-section-button')) {
     const section = tab.dataset.section;
-    const shortcut = {library: '1', tools: '2', checklist: '3'}[section];
+    const shortcut = {library: '1', tools: '2', vault: '3'}[section];
     const label = tab.textContent + ' (Alt+' + shortcut + ')' + (section === 'library' && draft ? ' · Brouillon de fiche en cours' : '');
     tab.title = label;
     tab.setAttribute('aria-label', label);
@@ -80,8 +80,8 @@ function rememberPrimaryWorkspace(destination) {
         mode: state.mode
       }
     };
-  } else if (from === 'checklist') primaryWorkspaces.checklist = {
-    section: 'checklist',
+  } else if (from === 'vault') primaryWorkspaces.vault = {
+    section: 'vault',
     folder: state.folder,
     item: state.item,
     mode: 'view'
@@ -129,8 +129,8 @@ async function switchPrimaryWorkspace(section) {
   }
   if (target === 'library') return openSection('library');
   if (target === 'modules') return openSection('modules');
-  if (target === 'checklist') return openSection('checklist', null, {
-    resume: primaryWorkspaces.checklist
+  if (target === 'vault') return openSection('vault', null, {
+    resume: primaryWorkspaces.vault
   });
   const saved = primaryWorkspaces.tools;
   return openSection(saved.section, null, {
@@ -144,6 +144,6 @@ document.addEventListener('keydown', event => {
   switchPrimaryWorkspace({
     '1': 'library',
     '2': 'tools',
-    '3': 'checklist'
+    '3': 'vault'
   } [event.key]);
 });

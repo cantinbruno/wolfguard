@@ -15,7 +15,6 @@ async function breadcrumbHTML(item) {
     const section = sectionForItem(item);
     const sec = {
       library: 'Mes fiches',
-      checklist: 'Checklist',
       vault: 'Coffre',
       command: 'Commandes',
       memo: 'Mémo',

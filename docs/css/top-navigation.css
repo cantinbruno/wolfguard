@@ -51,24 +51,24 @@
   --ui-accent: var(--workspace-tools);
 }
 
-:root:has(#app[data-primary-section="checklist"]:not(.hidden)) {
-  --ui-accent: var(--workspace-checklist);
+:root:has(#app[data-primary-section="vault"]:not(.hidden)) {
+  --ui-accent: var(--workspace-vault);
   --ui-accent-hover: #a1ddbd;
   --ui-accent-soft: #203b34;
-  --ui-highlight: var(--workspace-checklist);
+  --ui-highlight: var(--workspace-vault);
   --ui-highlight-hover: #a1ddbd;
   --ui-highlight-soft: #203b34;
   --vault: var(--workspace-vault);
 }
 
-#app[data-primary-section="checklist"] {
-  --workspace-accent: var(--workspace-checklist);
-  --ui-accent: var(--workspace-checklist);
+#app[data-primary-section="vault"] {
+  --workspace-accent: var(--workspace-vault);
+  --ui-accent: var(--workspace-vault);
 }
 
-.section-accent-checklist {
-  --accent: var(--workspace-checklist);
-  --section-accent: var(--workspace-checklist);
+.section-accent-vault {
+  --accent: var(--workspace-vault);
+  --section-accent: var(--workspace-vault);
 }
 
 /* Main header. */
@@ -294,8 +294,8 @@
   --button-accent: var(--workspace-tools);
 }
 
-.workspace-section-button[data-section="checklist"] {
-  --button-accent: var(--workspace-checklist);
+.workspace-section-button[data-section="vault"] {
+  --button-accent: var(--workspace-vault);
 }
 
 .topbar .section-navigation .workspace-section-button:hover {

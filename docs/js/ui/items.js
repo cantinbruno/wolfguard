@@ -6,7 +6,7 @@ async function openItem(id) {
   try {
     saveExplorerScroll();
     const x = await get('items', id);
-    if (!x || x.deletedAt) return;
+    if (!x || x.deletedAt || !workspaceModules.allowsItem(x)) return;
     state.item = id;
     state.folder = x.folderId || null;
     state.mode = 'view';
@@ -36,6 +36,32 @@ async function setMode(m) {
 }
 
 /* CREATE */
+async function newVault() {
+  const x = {
+    id: uid(),
+    type: 'vault',
+    title: 'Nouvel accès',
+    vaultBlobEnc: await encSecret(JSON.stringify({
+      username: '',
+      password: '',
+      url: '',
+      host: '',
+      notes: '',
+      custom: []
+    })),
+    encryptionVersion: 2,
+    tags: [],
+    folderId: normalFolder(),
+    favorite: false,
+    createdAt: now(),
+    updatedAt: now()
+  };
+  await put('items', x);
+  state.item = x.id;
+  state.mode = 'edit';
+  await renderWorkspace();
+}
+
 function normalFolder() {
   return state.folder || null
 }
@@ -144,7 +170,7 @@ async function folderMenu(id) {
 
 async function openById(id) {
   const x = await get('items', id);
-  if (!x || x.deletedAt || $('#app').classList.contains('hidden')) return;
+  if (!x || x.deletedAt || !workspaceModules.allowsItem(x) || $('#app').classList.contains('hidden')) return;
   const sec = sectionForItem(x);
   if (await openSection(sec, id)) await logActivity(x);
 }

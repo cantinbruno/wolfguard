@@ -19,19 +19,19 @@ function isScanSection(section) {
 }
 
 const workspaceModules = (() => {
-  const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'checklist']);
+  const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);
   const has = id => installed.has(id);
-  const allows = section => section !== 'vault' && (section === 'modules' || (section === 'checklist' ? has('checklist') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools')));
+  const allows = section => section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools'));
   return {
     has,
     allows,
     get canSwitch() {
-      return ['memo', 'tools', 'checklist'].filter(has).length > 1;
+      return ['memo', 'tools', 'vault'].filter(has).length > 1;
     },
     get landingSection() {
-      return has('memo') ? 'library' : has('tools') ? 'tools' : has('checklist') ? 'checklist' : 'modules';
+      return has('memo') ? 'library' : has('tools') ? 'tools' : has('vault') ? 'vault' : 'modules';
     },
-    allowsItem: item => allows(item.type === 'task' ? 'checklist' : ['vault', 'protocol'].includes(item.type) ? item.type : 'library')
+    allowsItem: item => item.type !== 'task' && allows(['vault', 'protocol'].includes(item.type) ? item.type : 'library')
   };
 })();
 

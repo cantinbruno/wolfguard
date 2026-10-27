@@ -1,4 +1,4 @@
-/* Dark-blue surfaces with orange memos, pink tools and a green checklist. */
+/* Dark-blue surfaces with orange memos, pink tools and a green vault. */
 :root {
   --ui-page: #111c2b;
   --ui-sidebar: #0d1724;
@@ -19,7 +19,6 @@
   --workspace-library: #efa65e;
   --workspace-tools: #e5a0c5;
   --workspace-vault: #7ecba5;
-  --workspace-checklist: #7ecba5;
   --bg: var(--ui-page);
   --panel: var(--ui-sidebar);
   --panel2: var(--ui-surface);

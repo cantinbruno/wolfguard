@@ -226,7 +226,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
             folder = folders.get(folder.parentId);
           }
           const vault = item.type === 'vault';
-          const rich = !vault && !['command', 'task'].includes(item.type);
+          const rich = !vault && item.type !== 'command';
           const title = String(item.title || 'Sans titre');
           const tags = (item.tags || []).filter(tag => typeof tag === 'string').join(' ');
           const technology = [path.join(' / '), vault ? '' : item.vendor, vault ? '' : item.platform].filter(Boolean).join(' ');
@@ -293,9 +293,8 @@ window.WorkspaceSearch = class WorkspaceSearch {
       protocole: 'protocol',
       protocoles: 'protocol',
       protocol: 'protocol',
-      tache: 'task',
-      task: 'task',
-      checklist: 'task',
+      coffre: 'vault',
+      vault: 'vault',
       template: 'template',
       templates: 'template',
       mail: 'template',
@@ -458,8 +457,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
     const scopes = {
       all: 'Tout',
       library: 'Mes fiches',
-      tools: 'Outils',
-      checklist: 'Checklist'
+      tools: 'Outils'
     };
     const count = this.rows.length;
     const status = this.label || `${count} r\u00e9sultat${count === 1 ? '' : 's'}`;

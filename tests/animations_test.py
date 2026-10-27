@@ -81,10 +81,10 @@ def run():
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'backward' in page.evaluate('window.motionTrace.workspace')
             assert page.evaluate('window.motionTrace.slides.length')>=4
-            page.locator('.workspace-section-button[data-section=checklist]').click()
+            page.locator('.workspace-section-button[data-section=vault]').click()
             page.wait_for_function("()=>!sectionTransition.active")
-            expect(page.locator('#checklistHeading')).to_be_visible()
-            expect(page.locator('.workspace-section-button[data-section=checklist]')).to_have_attribute('aria-pressed','true')
+            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_attribute('aria-pressed','true')
+            expect(page.locator('.workspace-section-button[data-section=checklist]')).to_have_count(0)
             page.locator('.workspace-section-button[data-section=library]').click()
             page.wait_for_function("()=>!sectionTransition.active")
             print('PASS: transitions entre sections dans les deux sens')

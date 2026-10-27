@@ -2,11 +2,11 @@
 
 Site : **https://wolfguard.wavetools.fr/** · GitHub Pages : branche `main`, dossier `/docs`.
 
-La version web reprend le HTML, les styles, les vues et les outils de l’application Windows. Elle conserve la navigation, les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes et les paramètres. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
+La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. La navigation, les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes, le coffre avec ses champs personnalisés et les paramètres sont conservés. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
 
-Les trois sections sont **Mémo, Outils et Checklist**. Checklist remplace le Coffre-fort : création, modification et suppression de tâches, notes, priorités, échéances, cases à cocher, progression, recherche et filtres (à faire, terminées, en retard). Un modèle de checklist de sécurité est proposé dans la section vide. Les tâches sont chiffrées avec l’espace et incluses dans les sauvegardes ; elles apparaissent dans la recherche globale. Le raccourci Alt+3 ouvre Checklist. Les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
+Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
 
-L’ancien Coffre-fort n’est plus accessible dans l’interface ni dans les résultats de recherche. Les anciennes données chiffrées restent conservées dans l’espace et les sauvegardes, sans conversion en tâches ni suppression automatique.
+Le Coffre-fort a repris sa place dans la navigation. Les éventuelles tâches créées pendant la version Checklist restent conservées dans l’espace chiffré et les sauvegardes, sans apparaître dans la navigation, la recherche ou les fiches liées.
 
 Le clavier apparaît directement à l’ouverture du site, sans animation avant la saisie du code. Le loup grandit puis éclate uniquement après un code correct. Les espaces et outils glissent réellement grâce à l’animation directe du contenu, sans dépendre de View Transitions. Les paramètres gardent leur animation d’ouverture. Ces effets restent actifs même si Windows réduit ses animations.
 
@@ -43,7 +43,7 @@ Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de co
 
 Sur ce PC, l’ancienne application Windows complète et ses bases sont conservées dans `.local-archive/windows-original/` ; l’ancienne version web séparée est dans `.local-archive/previous-web/`. L’intégralité de `.local-archive/` est exclue de Git et de la publication. Les empreintes des fichiers de données ont été vérifiées après leur déplacement. L’ancienne application peut être lancée avec `.local-archive/windows-original/WolfGuard.exe`.
 
-## Données locales chiffrées
+## Données locales et coffre
 
 Un code d’accès de **huit chiffres exactement**, de 0 à 9, remplace le mot de passe maître dans le même écran d’accès que l’application d’origine. Les zéros au début sont conservés ; lettres et espaces sont exclus. Le code est choisi et confirmé à la création, ou changé dans Paramètres → Sécurité. Les bases et sauvegardes existantes restent accessibles avec leur ancien mot de passe jusqu’à leur changement volontaire.
 
@@ -51,7 +51,7 @@ La saisie utilise le pavé numérique d’origine avec huit pastilles masquées.
 
 Les touches physiques de la rangée des chiffres fonctionnent aussi sur AZERTY sans Maj. Le pavé numérique fonctionne avec ou sans Verr Num. Retour arrière efface le dernier chiffre ; Suppr et Échap effacent la saisie. Le clavier reste actif après un clic sur les boutons du pavé à l’écran.
 
-L’espace complet, titres et métadonnées compris, est chiffré avant son enregistrement dans IndexedDB : AES-256-GCM, IV aléatoire par écriture, sel aléatoire, PBKDF2-HMAC-SHA-256 à 600 000 itérations. Aucun code ni vérificateur rapide n’est enregistré. Les clés Web Crypto sont non extractibles. Les éventuels anciens champs du coffre conservent aussi leur chiffrement et restent compatibles avec le changement du code.
+L’espace complet, titres et métadonnées compris, est chiffré avant son enregistrement dans IndexedDB : AES-256-GCM, IV aléatoire par écriture, sel aléatoire, PBKDF2-HMAC-SHA-256 à 600 000 itérations. Aucun code ni vérificateur rapide n’est enregistré. Les clés Web Crypto sont non extractibles. Le coffre conserve également le chiffrement de ses champs.
 
 Les écritures sont transactionnelles, vérifient leur révision et excluent un deuxième onglet éditeur. Les références aux clés et les contenus affichés sont abandonnés au verrouillage. JavaScript ne garantit pas l’effacement physique immédiat de toutes les chaînes en mémoire. Le délai de verrouillage est réglable dans les paramètres ; masquer l’onglet verrouille aussi l’espace.
 
@@ -93,4 +93,4 @@ python tests/timeout_test.py
 node --test tests/migration.test.mjs
 ```
 
-Les tests couvrent l’interface, la bibliothèque fournie, l’éditeur riche, les commandes intégrées, le nettoyage des contenus, les tâches et leur persistance, les outils, les sauvegardes, le changement du code, la reprise de l’ancienne version web et le transfert sans perte depuis Windows. Ils utilisent uniquement des données synthétiques et des profils de navigateur temporaires.
+Les tests couvrent l’interface d’origine, la bibliothèque fournie, l’éditeur riche, les commandes intégrées, le nettoyage des contenus, le coffre, les outils, les sauvegardes, le changement du mot de passe, la reprise de l’ancienne version web et le transfert sans perte depuis Windows. Ils utilisent uniquement des données synthétiques et des profils de navigateur temporaires.

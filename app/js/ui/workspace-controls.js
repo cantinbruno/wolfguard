@@ -26,7 +26,6 @@ function workspaceNavigationIcon(name) {
 }
 
 function workspaceSectionIcon(section) {
-  if (section === 'checklist') return '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 2 2 4-4M3 16l2 2 4-4M13 6h8M13 16h8"/></svg>';
   if (section === 'home') return workspaceNavigationIcon('house');
   if (['scan', 'scan-passive', 'scan-active'].includes(section)) return '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4-6.4M5.6 5.6a9 9 0 0 1 12.8 12.8"/><circle cx="8" cy="15" r="1"/><circle cx="15" cy="16" r="1"/></svg>';
   if (section === 'library') return workspaceNavigationIcon('file-text');
@@ -43,7 +42,6 @@ function workspaceNavigationHeadingHTML(section, count) {
     title = protocol ? 'Ports & protocoles' : sectionName();
   const unit = {
     library: 'fiches',
-    checklist: 'tâches',
     vault: 'acc\u00e8s',
     memo: 'm\u00e9mos',
     personal: 'notes',
@@ -98,7 +96,7 @@ function workspaceView(section = state.section) {
 function workspaceToolbarHTML(section, layout) {
   const create = {
     library: ['newLibraryItem', 'Nouvelle fiche'],
-    checklist: ['editChecklistTask', 'Ajouter une tâche']
+    vault: ['newVault', 'Nouvel accès']
   } [section];
   if (!create) return '';
   return `<div class="workspace-tools">

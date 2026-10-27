@@ -1,6 +1,7 @@
 'use strict';
 
-// Adapt the original UI to an encrypted browser workspace.
+// The original UI, editors and tools stay unchanged. Only desktop storage and
+// the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
   let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
@@ -15,6 +16,7 @@ const webWorkspace = (() => {
   }
   const announceAttempts = scope => attemptChannel?.postMessage({scope});
   const originalSettings = openSettings;
+  // Keep saved Checklist records readable after restoring the vault interface.
   const types = new Set(['task','vault','memo','procedure','personal','protocol','command','mail','report','template']);
   const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
 
@@ -247,7 +249,7 @@ const webWorkspace = (() => {
     locking=true; epoch++; session=null; connectedWorkspaceReady=false;
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
-    resetPrimaryWorkspaces(); resetChecklistView(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
+    resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
     state.vaultKey=null; state.item=null; state.folder=null; state.mode='view'; sessionAccessCode='';
     $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
@@ -328,8 +330,21 @@ const webWorkspace = (() => {
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
   };
+  generatePassword=cryptographicPassword;
+  function cryptographicPassword(options={}) {
+    const length=Math.max(8,Math.min(128,Number(options.length)||24));
+    let alphabet='';
+    if (options.lower!==false) alphabet+='abcdefghijkmnopqrstuvwxyz';
+    if (options.upper!==false) alphabet+='ABCDEFGHJKLMNPQRSTUVWXYZ';
+    if (options.numbers!==false) alphabet+='23456789';
+    if (options.symbols!==false) alphabet+='!@#$%&*+-_=?.';
+    if (!alphabet) alphabet='abcdefghijkmnopqrstuvwxyz';
+    const limit=Math.floor(256/alphabet.length)*alphabet.length; let value='';
+    while (value.length<length) for (const byte of crypto.getRandomValues(new Uint8Array(128))) { if (byte<limit) value+=alphabet[byte%alphabet.length]; if (value.length===length) break; }
+    return value;
+  }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=ffd6583361b80052'),import('./storage.js?wg=ffd6583361b80052')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=44c23f2d16063634'),import('./storage.js?wg=44c23f2d16063634')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -389,7 +404,7 @@ const webWorkspace = (() => {
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); resetChecklistView(); $('#content').replaceChildren(); closeModal(); release(); });
+    window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); $('#content').replaceChildren(); closeModal(); release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
