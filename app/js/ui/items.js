@@ -116,7 +116,7 @@ async function newFolder(parentOverride = undefined) {
     <div class="field"><label>Dossier parent</label>
       <select id="folderParent"><option value="">Racine</option>${folderSelectOptions(folders,initialParent)}</select>
     </div>
-    <div class="actions"><button class="primary" id="saveFolder">Créer</button><button class="secondary" onclick="closeModal()">Annuler</button></div>`);
+    <div class="actions"><button class="primary" id="saveFolder">Créer</button><button class="secondary" data-wg-click="closeModal()">Annuler</button></div>`);
   $('#saveFolder').onclick = async () => {
     const n = $('#folderName').value.trim();
     if (!n) return;
@@ -148,7 +148,7 @@ async function folderMenu(id) {
       <button class="primary" id="ren">Enregistrer</button>
       <button class="secondary" id="sub">Créer un sous-dossier</button>
       <button class="danger" id="df">Supprimer</button>
-      <button class="secondary" onclick="closeModal()">Fermer</button>
+      <button class="secondary" data-wg-click="closeModal()">Fermer</button>
     </div>`);
   $('#ren').onclick = async () => {
     f.name = $('#folderRename').value.trim() || f.name;

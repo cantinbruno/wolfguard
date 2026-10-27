@@ -1,10 +1,14 @@
 // Native Web Crypto only. No secret, verifier or extractable key is persisted.
 const FORMAT = 'wolfguard-web';
 export const ITERATIONS = 600000;
+export const WORKSPACE_VERSION = 3;
 export const MAX_BYTES = 32 * 1024 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
-function aad(value) { return encoder.encode(`${value.format}|${value.version}|AES-256-GCM|PBKDF2-SHA256`); }
+function aad(value) {
+  if (value.version === WORKSPACE_VERSION) return encoder.encode(JSON.stringify([value.format,value.version,value.cipher,value.kdf,value.iterations,value.revision,value.salt,value.iv]));
+  return encoder.encode(`${value.format}|${value.version}|AES-256-GCM|PBKDF2-SHA256`);
+}
 
 function base64(bytes) {
   let text = '';
@@ -15,10 +19,12 @@ function unbase64(text, max) {
   if (typeof text !== 'string' || text.length > Math.ceil(max / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw new Error('Format de sauvegarde invalide.');
   const raw = atob(text);
   if (raw.length > max) throw new Error('Sauvegarde trop volumineuse.');
-  return Uint8Array.from(raw, c => c.charCodeAt(0));
+  const bytes = Uint8Array.from(raw, c => c.charCodeAt(0));
+  if (base64(bytes) !== text) throw new Error('Encodage de sauvegarde invalide.');
+  return bytes;
 }
 export function validateEnvelope(value) {
-  if (!value || !((value.format === FORMAT && value.version === 1) || (value.format === 'wolfguard-workspace' && value.version === 2)) || value.kdf !== 'PBKDF2-SHA256' || value.cipher !== 'AES-256-GCM' || value.iterations !== ITERATIONS || !Number.isSafeInteger(value.revision) || value.revision < 1) throw new Error('Cette sauvegarde WolfGuard Web est invalide ou incompatible.');
+  if (!value || !((value.format === FORMAT && value.version === 1) || (value.format === 'wolfguard-workspace' && [2,WORKSPACE_VERSION].includes(value.version))) || value.kdf !== 'PBKDF2-SHA256' || value.cipher !== 'AES-256-GCM' || value.iterations !== ITERATIONS || !Number.isSafeInteger(value.revision) || value.revision < 1) throw new Error('Cette sauvegarde WolfGuard Web est invalide ou incompatible.');
   if (unbase64(value.salt, 16).length !== 16 || unbase64(value.iv, 12).length !== 12 || unbase64(value.data, MAX_BYTES).length < 16) throw new Error('Sauvegarde incomplète.');
   return {format: value.format, version: value.version, kdf: 'PBKDF2-SHA256', cipher: 'AES-256-GCM', iterations: ITERATIONS, revision: value.revision, salt: value.salt, iv: value.iv, data: value.data};
 }
@@ -33,13 +39,15 @@ export async function deriveKey(password, salt) {
   } finally { bytes.fill(0); }
 }
 export async function seal(payload, key, salt, revision) {
+  if (!(salt instanceof Uint8Array) || salt.length !== 16 || !Number.isSafeInteger(revision) || revision < 1) throw new Error('Paramètres de chiffrement invalides.');
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const bytes = encoder.encode(JSON.stringify(payload));
-  const header = Array.isArray(payload.settings) ? {format:'wolfguard-workspace',version:2} : {format:FORMAT,version:1};
-  if (bytes.length > MAX_BYTES - 16) throw new Error('Espace trop volumineux (limite : 32 Mo).');
+  const format = Array.isArray(payload.settings) ? {format:'wolfguard-workspace',version:WORKSPACE_VERSION} : {format:FORMAT,version:1};
+  const header = {...format,cipher:'AES-256-GCM',kdf:'PBKDF2-SHA256',iterations:ITERATIONS,revision,salt:base64(salt),iv:base64(iv)};
   try {
+    if (bytes.length > MAX_BYTES - 16) throw new Error('Espace trop volumineux (limite : 32 Mo).');
     const encrypted = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv, additionalData: aad(header), tagLength: 128}, key, bytes));
-    return {...header, cipher: 'AES-256-GCM', kdf: 'PBKDF2-SHA256', iterations: ITERATIONS, revision, salt: base64(salt), iv: base64(iv), data: base64(encrypted)};
+    return {...header,data:base64(encrypted)};
   } finally { bytes.fill(0); }
 }
 export async function open(envelope, password) {

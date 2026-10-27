@@ -5,7 +5,8 @@ function documentHTML(html) {
     USE_PROFILES: {
       html: true
     },
-    FORBID_TAGS: ['style', 'form', 'button', 'input', 'select', 'textarea']
+    FORBID_TAGS: ['style', 'form', 'button', 'input', 'select', 'textarea', 'iframe', 'object', 'embed'],
+    SANITIZE_NAMED_PROPS: true
   })
 }
 
@@ -31,7 +32,7 @@ async function breadcrumbHTML(item) {
       chain.unshift(f);
       id = f.parentId || null;
     }
-    return `<div class="breadcrumb"><span onclick="openSection('${section}')">${esc(sec)}</span>${chain.map(f=>`<span class="sep">›</span><span onclick="selectFolder('${f.id}')">${esc(f.name)}</span>`).join('')}<span class="sep">›</span><span>${esc(item.title||'Sans titre')}</span></div>`;
+    return `<div class="breadcrumb"><span data-wg-click="openSection('${section}')">${esc(sec)}</span>${chain.map(f=>`<span class="sep">›</span><span data-wg-click="selectFolder('${f.id}')">${esc(f.name)}</span>`).join('')}<span class="sep">›</span><span>${esc(item.title||'Sans titre')}</span></div>`;
   } catch {
     return '';
   }
@@ -119,6 +120,41 @@ async function copyText(t) {
       }
     } catch {}
   }
+}
+
+// Never erase clipboard contents copied afterwards, and never request read access.
+const secretClipboard = (() => {
+  let timer=null, expected=null, generation=0;
+  async function digest(text) {
+    const bytes=new TextEncoder().encode(text);
+    try { return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).join(','); }
+    finally { bytes.fill(0); }
+  }
+  async function clear() {
+    clearTimeout(timer);timer=null;
+    const token=generation, hash=expected;
+    if(!hash || !navigator.clipboard?.readText || !navigator.permissions)return;
+    try {
+      const permission=await navigator.permissions.query({name:'clipboard-read'});
+      if(permission.state!=='granted')return;
+      const current=await navigator.clipboard.readText();
+      const currentHash=await digest(current);
+      if(token===generation && expected===hash && currentHash===hash)await navigator.clipboard.writeText('');
+    } catch {} finally { if(token===generation)expected=null; }
+  }
+  async function track(text) {
+    const token=++generation;
+    clearTimeout(timer);
+    const hash=await digest(text);
+    if(token!==generation)return;
+    expected=hash;timer=setTimeout(clear,30000);
+  }
+  return {clear,track};
+})();
+async function copySecret(text) {
+  const copied=await copyText(text);
+  if(copied){await secretClipboard.track(String(text ?? ''));if($('#app').classList.contains('hidden'))secretClipboard.clear();}
+  return copied;
 }
 
 /* EDITORS */

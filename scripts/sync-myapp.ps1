@@ -34,6 +34,8 @@ try {
   if ($changed) {
     & $Node scripts/build-web.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Preparation du site echouee.' }
+    & $Node scripts/check-publication.mjs
+    if ($LASTEXITCODE -ne 0) { throw 'Controle des fichiers publiables echoue. Aucun push.' }
     & python tests/original_app_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification navigateur echouee. Aucune publication.' }
     & python tests/keyboard_test.py
@@ -42,7 +44,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des animations echouee. Aucune publication.' }
     & python tests/timeout_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des delais de securite echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs
+    & python tests/security_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des protections de securite echouee. Aucune publication.' }
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }
@@ -51,6 +55,9 @@ try {
       & git commit -m 'Update WolfGuard from the myapp workspace'
       if ($LASTEXITCODE -ne 0) { throw 'Commit echoue.' }
     }
+  } else {
+    & $Node scripts/check-publication.mjs
+    if ($LASTEXITCODE -ne 0) { throw 'Controle des fichiers publiables echoue. Aucun push.' }
   }
   $ahead = & git rev-list --count origin/main..HEAD
   if ([int]$ahead -gt 0) {

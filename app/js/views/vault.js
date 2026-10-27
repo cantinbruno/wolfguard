@@ -87,7 +87,7 @@ function openPasswordGenerator() {
       <label><input id="pgSym" type="checkbox" checked> Symboles</label>
     </div>
     <div class="generated-password"><code id="pgOut"></code><button class="secondary" id="pgRegen">↻</button></div>
-    <div class="actions"><button class="primary" id="pgUse">Utiliser</button><button class="secondary" id="pgCopy">Copier</button><button class="secondary" onclick="closeModal()">Annuler</button></div>`);
+    <div class="actions"><button class="primary" id="pgUse">Utiliser</button><button class="secondary" id="pgCopy">Copier</button><button class="secondary" data-wg-click="closeModal()">Annuler</button></div>`);
   const regen = () => $('#pgOut').textContent = generatePassword({
     length: $('#pgLen').value,
     lower: $('#pgLower').checked,
@@ -99,7 +99,7 @@ function openPasswordGenerator() {
   $('#pgLen').oninput = regen;
   ['pgLower', 'pgUpper', 'pgNum', 'pgSym'].forEach(id => $('#' + id).onchange = regen);
   regen();
-  $('#pgCopy').onclick = () => copyText($('#pgOut').textContent);
+  $('#pgCopy').onclick = () => copySecret($('#pgOut').textContent);
   $('#pgUse').onclick = () => {
     const f = $('#fPass');
     if (f) f.value = $('#pgOut').textContent;
@@ -147,18 +147,28 @@ async function renderVaultDetail(item) {
   const mask = $('#passMask'),
     show = $('#showPassword');
   let revealed = false;
+  let revealTimer=null;
+  const conceal=()=>{
+    clearTimeout(revealTimer);revealTimer=null;revealed=false;
+    mask.textContent=password?'••••••••••••':'Aucun mot de passe';
+    show.textContent='Afficher';show.setAttribute('aria-label','Afficher le mot de passe');show.setAttribute('aria-pressed','false');
+  };
   show.addEventListener('click', () => {
+    if(!itemActionSessionValid(key))return;
+    clearTimeout(revealTimer);
     revealed = !revealed;
     mask.textContent = revealed ? password : '••••••••••••';
     show.textContent = revealed ? 'Masquer' : 'Afficher';
     show.setAttribute('aria-label', revealed ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
     show.setAttribute('aria-pressed', String(revealed));
+    if(revealed)revealTimer=setTimeout(conceal,15000);
   });
   const bindCopy = (button, value) => {
     if (!button) return;
     let feedbackTimer;
     button.addEventListener('click', async () => {
-      const copied = await copyText(value);
+      if(!itemActionSessionValid(key))return;
+      const copied = await copySecret(value);
       if (!button.isConnected) return;
       if (!copied) {
         appNotify('Impossible de copier dans le presse-papiers.', {kind: 'error'});
@@ -185,18 +195,18 @@ async function renderVaultEdit(item) {
   if (!itemActionSessionValid(key)) return;
   $('#detailHost').innerHTML = `
     <div class="vault-edit">
-      <div class="edit-banner" style="margin:14px 20px 0"><div>${crumb}<b>Modification de l'accès</b><div class="muted" style="font-size:12px">Tous les champs sensibles de cette fiche sont chiffrés ensemble.</div></div><button class="secondary" onclick="setMode('view')">Annuler</button></div>
+      <div class="edit-banner" style="margin:14px 20px 0"><div>${crumb}<b>Modification de l'accès</b><div class="muted" style="font-size:12px">Tous les champs sensibles de cette fiche sont chiffrés ensemble.</div></div><button class="secondary" data-wg-click="setMode('view')">Annuler</button></div>
       <div class="vault-edit-body">
         <div class="field"><label>Nom</label><input id="fTitle" value="${esc(item.title)}"></div>
         <div class="field"><label>Dossier</label><select id="fFolder"><option value="">Racine</option>${folderSelectOptions(folders,item.folderId)}</select></div>
         <div class="field"><label>Identifiant</label><input id="fUser" value="${esc(d.username||'')}"></div>
-        <div class="field"><label>Mot de passe</label><input id="fPass" value="${esc(d.password||'')}"><div class="password-tools"><button class="secondary" onclick="openPasswordGenerator()">⚙ Générer</button><button class="secondary" onclick="copyText($('#fPass').value)">Copier</button></div></div>
+        <div class="field"><label>Mot de passe</label><input id="fPass" type="password" autocomplete="new-password" spellcheck="false" value="${esc(d.password||'')}"><div class="password-tools"><button class="secondary" data-wg-click="openPasswordGenerator()">⚙ Générer</button><button class="secondary" data-wg-click="copySecret($('#fPass').value)">Copier</button></div></div>
         <div class="field third"><label>URL</label><input id="fUrl" value="${esc(d.url||'')}"></div>
         <div class="field third"><label>IP / Hostname</label><input id="fHost" value="${esc(d.host||'')}"></div>
-        <div class="custom-editor"><div class="field wide"><label>Champs personnalisés</label><div id="customFields">${(d.custom||[]).map(customRow).join('')}</div><button class="secondary" style="margin-top:8px" onclick="addCustom()">＋ Ajouter un champ</button></div></div>
+        <div class="custom-editor"><div class="field wide"><label>Champs personnalisés</label><div id="customFields">${(d.custom||[]).map(customRow).join('')}</div><button class="secondary" style="margin-top:8px" data-wg-click="addCustom()">＋ Ajouter un champ</button></div></div>
         <div class="field notes-field"><label>Notes</label><textarea id="fNotes">${esc(d.notes||'')}</textarea></div>
       </div>
-      <div class="vault-edit-footer"><button class="primary" onclick="saveVault('${item.id}')">Enregistrer</button><button class="secondary" onclick="duplicateItem('${item.id}')">Dupliquer</button><button class="danger" onclick="deleteItem('${item.id}')">Supprimer</button></div>
+      <div class="vault-edit-footer"><button class="primary" data-wg-click="saveVault('${item.id}')">Enregistrer</button><button class="secondary" data-wg-click="duplicateItem('${item.id}')">Dupliquer</button><button class="danger" data-wg-click="deleteItem('${item.id}')">Supprimer</button></div>
     </div>`;
 }
 
@@ -204,7 +214,7 @@ function customRow(x = {
   k: '',
   v: ''
 }) {
-  return `<div class="kv-row"><input class="ck" value="${esc(x.k)}" placeholder="Nom du champ"><input class="cv" value="${esc(x.v)}" placeholder="Valeur"><button class="secondary" onclick="this.parentElement.remove()">×</button></div>`
+  return `<div class="kv-row"><input class="ck" value="${esc(x.k)}" placeholder="Nom du champ"><input class="cv" value="${esc(x.v)}" placeholder="Valeur"><button class="secondary" data-wg-click="this.parentElement.remove()">×</button></div>`
 }
 window.addCustom = () => $('#customFields').insertAdjacentHTML('beforeend', customRow());
 

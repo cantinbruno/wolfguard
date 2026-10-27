@@ -342,8 +342,8 @@ function showChangeCodeForm() {
       <label for="newAccessCode">Nouveau code<input id="newAccessCode" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></label>
       <label for="confirmAccessCode">Confirmation<input id="confirmAccessCode" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password"></label>
       <div class="settings-form-actions">
-        <button type="button" class="settings-btn" onclick="$('#changeCodeArea').innerHTML='';$('#changeCodeBtn').focus()">Annuler</button>
-        <button type="button" class="settings-btn primary" onclick="changeAccessCode()">Enregistrer</button>
+        <button type="button" class="settings-btn" data-wg-click="$('#changeCodeArea').innerHTML='';$('#changeCodeBtn').focus()">Annuler</button>
+        <button type="button" class="settings-btn primary" data-wg-click="changeAccessCode()">Enregistrer</button>
       </div>
     </div>`;
   $('#oldAccessCode').focus();

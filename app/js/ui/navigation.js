@@ -264,21 +264,21 @@ function renderUnifiedTree(folders, items, parentId = null, depth = 0, counts = 
       <div class="tree-row tree-folder-row ${state.folder===f.id && !state.item?'active':''}"
            style="padding-left:${8+depth*10}px"
            draggable="true"
-           ondragstart="folderDragStart(event,'${f.id}')"
-           ondragend="dragEnd(event)"
-           ondragover="folderDragOver(event,'${f.id}')"
-           ondragenter="folderDragOver(event,'${f.id}')"
-           ondragleave="dragLeave(event)"
-           ondrop="dropOnFolder(event,'${f.id}')"
-           onclick="selectFolder('${f.id}')"
-           oncontextmenu="folderContextMenu(event,'${f.id}')">
+           data-wg-dragstart="folderDragStart(event,'${f.id}')"
+           data-wg-dragend="dragEnd(event)"
+           data-wg-dragover="folderDragOver(event,'${f.id}')"
+           data-wg-dragenter="folderDragOver(event,'${f.id}')"
+           data-wg-dragleave="dragLeave(event)"
+           data-wg-drop="dropOnFolder(event,'${f.id}')"
+           data-wg-click="selectFolder('${f.id}')"
+           data-wg-contextmenu="folderContextMenu(event,'${f.id}')">
         <button type="button" class="tree-caret ${hasChildren?'':'empty'}"
-              onclick="event.stopPropagation();toggleFolderCollapse('${f.id}')"
+              data-wg-click="event.stopPropagation();toggleFolderCollapse('${f.id}')"
               title="${collapsed?'Déplier':'Replier'}" aria-label="${collapsed?'Déplier':'Replier'} ${esc(f.name)}" aria-expanded="${!collapsed}" ${hasChildren?'':'disabled tabindex="-1"'}>${workspaceNavigationIcon('chevron-right')}</button>
         <span class="tree-icon">${collapsed?PROTOCOL_ICONS.folder:workspaceNavigationIcon('folder-open')}</span>
         <span class="tree-label" title="${esc(f.name)}">${esc(f.name)}</span>
         <span class="tree-folder-count" title="${counts.get(f.id)||0} élément(s)">${counts.get(f.id)||0}</span>
-        <span class="tree-actions"><button type="button" title="Actions du dossier" aria-label="Actions du dossier ${esc(f.name)}" onclick="event.stopPropagation();folderMenu('${f.id}')">${workspaceNavigationIcon('ellipsis')}</button></span>
+        <span class="tree-actions"><button type="button" title="Actions du dossier" aria-label="Actions du dossier ${esc(f.name)}" data-wg-click="event.stopPropagation();folderMenu('${f.id}')">${workspaceNavigationIcon('ellipsis')}</button></span>
       </div>
       <div class="tree-children ${collapsed?'collapsed':''}" data-folder-id="${esc(f.id)}">
         ${renderUnifiedTree(folders,items,f.id,depth+1,counts)}
@@ -291,10 +291,10 @@ function renderUnifiedTree(folders, items, parentId = null, depth = 0, counts = 
       <div class="tree-row tree-item-row ${state.item===item.id?'active':''}"
            style="padding-left:${8+depth*10}px"
            draggable="true"
-           ondragstart="itemDragStart(event,'${item.id}')"
-           ondragend="dragEnd(event)"
-           onclick="openItem('${item.id}')"
-           oncontextmenu="itemContextMenu(event,'${item.id}')"
+           data-wg-dragstart="itemDragStart(event,'${item.id}')"
+           data-wg-dragend="dragEnd(event)"
+           data-wg-click="openItem('${item.id}')"
+           data-wg-contextmenu="itemContextMenu(event,'${item.id}')"
            data-tree-folder-id="${esc(item.folderId||'')}"
            data-tree-filter="${esc(workspaceCatalogText(item.type==='vault'?[item.title,...(item.tags||[])].join(' '):[
              item.title,sectionForItem(item)==='library'?libraryText(item):item.type==='command'?item.content:itemContentText(item.content),item.description,item.context,item.example,item.vendor,item.platform,...(item.tags||[])
@@ -443,15 +443,15 @@ async function renderUnifiedExplorer(detailHtml = '') {
         </div>
 
         ${state.section==='protocol'?'':`<div class="tree-root-drop"
-             ondragover="rootDragOver(event)"
-             ondragenter="rootDragOver(event)"
-             ondragleave="dragLeave(event)"
-             ondrop="dropOnRoot(event)" title="Déposer ici pour placer à la racine">
+             data-wg-dragover="rootDragOver(event)"
+             data-wg-dragenter="rootDragOver(event)"
+             data-wg-dragleave="dragLeave(event)"
+             data-wg-drop="dropOnRoot(event)" title="Déposer ici pour placer à la racine">
           ${PROTOCOL_ICONS.folder}<span>Racine</span>
         </div>
 
-        <div id="unifiedTree" class="explorer-tree" oncontextmenu="navigationContextMenu(event)">
-          <div class="tree-row tree-overview-row ${!state.folder && !state.item?'active':''}" onclick="selectFolder(null)">
+        <div id="unifiedTree" class="explorer-tree" data-wg-contextmenu="navigationContextMenu(event)">
+          <div class="tree-row tree-overview-row ${!state.folder && !state.item?'active':''}" data-wg-click="selectFolder(null)">
             <span class="tree-caret"></span>
             <span class="tree-icon">${WORKSPACE_LAYOUT_ICONS.cards}</span>
             <span class="tree-label">Tous</span><span class="tree-folder-count">${items.length}</span>

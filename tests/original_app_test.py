@@ -122,7 +122,7 @@ def run():
                 page.locator('#exp').click()
             backup=Path(temporary)/'backup.wgweb'
             info.value.save_as(backup)
-            assert json.loads(backup.read_text())['version']==2
+            assert json.loads(backup.read_text())['version']==3
             page.locator('#closeSettingsBtn').click()
             page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
@@ -179,7 +179,7 @@ def run():
             legacy.evaluate("""password=>{const data=new DataTransfer();data.setData('text',password);document.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}))}""",LEGACY_PASSWORD)
             expect(legacy.locator('#app')).to_be_visible(timeout=20000)
             assert legacy.evaluate("async()=> (await vaultData(await get('items','old-vault'))).password")=='legacy-secret'
-            assert legacy.evaluate("async()=> (await (await import('./browser/storage.js')).read()).version")==2
+            assert legacy.evaluate("async()=> (await (await import('./browser/storage.js')).read()).version")==3
             print('PASS: reprise automatique des donnees de la precedente version web')
             assert not errors, errors
             legacy_context.close();other.close();context.close();browser.close()

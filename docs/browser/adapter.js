@@ -6,13 +6,30 @@ const webWorkspace = (() => {
   let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
-  let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null;
+  let sessionClock = null, rotating = false;
+  const IDLE_MS = 60000, SESSION_MS = 15 * 60000;
+  function sessionExpired() {
+    if (!session || !sessionClock) return false;
+    const wall=Date.now(), mono=performance.now(), clock=sessionClock;
+    return wall<clock.started || wall<clock.active || wall-clock.active>=IDLE_MS || mono-clock.monotonicActive>=IDLE_MS || wall-clock.started>=SESSION_MS || mono-clock.monotonicStart>=SESSION_MS;
+  }
+  function assertFreshSession() {
+    if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
+  }
+  function armSessionTimer() {
+    clearTimeout(autoLockTimer);autoLockTimer=null;
+    if (!session || !sessionClock) return;
+    const wall=Date.now(),mono=performance.now(),clock=sessionClock;
+    const remaining=Math.min(IDLE_MS-(wall-clock.active),IDLE_MS-(mono-clock.monotonicActive),SESSION_MS-(wall-clock.started),SESSION_MS-(mono-clock.monotonicStart));
+    autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
+  }
+  let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
   const accessScope = () => (pendingBackup || envelope)?.salt || '';
-  const accessBlocked = () => attemptScope === accessScope() && attemptState.blockedUntil > Date.now();
+  const accessBlocked = () => attemptsUnavailable || (attemptScope === accessScope() && attemptState.blockedUntil > Date.now());
   async function loadAttempts() {
     const scope=accessScope(), state=await storage.readAttempts(scope);
-    if(scope===accessScope()){attemptScope=scope;attemptState=state;}
+    if(scope===accessScope()){attemptScope=scope;attemptState=state;attemptsUnavailable=false;}
   }
   const announceAttempts = scope => attemptChannel?.postMessage({scope});
   const originalSettings = openSettings;
@@ -26,11 +43,14 @@ const webWorkspace = (() => {
       if (snapshot[store].length > 50000) throw new Error('Sauvegarde trop volumineuse.');
       const ids = new Set();
       for (const record of snapshot[store]) {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('Enregistrement invalide.');
         const id = store === 'settings' ? record?.key : record?.id;
         if ((store === 'settings' ? typeof id !== 'string' || id.length > 200 : !safeId(id)) || ids.has(id)) throw new Error('Identifiant de fiche invalide.');
         ids.add(id);
         for (const field of ['folderId','parentId','itemId']) if (record[field] != null && !safeId(record[field])) throw new Error('Lien de fiche invalide.');
         if (store === 'items' && (!types.has(record.type) || typeof record.title !== 'string')) throw new Error('Type de fiche invalide.');
+        if (record.tags != null && (!Array.isArray(record.tags) || record.tags.length>256 || record.tags.some(tag=>typeof tag!=='string' || tag.length>200))) throw new Error('Étiquettes invalides.');
+        if (record.linkedItemIds != null && (!Array.isArray(record.linkedItemIds) || record.linkedItemIds.some(id=>!safeId(id)))) throw new Error('Liens de fiches invalides.');
         if (store === 'items' && record.type === 'task' && (record.title.length > 300 || typeof record.content !== 'string' || record.content.length > 10000 || typeof record.completed !== 'boolean' || !['low','normal','high'].includes(record.priority) || typeof record.dueDate !== 'string' || (record.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(record.dueDate)))) throw new Error('Tâche invalide.');
         if (store === 'folders' && (typeof record.name !== 'string' || typeof record.section !== 'string')) throw new Error('Dossier invalide.');
         if (record.attachments && (!Array.isArray(record.attachments) || record.attachments.some(file => typeof file?.name !== 'string' || (file.dataUrl && !/^data:[\w.+-]+\/[\w.+-]+(?:;charset=[^;,]+)?;base64,/i.test(file.dataUrl))))) throw new Error('Pièce jointe invalide.');
@@ -56,6 +76,7 @@ const webWorkspace = (() => {
   }
   function release() { releaseTab?.(); releaseTab = null; }
   async function commit(change) {
+    assertFreshSession();
     const current = session, generation = epoch;
     if (!current) throw new Error('Espace verrouillé.');
     saveStatus('Enregistrement…');
@@ -75,8 +96,8 @@ const webWorkspace = (() => {
   }
   class BrowserDatabase {
     constructor() { this.native = true; }
-    async get(store,id) { await queue; return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
-    async all(store) { await queue; return structuredClone(session?.payload[store] || []); }
+    async get(store,id) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
+    async all(store) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store] || []); }
     readOnly(store) { return this.all(store); }
     storageFiles() { return [{id:'main',name:'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
     batch(operations) {
@@ -148,7 +169,9 @@ const webWorkspace = (() => {
     $('#webCancelRestore').disabled=busy || locking || booting;
     $('#lock').setAttribute('aria-busy',String(busy || locking || booting));
     clearTimeout(attemptTimer);attemptTimer=null;
-    if(blocked){
+    if(attemptsUnavailable){
+      $('#lockError').textContent='Le contrôle des tentatives est indisponible. Vérifie le stockage du navigateur puis recharge la page.';
+    }else if(blocked){
       $('#lockError').dataset.accessTimeout='true';
       $('#lockError').textContent='Code incorrect. Réessaie dans '+Math.ceil((attemptState.blockedUntil-Date.now())/1000)+' s.';
       if(!$('#lock').classList.contains('hidden'))attemptTimer=setTimeout(renderKeypad,Math.min(1000,attemptState.blockedUntil-Date.now()));
@@ -215,13 +238,15 @@ const webWorkspace = (() => {
       attemptState={failures:0,blockedUntil:0};attemptScope=attemptedScope;
       announceAttempts(attemptedScope);
       if (pendingBackup && envelope && !await appConfirm('Remplacer l’espace de ce navigateur par cette sauvegarde ? Exporte d’abord les modifications à conserver.')) return;
-      if (pendingBackup || !envelope || result.envelope.version !== 2) {
+      if (pendingBackup || !envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION) {
         result.envelope=await cryptography.seal(result.payload,result.key,result.salt,(envelope?.revision || 0)+1);
         await storage.write(result.envelope,envelope?.revision || 0);
         envelope=result.envelope;
       }
       if (generation !== epoch || document.hidden) return;
       session=result; envelope=result.envelope; pendingBackup=null; db=new BrowserDatabase();
+      sessionClock={started:Date.now(),active:Date.now(),monotonicStart:performance.now(),monotonicActive:performance.now()};
+      armSessionTimer();
       resetSettingsCache(result.payload.settings); connectedWorkspaceReady=true; portableFileName='Espace local chiffré';
       state.vaultKey=result.key; sessionAccessCode=''; retained=true;
       $('#webPassword').value=''; $('#webConfirm').value='';
@@ -231,9 +256,12 @@ const webWorkspace = (() => {
       await scheduleAutoLock(); saveStatus('Enregistré · Chiffré sur cet appareil');
       navigator.storage?.persist?.().catch(() => {});
     } catch (error) {
+      if (retained) { await lock();retained=false; }
       if(error.code==='INVALID_ACCESS_CODE' && attemptedScope){
-        attemptState=await storage.registerFailure(attemptedScope);attemptScope=attemptedScope;
-        announceAttempts(attemptedScope);
+        try {
+          attemptState=await storage.registerFailure(attemptedScope);attemptScope=attemptedScope;
+          announceAttempts(attemptedScope);
+        } catch { attemptsUnavailable=true; }
       }
       $('#lockError').textContent=error.message;
     }
@@ -246,15 +274,16 @@ const webWorkspace = (() => {
   }
   async function lock() {
     if (locking) return;
-    locking=true; epoch++; session=null; connectedWorkspaceReady=false;
+    locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
     resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
-    state.vaultKey=null; state.item=null; state.folder=null; state.mode='view'; sessionAccessCode='';
+    state.vaultKey=null; state.item=null; state.folder=null; state.mode='view'; sessionAccessCode='';selectedEditorImage=null;
     $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
     document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
     pendingBackup=null; saveStatus('Espace verrouillé'); showGate();
+    secretClipboard.clear();
     try { await queue; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
   }
@@ -264,6 +293,7 @@ const webWorkspace = (() => {
     setTimeout(() => URL.revokeObjectURL(url),1000);
   }
   async function exportWorkspace() {
+    assertFreshSession();
     const current=session; if (!current) return;
     await queue; if (session===current) { download(current.envelope); appNotify('Sauvegarde chiffrée exportée.'); }
   }
@@ -275,6 +305,8 @@ const webWorkspace = (() => {
     await lock(); pendingBackup=backup; await loadAttempts(); showGate();
   }
   async function rotatePassword() {
+    if(rotating)return;
+    assertFreshSession();rotating=true;
     let oldPassword=$('#oldAccessCode').value, password=$('#newAccessCode').value;
     const current=session, generation=epoch;
     try {
@@ -296,7 +328,7 @@ const webWorkspace = (() => {
       });
       queue=work.catch(() => {}); await work;
     } catch (error) { appNotify(error.message,{kind:'error'}); }
-    finally { oldPassword=''; password=''; }
+    finally { oldPassword='';password='';rotating=false;document.querySelectorAll('#changeCodeArea input').forEach(input=>{input.value='';}); }
   }
 
   // Replace host-dependent entry points while retaining the original UI code.
@@ -304,6 +336,14 @@ const webWorkspace = (() => {
   workspaceCanWrite=() => !!session;
   workspaceConnectionLabel=() => 'Navigateur · Enregistrement chiffré';
   ensureSecuritySettings=async () => !!session;
+  scheduleAutoLock=async () => armSessionTimer();
+  registerActivityForAutoLock=() => {
+    for(const name of ['mousedown','keydown','touchstart','wheel'])document.addEventListener(name,event=>{
+      if(!session)return;
+      if(sessionExpired()){event.preventDefault();event.stopImmediatePropagation();lock();return;}
+      if(event.isTrusted){sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();armSessionTimer();}
+    },{capture:true,passive:false});
+  };
   // Older desktop listeners must not re-enable the keypad during a web timeout.
   refreshPinLockout=renderKeypad;
   lockApplication=lock;
@@ -319,6 +359,7 @@ const webWorkspace = (() => {
     $('#webChangePassword').onclick=rotatePassword;
   };
   openSettings=async initialTab => {
+    assertFreshSession();
     if (!session) return;
     await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
     if (!session) { closeModal(); return; }
@@ -329,6 +370,9 @@ const webWorkspace = (() => {
     const note=$('.settings-security-note div'); if (note) note.textContent='Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
+    const idle=$('#autoLockSelect');
+    idle.replaceChildren(new Option('1 minute','1',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 minute d’inactivité · Session limitée à 15 minutes · Verrouillage si l’onglet est masqué';
   };
   generatePassword=cryptographicPassword;
   function cryptographicPassword(options={}) {
@@ -344,7 +388,8 @@ const webWorkspace = (() => {
     return value;
   }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=44c23f2d16063634'),import('./storage.js?wg=44c23f2d16063634')]);
+    if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
+    [cryptography,storage]=[WolfGuardCrypto,WolfGuardStorage];
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -404,7 +449,7 @@ const webWorkspace = (() => {
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); $('#content').replaceChildren(); closeModal(); release(); });
+    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');

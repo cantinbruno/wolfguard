@@ -601,9 +601,9 @@ function showPortableDataDialog() {
       Une fois autorisé, l’application réutilise ce dossier automatiquement tant que le navigateur conserve la permission.
     </div>
     <div class="actions">
-      ${localServiceAvailable()?'':`<button class="primary" onclick="connectWorkspaceFolder()">Choisir le dossier</button>`}
-      ${connected?`<button class="secondary" onclick="reconnectSavedWorkspace()">Recharger la base</button>
-      <button class="secondary" onclick="writePortableFile()">Sauvegarder</button>`:''}
+      ${localServiceAvailable()?'':`<button class="primary" data-wg-click="connectWorkspaceFolder()">Choisir le dossier</button>`}
+      ${connected?`<button class="secondary" data-wg-click="reconnectSavedWorkspace()">Recharger la base</button>
+      <button class="secondary" data-wg-click="writePortableFile()">Sauvegarder</button>`:''}
     </div>`;
   document.body.appendChild(menu);
   setTimeout(() => {

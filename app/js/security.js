@@ -190,14 +190,10 @@ function registerActivityForAutoLock() {
 async function encryptBlobWithKey(text, key) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const data = new TextEncoder().encode(text || '');
-  const out = new Uint8Array(await crypto.subtle.encrypt({
-    name: 'AES-GCM',
-    iv
-  }, key, data));
-  return {
-    iv: [...iv],
-    data: [...out]
-  };
+  try {
+    const out = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data));
+    return {iv:[...iv],data:[...out]};
+  } finally { data.fill(0); }
 }
 async function decryptBlobWithKey(blob, key) {
   if (!blob) return '';
@@ -208,7 +204,9 @@ async function decryptBlobWithKey(blob, key) {
     key,
     new Uint8Array(blob.data)
   );
-  return new TextDecoder().decode(out);
+  const bytes=new Uint8Array(out);
+  try { return new TextDecoder('utf-8',{fatal:true}).decode(bytes); }
+  finally { bytes.fill(0); }
 }
 async function changeAccessCode() {
   const oldCode = $('#oldAccessCode')?.value || '';
@@ -377,7 +375,7 @@ async function pinKey(k) {
   }
 }
 
-/* ENCRYPTION tied to 2006 */
+/* Legacy desktop key derivation; the web adapter supplies its workspace key. */
 async function deriveVaultKey(code) {
   let meta = await setting('vaultCrypto', null);
   if (!meta) {
@@ -401,22 +399,8 @@ async function deriveVaultKey(code) {
   );
 }
 async function encSecret(text) {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const data = new TextEncoder().encode(text || '');
-  const out = new Uint8Array(await crypto.subtle.encrypt({
-    name: 'AES-GCM',
-    iv
-  }, state.vaultKey, data));
-  return {
-    iv: [...iv],
-    data: [...out]
-  };
+  return encryptBlobWithKey(text,state.vaultKey);
 }
 async function decSecret(blob) {
-  if (!blob) return '';
-  const out = await crypto.subtle.decrypt({
-    name: 'AES-GCM',
-    iv: new Uint8Array(blob.iv)
-  }, state.vaultKey, new Uint8Array(blob.data));
-  return new TextDecoder().decode(out);
+  return decryptBlobWithKey(blob,state.vaultKey);
 }

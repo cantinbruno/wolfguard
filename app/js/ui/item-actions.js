@@ -46,7 +46,7 @@ async function copyItemById(id) {
   else if (item.type === 'protocol' && item.documentType !== 'procedure') text = protocolEndpoint(protocolData(item)).value;
   else text = itemContentText(item.content);
   if (!text || !itemActionSessionValid(key)) return false;
-  return copyText(text);
+  return item.type==='vault' ? copySecret(text) : copyText(text);
 }
 async function editItemById(id) {
   const key = state.vaultKey;

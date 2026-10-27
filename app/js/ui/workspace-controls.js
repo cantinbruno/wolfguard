@@ -103,8 +103,8 @@ function workspaceToolbarHTML(section, layout) {
     <div class="workspace-view-switch" role="group" aria-label="Affichage ${esc(sectionName())}">
       ${['cards','list'].map(mode=>`<button type="button" class="workspace-icon" data-workspace-layout="${mode}" title="${mode==='cards'?'Vue en grille':'Vue en liste'}" aria-label="${mode==='cards'?'Vue en grille':'Vue en liste'}" aria-pressed="${mode===layout}">${WORKSPACE_LAYOUT_ICONS[mode]}</button>`).join('')}
     </div>
-    <button type="button" class="primary workspace-icon" title="${create[1]}" aria-label="${create[1]}" onclick="${create[0]}()">${PROTOCOL_ICONS.plus}</button>
-    <button type="button" class="secondary workspace-icon" title="Nouveau dossier" aria-label="Nouveau dossier" onclick="newFolder()">${PROTOCOL_ICONS.folder}</button>
+    <button type="button" class="primary workspace-icon" title="${create[1]}" aria-label="${create[1]}" data-wg-click="${create[0]}()">${PROTOCOL_ICONS.plus}</button>
+    <button type="button" class="secondary workspace-icon" title="Nouveau dossier" aria-label="Nouveau dossier" data-wg-click="newFolder()">${PROTOCOL_ICONS.folder}</button>
   </div>`;
 }
 async function setWorkspaceLayout(layout) {

@@ -82,7 +82,7 @@ async function renderLibraryCatalog() {
   } = await explorerData(), view = workspaceView(), key = state.vaultKey, folder = folders.find(folder => folder.id === state.folder), scoped = workspaceScopedItems(folders, items), names = new Map(folders.map(folder => [folder.id, folder.name]));
   view.kind = 'all';
   $('#detailHost').innerHTML = `<div class="workspace-catalog library-catalog">
-    <header class="library-heading">${workspaceNavigationButton()}<div><h1>${esc(folder?.name||'Mes fiches')} <span class="library-heading-count">${scoped.length}</span></h1></div><button type="button" class="primary library-create" aria-label="Nouvelle fiche" onclick="newLibraryItem()">${PROTOCOL_ICONS.plus}<span>Nouvelle fiche</span></button></header>
+    <header class="library-heading">${workspaceNavigationButton()}<div><h1>${esc(folder?.name||'Mes fiches')} <span class="library-heading-count">${scoped.length}</span></h1></div><button type="button" class="primary library-create" aria-label="Nouvelle fiche" data-wg-click="newLibraryItem()">${PROTOCOL_ICONS.plus}<span>Nouvelle fiche</span></button></header>
     <div class="catalog-controls"><label class="workspace-catalog-search">${PROTOCOL_ICONS.search}<input id="workspaceLocalSearch" type="search" maxlength="200" aria-label="Rechercher dans les fiches" placeholder="Titre, contenu, commande, dossier…" value="${esc(view.query)}">${collectionSearchClearHTML('clearWorkspaceSearch')}</label><label class="catalog-select"><span>Tri</span><select id="workspaceCatalogSort"><option value="title" ${view.sort==='title'?'selected':''}>Titre A–Z</option><option value="recent" ${view.sort==='recent'?'selected':''}>Modification récente</option></select></label><span id="workspaceResultsCount" role="status" aria-live="polite"></span></div>
     <div class="workspace-catalog-scroll ${view.layout==='cards'?'library-grid-view':'library-list-view'}"><div class="library-list-columns" aria-hidden="true"><span>Fiche</span><span>Dossier</span><span>Commandes</span><span>Mise à jour</span><span></span></div><div id="workspaceCatalogItems" class="workspace-catalog-items ${view.layout==='cards'?'is-grid':'is-list'}"></div><div id="workspaceCatalogEmpty" class="workspace-catalog-empty" hidden></div></div></div>`;
   const entries = scoped.map(item => ({
@@ -186,12 +186,12 @@ function addLibraryCommand() {
 async function renderLibraryEdit(item) {
   const folders = await foldersForSection('library');
   selectedEditorImage = null;
-  $('#detailHost').innerHTML = `<div class="library-editor"><header class="library-editor-heading"><h2>Modifier la fiche</h2><div class="actions"><button type="button" class="secondary" onclick="cancelLibraryEdit()">Annuler</button><button type="button" class="primary" onclick="saveLibraryItem('${item.id}')">Enregistrer</button></div></header>
+  $('#detailHost').innerHTML = `<div class="library-editor"><header class="library-editor-heading"><h2>Modifier la fiche</h2><div class="actions"><button type="button" class="secondary" data-wg-click="cancelLibraryEdit()">Annuler</button><button type="button" class="primary" data-wg-click="saveLibraryItem('${item.id}')">Enregistrer</button></div></header>
     <div class="library-editor-scroll">
     <div class="library-editor-fields"><label for="fTitle">Titre de la fiche<input id="fTitle" value="${esc(item.title)}"></label><label for="fFolder">Dossier<select id="fFolder"><option value="">Racine des fiches</option>${folderSelectOptions(folders,item.folderId)}</select></label></div>
     <div class="library-compose-surface" role="group" aria-label="Éditeur de la fiche">
-      <div class="library-compose-toolbar">${richTextToolbar()}<div class="library-compose-insert"><button type="button" class="secondary" onclick="addLibraryCommand()">+ Ajouter une commande</button></div></div>
-      <div id="richEditor" class="editor document-editor" contenteditable="true" role="textbox" aria-label="Contenu de la fiche" aria-multiline="true" data-placeholder="Rédigez votre fiche…" onclick="editorObjectClick(event)">${documentHTML(libraryMemoBody(item))}</div><input type="file" id="richEditorImagePicker" accept="image/*" class="hidden" onchange="insertImageFromFile(this)">
+      <div class="library-compose-toolbar">${richTextToolbar()}<div class="library-compose-insert"><button type="button" class="secondary" data-wg-click="addLibraryCommand()">+ Ajouter une commande</button></div></div>
+      <div id="richEditor" class="editor document-editor" contenteditable="true" role="textbox" aria-label="Contenu de la fiche" aria-multiline="true" data-placeholder="Rédigez votre fiche…" data-wg-click="editorObjectClick(event)">${documentHTML(libraryMemoBody(item))}</div><input type="file" id="richEditorImagePicker" accept="image/*" class="hidden" data-wg-change="insertImageFromFile(this)">
       <div id="libraryCommandBlocks"></div>
     </div>
     </div></div>`;
