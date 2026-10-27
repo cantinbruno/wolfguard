@@ -27,9 +27,19 @@
 .checklist-progress progress::-webkit-progress-value { background: var(--workspace-checklist); border-radius: 4px; }
 .checklist-progress progress::-moz-progress-bar { background: var(--workspace-checklist); }
 .checklist-toolbar { margin-bottom: 18px; }
+.checklist-workspace select, .checklist-form input, .checklist-form select, .checklist-form textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-sidebar);
+  color: var(--ui-text);
+  font-size: 13px;
+  color-scheme: dark;
+}
+.checklist-workspace :is(input, select):focus-visible, .checklist-form :is(input, textarea, select):focus-visible { outline: 2px solid var(--workspace-checklist); outline-offset: 2px; }
 .checklist-search { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding-left: 12px; background: var(--ui-sidebar); border: 1px solid var(--ui-border); border-radius: 6px; }
 .checklist-search svg { width: 16px; height: 16px; color: var(--ui-muted); flex-shrink: 0; }
-.checklist-search input { width: 100%; min-width: 0; border: 0; background: transparent; margin: 0; }
+.checklist-search input { width: 100%; min-width: 0; height: 38px; padding: 8px 10px 8px 0; border: 0; background: transparent; color: var(--ui-text); font-size: 13px; margin: 0; }
 .checklist-toolbar select { width: auto; margin: 0; min-width: 160px; }
 .checklist-tasks { display: grid; gap: 10px; }
 .checklist-task { align-items: flex-start; gap: 14px; padding: 20px; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); }

@@ -329,7 +329,7 @@ const webWorkspace = (() => {
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
   };
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=a2176a6d2bb5967d'),import('./storage.js?wg=a2176a6d2bb5967d')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=ffd6583361b80052'),import('./storage.js?wg=ffd6583361b80052')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
