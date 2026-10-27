@@ -36,32 +36,6 @@ async function setMode(m) {
 }
 
 /* CREATE */
-async function newVault() {
-  const x = {
-    id: uid(),
-    type: 'vault',
-    title: 'Nouvel accès',
-    vaultBlobEnc: await encSecret(JSON.stringify({
-      username: '',
-      password: '',
-      url: '',
-      host: '',
-      notes: '',
-      custom: []
-    })),
-    encryptionVersion: 2,
-    tags: [],
-    folderId: normalFolder(),
-    favorite: false,
-    createdAt: now(),
-    updatedAt: now()
-  };
-  await put('items', x);
-  state.item = x.id;
-  state.mode = 'edit';
-  await renderWorkspace();
-}
-
 function normalFolder() {
   return state.folder || null
 }

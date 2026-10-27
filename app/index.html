@@ -40,6 +40,7 @@
 <link rel="stylesheet" href="css/toolbox.css?v=cleanup-20261020">
 <link rel="stylesheet" href="css/modules.css">
 <link rel="stylesheet" href="css/dialogs.css">
+<link rel="stylesheet" href="css/checklist.css">
 </head>
 <body>
 
@@ -75,7 +76,7 @@
     </button>
     <div class="search">
       <span class="global-search-icon" aria-hidden="true"><svg class="lucide lucide-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
-      <input id="globalSearch" type="search" maxlength="200" placeholder="Rechercher une fiche, une commande, un port…" aria-label="Rechercher dans la bibliothèque" role="combobox" aria-autocomplete="list" aria-controls="globalSearchList" aria-expanded="false" autocomplete="off" spellcheck="false" title="Rechercher (Ctrl+K)">
+      <input id="globalSearch" type="search" maxlength="200" placeholder="Rechercher une fiche, une tâche, un port…" aria-label="Rechercher dans l’application" role="combobox" aria-autocomplete="list" aria-controls="globalSearchList" aria-expanded="false" autocomplete="off" spellcheck="false" title="Rechercher (Ctrl+K)">
       <button type="button" id="clearGlobalSearch" class="global-search-clear" aria-label="Effacer la recherche" title="Effacer la recherche" hidden><svg class="lucide lucide-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg></button>
       <div id="searchResults" class="search-results hidden" hidden></div>
     </div>
@@ -83,7 +84,7 @@
       <nav class="global-tabs">
         <button data-section="library">Mémo</button>
         <button data-section="tools">Outils</button>
-        <button data-section="vault">Coffre-fort</button>
+        <button data-section="checklist">Checklist</button>
       </nav>
     </div>
     <button id="settingsBtn" class="icon-btn settings-icon-btn" title="Paramètres" aria-label="Paramètres">
@@ -140,8 +141,7 @@
 <script src="js/ui/context-menu.js?v=cleanup-20261020"></script>
 <script src="js/ui/rich-editor.js?v=cleanup-20261020"></script>
 <script src="js/ui/items.js?v=cleanup-20261020"></script>
-<script src="js/views/vault-catalog.js?v=cleanup-20261020"></script>
-<script src="js/views/vault.js?v=cleanup-20261020"></script>
+<script src="js/views/checklist.js"></script>
 <script src="js/views/protocols.js?v=cleanup-20261020"></script>
 <script src="js/data/protocol-diagnostics.js?v=cleanup-20261020"></script>
 <script src="js/views/protocol-reference.js?v=cleanup-20261020"></script>

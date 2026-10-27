@@ -1,7 +1,6 @@
 'use strict';
 
-// The original UI, editors and tools stay unchanged. Only desktop storage and
-// the access-code entry are adapted to an encrypted browser workspace.
+// Adapt the original UI to an encrypted browser workspace.
 const webWorkspace = (() => {
   let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
@@ -16,7 +15,7 @@ const webWorkspace = (() => {
   }
   const announceAttempts = scope => attemptChannel?.postMessage({scope});
   const originalSettings = openSettings;
-  const types = new Set(['vault','memo','procedure','personal','protocol','command','mail','report','template']);
+  const types = new Set(['task','vault','memo','procedure','personal','protocol','command','mail','report','template']);
   const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
 
   function validate(snapshot) {
@@ -30,6 +29,7 @@ const webWorkspace = (() => {
         ids.add(id);
         for (const field of ['folderId','parentId','itemId']) if (record[field] != null && !safeId(record[field])) throw new Error('Lien de fiche invalide.');
         if (store === 'items' && (!types.has(record.type) || typeof record.title !== 'string')) throw new Error('Type de fiche invalide.');
+        if (store === 'items' && record.type === 'task' && (record.title.length > 300 || typeof record.content !== 'string' || record.content.length > 10000 || typeof record.completed !== 'boolean' || !['low','normal','high'].includes(record.priority) || typeof record.dueDate !== 'string' || (record.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(record.dueDate)))) throw new Error('Tâche invalide.');
         if (store === 'folders' && (typeof record.name !== 'string' || typeof record.section !== 'string')) throw new Error('Dossier invalide.');
         if (record.attachments && (!Array.isArray(record.attachments) || record.attachments.some(file => typeof file?.name !== 'string' || (file.dataUrl && !/^data:[\w.+-]+\/[\w.+-]+(?:;charset=[^;,]+)?;base64,/i.test(file.dataUrl))))) throw new Error('Pièce jointe invalide.');
       }
@@ -247,7 +247,7 @@ const webWorkspace = (() => {
     locking=true; epoch++; session=null; connectedWorkspaceReady=false;
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
-    resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
+    resetPrimaryWorkspaces(); resetChecklistView(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
     state.vaultKey=null; state.item=null; state.folder=null; state.mode='view'; sessionAccessCode='';
     $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
@@ -328,21 +328,8 @@ const webWorkspace = (() => {
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
   };
-  generatePassword=cryptographicPassword;
-  function cryptographicPassword(options={}) {
-    const length=Math.max(8,Math.min(128,Number(options.length)||24));
-    let alphabet='';
-    if (options.lower!==false) alphabet+='abcdefghijkmnopqrstuvwxyz';
-    if (options.upper!==false) alphabet+='ABCDEFGHJKLMNPQRSTUVWXYZ';
-    if (options.numbers!==false) alphabet+='23456789';
-    if (options.symbols!==false) alphabet+='!@#$%&*+-_=?.';
-    if (!alphabet) alphabet='abcdefghijkmnopqrstuvwxyz';
-    const limit=Math.floor(256/alphabet.length)*alphabet.length; let value='';
-    while (value.length<length) for (const byte of crypto.getRandomValues(new Uint8Array(128))) { if (byte<limit) value+=alphabet[byte%alphabet.length]; if (value.length===length) break; }
-    return value;
-  }
   async function start() {
-    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=66658de4f56527af'),import('./storage.js?wg=66658de4f56527af')]);
+    [cryptography,storage]=await Promise.all([import('./crypto.js?wg=a2176a6d2bb5967d'),import('./storage.js?wg=a2176a6d2bb5967d')]);
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -402,7 +389,7 @@ const webWorkspace = (() => {
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); $('#content').replaceChildren(); closeModal(); release(); });
+    window.addEventListener('pagehide',() => { epoch++; session=null; state.vaultKey=null; resetPrimaryWorkspaces(); resetChecklistView(); $('#content').replaceChildren(); closeModal(); release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');

@@ -25,7 +25,7 @@ async function openSection(section, itemId = null, options = {}) {
     $('#sidebar').classList.add('hidden');
     $('#content').style.padding = '';
     $('#content').style.overflow = '';
-    $('#content').classList.remove('vault-content', 'protocol-content', 'section-accent-library', 'section-accent-vault', 'section-accent-memo', 'section-accent-personal', 'section-accent-command', 'section-accent-protocol', 'section-accent-template', 'section-accent-tools');
+    $('#content').classList.remove('vault-content', 'protocol-content', 'section-accent-library', 'section-accent-vault', 'section-accent-checklist', 'section-accent-memo', 'section-accent-personal', 'section-accent-command', 'section-accent-protocol', 'section-accent-template', 'section-accent-tools');
     $('#content').classList.add('explorer-content', 'section-accent-' + (isScanSection(section) ? 'scan' : section));
     if (!isScanSection(section)) $('#content').classList.remove('scan-content', 'section-accent-scan');
     topNavigation.setActive(section);
@@ -208,6 +208,7 @@ function sectionName() {
   return {
     library: 'Mes fiches',
     tools: 'Outils',
+    checklist: 'Checklist',
     vault: 'Coffre-fort',
     protocol: 'Ports & services',
     'scan-active': 'Scan actif',
@@ -216,6 +217,7 @@ function sectionName() {
 }
 
 function sectionItemIcon(item) {
+  if (item.type === 'task') return workspaceSectionIcon('checklist');
   if (item.type === 'vault') return workspaceSectionIcon('vault');
   if (item.type === 'procedure') return workspaceNavigationIcon('file-text');
   if (item.type === 'command') return workspaceSectionIcon('command');
@@ -480,7 +482,7 @@ async function renderWorkspace() {
   else if (state.section === 'tools') await renderNetworkTools();
   else if (state.section === 'protocol') await renderProtocolWorkspace();
   else if (state.section === 'library') await renderLibraryWorkspace();
-  else if (state.section === 'vault') await renderVaultWorkspace();
+  else if (state.section === 'checklist') await renderChecklistWorkspace();
   else throw new Error('Espace de travail inconnu.');
   if (['library', 'vault'].includes(state.section)) installWorkspaceDetailNavigation();
   if (workspaceModules.has('tools')) mountToolboxNavigation();
