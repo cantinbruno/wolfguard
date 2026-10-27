@@ -42,7 +42,7 @@ def run(backend=None):
             # Preserve an existing encrypted local workspace, including a vault secret.
             first.evaluate("""async()=>{
               const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');
-              const payload={version:2,items:[{id:'memo-test',type:'memo',title:'Ma fiche existante',content:'<p>Document complet</p>',tags:[]}],folders:[],settings:[],activity:[]};
+              const payload={version:2,items:[{id:'memo-test',type:'memo',title:'Ma fiche existante',content:'<p>Document complet</p>',tags:[],folderId:'memo-dns'}],folders:[{id:'memo-root',name:'Réseau',section:'library',parentId:null},{id:'memo-dns',name:'DNS et DDI',section:'library',parentId:'memo-root'}],settings:[],activity:[]};
               const result=await c.create(payload,'07942685');
               payload.items.push({id:'vault-test',type:'vault',title:'Mon coffre existant',tags:[],vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({username:'bruno-test',password:'SECRET-TEST-42',notes:'',custom:[]}),result.key)});
               await s.write(await c.seal(payload,result.key,result.salt,1),0);
@@ -53,9 +53,19 @@ def run(backend=None):
             first.goto(url+'?sync-test#activate='+('b'*64));ready(first)
             first.wait_for_function('()=>!location.hash')
             assert 'activate' not in first.url
+            first.evaluate("""()=>{
+              const original=IDBObjectStore.prototype.put;let fail=true;
+              IDBObjectStore.prototype.put=function(value,key){const request=Reflect.apply(original,this,arguments);if(key==='memo-organization-before'&&fail){fail=false;this.transaction.abort();}return request;};
+            }""")
+            first.keyboard.type(CODE)
+            expect(first.locator('#lockError')).to_contain_text('Conservation',timeout=20000)
+            assert first.evaluate("async()=>{const snapshot=await (await import('./browser/storage.js')).read();return (await (await import('./browser/crypto.js')).open(snapshot,'07942685')).payload.folders.find(f=>f.id==='memo-root').name}")=='Réseau'
+            print('PASS: sauvegarde avant rangement indisponible, migration annulee sans modification partielle')
             unlock(first)
             expect(first.locator('#webSaveState')).to_contain_text('Synchronisé')
             assert first.evaluate("async()=>(await all('items')).length")==2
+            assert first.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-organization-before');return (await c.open(copy.envelope,'07942685')).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'
             print('PASS: activation avec le code existant et transfert automatique du memo et du coffre')
 
             second=b.new_page();second.on('pageerror',lambda e:errors.append(str(e)))
@@ -65,6 +75,8 @@ def run(backend=None):
             unlock(second)
             assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
             assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Ma fiche existante'
+            assert second.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
+            print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
 
             first.evaluate("async()=>{const item=await get('items','memo-test');item.title='Modification du premier appareil';await put('items',item)}")

@@ -107,13 +107,20 @@ async function ensureUnifiedLibrary() {
 
   libraryMigration = (async () => {
     const [items, folders, settings] = await Promise.all([all('items'), all('folders'), all('settings')]);
-    const {
-      operations
-    } = buildUnifiedLibraryMigration({
+    const source = {
       items,
       folders,
       settings
-    });
+    };
+    const unified=buildUnifiedLibraryMigration(source);
+    const normalized={};
+    for(const store of ['items','folders','settings']){
+      const field=store==='settings'?'key':'id',records=new Map(source[store].map(record=>[record[field],record]));
+      for(const operation of unified.operations)if(operation.store===store)records.set(operation.record[field],operation.record);
+      normalized[store]=[...records.values()];
+    }
+    const organization=buildMemoFolderOrganization(normalized);
+    const operations=[...unified.operations,...organization.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);

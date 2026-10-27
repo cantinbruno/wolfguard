@@ -112,25 +112,27 @@ async function readRecovery() {
   });
 }
 
-async function preserve(envelope, pending=false) {
+async function preserveAtKey(envelope,key,replace) {
   if(!envelope)return;
   const database=await connect();
   return new Promise((resolve,reject)=>{
     const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted');
-    const key=pending?'cloud-pending':'cloud-original',request=store.get(key);
-    request.onsuccess=()=>{if(pending || !request.result)store.put(envelope,key);};
+    const request=store.get(key);
+    request.onsuccess=()=>{if(replace || !request.result)store.put(envelope,key);};
     transaction.oncomplete=resolve;transaction.onabort=()=>reject(new Error('Conservation de la copie locale impossible.'));
   });
 }
+async function preserve(envelope,pending=false) {return preserveAtKey(envelope,pending?'cloud-pending':'cloud-original',pending);}
+async function preserveOrganization(envelope) {return preserveAtKey(envelope,'memo-organization-before',false);}
 async function recoveries() {
   const database=await connect();
   return new Promise((resolve,reject)=>{
     const transaction=database.transaction('encrypted','readonly'),store=transaction.objectStore('encrypted');
-    const requests=['cloud-original','cloud-pending'].map(key=>({key,request:store.get(key)}));
+    const requests=['cloud-original','cloud-pending','memo-organization-before'].map(key=>({key,request:store.get(key)}));
     transaction.oncomplete=()=>resolve(requests.filter(row=>row.request.result).map(row=>({key:row.key,envelope:row.request.result})));
     transaction.onabort=()=>reject(new Error('Lecture des copies locales impossible.'));
   });
 }
 
-return Object.freeze({connect,read,write,readAttempts,registerFailure,resetAttempts,blockAttempts,readRecovery,preserve,recoveries});
+return Object.freeze({connect,read,write,readAttempts,registerFailure,resetAttempts,blockAttempts,readRecovery,preserve,preserveOrganization,recoveries});
 })();
