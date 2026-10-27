@@ -18,18 +18,20 @@ function isScanSection(section) {
   return ['scan-passive', 'scan-active'].includes(section);
 }
 
+const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 'tools'];
+
 const workspaceModules = (() => {
-  const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);
+  const installed = new Set((window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools']).filter(id => id !== 'vault'));
   const has = id => installed.has(id);
   const allows = section => section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools'));
   return {
     has,
     allows,
     get canSwitch() {
-      return ['memo', 'tools', 'vault'].filter(has).length > 1;
+      return PRIMARY_WORKSPACE_SECTIONS.filter(allows).length > 1;
     },
     get landingSection() {
-      return has('memo') ? 'library' : has('tools') ? 'tools' : has('vault') ? 'vault' : 'modules';
+      return has('memo') ? 'library' : has('tools') ? 'tools' : 'modules';
     },
     allowsItem: item => item.type !== 'task' && allows(['vault', 'protocol'].includes(item.type) ? item.type : 'library')
   };
@@ -68,10 +70,9 @@ async function importWorkspaceModule(button, id = null) {
 }
 
 function moduleManagerHTML() {
-  return '<div class="workspace-modules"><h2>Importer une section</h2><p>Choisissez Mémo, Outils ou Coffre-fort. Chaque section s’importe séparément.</p><div class="workspace-module-options">' + [
+  return '<div class="workspace-modules"><h2>Importer une section</h2><p>Choisissez Mémo ou Outils. Les outils comprennent les deux espaces de scan.</p><div class="workspace-module-options">' + [
     ['memo', 'Mémo', 'Fiches, dossiers et éditeur.', 'library'],
-    ['tools', 'Outils', 'Analyse IP, ports, scans et vérification de fichiers.', 'tools'],
-    ['vault', 'Coffre-fort', 'Identifiants, mots de passe et accès chiffrés.', 'vault']
+    ['tools', 'Outils', 'Analyse IP, ports, scans et vérification de fichiers.', 'tools']
   ].filter(([id]) => !window.__BIBLIOTHEQUE_DESKTOP__?.availableSections || window.__BIBLIOTHEQUE_DESKTOP__.availableSections.includes(id)).map(([id, name, description, palette]) => '<div class="workspace-module-option" data-module-id="' + id + '" style="--module-accent:var(--workspace-' + palette + ')"><strong>' + name + '</strong><p>' + description + '</p><span data-module-state>' + (pendingWorkspaceModules.has(id) ? 'Prêt après relance' : workspaceModules.has(id) ? 'Installé' : 'Non installé') + '</span><button type="button" class="secondary" data-import-section="' + id + '" data-wg-click="importWorkspaceModule(this,\'' + id + '\')" ' + (!desktopBridge.available || moduleImportBusy || pendingWorkspaceModules.has(id) ? 'disabled' : '') + '>Importer ' + name + '</button></div>').join('') + '</div><button type="button" class="secondary" data-import-section="" data-wg-click="importWorkspaceModule(this)" ' + (!desktopBridge.available || moduleImportBusy ? 'disabled' : '') + '>Importer depuis un fichier…</button><p data-module-status role="status" aria-live="polite">' + (pendingWorkspaceModules.size ? 'Les sections importées seront disponibles après la relance de WolfGuard.' : 'Les changements prennent effet à la prochaine ouverture de WolfGuard.') + '</p></div>';
 }
 

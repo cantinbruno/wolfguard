@@ -4,8 +4,9 @@ const topNavigation = (() => {
   let navigation;
   const labels = {
     library: 'Mémo',
-    tools: 'Outils',
-    vault: 'Coffre-fort'
+    'scan-passive': 'Scan passif',
+    'scan-active': 'Scan actif',
+    tools: 'Outils'
   };
 
   function positionIndicator() {

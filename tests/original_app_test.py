@@ -56,7 +56,8 @@ def run():
             page.wait_for_function("() => !document.querySelector('#app').inert")
             count=page.evaluate("async()=> (await all('items')).length")
             assert count >= 800, count
-            assert page.locator('.workspace-section-button').count()==3
+            assert page.locator('.workspace-section-button').count()==4
+            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')
 
@@ -80,40 +81,55 @@ def run():
             print('PASS: editeur riche original, commandes integrees, lecture et nettoyage XSS')
 
             # Existing Checklist data must not prevent opening or saving the restored app.
+            page.evaluate("setMode('edit')")
+            page.locator('#richEditor').fill('Brouillon a conserver pendant les scans')
+            page.locator('.workspace-section-button[data-section=scan-passive]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
+            expect(page.locator('#scanTitle')).to_have_text('Scan passif')
+            expect(page.locator('#toolboxShell,.scan-mode-navigation')).to_have_count(0)
+            page.locator('.workspace-section-button[data-section=scan-active]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
+            page.locator('#scanTarget').fill('192.0.2.42')
+            page.locator('.workspace-section-button[data-section=library]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
+            expect(page.locator('#richEditor')).to_have_text('Brouillon a conserver pendant les scans')
+            page.locator('.library-editor-heading').get_by_role('button',name='Enregistrer',exact=True).click()
+            print('PASS: brouillon du memo conserve pendant les changements entre les deux scans')
+
             expect(page.locator('[data-section=checklist]')).to_have_count(0)
             page.evaluate("async()=>await put('items',{id:'saved-task',type:'task',title:'Ancienne tache conservee',content:'Note de checklist',completed:true,priority:'high',dueDate:'2030-01-15',createdAt:now(),updatedAt:now()})")
             assert not page.evaluate("workspaceModules.allowsItem({type:'task'})")
-            page.locator('.workspace-section-button[data-section=vault]').click()
-            page.wait_for_function('()=>!sectionTransition.active')
-            page.evaluate('newVault()')
-            page.locator('#fTitle').fill('Acces confidentiel de test')
-            page.locator('#fUser').fill('synthetic@example.invalid')
-            page.locator('#fPass').fill('SECRET-TEST-COFFRE-943!')
-            page.locator('#fHost').fill('192.168.1.20')
-            page.locator('#fNotes').fill('Note confidentielle du coffre')
-            page.locator('.vault-edit-footer .primary').click()
-            expect(page.locator('.vault-edit')).not_to_be_visible()
-            vault_id=page.evaluate("async()=> (await all('items')).find(i=>i.title==='Acces confidentiel de test').id")
+            # Old vault records are retained encrypted, outside navigation and search.
+            vault_id='archived-vault-test'
+            page.evaluate("""async id=>await put('items',{id,type:'vault',title:'Acces confidentiel de test',tags:[],folderId:null,vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({username:'synthetic@example.invalid',password:'SECRET-TEST-COFFRE-943!',host:'192.168.1.20',notes:'Note confidentielle du coffre',custom:[]}),state.vaultKey),encryptionVersion:2,createdAt:now(),updatedAt:now()})""",vault_id)
+            assert not page.evaluate("workspaceModules.allowsItem({type:'vault'})")
+            assert not page.evaluate("openSection('vault')")
             clear=page.evaluate("async id=>await vaultData(await get('items',id))",vault_id)
             assert clear['password']=='SECRET-TEST-COFFRE-943!'
             stored=page.evaluate("async()=>await (await import('./browser/storage.js')).read()")
             for secret in ['Acces confidentiel','SECRET-TEST','Fiche confidentielle','synthetic@example']:
                 assert secret not in json.dumps(stored)
             assert page.evaluate("""async password=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const original=await s.read();const damaged=structuredClone(original);damaged.data=(damaged.data[0]==='A'?'B':'A')+damaged.data.slice(1);try{await c.open(damaged,password);return false}catch{return true}}""",PASSWORD)
-            print('PASS: coffre original, champs complets, stockage entierement chiffre')
+            print('PASS: ancienne donnee du coffre conservee chiffree, section retiree')
 
             page.locator('.workspace-section-button[data-section=tools]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#toolboxShell')).to_be_visible()
-            assert page.locator('[data-toolbox-nav]').count()==6
+            assert page.locator('[data-toolbox-nav]').count()==4
+            expect(page.locator('[data-toolbox-nav=active],[data-toolbox-nav=passive]')).to_have_count(0)
             page.locator('[data-toolbox-nav=ports]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.protocol-content')).to_be_visible(timeout=15000)
-            page.locator('[data-toolbox-nav=active]').click()
+            page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
+            expect(page.locator('#scanTitle')).to_have_text('Scan passif')
+            expect(page.locator('#scanStart')).to_be_disabled()
+            page.locator('.workspace-section-button[data-section=scan-active]').click()
+            page.wait_for_function('()=>!sectionTransition.active')
+            expect(page.locator('#scanTarget')).to_have_value('192.0.2.42')
             expect(page.locator('#scanStart')).to_be_disabled()
             assert 'application Windows' in page.locator('#content').inner_text()
-            print('PASS: six outils originaux, referentiels ports, scans Windows explicitement indisponibles')
+            print('PASS: quatre outils, deux sections scan distinctes, execution Windows explicitement indiquee')
 
             page.locator('#settingsBtn').click()
             expect(page.locator('.settings-modal')).to_be_visible()

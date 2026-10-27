@@ -34,6 +34,9 @@
   --ui-accent: var(--workspace-library);
 }
 
+#app[data-primary-section="scan-passive"] {--workspace-accent:#8cbae8;--ui-accent:#8cbae8}
+#app[data-primary-section="scan-active"] {--workspace-accent:#b8a0eb;--ui-accent:#b8a0eb}
+
 /* Dialogs live outside #app and inherit the active workspace colours here. */
 :root:has(#app[data-primary-section="tools"]:not(.hidden)) {
   --ui-accent: var(--workspace-tools);
@@ -225,7 +228,7 @@
   border-bottom: 1px solid var(--ui-border) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  overflow: visible !important;
+  overflow: clip !important;
 }
 
 .topbar .section-navigation::after {
@@ -294,6 +297,9 @@
   --button-accent: var(--workspace-tools);
 }
 
+.workspace-section-button[data-section="scan-passive"] {--button-accent:#8cbae8}
+.workspace-section-button[data-section="scan-active"] {--button-accent:#b8a0eb}
+
 .workspace-section-button[data-section="vault"] {
   --button-accent: var(--workspace-vault);
 }
@@ -310,7 +316,7 @@
 
 .topbar .workspace-section-button:focus-visible {
   outline: 2px solid var(--button-accent);
-  outline-offset: 3px;
+  outline-offset: -3px;
 }
 
 .workspace-section-button.has-draft::after {
@@ -340,14 +346,14 @@
   }
 }
 
-@media(max-width:760px) {
+@media(max-width:980px) {
   .topbar {
     --logo-column: 40px;
     --settings-size: 36px;
     --header-gutter: 12px;
     grid-template-columns: var(--logo-column) minmax(0, 1fr) var(--settings-size) !important;
-    grid-template-areas: "brand sections settings" "search search search" !important;
-    grid-template-rows: 48px 38px !important;
+    grid-template-areas: "brand search settings" "sections sections sections" !important;
+    grid-template-rows: 44px 44px !important;
     padding: 10px 12px !important;
     gap: 6px !important;
   }

@@ -2,9 +2,9 @@
 
 Site : **https://wolfguard.wavetools.fr/** · GitHub Pages : branche `main`, dossier `/docs`.
 
-La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. La navigation, les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes, le coffre avec ses champs personnalisés et les paramètres sont conservés. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
+La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. Les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes et les paramètres sont conservés. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
 
-Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
+La navigation comprend **Mémo, Scan passif, Scan actif et Outils**, accessibles aussi avec Alt+1 à Alt+4. Le Mémo conserve son fonctionnement et son classement. Chaque scan dispose de son propre écran ; Outils garde l’analyse IP, les ports et services, la vérification de fichiers et le décodeur/formateur. Les paramètres proposent Sécurité, Données et Interface, sans écran d’import des sections Windows.
 
 Le Mémo applique une seule fois un rangement thématique lors de sa prochaine ouverture déverrouillée : Réseaux, Systèmes, Identité et accès, Sécurité, Virtualisation, Cloud et DevOps, Données et stockage, Supervision, Collaboration, Support et exploitation, puis les archives. Les anciens classements des commandes, modèles et documents sont regroupés dans ces thèmes. Les dossiers personnels non reconnus restent en place. Les dossiers techniques vides et les doublons sont retirés de la navigation sans suppression physique des enregistrements ; les destinations des notes dans la corbeille restent restaurables. Les contenus, pièces jointes, identifiants, favoris, liens et données du coffre sont conservés.
 
@@ -16,11 +16,11 @@ Une activation unique est nécessaire : ouvrir le lien privé d’activation sur
 
 Chaque ouverture récupère la copie partagée avant de déchiffrer son contenu. Les modifications sont signalées comme enregistrées après confirmation du serveur. Les écritures concurrentes vérifient une version : un appareil en retard reçoit un conflit et conserve sa modification dans une copie locale de secours exportable. Verrouiller et rouvrir récupère la dernière version. Les autres appareils déjà ouverts rechargent les nouvelles données à leur prochaine ouverture ; il ne s’agit pas d’une fusion en direct. Les copies locales antérieures et l’ancien dépôt privé GitHub de données sont conservés.
 
-Le Coffre-fort a repris sa place dans la navigation. Les éventuelles tâches créées pendant la version Checklist restent conservées dans l’espace chiffré et les sauvegardes, sans apparaître dans la navigation, la recherche ou les fiches liées.
+Le Coffre-fort est retiré de la navigation. Ses anciennes données et les éventuelles tâches de l’ancienne Checklist restent conservées dans l’espace chiffré et les sauvegardes, sans apparaître dans la navigation, la recherche ou les fiches liées. Leur rechiffrement reste pris en charge lors d’un changement de code ou d’une restauration.
 
 Le clavier apparaît directement à l’ouverture du site, sans animation avant la saisie du code. Le loup grandit puis éclate uniquement après un code correct. Les espaces et outils glissent réellement grâce à l’animation directe du contenu, sans dépendre de View Transitions. Les paramètres gardent leur animation d’ouverture. Ces effets restent actifs même si Windows réduit ses animations.
 
-Les six outils d’origine restent visibles : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : un site statique ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
+Les quatre outils et les deux écrans de scan restent présents : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : le navigateur ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
 
 ## Sources et publication automatique
 

@@ -27,6 +27,8 @@ function workspaceNavigationIcon(name) {
 
 function workspaceSectionIcon(section) {
   if (section === 'home') return workspaceNavigationIcon('house');
+  if (section === 'scan-passive') return networkToolIcon('activity');
+  if (section === 'scan-active') return networkToolIcon('radar');
   if (['scan', 'scan-passive', 'scan-active'].includes(section)) return '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4-6.4M5.6 5.6a9 9 0 0 1 12.8 12.8"/><circle cx="8" cy="15" r="1"/><circle cx="15" cy="16" r="1"/></svg>';
   if (section === 'library') return workspaceNavigationIcon('file-text');
   if (section === 'tools') return workspaceNavigationIcon('calculator');

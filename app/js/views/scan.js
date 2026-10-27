@@ -290,12 +290,6 @@ async function renderScanWorkspace() {
     <footer class="scan-footer"><p id="scanFootnote"></p><div id="scanPagination"></div></footer>
   </section>`;
   mountScanConsole(passive);
-  const modes = document.createElement('nav');
-  modes.className = 'scan-mode-navigation';
-  modes.setAttribute('aria-label', 'Mode de scan');
-  modes.innerHTML = ['passive', 'active'].map(mode => '<button type="button" class="secondary" data-scan-section="scan-' + mode + '" aria-current="' + ((passive ? mode === 'passive' : mode === 'active') ? 'page' : 'false') + '">Scan ' + (mode === 'passive' ? 'passif' : 'actif') + '</button>').join('');
-  $('.scan-page').prepend(modes);
-  modes.querySelectorAll('button').forEach(button => button.onclick = () => openSection(button.dataset.scanSection));
   const form = $('#scanForm');
   const sync = () => {
     Object.assign(scanView.values, {
@@ -468,6 +462,7 @@ function updateScanForm() {
 }
 
 function scanStateText() {
+  if (!desktopBridge.available) return 'Scan disponible dans l’application Windows';
   if (scanDisplayStrategy() === 'passive') {
     if (scanView.busy) return scanView.stopping ? 'Arrêt de l’observation…' : scanView.retaining ? 'Actualisation en cours · dernier relevé conservé' : 'Observation locale en cours…';
     if (scanView.error) return (scanView.report ? 'Actualisation impossible · dernier relevé conservé' : 'Observation impossible') + (scanView.monitoring ? ' · nouvelle tentative à ' + passiveTime(scanView.nextRefreshAt) : scanView.failures >= 3 ? ' · suivi arrêté après trois échecs' : '');
@@ -529,6 +524,7 @@ function updateScanResults() {
   $('#scanEmpty').hidden = displayCount > 0;
   $('#scanEmpty').textContent = filtered.length && !displayCount ? processes ? 'Ces observations ne contiennent aucun processus TCP/UDP.' : 'Les adresses génériques ne désignent pas une machine distincte. Consulte la vue Observations.' : scanView.busy ? (passive ? 'Lecture des informations locales…' : 'Les résultats apparaissent au fil des tests.') : scanView.results.length ? 'Aucun résultat pour ces filtres.' : scanView.report?.cancelled ? 'Collecte arrêtée avant la réception d’un résultat.' : passive ? scanView.report ? 'Aucune entrée disponible dans les sources sélectionnées. Cela ne prouve pas l’absence de machines sur le réseau.' : 'Clique sur « Observer ce PC » pour lire les informations locales disponibles.' : 'Saisis une cible puis lance le scan actif.';
   $('#scanState').textContent = scanStateText();
+  if (!desktopBridge.available && !scanView.results.length) $('#scanEmpty').textContent = 'Ouvre l’application Windows WolfGuard pour effectuer ce scan.';
   $('#scanProgressCount').textContent = passive ? scanView.completed.toLocaleString('fr-FR') + ' observation' + (scanView.completed === 1 ? '' : 's') : scanView.total ? scanView.completed.toLocaleString('fr-FR') + ' / ' + scanView.total.toLocaleString('fr-FR') + (scanView.runMode === 'discovery' ? ' machines' : ' tests') : '';
   $('#scanProgress').max = Math.max(1, scanView.total);
   $('#scanProgress').value = scanView.completed;

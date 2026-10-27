@@ -15,20 +15,6 @@ const TOOLBOX_TOOLS = [{
   category: 'Réseau',
   icon: 'protocol'
 }, {
-  id: 'passive',
-  section: 'scan-passive',
-  title: 'Scan passif',
-  description: 'Connexions et ports de ce PC',
-  category: 'Réseau',
-  icon: 'scan-passive'
-}, {
-  id: 'active',
-  section: 'scan-active',
-  title: 'Scan actif',
-  description: 'Machines du réseau local',
-  category: 'Réseau',
-  icon: 'scan-active'
-}, {
   id: 'hash',
   section: 'tools',
   title: 'Vérifier un fichier',

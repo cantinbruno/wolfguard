@@ -16,8 +16,8 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
-const availablePrimarySections = () => ['library', 'tools', 'vault'].filter(section => workspaceModules.allows(section));
+const primarySectionFor = section => isScanSection(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const availablePrimarySections = () => PRIMARY_WORKSPACE_SECTIONS.filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
   primaryWorkspaces.memo = null;
@@ -47,7 +47,7 @@ function syncMemoDraftIndicator() {
   button?.classList.toggle('has-draft', draft);
   for (const tab of document.querySelectorAll('.workspace-section-button')) {
     const section = tab.dataset.section;
-    const shortcut = {library: '1', tools: '2', vault: '3'}[section];
+    const shortcut = String(availablePrimarySections().indexOf(section) + 1);
     const label = tab.textContent + ' (Alt+' + shortcut + ')' + (section === 'library' && draft ? ' · Brouillon de fiche en cours' : '');
     tab.title = label;
     tab.setAttribute('aria-label', label);
@@ -128,6 +128,7 @@ async function switchPrimaryWorkspace(section) {
     return true;
   }
   if (target === 'library') return openSection('library');
+  if (isScanSection(target)) return openSection(target);
   if (target === 'modules') return openSection('modules');
   if (target === 'vault') return openSection('vault', null, {
     resume: primaryWorkspaces.vault
@@ -139,11 +140,10 @@ async function switchPrimaryWorkspace(section) {
 }
 document.addEventListener('input', () => syncMemoDraftIndicator());
 document.addEventListener('keydown', event => {
-  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !['1', '2', '3'].includes(event.key) || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
+  const digit=/^[1-4]$/.test(event.key)?event.key:/^Digit([1-4])$/.exec(event.code||'')?.[1];
+  if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !digit || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
+  const destination=availablePrimarySections()[Number(digit)-1];
+  if(!destination)return;
   event.preventDefault();
-  switchPrimaryWorkspace({
-    '1': 'library',
-    '2': 'tools',
-    '3': 'vault'
-  } [event.key]);
+  switchPrimaryWorkspace(destination);
 });

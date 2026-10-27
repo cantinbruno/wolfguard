@@ -289,6 +289,8 @@
   box-shadow: 0 3px 14px color-mix(in srgb, var(--scan) 12%, transparent);
 }
 
+.scan-configuration #scanStart:disabled {opacity:.45;filter:saturate(.35);cursor:not-allowed;box-shadow:none}
+
 .scan-configuration #scanStart:hover:enabled {
   filter: brightness(1.08);
 }
