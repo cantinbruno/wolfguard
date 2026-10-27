@@ -6,7 +6,11 @@ La version web utilise directement le HTML, les styles, les vues et les outils d
 
 Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
 
-L’ouverture utilise uniquement le code local : aucune autorisation GitHub ni aucun jeton n’est demandé. La synchronisation GitHub a été retirée. Chaque navigateur conserve son espace chiffré ; les données ne se synchronisent pas entre appareils. Les espaces déjà présents restent lisibles, y compris ceux récupérés pendant la version synchronisée. Une éventuelle copie de secours chiffrée locale reste exportable dans Paramètres → Données. Le dépôt privé de données existant n’est ni interrogé ni supprimé par l’application.
+L’ouverture sur le site utilise uniquement le **même code de huit chiffres sur tous les appareils**, sans connexion GitHub ou ChatGPT. GitHub Pages conserve le frontend ; un serveur Sites avec D1 et R2 conserve la copie partagée chiffrée. Les données personnelles ne sont jamais enregistrées dans le dépôt Git public.
+
+Une activation unique est nécessaire : ouvrir le lien privé d’activation sur le domaine habituel, dans le navigateur contenant les données actuelles, puis saisir le code existant. Le navigateur vérifie et transfère automatiquement son espace complet chiffré. Sans espace existant, il demande de choisir et confirmer un code. Le lien n’est pas publié dans Git et ne peut pas réinitialiser un espace déjà activé. Ensuite, ouvrir simplement https://wolfguard.wavetools.fr/ et saisir le même code suffit sur un autre appareil. Une connexion Internet au serveur est nécessaire ; une panne ne crée pas silencieusement une nouvelle base locale.
+
+Chaque ouverture récupère la copie partagée avant de déchiffrer son contenu. Les modifications sont signalées comme enregistrées après confirmation du serveur. Les écritures concurrentes vérifient une version : un appareil en retard reçoit un conflit et conserve sa modification dans une copie locale de secours exportable. Verrouiller et rouvrir récupère la dernière version. Les autres appareils déjà ouverts rechargent les nouvelles données à leur prochaine ouverture ; il ne s’agit pas d’une fusion en direct. Les copies locales antérieures et l’ancien dépôt privé GitHub de données sont conservés.
 
 Le Coffre-fort a repris sa place dans la navigation. Les éventuelles tâches créées pendant la version Checklist restent conservées dans l’espace chiffré et les sauvegardes, sans apparaître dans la navigation, la recherche ou les fiches liées.
 
@@ -19,9 +23,10 @@ Les six outils d’origine restent visibles : analyse IP, référentiels ports/s
 - `myapp/` est directement le dépôt Git `cantinbruno/wolfguard`, avec la même arborescence et le même historique que GitHub.
 - `app/` : sources de l’interface d’origine, désormais modifiées directement dans ce dépôt.
 - `browser/` : adaptation du stockage, du code d’accès et des sauvegardes au navigateur.
+- `server/` : source complète du serveur Sites, schéma D1 et migrations ; les secrets restent configurés uniquement chez l’hébergeur.
 - `docs/` : résultat de `scripts/build-web.mjs`, publié par GitHub Pages. `CNAME` conserve le domaine personnalisé.
 
-La surveillance locale `scripts/watch-myapp.ps1` détecte les modifications de `app/`, `browser/`, `scripts/`, `tests/` et des fichiers de configuration du dépôt, attend la fin des écritures, prépare `docs/`, exécute les tests puis crée un commit et pousse sur GitHub. Les mises à jour distantes sont récupérées quand le dossier local est propre. GitHub Pages publie chaque push sur `main`.
+La surveillance locale `scripts/watch-myapp.ps1` détecte les modifications de `app/`, `browser/`, `server/`, `scripts/`, `tests/` et des fichiers de configuration du dépôt, attend la fin des écritures, prépare `docs/`, exécute les tests puis crée un commit et pousse sur GitHub. Les mises à jour distantes sont récupérées quand le dossier local est propre. GitHub Pages publie chaque push sur `main`. Le serveur Sites utilise un déploiement distinct ; pousser son code sur GitHub ne redéploie pas son API. Voir `server/README.md`.
 
 Elle fonctionne pendant que ce PC est allumé, avec la session utilisateur ouverte, Internet et l’accès GitHub disponibles. Elle démarre avec la tâche Windows **WolfGuard-Web-AutoPublish** à l’ouverture de session. Une erreur de test, un conflit distant, une préparation Git en cours ou un fichier hors des sources autorisées suspendent le push ; aucun historique n’est forcé et les modifications sont conservées. Le journal est `.cache/auto-publication.log`, exclu de Git. Les échecs de connexion sont réessayés.
 
@@ -45,7 +50,7 @@ Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de co
 
 Sur ce PC, l’ancienne application Windows complète et ses bases sont conservées dans `.local-archive/windows-original/` ; l’ancienne version web séparée est dans `.local-archive/previous-web/`. L’intégralité de `.local-archive/` est exclue de Git et de la publication. Les empreintes des fichiers de données ont été vérifiées après leur déplacement. L’ancienne application peut être lancée avec `.local-archive/windows-original/WolfGuard.exe`.
 
-## Données locales et coffre
+## Données partagées et coffre
 
 Un code d’accès de **huit chiffres exactement**, de 0 à 9, remplace le mot de passe maître dans le même écran d’accès que l’application d’origine. Les zéros au début sont conservés ; lettres et espaces sont exclus. Le code est choisi et confirmé à la création, ou changé dans Paramètres → Sécurité. Les bases et sauvegardes existantes restent accessibles avec leur ancien mot de passe jusqu’à leur changement volontaire.
 
@@ -59,7 +64,9 @@ Les écritures sont transactionnelles, vérifient leur révision et excluent un 
 
 Les mots de passe sont masqués pendant l’édition et se remasquent quinze secondes après affichage dans une fiche. Une copie sensible est suivie par une empreinte en mémoire : après trente secondes ou au verrouillage, le navigateur tente de l’effacer seulement si la permission de lecture du presse-papiers était déjà accordée et si le contenu lu correspond encore à cette copie. Il ne demande pas de permission supplémentaire et n’efface pas volontairement une nouvelle copie différente. Ce nettoyage est une mesure de précaution, pas une garantie : il dépend du navigateur, de son état de focus et des changements concurrents du presse-papiers.
 
-Chaque code incorrect au déverrouillage impose un délai croissant : **5 secondes au premier échec, 10 au deuxième, 15 au troisième, puis 5 secondes supplémentaires par échec**. Pendant ce délai, la souris, le clavier physique et le collage ne peuvent pas soumettre un nouveau code. Le compteur et l’échéance, sans secret ni code, sont enregistrés dans IndexedDB pour cet espace et partagés entre les onglets. Recharger la page ne les remet pas à zéro. Un code correct remet le compteur à zéro. Si l’enregistrement des tentatives échoue, le clavier reste bloqué. Cette limitation est locale au navigateur ; un site uniquement front ne peut pas imposer de limite à une attaque hors ligne sur une copie chiffrée ou à un navigateur dont le stockage a été effacé.
+Chaque code incorrect au déverrouillage impose un délai croissant : **5 secondes au premier échec, 10 au deuxième, 15 au troisième, puis 5 secondes supplémentaires par échec**. Le compteur et le délai sont persistants côté serveur, partagés entre les appareils, et ne disparaissent pas en effaçant le stockage du navigateur. Un verrou transactionnel empêche les vérifications parallèles de contourner le délai. Le navigateur conserve aussi l’échéance pour bloquer son clavier, le collage et les boutons pendant l’attente. Un code correct remet le compteur à zéro. Cette protection ne limite pas les attaques hors ligne sur une sauvegarde exportée.
+
+Le serveur vérifie le code avec un secret indépendant, un sel aléatoire et PBKDF2-SHA-256 à 100 000 itérations, compatible avec la limite de production Workers. Les sessions utilisent des jetons aléatoires de 256 bits, conservés seulement en mémoire par le navigateur et sous forme d’empreinte dans D1. Elles expirent après une minute d’inactivité et quinze minutes maximum. R2 applique une seconde couche AES-256-GCM avec une clé serveur indépendante sur des blocs authentifiés de 64 Kio. L’enveloppe chiffrée par le navigateur n’est donc pas stockée telle quelle dans R2. Les anciens objets chiffrés sont conservés pour récupération. Un changement du code et son nouvel espace chiffré sont validés ensemble, puis les anciennes sessions sont révoquées. Le serveur reçoit le code via HTTPS pour le vérifier ; ce n’est pas un protocole à connaissance nulle.
 
 La page ne charge aucune bibliothèque depuis un CDN. Les dépendances sont incluses dans `app/vendor/` avec leurs licences. La CSP bloque les scripts intégrés, les attributs d’événements HTML (`script-src-attr 'none'`) et `eval` ; WebAssembly reste autorisé pour les empreintes. Les actions historiques sont remplacées par une liste fermée de commandes dans `browser/actions.js`, sans compilation de chaînes de caractères. DOMPurify nettoie les contenus riches, retire les commandes forgées et isole les noms des éléments pour réduire les risques de collision avec l’interface. Les identifiants, étiquettes et liens sont validés. Tous les scripts et feuilles de style de la page portent une empreinte SRI SHA-384 ; les fichiers modifiés sans mise à jour de la page sont refusés par le navigateur. La politique de référent est `no-referrer`.
 
@@ -73,7 +80,7 @@ Références de conception : [OWASP — stockage des mots de passe](https://chea
 
 Les données créées avec la première version web simplifiée sur ce même domaine sont reprises automatiquement après déverrouillage. Leurs sauvegardes `.wgweb` restent importables.
 
-Paramètres → Données → Exporter crée une sauvegarde chiffrée complète `.wgweb`. L’import la valide et demande son code, ou son ancien mot de passe, avant de remplacer l’espace local. Les sauvegardes conservent le texte riche, les commandes, images, pièces jointes, sous-dossiers et champs personnalisés. Une ancienne sauvegarde garde son ancien accès après un changement local.
+Paramètres → Données → Exporter crée une sauvegarde chiffrée complète `.wgweb`. Sur le site partagé, l’import demande le code de la sauvegarde, conserve une copie de l’espace actuel puis restaure son contenu dans l’espace partagé avec le code actuel. Les secrets internes du coffre sont rechiffrés avec la clé actuelle. Les sauvegardes conservent le texte riche, les commandes, images, pièces jointes, sous-dossiers et champs personnalisés. Un fichier déjà exporté garde son ancien code après un changement.
 
 Pour transférer les bases de l’application Windows sur ce PC, fermer d’abord WolfGuard.exe puis lancer depuis le dépôt :
 
@@ -83,7 +90,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/transfer-myapp.ps1
 
 Le script utilise le runtime Node.js installé pour la synchronisation et crée la sauvegarde sur le Bureau. Sur ce PC, il retrouve automatiquement les anciennes bases dans `.local-archive/windows-original/`. Il ouvre les quatre bases en lecture seule, demande le code Windows et un nouveau code web de huit chiffres avec saisie masquée, puis produit directement une sauvegarde chiffrée. Il conserve les documents complets et rechiffre les secrets du coffre. Il refuse d’écraser une sauvegarde ou de la placer dans le dépôt. Aucun fichier intermédiaire déchiffré ni envoi réseau n’est nécessaire. Importer ensuite cette sauvegarde depuis Paramètres → Données sur le site.
 
-Exporter régulièrement : les données sont propres au domaine et au profil du navigateur. Les effacer, perdre l’appareil ou oublier le code rend l’espace inaccessible. Limite de l’espace chiffré : 32 Mo.
+Après activation et confirmation du transfert, effacer le cache ou changer d’appareil permet de retrouver la copie partagée en saisissant le code. Les données uniquement locales avant cette activation doivent être transférées depuis leur navigateur d’origine. Garder aussi des exports chiffrés : oublier le code ou perdre l’accès à l’hébergement reste une limite. Limite de l’espace chiffré : 32 Mo. Le mode de développement sur localhost reste local par défaut ; `?sync-test` active le partage pour les tests avec une API de test interceptée.
 
 ## Développement et vérification
 

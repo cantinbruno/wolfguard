@@ -5,8 +5,8 @@ New-Item -ItemType Directory -Path $cache -Force | Out-Null
 $log = Join-Path $cache 'auto-publication.log'
 function Signature {
   $files = @()
-  foreach ($directory in @('app','browser','scripts','tests')) {
-    $files += Get-ChildItem -LiteralPath (Join-Path $repository $directory) -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](__pycache__|node_modules|\.cache)[\\/]' }
+  foreach ($directory in @('app','browser','server','scripts','tests')) {
+    $files += Get-ChildItem -LiteralPath (Join-Path $repository $directory) -Recurse -File | Where-Object { $_.FullName -notmatch '[\\/](__pycache__|node_modules|\.cache|\.sites-runtime|\.wrangler|dist)[\\/]' }
   }
   foreach ($name in @('README.md','package.json','.gitignore')) { $files += Get-Item -LiteralPath (Join-Path $repository $name) -Force }
   return (@($files | Sort-Object FullName | ForEach-Object { $_.FullName + '|' + $_.Length + '|' + $_.LastWriteTimeUtc.Ticks }) -join "`n")

@@ -35,6 +35,7 @@ const appMessages = (() => {
     dialog.querySelector('p').textContent = request.message;
     const input = dialog.querySelector('input');
     if (input) {
+      input.type = request.options.inputType === 'password' ? 'password' : 'text';
       input.value = request.value;
       input.placeholder = request.options.placeholder || '';
     }

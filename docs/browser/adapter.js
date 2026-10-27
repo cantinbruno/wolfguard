@@ -3,10 +3,10 @@
 // The original UI, editors and tools stay unchanged. Only desktop storage and
 // the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
-  let cryptography, storage, session = null, envelope = null, pendingBackup = null;
+  let cryptography, storage, cloud, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
-  let sessionClock = null, rotating = false;
+  let sessionClock = null, rotating = false, cloudHeartbeat = null;
   const IDLE_MS = 60000, SESSION_MS = 15 * 60000;
   function sessionExpired() {
     if (!session || !sessionClock) return false;
@@ -25,7 +25,7 @@ const webWorkspace = (() => {
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
-  const accessScope = () => (pendingBackup || envelope)?.salt || '';
+  const accessScope = () => cloud?.enabled ? 'shared' : (pendingBackup || envelope)?.salt || '';
   const accessBlocked = () => attemptsUnavailable || (attemptScope === accessScope() && attemptState.blockedUntil > Date.now());
   async function loadAttempts() {
     const scope=accessScope(), state=await storage.readAttempts(scope);
@@ -64,6 +64,8 @@ const webWorkspace = (() => {
     return snapshot;
   }
   const saveStatus = message => { $('#webSaveState').textContent = message; };
+  const savedMessage = () => cloud?.enabled ? 'Enregistré · Synchronisé et chiffré' : 'Enregistré · Chiffré sur cet appareil';
+  const gateExists = () => !!(pendingBackup || envelope) || (cloud?.enabled && (cloud.isInitialized()!==false || !cloud.canActivate()));
   async function claimTab() {
     if (releaseTab) return;
     if (!navigator.locks) throw new Error('Un navigateur récent avec Web Locks est nécessaire.');
@@ -86,9 +88,13 @@ const webWorkspace = (() => {
       const result = change(payload);
       validate(payload);
       const encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
+      if(cloud.enabled){
+        try{await cloud.save(encrypted);}catch(error){await storage.preserve(encrypted,true);throw error;}
+        if(session!==current || generation!==epoch)throw new Error('Espace verrouillé. La copie distante est enregistrée.');
+      }
       await storage.write(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
-      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus('Enregistré · Chiffré sur cet appareil'); }
+      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); }
       return result;
     });
     queue = work.catch(() => {});
@@ -99,7 +105,7 @@ const webWorkspace = (() => {
     async get(store,id) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
     async all(store) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store] || []); }
     readOnly(store) { return this.all(store); }
-    storageFiles() { return [{id:'main',name:'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
+    storageFiles() { return [{id:'main',name:cloud?.enabled?'Espace partagé chiffré':'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
     batch(operations) {
       const records = structuredClone(operations);
       return commit(payload => {
@@ -154,7 +160,7 @@ const webWorkspace = (() => {
   }
   function renderKeypad() {
     if(!$('#webAccessForm'))return;
-    const exists=!!(pendingBackup || envelope);
+    const exists=gateExists();
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
     $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
     $('#pinDots').classList.remove('hidden');
@@ -180,7 +186,7 @@ const webWorkspace = (() => {
     }
   }
   function showGate() {
-    const exists = !!(pendingBackup || envelope);
+    const exists = gateExists();
     $('#connectionGate').classList.add('hidden'); $('#lock').classList.remove('hidden'); $('#app').classList.add('hidden');
     enteredCode=''; creationCode='';
     $('#webConfirmRow').hidden=true; $('#webConfirm').required=!exists;
@@ -207,7 +213,7 @@ const webWorkspace = (() => {
     else return;
     renderKeypad();
     if (enteredCode.length!==8) return;
-    const exists=!!(pendingBackup || envelope);
+    const exists=gateExists();
     if (!exists && !creationCode) { creationCode=enteredCode; enteredCode=''; renderKeypad(); return; }
     if (!exists && enteredCode!==creationCode) {
       enteredCode=''; creationCode=''; renderKeypad(); $('#lockError').textContent='Les codes ne correspondent pas. Choisis à nouveau ton code.'; return;
@@ -215,6 +221,33 @@ const webWorkspace = (() => {
     $('#webPassword').value=exists ? enteredCode : creationCode;
     $('#webConfirm').value=exists ? '' : enteredCode;
     await authenticate({preventDefault(){}});
+  }
+  async function openShared(password) {
+    if(!/^[0-9]{8}$/.test(password))throw new Error('Le partage utilise ton code de 8 chiffres.');
+    await cloud.status();
+    let result, remote=false;
+    const previous=envelope;
+    if(!cloud.isInitialized()){
+      if(!cloud.canActivate())throw new Error('Active le partage une seule fois avec le lien privé, sur l’appareil qui contient tes données.');
+      if(previous)result=await cryptography.open(previous,password);
+      else{
+        if(password!==$('#webConfirm').value)throw new Error('Les codes ne correspondent pas.');
+        result=await cryptography.create(await seed(),password);
+      }
+      result.payload=await upgrade(result);
+      await cloud.initialize(password);
+    }else{
+      const info=await cloud.login(password);
+      if(info.exists){result=await cryptography.open(cryptography.validateEnvelope(await cloud.load()),password);remote=true;}
+      else if(previous)result=await cryptography.open(previous,password);
+      else throw new Error('Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
+      result.payload=await upgrade(result);
+    }
+    if(result.envelope.version!==cryptography.WORKSPACE_VERSION){result.envelope=await cryptography.seal(result.payload,result.key,result.salt,result.envelope.revision+1);remote=false;}
+    if(!remote)await cloud.save(result.envelope);
+    if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
+    await storage.write(result.envelope,previous?.revision||0);
+    return result;
   }
   async function authenticate(event) {
     event.preventDefault(); if (busy || locking || booting || accessBlocked()) {renderKeypad();return;}
@@ -227,18 +260,19 @@ const webWorkspace = (() => {
       if(accessBlocked())return;
       attemptedScope=accessScope();
       let result;
-      if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
+      if(cloud.enabled)result=await openShared(password);
+      else if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
       else {
         if (password !== $('#webConfirm').value) throw new Error('Les codes ne correspondent pas.');
         cryptography.checkPassword(password); result=await cryptography.create(await seed(),password);
       }
-      result.payload=await upgrade(result);
+      if(!cloud.enabled)result.payload=await upgrade(result);
       if (generation !== epoch || document.hidden) return;
       await storage.resetAttempts(attemptedScope);
       attemptState={failures:0,blockedUntil:0};attemptScope=attemptedScope;
       announceAttempts(attemptedScope);
       if (pendingBackup && envelope && !await appConfirm('Remplacer l’espace de ce navigateur par cette sauvegarde ? Exporte d’abord les modifications à conserver.')) return;
-      if (pendingBackup || !envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION) {
+      if (!cloud.enabled && (pendingBackup || !envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION)) {
         result.envelope=await cryptography.seal(result.payload,result.key,result.salt,(envelope?.revision || 0)+1);
         await storage.write(result.envelope,envelope?.revision || 0);
         envelope=result.envelope;
@@ -247,17 +281,21 @@ const webWorkspace = (() => {
       session=result; envelope=result.envelope; pendingBackup=null; db=new BrowserDatabase();
       sessionClock={started:Date.now(),active:Date.now(),monotonicStart:performance.now(),monotonicActive:performance.now()};
       armSessionTimer();
-      resetSettingsCache(result.payload.settings); connectedWorkspaceReady=true; portableFileName='Espace local chiffré';
+      if(cloud.enabled){clearInterval(cloudHeartbeat);cloudHeartbeat=setInterval(()=>{if(session && !sessionExpired())cloud.touch().catch(()=>lock());},25000);}
+      resetSettingsCache(result.payload.settings); connectedWorkspaceReady=true; portableFileName=cloud.enabled?'Espace partagé chiffré':'Espace local chiffré';
       state.vaultKey=result.key; sessionAccessCode=''; retained=true;
       $('#webPassword').value=''; $('#webConfirm').value='';
       await openSection(workspaceModules.landingSection);
       if (generation !== epoch) return;
       await unlockTransition.play();
-      await scheduleAutoLock(); saveStatus('Enregistré · Chiffré sur cet appareil');
+      await scheduleAutoLock(); saveStatus(savedMessage());
       navigator.storage?.persist?.().catch(() => {});
     } catch (error) {
       if (retained) { await lock();retained=false; }
-      if(error.code==='INVALID_ACCESS_CODE' && attemptedScope){
+      if(cloud.enabled)cloud.clear();
+      if(error.retryAfter && attemptedScope){
+        try{attemptState=await storage.blockAttempts(attemptedScope,error.retryAfter);attemptScope=attemptedScope;announceAttempts(attemptedScope);}catch{attemptsUnavailable=true;}
+      }else if(error.code==='INVALID_ACCESS_CODE' && attemptedScope){
         try {
           attemptState=await storage.registerFailure(attemptedScope);attemptScope=attemptedScope;
           announceAttempts(attemptedScope);
@@ -269,12 +307,14 @@ const webWorkspace = (() => {
       password=''; busy=false; $('#webUnlock').disabled=false;
       enteredCode=''; creationCode=''; $('#webPassword').value=''; $('#webConfirm').value='';
       if (!retained) release();
+      if(!retained && cloud?.enabled)cloud.clear();
       renderKeypad();
     }
   }
   async function lock() {
     if (locking) return;
     locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
+    clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
     resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
@@ -301,6 +341,21 @@ const webWorkspace = (() => {
     const file=files?.[0]; if (!file || busy || locking) return;
     if (file.size > cryptography.MAX_BYTES*1.4) throw new Error('Sauvegarde trop volumineuse.');
     const backup=cryptography.validateEnvelope(JSON.parse(await file.text()));
+    if(cloud.enabled){
+      if(!session)throw new Error('Ouvre ton espace avec ton code avant de restaurer une sauvegarde.');
+      if(!await appConfirm('Remplacer la copie partagée par cette sauvegarde ? Une copie chiffrée de l’espace actuel sera conservée sur cet appareil.'))return;
+      let code=await appPrompt('Code de la sauvegarde','',{title:'Restaurer une sauvegarde',inputType:'password',confirmLabel:'Restaurer'});
+      if(code===null)return;
+      try{
+        const restored=await cryptography.open(backup,code),payload=await upgrade(restored);
+        const current=session;if(!current)throw new Error('Espace verrouillé.');
+        for(const item of payload.items.filter(item=>item.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],restored.key),current.key);
+        await storage.preserve(current.envelope,true);
+        await commit(target=>{for(const store of STORES)target[store]=payload[store];});
+        await lock();appNotify('Sauvegarde restaurée et synchronisée. Saisis ton code habituel.');
+      }finally{code='';}
+      return;
+    }
     if (session && !await appConfirm('Ouvrir une sauvegarde verrouille la base actuelle. As-tu exporté les modifications à conserver ?')) return;
     await lock(); pendingBackup=backup; await loadAttempts(); showGate();
   }
@@ -322,9 +377,14 @@ const webWorkspace = (() => {
           for (const field of ['vaultBlobEnc','passwordEnc']) if (item[field]) item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),result.key);
         }
         result.envelope=await cryptography.seal(payload,result.key,result.salt,current.envelope.revision+1);
+        if(cloud.enabled){
+          const rotation=await cloud.prepareRotation(oldPassword,password);
+          await storage.preserve(current.envelope,true);
+          await cloud.save(result.envelope,rotation);
+        }
         await storage.write(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
-        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify('Code modifié. Exporte une nouvelle sauvegarde.'); }
+        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
       });
       queue=work.catch(() => {}); await work;
     } catch (error) { appNotify(error.message,{kind:'error'}); }
@@ -334,7 +394,7 @@ const webWorkspace = (() => {
   // Replace host-dependent entry points while retaining the original UI code.
   openDB=async () => db;
   workspaceCanWrite=() => !!session;
-  workspaceConnectionLabel=() => 'Navigateur · Enregistrement chiffré';
+  workspaceConnectionLabel=() => cloud?.enabled ? 'Espace partagé · Enregistrement chiffré' : 'Navigateur · Enregistrement chiffré';
   ensureSecuritySettings=async () => !!session;
   scheduleAutoLock=async () => armSessionTimer();
   registerActivityForAutoLock=() => {
@@ -351,7 +411,7 @@ const webWorkspace = (() => {
   importDB=importWorkspace;
   writePortableFile=async () => { await queue; return !!session; };
   reloadWorkspaceFromSettings=async () => { if (await appConfirm('Verrouiller et recharger cet espace ?')) await lock(); };
-  saveWorkspaceFromSettings=async () => { await queue; appNotify('Les modifications sont enregistrées et chiffrées dans ce navigateur.'); };
+  saveWorkspaceFromSettings=async () => { await queue; appNotify(cloud.enabled?'Les modifications sont enregistrées dans ton espace partagé chiffré.':'Les modifications sont enregistrées et chiffrées dans ce navigateur.'); };
   changeWorkspaceFromSettings=() => $('#webBackupFile').click();
   changeAccessCode=rotatePassword;
   showChangeCodeForm=() => {
@@ -367,7 +427,7 @@ const webWorkspace = (() => {
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent='Code d’accès';
     security.querySelector('.settings-row-desc').textContent='8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent='Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Le même code ouvre ton espace sur tous tes appareils. Conserve-le : il ne peut pas être récupéré.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
@@ -379,6 +439,12 @@ const webWorkspace = (() => {
       button.textContent='Exporter la copie de secours';
       button.onclick=()=>{try{download(cryptography.validateEnvelope(recovery));}catch(error){appNotify(error.message,{kind:'error'});}};
       $('#settings-data').append(button);
+    }
+    for(const recovery of await storage.recoveries()){
+      if(!session || !$('#settings-data'))break;
+      const button=document.createElement('button');button.type='button';button.className='settings-btn';
+      button.textContent=recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
+      button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
     }
   };
   generatePassword=cryptographicPassword;
@@ -396,7 +462,7 @@ const webWorkspace = (() => {
   }
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
-    [cryptography,storage]=[WolfGuardCrypto,WolfGuardStorage];
+    [cryptography,storage,cloud]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud];
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -456,11 +522,15 @@ const webWorkspace = (() => {
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);cloud?.clear();state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
     envelope=await storage.read();await loadAttempts();showGate();
+    if(cloud.enabled){
+      try{await cloud.status();showGate();if(!cloud.isInitialized()&&!cloud.canActivate())$('#lockError').textContent='Active le partage avec le lien privé sur ton appareil principal.';}
+      catch(error){$('#lockError').textContent=error.message;}
+    }
     booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
   }
   return {start};

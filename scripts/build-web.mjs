@@ -30,7 +30,7 @@ cpSync(source, output, {recursive:true});
 cpSync(path.join(root, 'browser'), path.join(output, 'browser'), {recursive:true});
 // Load the storage/crypto modules as integrity-checked classic bundles in the app.
 // Their original ES modules stay available for maintenance tools and tests.
-for(const [name,globalName] of [['crypto','WolfGuardCrypto'],['storage','WolfGuardStorage']]) {
+for(const [name,globalName] of [['crypto','WolfGuardCrypto'],['storage','WolfGuardStorage'],['cloud','WolfGuardCloud']]) {
   const module=readFileSync(path.join(root,'browser',name+'.js'),'utf8');
   const exports=[...module.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(match=>match[1]);
   if(!exports.length || /^import /m.test(module))throw new Error('Module navigateur non autonome : '+name);
@@ -48,13 +48,14 @@ writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');
+html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.paledove36.chatgpt.site");
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
-html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
+html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
 html = html.replace(/((?:src|href)=")([^\"]+\.(?:js|css)(?:\?[^\"]*)?)(")/g,(_match,before,url,after)=>before+url+(url.includes('?')?'&':'?')+'wg='+revision+after);
 if (!html.includes('browser/adapter.js')) throw new Error('Point de démarrage de l’application introuvable.');
 const adapter=path.join(output,'browser/adapter.js');
-const entry=readFileSync(adapter,'utf8').replace("await Promise.all([import('./crypto.js'),import('./storage.js')])",'[WolfGuardCrypto,WolfGuardStorage]');
-if(!entry.includes('[WolfGuardCrypto,WolfGuardStorage]'))throw new Error('Chargement des modules chiffrés introuvable.');
+const entry=readFileSync(adapter,'utf8').replace("await Promise.all([import('./crypto.js'),import('./storage.js'),import('./cloud.js')])",'[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud]');
+if(!entry.includes('[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud]'))throw new Error('Chargement des modules chiffrés introuvable.');
 writeFileSync(adapter,entry);
 // Git normalizes Windows CRLF to LF before Pages serves the files. Hash the
 // exact LF bytes that will be published, including the generated bundles.

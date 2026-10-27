@@ -88,6 +88,17 @@ export async function resetAttempts(scope) {
   });
 }
 
+export async function blockAttempts(scope,seconds) {
+  const database=await connect();
+  if(!Number.isFinite(seconds)||seconds<=0||!Number.isSafeInteger(Date.now()+Math.ceil(seconds*1000)))throw new Error('Délai invalide.');
+  return new Promise((resolve,reject)=>{
+    const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted'),key=attemptKey(scope),request=store.get(key);
+    let value;
+    request.onsuccess=()=>{const previous=normalizeAttempts(request.result);value={failures:previous.failures+1,blockedUntil:Math.max(previous.blockedUntil,Date.now()+Math.ceil(seconds*1000))};store.put(value,key);};
+    transaction.oncomplete=()=>resolve(value);transaction.onabort=()=>reject(new Error('Conservation du délai impossible.'));
+  });
+}
+
 // Read the encrypted safety copy left by the previous synchronization release.
 // Keeping this key does not make a network request or change the current vault.
 export async function readRecovery() {
@@ -97,5 +108,25 @@ export async function readRecovery() {
     const request=transaction.objectStore('encrypted').get('github-recovery');
     transaction.oncomplete=()=>resolve(request.result??null);
     transaction.onabort=()=>reject(new Error('Lecture de la copie de secours impossible.'));
+  });
+}
+
+export async function preserve(envelope, pending=false) {
+  if(!envelope)return;
+  const database=await connect();
+  return new Promise((resolve,reject)=>{
+    const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted');
+    const key=pending?'cloud-pending':'cloud-original',request=store.get(key);
+    request.onsuccess=()=>{if(pending || !request.result)store.put(envelope,key);};
+    transaction.oncomplete=resolve;transaction.onabort=()=>reject(new Error('Conservation de la copie locale impossible.'));
+  });
+}
+export async function recoveries() {
+  const database=await connect();
+  return new Promise((resolve,reject)=>{
+    const transaction=database.transaction('encrypted','readonly'),store=transaction.objectStore('encrypted');
+    const requests=['cloud-original','cloud-pending'].map(key=>({key,request:store.get(key)}));
+    transaction.oncomplete=()=>resolve(requests.filter(row=>row.request.result).map(row=>({key:row.key,envelope:row.request.result})));
+    transaction.onabort=()=>reject(new Error('Lecture des copies locales impossible.'));
   });
 }
