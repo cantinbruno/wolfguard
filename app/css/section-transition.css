@@ -1,3 +1,9 @@
+/* Translated views must never enlarge the page and scroll the header with it. */
+#app > .main {
+  min-width: 0;
+  overflow: clip;
+}
+
 :root[data-section-transition="active"] {
   view-transition-name: none;
   --section-slide-direction: 1;

@@ -161,10 +161,11 @@ function libraryCommandEditor(block = {}) {
   const node = document.createElement('section');
   node.className = 'library-command-editor';
   node.libraryOriginalBlock = block;
-  node.innerHTML = '<div class="library-command-heading"><label>Nom du bloc<input data-command-field="title" value="' + esc(block.title || '') + '" placeholder="Ex. Vérifier la connectivité"></label><button type="button" class="secondary" data-remove-command aria-label="Retirer ce bloc de commande">' + ITEM_ACTION_ICONS.delete + '</button></div><label>Commande<textarea data-command-field="code" spellcheck="false" placeholder="Saisir une commande, avec {HOTE} si nécessaire">' + esc(block.code || '') + '</textarea></label><label>Quand l’utiliser<textarea data-command-field="context">' + esc(block.context || '') + '</textarea></label>';
+  node.innerHTML = '<div class="library-command-heading"><span class="library-command-editor-icon" aria-hidden="true">'+workspaceSectionIcon('command')+'</span><label>Nom du bloc<input data-command-field="title" value="' + esc(block.title || '') + '" placeholder="Ex. Vérifier la connectivité"></label><button type="button" class="secondary" data-remove-command aria-label="Retirer ce bloc de commande">' + ITEM_ACTION_ICONS.delete + '</button></div><label>Commande<textarea data-command-field="code" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Saisir une commande, avec {HOTE} si nécessaire">' + esc(block.code || '') + '</textarea></label><label class="library-command-context">Quand l’utiliser · facultatif<textarea data-command-field="context" rows="2" placeholder="Indiquer le contexte ou une précaution utile">' + esc(block.context || '') + '</textarea></label>';
   node.querySelector('[data-remove-command]').onclick = async () => {
     if (await appConfirm('Retirer ce bloc de la fiche ?')) {
       node.remove();
+      updateLibraryCommandSection();
       $('#detailHost').dataset.editorDirty = 'true';
       $('#libraryCommandBlocks').dispatchEvent(new Event('input', {
         bubbles: true
@@ -174,8 +175,16 @@ function libraryCommandEditor(block = {}) {
   return node;
 }
 
+function updateLibraryCommandSection() {
+  const section=$('#libraryCommandsSection');if(!section)return;
+  const count=$('#libraryCommandBlocks').children.length;
+  section.hidden=count===0;
+  $('#libraryCommandCount').textContent=String(count);
+}
+
 function addLibraryCommand() {
   $('#libraryCommandBlocks').append(libraryCommandEditor());
+  updateLibraryCommandSection();
   $('#libraryCommandsEmpty')?.remove();
   $('#libraryCommandBlocks').lastElementChild.querySelector('input')?.focus();
   $('#detailHost').dataset.editorDirty = 'true';
@@ -190,12 +199,23 @@ async function renderLibraryEdit(item) {
     <div class="library-editor-scroll">
     <div class="library-editor-fields"><label for="fTitle">Titre de la fiche<input id="fTitle" value="${esc(item.title)}"></label><label for="fFolder">Dossier<select id="fFolder"><option value="">Racine des fiches</option>${folderSelectOptions(folders,item.folderId)}</select></label></div>
     <div class="library-compose-surface" role="group" aria-label="Éditeur de la fiche">
+      <div class="library-text-editor">
       <div class="library-compose-toolbar">${richTextToolbar()}<div class="library-compose-insert"><button type="button" class="secondary" data-wg-click="addLibraryCommand()">+ Ajouter une commande</button></div></div>
-      <div id="richEditor" class="editor document-editor" contenteditable="true" role="textbox" aria-label="Contenu de la fiche" aria-multiline="true" data-placeholder="Rédigez votre fiche…" data-wg-click="editorObjectClick(event)">${documentHTML(libraryMemoBody(item))}</div><input type="file" id="richEditorImagePicker" accept="image/*" class="hidden" data-wg-change="insertImageFromFile(this)">
-      <div id="libraryCommandBlocks"></div>
+      <div id="richEditor" class="editor document-editor" contenteditable="true" role="textbox" aria-label="Contenu de la fiche" aria-multiline="true" data-placeholder="Rédigez votre fiche…" data-wg-click="editorObjectClick(event)">${documentHTML(libraryBody(item))}</div><input type="file" id="richEditorImagePicker" accept="image/*" class="hidden" data-wg-change="insertImageFromFile(this)">
+      </div><section id="libraryCommandsSection" class="library-commands-editor" aria-labelledby="libraryCommandsTitle" hidden><header class="library-commands-editor-heading"><h3 id="libraryCommandsTitle">Commandes de la fiche <span id="libraryCommandCount"></span></h3><p>Code et contexte restent enregistrés avec ce mémo.</p></header><div id="libraryCommandBlocks"></div></section>
     </div>
     </div></div>`;
-  $('#libraryCommandBlocks').append(...libraryCommands(item).map(libraryCommandEditor));
+  const commands=libraryCommands(item),inlineCodes=new Set();let originalHeading='';
+  for(const pre of $('#richEditor').querySelectorAll('h1,h2,h3,h4,pre')){
+    if(pre.tagName!=='PRE'){originalHeading=pre.textContent.trim();continue;}
+    const code=pre.textContent;inlineCodes.add(code);
+    pre.libraryOriginalHeading=originalHeading;
+    // Keep extra command metadata on the editable node, outside the saved HTML.
+    const original=commands.find(block=>block.fromMemo && block.code===code);
+    if(original)pre.libraryOriginalBlock=original;
+  }
+  $('#libraryCommandBlocks').append(...commands.filter(block=>!block.fromMemo || !inlineCodes.has(block.code)).map(block=>libraryCommandEditor({...block,...(block.fromMemo?{fromMemo:false}:{})})));
+  updateLibraryCommandSection();
   enableEditorImagePaste();
   $('#detailHost').dataset.editorDirty = 'false';
 }
@@ -212,6 +232,15 @@ function libraryItemFromEditor(source) {
     ...Object.fromEntries([...node.querySelectorAll('[data-command-field]')].map(input => [input.dataset.commandField, input.value]))
   }));
   const content = documentHTML($('#richEditor').innerHTML);
+  let heading='';
+  for(const node of $('#richEditor').querySelectorAll('h1,h2,h3,h4,pre')){
+    if(node.tagName!=='PRE'){heading=node.textContent.trim();continue;}
+    const code=node.textContent;
+    if(!code.trim() || commandBlocks.some(block=>block.code===code))continue;
+    const original=node.libraryOriginalBlock || {};
+    const title=heading===node.libraryOriginalHeading?original.title||heading:heading||original.title;
+    commandBlocks.push({...original,title:title||'Commande',code,context:original.context||'',fromMemo:true});
+  }
   return {
     ...source,
     type: 'memo',

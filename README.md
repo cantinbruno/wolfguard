@@ -20,6 +20,8 @@ Le Coffre-fort est retiré de la navigation. Ses anciennes données et les éven
 
 Le clavier apparaît directement à l’ouverture du site, sans animation avant la saisie du code. Le loup grandit puis éclate uniquement après un code correct. Les espaces et outils glissent réellement grâce à l’animation directe du contenu, sans dépendre de View Transitions. Les paramètres gardent leur animation d’ouverture. Ces effets restent actifs même si Windows réduit ses animations.
 
+La barre supérieure reste fixe pendant le glissement des sections : la zone centrale coupe le débordement des vues animées et empêche le défilement horizontal de la page. En modification, les commandes présentes dans le corps d’une fiche restent à leur place dans le texte. Les blocs complémentaires sont regroupés sur la même feuille, avec un champ de code lisible et un contexte facultatif. La barre de mise en forme s’arrête à la fin du texte et ne recouvre pas les commandes. Les anciennes commandes déjà extraites, leurs exemples et leurs métadonnées restent conservés lors de l’enregistrement.
+
 Les quatre outils et les deux écrans de scan restent présents : analyse IP, référentiels ports/services, scan passif, scan actif, empreintes de fichiers et décodeur/formateur. **L’exécution des scans nécessite toujours WolfGuard.exe** : le navigateur ne peut pas accéder aux sockets, à ICMP ou aux tables réseau Windows. Le site l’indique et désactive leur lancement. Il n’invente aucun résultat réseau.
 
 ## Sources et publication automatique

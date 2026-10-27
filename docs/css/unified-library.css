@@ -1496,3 +1496,40 @@
   background: #fff !important;
   color: #000 !important;
 }
+
+/* Editing keeps inline commands with their explanation. Additional blocks
+   form one coherent section on the same document sheet. */
+.library-text-editor {min-width:0}
+.library-editor .library-commands-editor {
+  min-width:0;
+  padding:20px 24px 24px;
+  border-top:1px solid #d3dce6;
+  border-radius:0 0 8px 8px;
+  background:#f4f7fb;
+  color:#172b41;
+  color-scheme:light;
+}
+.library-commands-editor[hidden] {display:none!important}
+.library-commands-editor-heading {margin-bottom:16px}
+.library-commands-editor-heading h3 {display:flex;align-items:center;gap:9px;margin:0;font-size:15px;line-height:1.5;color:#172b41}
+.library-commands-editor-heading p {margin:4px 0 0;color:#526071;font-size:12px;line-height:1.6}
+#libraryCommandCount {padding:1px 7px;border:1px solid #d3dce6;border-radius:5px;background:#fff;color:#526071;font-size:11px;font-weight:500}
+.library-editor #libraryCommandBlocks {display:grid;gap:16px;padding:0}
+.library-editor .library-command-editor {min-width:0;padding:16px;margin:0;border-color:#ccd8e6;border-radius:8px;background:#fff;box-shadow:0 2px 6px #12263a06}
+.library-editor .library-command-heading {gap:10px;margin-bottom:14px}
+.library-command-editor-icon {display:grid;place-items:center;align-self:flex-end;width:36px;height:40px;flex:none;border:1px solid #d3dce6;border-radius:6px;background:#f1f5f9;color:#245780}
+.library-command-editor-icon svg {width:19px;height:19px}
+.library-editor .library-command-heading input {font-size:14px;font-weight:600}
+.library-editor .library-command-heading [data-remove-command] {background:#fff;border:1px solid #d3dce6;color:#a04e61;border-radius:6px}
+.library-editor .library-command-heading [data-remove-command]:hover {background:#fff0f3;border-color:#d69aa8}
+.library-editor .library-command-editor textarea[data-command-field="code"] {min-height:90px;padding:13px 15px;border:1px solid #314b64;border-radius:6px;background:#102033;color:#e6f1ff;color-scheme:dark;font:13px/1.7 Consolas,"Courier New",monospace;tab-size:2;white-space:pre-wrap;overflow-wrap:anywhere}
+.library-editor .library-command-editor textarea[data-command-field="code"]::placeholder {color:#98acc4}
+.library-editor .library-command-context {margin-top:12px}
+.library-editor .library-command-context textarea {min-height:56px;font-size:12px;line-height:1.6}
+.library-editor #richEditor.editor pre {min-height:48px;margin:18px 0;padding:14px 16px;border:1px solid #ccd8e6;border-left:3px solid #4d7caa;border-radius:6px;background:#f1f5fa;color:#17334f;font:13px/1.7 Consolas,"Courier New",monospace;white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
+.library-editor #richEditor.editor pre code {padding:0;border:0;background:transparent;color:inherit;font:inherit;white-space:inherit}
+@container workspace-pane (max-width:650px) {
+  .library-editor .library-commands-editor {padding:16px 12px}
+  .library-editor .library-command-editor {padding:12px}
+  .library-command-editor-icon {display:none}
+}
