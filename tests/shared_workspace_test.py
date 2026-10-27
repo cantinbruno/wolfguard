@@ -46,10 +46,12 @@ def run(backend=None):
               const result=await c.create(payload,'07942685');
               payload.folders.push({id:'legacy-mail',name:'09 · Collaboration',section:'library',parentId:null},{id:'legacy-support',name:'10 · Support et exploitation',section:'library',parentId:null},{id:'messagerie',name:'Messagerie',section:'library',parentId:'legacy-mail'});
               payload.items.push({id:'mail-form',type:'memo',title:'Message de relance',folderId:'legacy-support',content:'<p>Objet : [REFERENCE]</p><p>Bonjour [NOM],</p><p>Cordialement, [SIGNATURE]</p>'},{id:'technical-mail',type:'procedure',title:'Diagnostic SMTP',folderId:'messagerie',content:'<pre>Test-NetConnection -Port 25</pre>'});
+              payload.items.push({id:'blank-stp',type:'memo',originalType:'report',title:'STP worksheet',folderId:'legacy-support',content:'<p>Completer les champs avec les observations.</p><p>{EQUIPEMENT} / {PORT} / {VLAN}</p>'});
               payload.items.push({id:'vault-test',type:'vault',title:'Mon coffre existant',tags:[],vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({username:'bruno-test',password:'SECRET-TEST-42',notes:'',custom:[]}),result.key)});
               await s.write(await c.seal(payload,result.key,result.salt,1),0);
             }""")
             original_backup=first.evaluate("async()=>await (await import('./browser/storage.js')).read()")
+            first.evaluate("async()=>{const s=await import('./browser/storage.js');await s.preserveOrganization(await s.read(),2)}")
             first.goto(url+'?sync-test');ready(first)
             # Opening the link in an existing tab can change only the fragment.
             first.goto(url+'?sync-test#activate='+('b'*64));ready(first)
@@ -57,7 +59,7 @@ def run(backend=None):
             assert 'activate' not in first.url
             first.evaluate("""()=>{
               const original=IDBObjectStore.prototype.put;let fail=true;
-              IDBObjectStore.prototype.put=function(value,key){const request=Reflect.apply(original,this,arguments);if(key==='memo-cleanup-before-v2'&&fail){fail=false;this.transaction.abort();}return request;};
+              IDBObjectStore.prototype.put=function(value,key){const request=Reflect.apply(original,this,arguments);if(key==='memo-form-cleanup-before-v3'&&fail){fail=false;this.transaction.abort();}return request;};
             }""")
             first.keyboard.type(CODE)
             expect(first.locator('#lockError')).to_contain_text('Conservation',timeout=20000)
@@ -67,10 +69,13 @@ def run(backend=None):
             expect(first.locator('#webSaveState')).to_contain_text('Synchronisé')
             assert first.evaluate("async()=>(await all('items')).length")==3
             assert first.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
-            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-cleanup-before-v2');return (await c.open(copy.envelope,'07942685')).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'
             assert first.evaluate("async()=>!(await get('items','mail-form'))")
             assert first.evaluate("async()=>{const rows=await all('folders');return !rows.some(f=>!f.deletedAt&&/^(09|10)\\s*·/.test(f.name))}")
-            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-cleanup-before-v2');return (await c.open(copy.envelope,'07942685')).payload.items.some(row=>row.id==='mail-form')}")
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.items.some(row=>row.id==='mail-form')}")
+            assert first.evaluate("async()=>!(await get('items','blank-stp'))")
+            assert first.evaluate("async data=>{const s=await import('./browser/storage.js');return (await s.recoveries()).find(row=>row.key==='memo-cleanup-before-v2').envelope.data===data}",original_backup['data'])
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.items.some(row=>row.id==='blank-stp')}")
             print('PASS: nettoyage des mails et dossiers 09/10 avec copie chiffree complete avant suppression')
             print('PASS: activation avec le code existant et transfert automatique du memo et du coffre')
 
@@ -84,6 +89,7 @@ def run(backend=None):
             assert second.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
             assert second.evaluate("async()=>!(await get('items','mail-form'))&&(await get('items','technical-mail')).content.includes('Test-NetConnection')")
             assert second.evaluate("async()=>{const folder=await get('folders','messagerie');return (await get('folders',folder.parentId)).name}")=='02 · Systèmes'
+            assert second.evaluate("async()=>!(await get('items','blank-stp'))")
             print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
 

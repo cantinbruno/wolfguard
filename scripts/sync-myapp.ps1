@@ -54,7 +54,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification du partage entre appareils echouee. Aucune publication.' }
     & python tests/agent_workspace_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification agent vers web echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/agent.test.mjs
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/form_cleanup.test.mjs tests/agent.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser server agent docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }

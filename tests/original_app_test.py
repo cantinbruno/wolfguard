@@ -55,7 +55,8 @@ def run():
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
             count=page.evaluate("async()=> (await all('items')).length")
-            assert count >= 800, count
+            assert count == 740, count
+            assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
             assert page.locator('.workspace-section-button').count()==4
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
             assert page.locator('#richEditor').count()==0

@@ -120,15 +120,18 @@ async function ensureUnifiedLibrary() {
       for(const operation of unified.operations)if(operation.store===store)records.set(operation.record[field],operation.record);
       normalized[store]=[...records.values()];
     }
-    const cleanup=buildMemoMailCleanup(normalized);
-    for(const operation of cleanup.operations){
-      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===(operation.record?.[field]||operation.id));
-      if(operation.action==='delete'){if(index>=0)rows.splice(index,1);}
-      else if(index>=0)rows[index]=operation.record;
-      else rows.push(operation.record);
+    const cleanupOperations=[];
+    for(const buildCleanup of [buildMemoMailCleanup,buildMemoFormCleanup]){
+      const cleanup=buildCleanup(normalized);cleanupOperations.push(...cleanup.operations);
+      for(const operation of cleanup.operations){
+        const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===(operation.record?.[field]||operation.id));
+        if(operation.action==='delete'){if(index>=0)rows.splice(index,1);}
+        else if(index>=0)rows[index]=operation.record;
+        else rows.push(operation.record);
+      }
     }
     const organization=buildMemoFolderOrganization(normalized);
-    const operations=[...unified.operations,...cleanup.operations,...organization.operations];
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);
