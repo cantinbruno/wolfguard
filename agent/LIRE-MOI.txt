@@ -1,0 +1,27 @@
+WolfGuard Agent - Windows 10/11 x64
+
+1. Extraire toute l archive dans un dossier durable.
+2. Ouvrir WolfGuard sur le web et deverrouiller avec ton code habituel.
+3. Dans Scan passif ou Scan actif, cliquer sur Associer un agent puis Generer un code.
+4. Lancer Demarrer-agent.cmd et coller ce code temporaire dans la console.
+5. Garder l agent ouvert. Choisir ce poste dans le site puis lancer le scan.
+
+Le moteur Node.js est telecharge depuis nodejs.org et son SHA-256 est verifie.
+Ton code WolfGuard n est jamais demande par l agent. Son acces est protege par
+Windows DPAPI pour ton utilisateur. Aucun port entrant n est ouvert.
+
+L agent lit les caches et tables reseau pour le passif. L actif emet des sondes
+TCP/ICMP uniquement vers des adresses privees, locales ou de boucle locale.
+Maximum 256 adresses, 4096 tests, 32 tests simultanes, 3 minutes par scan.
+L identification facultative peut envoyer une requete HTTP HEAD ou negocier TLS.
+
+Pour un lancement a chaque connexion Windows, executer Activer-demarrage-auto.cmd
+apres l association. Conserver ce dossier au meme emplacement. Utiliser
+Desactiver-demarrage-auto.cmd pour retirer ce demarrage automatique.
+
+Pour retirer l acces du poste : Associer un agent > Revoquer sur le site.
+Apres un changement du code WolfGuard, relancer Associer-agent.cmd.
+Les resultats de scan sont conserves sur le relais pendant sept jours.
+Enregistrer le rapport dans l espace WolfGuard pour le conserver durablement.
+
+Sources completes : https://github.com/cantinbruno/wolfguard/tree/main/agent

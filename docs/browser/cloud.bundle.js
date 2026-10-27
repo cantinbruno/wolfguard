@@ -54,10 +54,15 @@ async function save(envelope,rotation){
 }
 async function prepareRotation(oldCode,newCode){return (await post('rotation',{oldCode,newCode,version})).rotation;}
 async function touch(){if(token)await post('touch',{});}
+async function agentRequest(path,value){
+  if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
+  if(!/^(?:agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel))?)(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+  return value===undefined?(await request(path)).json():post(path,value);
+}
 function clear(){
   if(token)request('logout',{method:'POST'}).catch(()=>{});
   token='';version=0;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,status,login,initialize,load,save,prepareRotation,touch,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,status,login,initialize,load,save,prepareRotation,touch,agentRequest,clear});
 })();

@@ -12,7 +12,10 @@ test-results/
 *.wgmodule
 *.wgweb
 *.exe
+*.dpapi
 *.zip
+!app/downloads/WolfGuard-Agent-Windows.zip
+!docs/downloads/WolfGuard-Agent-Windows.zip
 *.tar
 *.bak
 donnees/

@@ -25,4 +25,16 @@ The frontend preserves an encrypted copy of the original browser workspace and f
 
 ## Local verification
 
+## Scan agents
+
+The relay also exposes scoped agent routes. An authenticated web session creates a random 128-bit pairing code, valid once for five minutes. The Windows agent exchanges it for its own random 256-bit token. Only its SHA-256 hash is stored. The token cannot authenticate to vault routes or create scans. The browser can revoke an agent; changing the WolfGuard PIN invalidates existing agents through the vault generation.
+
+The agent makes outbound HTTPS requests only. Jobs contain validated network operations, never shell commands. Private/local addresses only, no DNS resolution, up to 256 addresses, 4096 TCP tests, 32 concurrent tests and a three-minute agent deadline. The passive collector uses fixed Windows commands to read neighbor, TCP and UDP tables. Optional active identification performs bounded banner reads, HTTP HEAD or a validated TLS handshake. Windows DPAPI protects the credential for the current user; it is not part of the downloadable archive.
+
+New D1 tables hold pairings, agent credentials and jobs. Agent names, target specifications and result bodies are AES-GCM encrypted with the existing server storage key and distinct authenticated contexts; no vault snapshot or PIN verifier is changed. This relay encryption is server-side, not end-to-end encryption. Saving a report in WolfGuard additionally puts it in the client's encrypted workspace.
+
+A partial unique index permits one queued/running job per agent. Atomic claims issue a separate execution lease, updates carry increasing revisions, and a 30-second heartbeat deadline marks disconnected jobs lost. A lost job is not replayed. Cancellation prevents later updates from replacing the stopped result. Queued jobs expire after two minutes, completed results are retained seven days, and the frontend can load the latest results on another device without an import.
+
+## Local verification commands
+
 Node 22.13 or newer is required. Follow the Sites starter installation/build instructions. Generate migrations with `npm run db:generate`; apply only unapplied SQL to the local D1 database. Run browser and server tests from the parent WolfGuard GitHub repository. Local and production databases are separate. Test fixtures and synthetic development secrets must never initialize production.

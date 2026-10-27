@@ -10,7 +10,8 @@ for(const name of new Set(files)) {
   const filename=path.join(root,name);
   if(!existsSync(filename))continue;
   if(lstatSync(filename).isSymbolicLink()) {issues.add(name);continue;}
-  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|exe)$/i.test(name)){issues.add(name);continue;}
+  if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
+  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|exe|dpapi)$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');
@@ -21,5 +22,6 @@ for(const name of new Set(files)) {
     if(['wolfguard-web','wolfguard-workspace'].includes(value?.format) || (Array.isArray(value?.settings) && Array.isArray(value?.activity) && Array.isArray(value?.items)) || (Array.isArray(value?.items) && value.items.some(item=>item?.type==='vault' || item?.vaultBlobEnc || item?.passwordEnc)) || (Array.isArray(value?.settings) && value.settings.some(record=>['accessCodeHash','vaultCrypto'].includes(record?.key))))issues.add(name);
   }
 }
+try{execFileSync('python',[path.join(root,'scripts/package-agent.py'),'--check'],{cwd:root,stdio:'pipe'});}catch{issues.add('archive agent non conforme aux sources autorisées');}
 if(issues.size){console.error('Publication bloquée : fichiers privés, secrets possibles ou liens symboliques détectés (contenus masqués).\n'+[...issues].join('\n'));process.exitCode=1;}
 else console.log('PASS: aucun fichier privé ni secret reconnu dans les fichiers publiables et suivis par Git.');

@@ -1,3 +1,4 @@
+import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -6,7 +7,7 @@ import {createHash} from 'node:crypto';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
-const allowed = new Set(['.html','.css','.js','.json','.svg','.txt','.md']);
+const allowed = new Set(['.zip','.html','.css','.js','.json','.svg','.txt','.md']);
 const digest=createHash('sha256');
 function verify(directory) {
   for (const entry of readdirSync(directory, {withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -15,10 +16,12 @@ function verify(directory) {
     if (entry.isDirectory()) verify(filename);
     else {
       if (!allowed.has(path.extname(entry.name).toLowerCase())) throw new Error('Fichier non publiable : ' + path.relative(source, filename));
+      if(path.extname(entry.name).toLowerCase()==='.zip'&&filename!==path.join(source,'downloads','WolfGuard-Agent-Windows.zip'))throw new Error('Archive non autorisée dans le site.');
       digest.update(path.relative(root,filename)); digest.update(readFileSync(filename));
     }
   }
 }
+execFileSync('python',[path.join(root,'scripts/package-agent.py')],{cwd:root,stdio:'inherit'});
 verify(source);
 verify(path.join(root,'browser'));
 digest.update(readFileSync(fileURLToPath(import.meta.url)));
@@ -63,7 +66,7 @@ function normalizePublishedText(folder) {
   for(const entry of readdirSync(folder,{withFileTypes:true})) {
     const filename=path.join(folder,entry.name);
     if(entry.isDirectory())normalizePublishedText(filename);
-    else if(allowed.has(path.extname(filename).toLowerCase())) {
+    else if(allowed.has(path.extname(filename).toLowerCase())&&path.extname(filename).toLowerCase()!=='.zip') {
       const contents=readFileSync(filename,'utf8');
       if(contents.includes('\r\n'))writeFileSync(filename,contents.replace(/\r\n/g,'\n'));
     }

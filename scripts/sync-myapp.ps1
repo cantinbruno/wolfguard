@@ -21,7 +21,7 @@ try {
   if ((& git branch --show-current) -ne 'main') { throw 'La publication automatique attend la branche main.' }
   if (& git diff --cached --name-only) { throw 'Des modifications sont deja preparees dans Git. Termine-les avant la synchronisation.' }
   $pending = @(& git status --porcelain)
-  if ($pending | Where-Object { $_ -notmatch '^.. (app/|browser/|server/|docs/|scripts/|tests/|README\.md$|package\.json$|\.gitignore$)' }) { throw 'Fichiers hors des sources du site : publication automatique suspendue pour les conserver.' }
+  if ($pending | Where-Object { $_ -notmatch '^.. (app/|browser/|server/|agent/|docs/|scripts/|tests/|README\.md$|package\.json$|\.gitignore$)' }) { throw 'Fichiers hors des sources du site : publication automatique suspendue pour les conserver.' }
   & git fetch origin main --quiet
   if ($LASTEXITCODE -ne 0) { throw 'GitHub indisponible. Nouvelle tentative au prochain passage.' }
   & git merge-base --is-ancestor origin/main HEAD
@@ -30,7 +30,7 @@ try {
     & git merge --ff-only origin/main
     if ($LASTEXITCODE -ne 0) { throw 'Historique Git divergent. Aucun historique remplace.' }
   }
-  $changed = & git status --porcelain -- app browser server docs scripts tests README.md package.json .gitignore
+  $changed = & git status --porcelain -- app browser server agent docs scripts tests README.md package.json .gitignore
   if ($changed) {
     & $Node scripts/build-web.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Preparation du site echouee.' }
@@ -52,9 +52,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des protections de securite echouee. Aucune publication.' }
     & python tests/shared_workspace_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification du partage entre appareils echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs
+    & python tests/agent_workspace_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification agent vers web echouee. Aucune publication.' }
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/agent.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
-    & git add -- app browser server docs scripts tests README.md package.json .gitignore
+    & git add -- app browser server agent docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }
     & git diff --cached --quiet
     if ($LASTEXITCODE -ne 0) {
