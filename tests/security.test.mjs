@@ -1,6 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {create,open,seal,validateEnvelope,WORKSPACE_VERSION} from '../browser/crypto.js';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+
+test('SRI matches the LF bytes published by Git from a Windows workspace',()=>{
+  const base=new URL('../docs/',import.meta.url);
+  const html=readFileSync(new URL('index.html',base),'utf8');
+  let checked=0;
+  for(const match of html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"?]+)(?:\?[^\"]*)?"[^>]*integrity="sha384-([^"]+)"/g)) {
+    const bytes=readFileSync(new URL(match[1],base));
+    assert.equal(bytes.toString('utf8').includes('\r\n'),false,match[1]);
+    assert.equal(createHash('sha384').update(bytes).digest('base64'),match[2],match[1]);
+    checked++;
+  }
+  assert.ok(checked>50);
+});
 
 test('workspace encryption authenticates metadata and uses nonextractable keys and fresh IVs',async()=>{
   const payload={version:2,items:[],folders:[],settings:[],activity:[]};

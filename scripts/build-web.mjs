@@ -56,6 +56,19 @@ const adapter=path.join(output,'browser/adapter.js');
 const entry=readFileSync(adapter,'utf8').replace("await Promise.all([import('./crypto.js'),import('./storage.js')])",'[WolfGuardCrypto,WolfGuardStorage]');
 if(!entry.includes('[WolfGuardCrypto,WolfGuardStorage]'))throw new Error('Chargement des modules chiffrés introuvable.');
 writeFileSync(adapter,entry);
+// Git normalizes Windows CRLF to LF before Pages serves the files. Hash the
+// exact LF bytes that will be published, including the generated bundles.
+function normalizePublishedText(folder) {
+  for(const entry of readdirSync(folder,{withFileTypes:true})) {
+    const filename=path.join(folder,entry.name);
+    if(entry.isDirectory())normalizePublishedText(filename);
+    else if(allowed.has(path.extname(filename).toLowerCase())) {
+      const contents=readFileSync(filename,'utf8');
+      if(contents.includes('\r\n'))writeFileSync(filename,contents.replace(/\r\n/g,'\n'));
+    }
+  }
+}
+normalizePublishedText(output);
 html = html.replace(/<(script|link)\b[^>]*(?:src|href)="([^"?]+)(?:\?[^\"]*)?"[^>]*>/g,(tag,_name,filename)=>{
   if (!/\.(?:js|css)$/.test(filename)) return tag;
   const integrity=createHash('sha384').update(readFileSync(path.join(output,filename))).digest('base64');
