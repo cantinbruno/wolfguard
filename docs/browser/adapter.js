@@ -77,6 +77,18 @@ const webWorkspace = (() => {
     });
   }
   function release() { releaseTab?.(); releaseTab = null; }
+  async function cacheSnapshot(value,expectedRevision) {
+    try{await storage.write(value,expectedRevision);}
+    catch(error){
+      if(cloud.enabled && session){
+        // The server already committed. Continuing with an older payload or
+        // key could overwrite the new snapshot, especially after code rotation.
+        queueMicrotask(()=>lock());
+        throw new Error('La copie partagée est enregistrée. Rouvre WolfGuard pour la récupérer sur cet appareil.');
+      }
+      throw error;
+    }
+  }
   async function commit(change) {
     assertFreshSession();
     const current = session, generation = epoch;
@@ -92,7 +104,7 @@ const webWorkspace = (() => {
         try{await cloud.save(encrypted);}catch(error){await storage.preserve(encrypted,true);throw error;}
         if(session!==current || generation!==epoch)throw new Error('Espace verrouillé. La copie distante est enregistrée.');
       }
-      await storage.write(encrypted,current.envelope.revision);
+      await cacheSnapshot(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
       if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); }
       return result;
@@ -382,7 +394,7 @@ const webWorkspace = (() => {
           await storage.preserve(current.envelope,true);
           await cloud.save(result.envelope,rotation);
         }
-        await storage.write(result.envelope,current.envelope.revision);
+        await cacheSnapshot(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
         if (session===current) { state.vaultKey=result.key; closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
       });

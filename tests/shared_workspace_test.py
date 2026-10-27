@@ -73,13 +73,23 @@ def run(backend=None):
             assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Modification du premier appareil'
             print('PASS: conflit entre appareils refuse, copie non synchronisee conservee, reouverture a jour')
 
+            first.evaluate("""()=>{
+              const original=IDBObjectStore.prototype.put;window.failCache=false;
+              IDBObjectStore.prototype.put=function(value,key){const request=Reflect.apply(original,this,arguments);if(key==='workspace'&&window.failCache){window.failCache=false;this.transaction.abort();}return request;};
+            }""")
+            first.evaluate("""async()=>{window.failCache=true;const item=await get('items','memo-test');item.title='Sauve sur le serveur malgre panne locale';try{await put('items',item)}catch{}}""")
+            expect(first.locator('#lock')).to_be_visible(timeout=15000);unlock(first)
+            assert first.evaluate("async()=>(await get('items','memo-test')).title")=='Sauve sur le serveur malgre panne locale'
+            print('PASS: panne locale apres confirmation distante, verrouillage puis recuperation de la modification')
+
             first.locator('#settingsBtn').click();first.locator('#changeCodeBtn').click()
-            first.locator('#oldAccessCode').fill(CODE);first.locator('#newAccessCode').fill('09876543');first.locator('#confirmAccessCode').fill('09876543');first.locator('#webChangePassword').click()
+            first.locator('#oldAccessCode').fill(CODE);first.locator('#newAccessCode').fill('09876543');first.locator('#confirmAccessCode').fill('09876543')
+            first.evaluate('window.failCache=true');first.locator('#webChangePassword').click()
             expect(first.locator('#modalRoot')).to_be_empty(timeout=20000)
-            first.evaluate('lockApplication()');unlock(first,'09876543')
+            expect(first.locator('#lock')).to_be_visible(timeout=15000);unlock(first,'09876543')
             second.evaluate('lockApplication()');unlock(second,'09876543')
             assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
-            print('PASS: nouveau code utilisable sur les deux appareils, secrets du coffre rechiffres')
+            print('PASS: nouveau code sur les deux appareils, meme apres panne locale pendant sa modification')
 
             # Restore an older backup encrypted with the previous code into the
             # shared workspace, preserving the current login code and vault key.
