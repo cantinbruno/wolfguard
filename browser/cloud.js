@@ -3,10 +3,11 @@ export const API_ORIGIN = 'https://wolfguard-web-cantin.paledove36.chatgpt.site'
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 export const enabled = ['wolfguard.wavetools.fr','cantinbruno.github.io'].includes(location.hostname) || (local && new URLSearchParams(location.search).has('sync-test'));
 let token='',version=0,initialized=null,activation='';
-if(enabled){
+function captureActivation(){
   const match=/^#activate=([a-f0-9]{64})$/.exec(location.hash);
   if(match){activation=match[1];history.replaceState(null,'',location.pathname+location.search);}
 }
+if(enabled){captureActivation();window.addEventListener('hashchange',captureActivation);}
 export const isInitialized = () => initialized;
 export const canActivate = () => !!activation;
 export const hasSession = () => !!token;

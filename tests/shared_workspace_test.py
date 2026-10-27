@@ -48,7 +48,10 @@ def run(backend=None):
               await s.write(await c.seal(payload,result.key,result.salt,1),0);
             }""")
             original_backup=first.evaluate("async()=>await (await import('./browser/storage.js')).read()")
+            first.goto(url+'?sync-test');ready(first)
+            # Opening the link in an existing tab can change only the fragment.
             first.goto(url+'?sync-test#activate='+('b'*64));ready(first)
+            first.wait_for_function('()=>!location.hash')
             assert 'activate' not in first.url
             unlock(first)
             expect(first.locator('#webSaveState')).to_contain_text('Synchronisé')
