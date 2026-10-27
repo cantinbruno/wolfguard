@@ -40,12 +40,33 @@ def run():
               // A real legacy v2 envelope must upgrade without losing vault fields.
               const iv=crypto.getRandomValues(new Uint8Array(12));
               const bytes=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode('wolfguard-workspace|2|AES-256-GCM|PBKDF2-SHA256')},r.key,new TextEncoder().encode(JSON.stringify(payload))));
-              await s.write({...r.envelope,version:2,iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...bytes))},0);
+              const legacy={...r.envelope,version:2,iv:btoa(String.fromCharCode(...iv)),data:btoa(String.fromCharCode(...bytes))};
+              await s.write(legacy,0);
+              // A browser linked by the previous release must now open directly.
+              const database=await s.connect();
+              await new Promise((resolve,reject)=>{
+                const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted');
+                store.put({sha:'a'.repeat(40),revision:1,salt:r.envelope.salt,paused:true},'github-sync');
+                store.put(legacy,'github-recovery');
+                transaction.oncomplete=resolve;transaction.onabort=reject;
+              });
             }""")
             page.reload();unlock(page)
+            expect(page.locator('#githubConnectForm,#githubAccess')).to_have_count(0)
+            page.locator('#settingsBtn').click();page.locator('[data-settings-tab=data]').click()
+            expect(page.locator('#githubConnectBtn')).to_have_count(0)
+            with page.expect_download() as info:
+                page.locator('#exportRecovery').click()
+            assert info.value.suggested_filename.endswith('.wgweb')
+            page.locator('#closeSettingsBtn').click()
+            assert page.evaluate("async()=>!!await (await import('./browser/storage.js')).readRecovery()")
+            assert page.evaluate("async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');return (await c.open(await s.readRecovery(),'07942685')).payload.items[0].title}")=='Secret de test'
+            print('PASS: ancien appareil lie ouvre avec son code, aucune demande GitHub, copie de secours toujours exportable')
             assert page.evaluate("async()=>(await (await import('./browser/storage.js')).read()).version")==3
             csp=page.locator('meta[http-equiv=Content-Security-Policy]').get_attribute('content')
             assert "script-src-attr 'none'" in csp and "'unsafe-eval'" not in csp
+            assert 'api.github.com' not in csp
+            expect(page.locator('script[src*="github-sync"]')).to_have_count(0)
             assert page.locator('script[src]:not([integrity]),link[rel=stylesheet]:not([integrity])').count()==0
             clean=page.evaluate('html=>documentHTML(html)', """<p id="globalSearch" data-wg-click="deleteItem('secret')">Texte</p><img src=x onerror="window.pwned=true"><a href="javascript:alert(1)">Lien</a><a target="_blank" href="https://example.invalid">Source</a>""")
             assert 'data-wg-' not in clean and 'onerror' not in clean and 'javascript:' not in clean
@@ -126,7 +147,7 @@ def run():
             def corrupt(route):
                 response=route.fetch()
                 route.fulfill(response=response,body=response.body()+b'\n// altered asset')
-            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js','github-sync.bundle.js']:
+            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js']:
                 tampered=browser.new_context();blocked=tampered.new_page()
                 blocked.route('**/browser/'+asset+'?*',corrupt)
                 blocked.goto(url)

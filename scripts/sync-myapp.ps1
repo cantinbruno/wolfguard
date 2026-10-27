@@ -46,9 +46,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des delais de securite echouee. Aucune publication.' }
     & python tests/security_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des protections de securite echouee. Aucune publication.' }
-    & python tests/github_sync_test.py
-    if ($LASTEXITCODE -ne 0) { throw 'Verification de la synchronisation GitHub echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/github-sync.test.mjs
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }

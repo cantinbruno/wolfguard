@@ -3,10 +3,7 @@
 // The original UI, editors and tools stay unchanged. Only desktop storage and
 // the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
-  let cryptography, storage, githubModule, github, session = null, envelope = null, pendingBackup = null;
-  let syncState=null,syncBusy=false,syncPoll=null,syncMessage='';
-  let syncChain=Promise.resolve();
-  const localOnly=()=>sessionStorage.getItem('wolfguard-local-mode')==='1';
+  let cryptography, storage, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false;
@@ -66,11 +63,7 @@ const webWorkspace = (() => {
     }
     return snapshot;
   }
-  const saveStatus = message => {
-    if(message.startsWith('Enregistré') && syncState)message=!github?.connected()?'Enregistré ici · Autorisation GitHub à renouveler':syncState.paused?(syncMessage||'Conflit de synchronisation · Copies conservées'):syncState.revision===envelope?.revision && syncState.iv===envelope?.iv?'Synchronisé · GitHub privé · Chiffré':'Enregistré ici · Synchronisation GitHub en attente';
-    $('#webSaveState').textContent=message;
-    if($('#githubSyncStatus'))$('#githubSyncStatus').textContent=syncMessage || (github?.connected()?'GitHub connecté · Coffre chiffré':'Connexion GitHub nécessaire pour synchroniser');
-  };
+  const saveStatus = message => { $('#webSaveState').textContent = message; };
   async function claimTab() {
     if (releaseTab) return;
     if (!navigator.locks) throw new Error('Un navigateur récent avec Web Locks est nécessaire.');
@@ -96,7 +89,6 @@ const webWorkspace = (() => {
       await storage.write(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
       if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus('Enregistré · Chiffré sur cet appareil'); }
-      await syncSavedEnvelope(encrypted);
       return result;
     });
     queue = work.catch(() => {});
@@ -131,161 +123,6 @@ const webWorkspace = (() => {
     }); }
     updateItem(id,update) { return commit(payload => { const item = payload.items.find(record => record.id === id && !isDeleted(record)); if (item) update(item); return structuredClone(item); }); }
     async flush() { await queue; return true; }
-  }
-  const sameEnvelope=(a,b)=>!!a && !!b && a.version===b.version && a.salt===b.salt && a.iv===b.iv && a.data===b.data && a.revision===b.revision;
-  function syncStatus(message) {
-    if(message.startsWith('Synchronisé') && syncState && (syncState.revision!==envelope?.revision || syncState.iv!==envelope?.iv))message='Enregistré ici · Synchronisation GitHub en attente';
-    syncMessage=message;saveStatus(message);
-  }
-  async function rememberRemote(remote,paused=false) {
-    syncState={sha:remote?.sha??null,revision:remote?.envelope.revision??0,salt:remote?.envelope.salt??'',iv:remote?.envelope.iv??'',paused};
-    await storage.writeSyncState(syncState);
-  }
-  function syncSavedEnvelope(value) {
-    const work=syncChain.then(()=>pushSavedEnvelope(value));syncChain=work.catch(()=>{});return work;
-  }
-  async function pushSavedEnvelope(value) {
-    if(envelope && !sameEnvelope(value,envelope))return;
-    if(localOnly() || !github?.connected() || !syncState || syncState.paused){if(syncState && !github?.connected())syncStatus('Enregistré ici · Autorisation GitHub à renouveler');return;}
-    if(syncState.sha && syncState.revision===value.revision && syncState.iv===value.iv && syncState.salt===value.salt){syncStatus('Synchronisé · GitHub privé · Chiffré');return;}
-    syncBusy=true;syncStatus('Enregistré ici · Synchronisation GitHub…');
-    try {
-      const result=await github.write(value,syncState.sha);
-      await rememberRemote(result);
-      syncStatus('Synchronisé · GitHub privé · Chiffré');
-    } catch(error) {
-      if(error.code==='CONFLICT'){
-        const actual=await github.read().catch(()=>null);
-        if(actual && sameEnvelope(actual.envelope,value)){await rememberRemote(actual);syncStatus('Synchronisé · GitHub privé · Chiffré');return;}
-        syncState.paused=true;await storage.writeSyncState(syncState).catch(()=>{});
-      }
-      syncStatus(error.message);
-    } finally {syncBusy=false;}
-  }
-  async function adoptRemote(remote) {
-    const value=cryptography.validateEnvelope(remote.envelope);
-    if(session)await lock();
-    await claimTab();
-    try {
-      await queue;
-      const current=await storage.read();
-      await storage.replaceFromGitHub(value,current?.revision??0);
-      envelope=value;pendingBackup=null;
-      await rememberRemote(remote);
-      await loadAttempts();showGate();
-      syncStatus('Coffre GitHub récupéré · Saisis ton code');
-    } finally {if(!session)release();}
-  }
-  async function refreshBeforeUnlock() {
-    if(localOnly() || !github?.connected() || !syncState || syncState.paused || pendingBackup)return;
-    const remote=await github.read();
-    if((remote?.sha??null)===syncState.sha)return;
-    if(remote && (!envelope || (envelope.revision===syncState.revision && envelope.salt===syncState.salt))) {
-      await storage.replaceFromGitHub(remote.envelope,envelope?.revision??0);
-      envelope=remote.envelope;await rememberRemote(remote);
-    } else {
-      syncState.paused=true;await storage.writeSyncState(syncState);
-      syncStatus('Deux versions existent. Choisis la copie à garder dans Paramètres → Données.');
-    }
-  }
-  function pollGitHub() {
-    clearTimeout(syncPoll);
-    if(!github?.connected()){
-      if(syncState)syncStatus('Enregistré ici · Autorisation GitHub à renouveler');
-      if(syncState && !localOnly() && !session && !pendingBackup && !busy && !locking)showGitHubGate();
-      return;
-    }
-    syncPoll=setTimeout(async()=>{
-      try {
-        if(session && !syncBusy && !rotating && syncState && !syncState.paused){
-          await queue;await syncChain;
-          const meta=await github.inspect();
-          if(syncBusy)return;
-          if((meta?.sha??null)!==syncState.sha){
-            if(session.envelope.revision===syncState.revision && !appHasUnsavedChanges()){
-              const remote=await github.read();
-              if(remote && !syncBusy && session && session.envelope.revision===syncState.revision && !appHasUnsavedChanges())await adoptRemote(remote);
-              else if(!remote){syncState.paused=true;await storage.writeSyncState(syncState);syncStatus('Le coffre GitHub a été retiré. La copie de cet appareil est conservée.');}
-            } else {
-              syncState.paused=true;await storage.writeSyncState(syncState);
-              syncStatus('Un autre appareil a modifié le coffre. Tes modifications sont conservées ici.');
-            }
-          }
-        }
-      } catch(error){syncStatus(error.message);}
-      finally{pollGitHub();}
-    },30000);
-  }
-  const tokenLink=()=> 'https://github.com/settings/personal-access-tokens/new?name=WolfGuard&description=Synchronisation+du+coffre+prive&target_name=cantinbruno&expires_in=30&contents=write';
-  function githubFormHTML(localOption=false) {
-    return '<form id="githubConnectForm" class="web-github-form"><label>Autorisation GitHub<input id="githubAccess" type="password" autocomplete="off" spellcheck="false" maxlength="300" placeholder="github_pat_…" required></label><p>Crée un accès limité au seul dépôt <strong>wolfguard-data</strong>, avec <strong>Contents : Read and write</strong>.</p><a href="'+tokenLink()+'" target="_blank" rel="noopener noreferrer">Créer cet accès sur GitHub ↗</a><button class="primary" type="submit">Connecter mon espace</button><p id="githubConnectError" role="alert"></p>'+(localOption?'<button class="secondary" type="button" id="githubLocalOnly">Utiliser cet appareil sans synchronisation</button>':'<button class="secondary" type="button" id="githubCancel">Annuler</button>')+'</form>';
-  }
-  async function connectGitHub(event) {
-    event.preventDefault();
-    if(syncBusy)return;
-    const form=event.currentTarget,input=form.querySelector('#githubAccess');
-    let credential=input.value.trim();input.value='';syncBusy=true;
-    form.querySelectorAll('button').forEach(button=>{button.disabled=true;});
-    try {
-      await github.connect(credential);credential='';
-      await queue;await syncChain;const remote=await github.read();
-      sessionStorage.removeItem('wolfguard-local-mode');
-      const local=await storage.read();
-      if(!local && !remote && !await appConfirm('GitHub ne contient pas encore de coffre. Si tes données sont sur un autre appareil, connecte d’abord cet appareil. Créer un nouvel espace ici ?',{title:'Aucun coffre distant',confirmLabel:'Créer un nouvel espace'})){
-        github.disconnect();form.querySelector('#githubConnectError').textContent='Connecte d’abord l’appareil qui contient tes données.';return;
-      }
-      if(remote && !sameEnvelope(local,remote.envelope)){
-        if(session && appHasUnsavedChanges()){
-          await rememberRemote(remote,true);closeModal();syncStatus('Enregistre d’abord tes modifications, puis choisis la copie à synchroniser dans les paramètres.');return;
-        }
-        const clean=syncState && !syncState.paused && local?.revision===syncState.revision && local?.salt===syncState.salt;
-        if(local && (!clean || appHasUnsavedChanges()) && !await appConfirm('Cet appareil contient déjà un espace différent. Une copie de secours chiffrée sera conservée avant de charger celui de GitHub.',{title:'Retrouver le coffre GitHub',confirmLabel:'Charger GitHub'})){
-          await rememberRemote(remote,true);closeModal();if(!session)showGate();syncStatus('Copies différentes conservées. Choisis la version à synchroniser dans les paramètres.');return;
-        }
-        closeModal();await adoptRemote(remote);
-      } else {
-        await rememberRemote(remote);closeModal();if(!session)showGate();
-        if(session && local)await syncSavedEnvelope(local);
-        else syncStatus(remote?'Coffre GitHub à jour · Saisis ton code':'Saisis ton code pour enregistrer cet espace sur GitHub');
-      }
-      sessionStorage.removeItem('wolfguard-local-mode');pollGitHub();
-    } catch(error) {
-      github.disconnect();
-      if(form.isConnected)form.querySelector('#githubConnectError').textContent=error.message;
-      else appNotify(error.message,{kind:'error'});
-    } finally {credential='';syncBusy=false;form.querySelectorAll('button').forEach(button=>{button.disabled=false;});}
-  }
-  function showGitHubGate() {
-    $('#connectionGate .connection-card').innerHTML='<header class="access-brand"><div class="connection-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="68" height="68"></div></header><div class="access-heading"><h2>Retrouver mon espace</h2></div><p class="web-github-intro">Le même coffre chiffré sur tes appareils, avec ton compte GitHub.</p>'+githubFormHTML(true);
-    $('#lock').classList.add('hidden');$('#app').classList.add('hidden');$('#connectionGate').classList.remove('hidden');
-    $('#githubConnectForm').onsubmit=connectGitHub;
-    $('#githubLocalOnly').onclick=()=>{github.disconnect();clearTimeout(syncPoll);sessionStorage.setItem('wolfguard-local-mode','1');showGate();};
-    $('#githubAccess').focus();
-  }
-  function openGitHubConnection() {
-    modal('Synchronisation GitHub',githubFormHTML());
-    $('#githubConnectForm').onsubmit=connectGitHub;
-    $('#githubCancel').onclick=closeModal;
-    $('#githubAccess').focus();
-  }
-  async function loadGitHubCopy() {
-    if(!github.connected())return openGitHubConnection();
-    if(appHasUnsavedChanges())return appNotify('Enregistre d’abord les modifications de la fiche avant de charger GitHub.');
-    await queue;await syncChain;const remote=await github.read();
-    if(!remote)return appNotify('Aucun coffre n’a encore été enregistré sur GitHub.');
-    if(!await appConfirm('Charger la copie GitHub ? L’espace actuel sera conservé dans une copie de secours chiffrée.',{confirmLabel:'Charger GitHub'}))return;
-    await adoptRemote(remote);
-  }
-  async function publishLocalCopy() {
-    if(!github.connected())return openGitHubConnection();
-    assertFreshSession();
-    if(appHasUnsavedChanges())return appNotify('Enregistre d’abord les modifications de la fiche avant de publier cet appareil.');
-    if(!await appConfirm('Publier la copie de cet appareil sur GitHub ? La version distante actuelle sera conservée dans une copie de secours chiffrée.',{confirmLabel:'Publier cette copie'}))return;
-    await queue;await syncChain;
-    const remote=await github.read();
-    if(remote)await storage.saveRecovery(remote.envelope);
-    await rememberRemote(remote);
-    if(session)await syncSavedEnvelope(session.envelope);
   }
   async function seed() {
     const snapshot = {version:2,items:[],folders:[],settings:[{key:'autoLockMinutes',value:5}],activity:[]};
@@ -343,7 +180,6 @@ const webWorkspace = (() => {
     }
   }
   function showGate() {
-    if(syncState && !github?.connected() && !pendingBackup && !localOnly() && $('#webAccessForm')){showGitHubGate();return;}
     const exists = !!(pendingBackup || envelope);
     $('#connectionGate').classList.add('hidden'); $('#lock').classList.remove('hidden'); $('#app').classList.add('hidden');
     enteredCode=''; creationCode='';
@@ -387,10 +223,6 @@ const webWorkspace = (() => {
     const generation=epoch; let password=$('#webPassword').value, retained=false, attemptedScope='';
     try {
       await claimTab(); await queue; envelope=await storage.read();
-      try {await refreshBeforeUnlock();}catch(error){
-        syncStatus(error.message);
-        if(syncState && !localOnly()){showGitHubGate();$('#githubConnectError').textContent=error.message;return;}
-      }
       await loadAttempts();
       if(accessBlocked())return;
       attemptedScope=accessScope();
@@ -422,7 +254,6 @@ const webWorkspace = (() => {
       if (generation !== epoch) return;
       await unlockTransition.play();
       await scheduleAutoLock(); saveStatus('Enregistré · Chiffré sur cet appareil');
-      await syncSavedEnvelope(envelope);pollGitHub();
       navigator.storage?.persist?.().catch(() => {});
     } catch (error) {
       if (retained) { await lock();retained=false; }
@@ -472,7 +303,6 @@ const webWorkspace = (() => {
     const backup=cryptography.validateEnvelope(JSON.parse(await file.text()));
     if (session && !await appConfirm('Ouvrir une sauvegarde verrouille la base actuelle. As-tu exporté les modifications à conserver ?')) return;
     await lock(); pendingBackup=backup; await loadAttempts(); showGate();
-    if(syncState){syncState.paused=true;await storage.writeSyncState(syncState);syncStatus('Sauvegarde importée ici · Publication GitHub à confirmer dans les paramètres');}
   }
   async function rotatePassword() {
     if(rotating)return;
@@ -494,7 +324,6 @@ const webWorkspace = (() => {
         result.envelope=await cryptography.seal(payload,result.key,result.salt,current.envelope.revision+1);
         await storage.write(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
-        await syncSavedEnvelope(result.envelope);
         if (session===current) { state.vaultKey=result.key; closeModal(); appNotify('Code modifié. Exporte une nouvelle sauvegarde.'); }
       });
       queue=work.catch(() => {}); await work;
@@ -544,16 +373,13 @@ const webWorkspace = (() => {
     const idle=$('#autoLockSelect');
     idle.replaceChildren(new Option('1 minute','1',true,true));idle.disabled=true;
     idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 minute d’inactivité · Session limitée à 15 minutes · Verrouillage si l’onglet est masqué';
-    const block=document.createElement('section');block.className='web-github-settings';
-    block.innerHTML='<h4 class="settings-group-title">Synchronisation GitHub</h4><p id="githubSyncStatus" role="status"></p><p>Le coffre est chiffré dans le dépôt privé wolfguard-data. L’autorisation reste en mémoire pendant 15 minutes au maximum.</p><div class="web-github-buttons"><button class="settings-btn primary" type="button" id="githubConnectBtn">'+(github.connected()?'Renouveler l’accès':'Connecter GitHub')+'</button><button class="settings-btn" type="button" id="githubSyncNow">Synchroniser maintenant</button><button class="settings-btn" type="button" id="githubLoadRemote">Charger GitHub</button><button class="settings-btn" type="button" id="githubPublishLocal">Publier cet appareil</button><button class="settings-btn" type="button" id="githubDisconnect">Déconnecter GitHub</button><button class="settings-btn" type="button" id="githubRecovery">Exporter la copie de secours</button></div>';
-    $('#settings-data').append(block);
-    $('#githubConnectBtn').onclick=openGitHubConnection;
-    $('#githubSyncNow').onclick=async()=>{if(!github.connected())return openGitHubConnection();if(syncState?.paused)return appNotify('Choisis Charger GitHub ou Publier cet appareil pour résoudre le conflit.');await queue;if(session)await syncSavedEnvelope(session.envelope);};
-    $('#githubLoadRemote').onclick=()=>loadGitHubCopy().catch(error=>appNotify(error.message,{kind:'error'}));
-    $('#githubPublishLocal').onclick=()=>publishLocalCopy().catch(error=>appNotify(error.message,{kind:'error'}));
-    $('#githubDisconnect').onclick=()=>{github.disconnect();clearTimeout(syncPoll);syncStatus('GitHub déconnecté · Copie chiffrée conservée sur cet appareil');};
-    $('#githubRecovery').onclick=async()=>{const recovery=await storage.readRecovery();if(recovery)download(recovery);else appNotify('Aucune copie de secours n’est présente sur cet appareil.');};
-    saveStatus($('#webSaveState').textContent);
+    const recovery=await storage.readRecovery().catch(()=>null);
+    if(recovery && session && $('#settings-data')){
+      const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
+      button.textContent='Exporter la copie de secours';
+      button.onclick=()=>{try{download(cryptography.validateEnvelope(recovery));}catch(error){appNotify(error.message,{kind:'error'});}};
+      $('#settings-data').append(button);
+    }
   };
   generatePassword=cryptographicPassword;
   function cryptographicPassword(options={}) {
@@ -570,8 +396,7 @@ const webWorkspace = (() => {
   }
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
-    [cryptography,storage,githubModule]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardGitHub];
-    github=githubModule.createGitHubSync(cryptography.validateEnvelope);
+    [cryptography,storage]=[WolfGuardCrypto,WolfGuardStorage];
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
@@ -631,13 +456,12 @@ const webWorkspace = (() => {
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);clearTimeout(syncPoll);github?.disconnect();state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
-    envelope=await storage.read();syncState=await storage.readSyncState();await loadAttempts();showGate();
+    envelope=await storage.read();await loadAttempts();showGate();
     booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
-    if(!localOnly() && (!envelope || syncState))showGitHubGate();
   }
   return {start};
 })();

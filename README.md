@@ -2,27 +2,11 @@
 
 Site : **https://wolfguard.wavetools.fr/** · GitHub Pages : branche `main`, dossier `/docs`.
 
-## Retrouver le même coffre sur plusieurs appareils
-
-Le site reste sur GitHub Pages. La synchronisation utilise le dépôt **privé** `cantinbruno/wolfguard-data`, fichier `workspace.wgweb`, via l’API GitHub. Seule l’enveloppe chiffrée complète y est envoyée ; titres, fiches, identifiants, mots de passe et pièces jointes ne sont pas publiés dans le dépôt du site.
-
-La première connexion doit être faite sur l’appareil qui possède déjà les données : ouvrir l’espace avec son code, puis **Paramètres → Données → Connecter GitHub**. Le lien de création d’accès préremplit une autorisation *fine-grained* de 30 jours. Dans GitHub, choisir **Only select repositories → wolfguard-data**, et **Repository permissions → Contents: Read and write**. Coller ensuite le jeton `github_pat_…` dans l’application, jamais dans un commit, un message ou une URL. L’application vérifie le format du jeton et l’accès au bon dépôt privé ; il reste nécessaire de sélectionner les permissions minimales sur GitHub.
-
-Sur un nouvel appareil, l’écran **Retrouver mon espace** demande cette autorisation GitHub, récupère le coffre puis présente le pavé du code existant. Aucun nouveau coffre n’est créé si une copie distante existe. Le code de huit chiffres sert toujours à déchiffrer les données ; il n’accorde pas, à lui seul, l’accès au dépôt privé. Un navigateur non connecté peut choisir de travailler uniquement avec sa copie locale.
-
-Le jeton reste en mémoire pendant quinze minutes au maximum et disparaît à la fermeture/recharge de la page ; il ne figure ni dans IndexedDB, ni dans les sauvegardes, ni dans le code public. Il faudra le renseigner à nouveau pour reprendre la synchronisation après expiration ou depuis une nouvelle session de navigateur. Un appareil déjà relié propose aussi cette reconnexion au rechargement : l’utilisation de sa copie locale sans synchronisation demande un choix explicite. Sa date d’expiration dans GitHub, généralement 30 jours avec le lien proposé, est indépendante. Cette solution entièrement front n’utilise pas de secret OAuth côté navigateur.
-
-Les modifications sont d’abord enregistrées chiffrées localement, puis envoyées à GitHub lorsque l’accès est connecté. Le statut indique **Synchronisé** seulement pour l’enveloppe confirmée par GitHub. Une panne, un jeton expiré ou une limite API laisse la copie locale intacte et signale que la synchronisation n’est pas faite. Garder la page ouverte jusqu’à la confirmation avant de changer d’appareil. Une modification distante est vérifiée environ toutes les trente secondes pendant une session active, et avant le déverrouillage lorsque l’accès GitHub est encore connecté. Une copie plus récente peut verrouiller l’espace et demander de saisir à nouveau le code.
-
-Chaque envoi vérifie que le dépôt est toujours privé et utilise le SHA du fichier pour refuser l’écrasement d’une modification concurrente. Les modifications d’un même navigateur sont envoyées en série. En cas de conflit, les deux versions restent conservées : **Charger GitHub** ou **Publier cet appareil** demande un choix explicite et conserve une copie de secours chiffrée dans ce navigateur. **Exporter la copie de secours** permet de la récupérer. Déconnecter GitHub conserve la copie locale.
-
-GitHub conserve l’historique des fichiers, y compris les anciennes versions chiffrées avec leurs anciens codes. Le changement du code ne rechiffre pas cet historique. Les requêtes, quotas et tailles restent soumis aux limites GitHub ; le fichier complet est réécrit à chaque enregistrement synchronisé. Cette solution convient à cet espace personnel et ne remplace pas une base de données collaborative. Choisir des accès limités et conserver une sauvegarde indépendante.
-
-Références : [permissions et création de jetons](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens), [lecture/écriture des fichiers GitHub](https://docs.github.com/en/rest/repos/contents), [lecture d’un blob privé](https://docs.github.com/en/rest/git/blobs).
-
 La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. La navigation, les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes, le coffre avec ses champs personnalisés et les paramètres sont conservés. La bibliothèque fournie contient 811 fiches au premier démarrage. Les bases personnelles ne sont pas publiées avec le code.
 
 Mémo, Outils et Coffre-fort sont intégrés au site : les paramètres web proposent Sécurité, Données et Interface, sans écran ni onglet d’import des sections Windows.
+
+L’ouverture utilise uniquement le code local : aucune autorisation GitHub ni aucun jeton n’est demandé. La synchronisation GitHub a été retirée. Chaque navigateur conserve son espace chiffré ; les données ne se synchronisent pas entre appareils. Les espaces déjà présents restent lisibles, y compris ceux récupérés pendant la version synchronisée. Une éventuelle copie de secours chiffrée locale reste exportable dans Paramètres → Données. Le dépôt privé de données existant n’est ni interrogé ni supprimé par l’application.
 
 Le Coffre-fort a repris sa place dans la navigation. Les éventuelles tâches créées pendant la version Checklist restent conservées dans l’espace chiffré et les sauvegardes, sans apparaître dans la navigation, la recherche ou les fiches liées.
 
@@ -115,8 +99,7 @@ python tests/keyboard_test.py
 python tests/animations_test.py
 python tests/timeout_test.py
 python tests/security_test.py
-python tests/github_sync_test.py
-node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/github-sync.test.mjs
+node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs
 node scripts/check-publication.mjs
 ```
 

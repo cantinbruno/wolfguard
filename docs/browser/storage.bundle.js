@@ -88,54 +88,18 @@ async function resetAttempts(scope) {
     transaction.onabort = () => reject(new Error('Réinitialisation des tentatives impossible.'));
   });
 }
-async function readSyncState() {
-  const database=await connect();
-  return new Promise((resolve,reject)=>{
-    const transaction=database.transaction('encrypted','readonly'),request=transaction.objectStore('encrypted').get('github-sync');
-    transaction.oncomplete=()=>resolve(request.result??null);
-    transaction.onabort=()=>reject(new Error('Lecture de la synchronisation impossible.'));
-  });
-}
-async function writeSyncState(state) {
-  const database=await connect();
-  return new Promise((resolve,reject)=>{
-    const transaction=database.transaction('encrypted','readwrite');
-    if(state)transaction.objectStore('encrypted').put({sha:state.sha,revision:state.revision,salt:state.salt,iv:state.iv,paused:state.paused===true},'github-sync');
-    else transaction.objectStore('encrypted').delete('github-sync');
-    transaction.oncomplete=resolve;
-    transaction.onabort=()=>reject(new Error('Enregistrement de la synchronisation impossible.'));
-  });
-}
-async function replaceFromGitHub(envelope,expectedRevision) {
-  const database=await connect();
-  return new Promise((resolve,reject)=>{
-    const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted'),request=store.get('workspace');
-    request.onsuccess=()=>{
-      if((request.result?.revision??0)!==expectedRevision){transaction.abort();return;}
-      if(request.result)store.put(request.result,'github-recovery');
-      store.put(envelope,'workspace');
-    };
-    transaction.oncomplete=resolve;
-    transaction.onabort=()=>reject(new Error('Le remplacement a été annulé ; la copie locale est conservée.'));
-  });
-}
+
+// Read the encrypted safety copy left by the previous synchronization release.
+// Keeping this key does not make a network request or change the current vault.
 async function readRecovery() {
   const database=await connect();
   return new Promise((resolve,reject)=>{
-    const transaction=database.transaction('encrypted','readonly'),request=transaction.objectStore('encrypted').get('github-recovery');
+    const transaction=database.transaction('encrypted','readonly');
+    const request=transaction.objectStore('encrypted').get('github-recovery');
     transaction.oncomplete=()=>resolve(request.result??null);
     transaction.onabort=()=>reject(new Error('Lecture de la copie de secours impossible.'));
   });
 }
-async function saveRecovery(envelope) {
-  const database=await connect();
-  return new Promise((resolve,reject)=>{
-    const transaction=database.transaction('encrypted','readwrite');
-    transaction.objectStore('encrypted').put(envelope,'github-recovery');
-    transaction.oncomplete=resolve;
-    transaction.onabort=()=>reject(new Error('La copie de secours ne peut pas être conservée.'));
-  });
-}
 
-return Object.freeze({connect,read,write,readAttempts,registerFailure,resetAttempts,readSyncState,writeSyncState,replaceFromGitHub,readRecovery,saveRecovery});
+return Object.freeze({connect,read,write,readAttempts,registerFailure,resetAttempts,readRecovery});
 })();

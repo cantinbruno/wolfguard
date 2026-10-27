@@ -22,7 +22,6 @@ def run():
             context=browser.new_context(reduced_motion='reduce')
             page=context.new_page()
             page.goto(f'http://127.0.0.1:{server.server_port}/')
-            page.locator('#githubLocalOnly').click()
             expect(page.locator('#keypad')).to_be_visible()
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
             # A French top-row key reports a symbol until Shift is pressed.

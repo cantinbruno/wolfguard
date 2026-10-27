@@ -36,7 +36,6 @@ def run():
             errors=[]
             page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(url)
-            page.locator('#githubLocalOnly').click()
             expect(page.locator('#keypad button')).to_have_count(12)
             expect(page.locator('#pinDots .dot')).to_have_count(8)
             expect(page.locator('#webAccessForm')).not_to_be_visible()

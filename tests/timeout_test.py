@@ -32,7 +32,7 @@ def run():
             page=context.new_page()
             page.clock.install()
             url=f'http://127.0.0.1:{server.server_port}/'
-            page.goto(url);page.locator('#githubLocalOnly').click();ready(page)
+            page.goto(url);ready(page)
             page.evaluate("""async()=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const r=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'01234567');await s.write(r.envelope,0)}""")
             page.reload();ready(page)
             wrong(page)
