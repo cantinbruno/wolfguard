@@ -46,6 +46,7 @@ def run():
             context.add_init_script(TRACE)
             page=context.new_page()
             page.goto(f'http://127.0.0.1:{server.server_port}/')
+            page.locator('#githubLocalOnly').click()
             expect(page.locator('#app')).not_to_be_visible()
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=10000)
             expect(page.locator('#startupSplash,#unlockTransition')).to_have_count(0)

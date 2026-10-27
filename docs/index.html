@@ -2,46 +2,46 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self' https://api.github.com; frame-src 'none'; object-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="x-dns-prefetch-control" content="off">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WolfGuard</title>
 <link rel="icon" type="image/svg+xml" href="images/logo-loup.svg">
-<link rel="stylesheet" href="css/base.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-VMuXhxGhqZlRSkVK9byqtqcIci0vxKs7PrMEX4WtkGhefpl26CpPBqgUCG8s2w84" crossorigin="anonymous">
-<link rel="stylesheet" href="css/workspaces.css?wg=dce56951487b068f" integrity="sha384-iQbTvSVqdVD7ivnnJ9ptB+VjTlMtGHItWEqTkRuYYX338LhjwjavyLtzZvbnhSZw" crossorigin="anonymous">
-<link rel="stylesheet" href="css/documents.css?wg=dce56951487b068f" integrity="sha384-3PcyOdrTRWgtYeWLWWWoOVJLPEcpafoKxwrYURWpVvEtMWUhmxHJEoup7WlEXfDA" crossorigin="anonymous">
-<link rel="stylesheet" href="css/layout.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-CJ2ZL47Uw6fnv0Iv5FzzhQfmU0U+L1HMq190BYM9eAWDw2oISTUghi8TPyp6Xkj0" crossorigin="anonymous">
-<link rel="stylesheet" href="css/settings.css?wg=dce56951487b068f" integrity="sha384-oYgo/p9ZHCQ9Ey4YeB8YDk1000SGzqbIhFUrXcsz7MVmxhSFuja/H/9fWZE49TY7" crossorigin="anonymous">
-<link rel="stylesheet" href="css/navigation.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-vb0xcZBjYcrfu2WaWwC/LQuau4hpxno3Qn2E1seCYV7JO/tVjCmNSdnleQxuBuud" crossorigin="anonymous">
-<link rel="stylesheet" href="css/connection.css?wg=dce56951487b068f" integrity="sha384-7m+MuAcax6VGyqP80FDMzMTXmrGhrybrob/VMVGhG0J2mJuZD+4L4iDEAmR2Jyp4" crossorigin="anonymous">
-<link rel="stylesheet" href="css/reader.css?wg=dce56951487b068f" integrity="sha384-7hpTR4nc5EU50GZoLa9MAm07ahbnFDaA7v+P+PccBrH99Pprbmxyvl0bJZV4F8QU" crossorigin="anonymous">
-<link rel="stylesheet" href="css/branding.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-bM7TUxZ+1vAIQZ3IPLvmm15fmdHz1VoD/Dp0RGuHCMmwptnCnWvz0VtdubwRtkTt" crossorigin="anonymous">
-<link rel="stylesheet" href="css/protocols.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-ZZgkJzxywgZvtfajemEFu8gOktJDRtYcvmPn6bPzFxBXQVYa6Z5P02gbkFe9oGJF" crossorigin="anonymous">
-<link rel="stylesheet" href="css/search.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-lstTBm8z8f24EpMhcd44+QqiSR5k22Q5SNexjWIOE1Cyqg+sSKxAK7PIGHP8Knvz" crossorigin="anonymous">
-<link rel="stylesheet" href="css/workspace-controls.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-UXmsCbawmlpXivOTUcLZU1/cyMxNwWIpzXDwBpL5K7bXitbaFATt9WIxE/yJ4QNx" crossorigin="anonymous">
-<link rel="stylesheet" href="css/library-navigation.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-C0XZbabEUFu5hwaiyWLmLqSffmIgcK6oxG5x98izFkrzG1Yw5bEULxEqnu0f0THc" crossorigin="anonymous">
-<link rel="stylesheet" href="css/unlock-transition.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-kOelgAgt2uWvqR3pieHIdRonv6xoQ7NwcX2OzIBOI5ygbQHeoOifO1kmOxLYOtDY" crossorigin="anonymous">
-<link rel="stylesheet" href="css/section-transition.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-JhFyyjyPUq6SSM85nsRsczhWs93r6rAnuSie2zlZLI8U4nBAOQYJWBuD+TurAhCe" crossorigin="anonymous">
-<link rel="stylesheet" href="css/top-navigation.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-ag+Esp6KY5aUE2qiz/aBkpQUPshAcIAvoYaEo5knWjFKnBtVP7s0bz6Yr06TEeZ3" crossorigin="anonymous">
-<link rel="stylesheet" href="css/item-actions.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-yUFVrklGLnVvYX1ZRspf2Rl6W4vfYjIL4ngruJ3AsuMLPsX/3DUWrw62L7Lq2WXw" crossorigin="anonymous">
-<link rel="stylesheet" href="css/collection-search.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-otZB8+KZnxJMxPXPGAfUuOuPPCJOJypVexOeYy6bkmGxjAHopAYFcWA/sIIl1yrP" crossorigin="anonymous">
-<link rel="stylesheet" href="css/network-tools.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-zoDsT0BnPRV+hXhQHjva0ldVnl4CbqV7lNRNEH+Tm+5FSwe63nYFto0Itrq2jiTv" crossorigin="anonymous">
-<link rel="stylesheet" href="css/item-relations.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-firY11ACNzIHAHbWZ8XHbmPexQeEZ3KJWRtFk3jLEgtpFzWQ12fHarrH/rcoZ7o1" crossorigin="anonymous">
-<link rel="stylesheet" href="css/section-catalogs.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-RIy7XHO46oryy98KE3bvT+tClTZQQb7HqtA/JIonKNOrz22FlhnI6RZVzr6AGcuX" crossorigin="anonymous">
-<link rel="stylesheet" href="css/desktop.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-avZKUly3yMmovxJoSYiq21QcIL6LL4bGxgUoCl8Xyi1gvrI2bUcvw+uOl/U5mdkh" crossorigin="anonymous">
-<link rel="stylesheet" href="css/access.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-dieUzrnqUtNP2LX0QOa4leKWi2p9idnTnnlweUVoJokI+KIZ1qREhfiYLU4T4TDh" crossorigin="anonymous">
-<link rel="stylesheet" href="css/protocol-matrix.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-jvrr6kawrHaQuRfeufD6TNJ0oYwlDGaArnOz2vvNISxAEpNKn4CbMVyqdPJOHALd" crossorigin="anonymous">
-<link rel="stylesheet" href="css/scan.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-em9EvpeduafzF8VBE9Lo5wZnf4RF3A8vJi56d5Wdtv7S1W2PeBMcjWqoXLsEZXxU" crossorigin="anonymous">
-<link rel="stylesheet" href="css/scan-console.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-cbGdNammBQf40sfC38kL6WUidOR5o2DjZcytS5z2QqCoJqERs3mDHdzvpSmt7Wte" crossorigin="anonymous">
-<link rel="stylesheet" href="css/scan-visual.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-cyQeddSi1qXqm2pufQ8BGbhnV3o/QsssjSu1/M0YmoeIbxBMiFEmBe/FMe1FHYm1" crossorigin="anonymous">
-<link rel="stylesheet" href="css/document-reader.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-RIT8CUHRDIHBxKnsADmwUJgV6SUh4+kpIW07LanVIOUi4VHdnwmabJUl61We5+/7" crossorigin="anonymous">
-<link rel="stylesheet" href="css/protocol-polish.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-o3bWG0wEIYoC3LiBRBdpEQiddOmripzHaAB10tSGS/LomqP5M+LAu0xY6NhCUxgz" crossorigin="anonymous">
-<link rel="stylesheet" href="css/unified-library.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-43/8Q1QTssLiUjdnAeDpOqyvaq8pdXDwyXanodFu+kFS01B/ZSGA4kpv5goJpG0d" crossorigin="anonymous">
-<link rel="stylesheet" href="css/toolbox.css?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-srixOniJou6b4yGXZ1DBnPTbbECWnQd2COvbq4A4d5EsDcJKPP+rupObcEL5uZkc" crossorigin="anonymous">
-<link rel="stylesheet" href="css/modules.css?wg=dce56951487b068f" integrity="sha384-vaKjBK0MZFdpfb4UfyAHnuOGjie4UVd+iDYyXAOHJzeAUJSqlX9gjMz0OIUU6lYK" crossorigin="anonymous">
-<link rel="stylesheet" href="css/dialogs.css?wg=dce56951487b068f" integrity="sha384-D+ye/CuG65PrUsvUSnQoEttRnFmvgqyHGkrulTETN2IPRfkqMwxxIpbJ9w91HFA7" crossorigin="anonymous">
-<link rel="stylesheet" href="browser/access.css?wg=dce56951487b068f" integrity="sha384-D1/JhKYpTq/tqW5HzYncSrNjJckuiinw4hIKbA0HSOqBM2fxXmiriEbMKqGFkbWf" crossorigin="anonymous">
+<link rel="stylesheet" href="css/base.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-VMuXhxGhqZlRSkVK9byqtqcIci0vxKs7PrMEX4WtkGhefpl26CpPBqgUCG8s2w84" crossorigin="anonymous">
+<link rel="stylesheet" href="css/workspaces.css?wg=330fee23f48304b6" integrity="sha384-iQbTvSVqdVD7ivnnJ9ptB+VjTlMtGHItWEqTkRuYYX338LhjwjavyLtzZvbnhSZw" crossorigin="anonymous">
+<link rel="stylesheet" href="css/documents.css?wg=330fee23f48304b6" integrity="sha384-3PcyOdrTRWgtYeWLWWWoOVJLPEcpafoKxwrYURWpVvEtMWUhmxHJEoup7WlEXfDA" crossorigin="anonymous">
+<link rel="stylesheet" href="css/layout.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-CJ2ZL47Uw6fnv0Iv5FzzhQfmU0U+L1HMq190BYM9eAWDw2oISTUghi8TPyp6Xkj0" crossorigin="anonymous">
+<link rel="stylesheet" href="css/settings.css?wg=330fee23f48304b6" integrity="sha384-oYgo/p9ZHCQ9Ey4YeB8YDk1000SGzqbIhFUrXcsz7MVmxhSFuja/H/9fWZE49TY7" crossorigin="anonymous">
+<link rel="stylesheet" href="css/navigation.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-vb0xcZBjYcrfu2WaWwC/LQuau4hpxno3Qn2E1seCYV7JO/tVjCmNSdnleQxuBuud" crossorigin="anonymous">
+<link rel="stylesheet" href="css/connection.css?wg=330fee23f48304b6" integrity="sha384-7m+MuAcax6VGyqP80FDMzMTXmrGhrybrob/VMVGhG0J2mJuZD+4L4iDEAmR2Jyp4" crossorigin="anonymous">
+<link rel="stylesheet" href="css/reader.css?wg=330fee23f48304b6" integrity="sha384-7hpTR4nc5EU50GZoLa9MAm07ahbnFDaA7v+P+PccBrH99Pprbmxyvl0bJZV4F8QU" crossorigin="anonymous">
+<link rel="stylesheet" href="css/branding.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-bM7TUxZ+1vAIQZ3IPLvmm15fmdHz1VoD/Dp0RGuHCMmwptnCnWvz0VtdubwRtkTt" crossorigin="anonymous">
+<link rel="stylesheet" href="css/protocols.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-ZZgkJzxywgZvtfajemEFu8gOktJDRtYcvmPn6bPzFxBXQVYa6Z5P02gbkFe9oGJF" crossorigin="anonymous">
+<link rel="stylesheet" href="css/search.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-lstTBm8z8f24EpMhcd44+QqiSR5k22Q5SNexjWIOE1Cyqg+sSKxAK7PIGHP8Knvz" crossorigin="anonymous">
+<link rel="stylesheet" href="css/workspace-controls.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-UXmsCbawmlpXivOTUcLZU1/cyMxNwWIpzXDwBpL5K7bXitbaFATt9WIxE/yJ4QNx" crossorigin="anonymous">
+<link rel="stylesheet" href="css/library-navigation.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-C0XZbabEUFu5hwaiyWLmLqSffmIgcK6oxG5x98izFkrzG1Yw5bEULxEqnu0f0THc" crossorigin="anonymous">
+<link rel="stylesheet" href="css/unlock-transition.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-kOelgAgt2uWvqR3pieHIdRonv6xoQ7NwcX2OzIBOI5ygbQHeoOifO1kmOxLYOtDY" crossorigin="anonymous">
+<link rel="stylesheet" href="css/section-transition.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-JhFyyjyPUq6SSM85nsRsczhWs93r6rAnuSie2zlZLI8U4nBAOQYJWBuD+TurAhCe" crossorigin="anonymous">
+<link rel="stylesheet" href="css/top-navigation.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-ag+Esp6KY5aUE2qiz/aBkpQUPshAcIAvoYaEo5knWjFKnBtVP7s0bz6Yr06TEeZ3" crossorigin="anonymous">
+<link rel="stylesheet" href="css/item-actions.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-yUFVrklGLnVvYX1ZRspf2Rl6W4vfYjIL4ngruJ3AsuMLPsX/3DUWrw62L7Lq2WXw" crossorigin="anonymous">
+<link rel="stylesheet" href="css/collection-search.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-otZB8+KZnxJMxPXPGAfUuOuPPCJOJypVexOeYy6bkmGxjAHopAYFcWA/sIIl1yrP" crossorigin="anonymous">
+<link rel="stylesheet" href="css/network-tools.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-zoDsT0BnPRV+hXhQHjva0ldVnl4CbqV7lNRNEH+Tm+5FSwe63nYFto0Itrq2jiTv" crossorigin="anonymous">
+<link rel="stylesheet" href="css/item-relations.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-firY11ACNzIHAHbWZ8XHbmPexQeEZ3KJWRtFk3jLEgtpFzWQ12fHarrH/rcoZ7o1" crossorigin="anonymous">
+<link rel="stylesheet" href="css/section-catalogs.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-RIy7XHO46oryy98KE3bvT+tClTZQQb7HqtA/JIonKNOrz22FlhnI6RZVzr6AGcuX" crossorigin="anonymous">
+<link rel="stylesheet" href="css/desktop.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-avZKUly3yMmovxJoSYiq21QcIL6LL4bGxgUoCl8Xyi1gvrI2bUcvw+uOl/U5mdkh" crossorigin="anonymous">
+<link rel="stylesheet" href="css/access.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-dieUzrnqUtNP2LX0QOa4leKWi2p9idnTnnlweUVoJokI+KIZ1qREhfiYLU4T4TDh" crossorigin="anonymous">
+<link rel="stylesheet" href="css/protocol-matrix.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-jvrr6kawrHaQuRfeufD6TNJ0oYwlDGaArnOz2vvNISxAEpNKn4CbMVyqdPJOHALd" crossorigin="anonymous">
+<link rel="stylesheet" href="css/scan.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-em9EvpeduafzF8VBE9Lo5wZnf4RF3A8vJi56d5Wdtv7S1W2PeBMcjWqoXLsEZXxU" crossorigin="anonymous">
+<link rel="stylesheet" href="css/scan-console.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-cbGdNammBQf40sfC38kL6WUidOR5o2DjZcytS5z2QqCoJqERs3mDHdzvpSmt7Wte" crossorigin="anonymous">
+<link rel="stylesheet" href="css/scan-visual.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-cyQeddSi1qXqm2pufQ8BGbhnV3o/QsssjSu1/M0YmoeIbxBMiFEmBe/FMe1FHYm1" crossorigin="anonymous">
+<link rel="stylesheet" href="css/document-reader.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-RIT8CUHRDIHBxKnsADmwUJgV6SUh4+kpIW07LanVIOUi4VHdnwmabJUl61We5+/7" crossorigin="anonymous">
+<link rel="stylesheet" href="css/protocol-polish.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-o3bWG0wEIYoC3LiBRBdpEQiddOmripzHaAB10tSGS/LomqP5M+LAu0xY6NhCUxgz" crossorigin="anonymous">
+<link rel="stylesheet" href="css/unified-library.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-43/8Q1QTssLiUjdnAeDpOqyvaq8pdXDwyXanodFu+kFS01B/ZSGA4kpv5goJpG0d" crossorigin="anonymous">
+<link rel="stylesheet" href="css/toolbox.css?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-srixOniJou6b4yGXZ1DBnPTbbECWnQd2COvbq4A4d5EsDcJKPP+rupObcEL5uZkc" crossorigin="anonymous">
+<link rel="stylesheet" href="css/modules.css?wg=330fee23f48304b6" integrity="sha384-vaKjBK0MZFdpfb4UfyAHnuOGjie4UVd+iDYyXAOHJzeAUJSqlX9gjMz0OIUU6lYK" crossorigin="anonymous">
+<link rel="stylesheet" href="css/dialogs.css?wg=330fee23f48304b6" integrity="sha384-D+ye/CuG65PrUsvUSnQoEttRnFmvgqyHGkrulTETN2IPRfkqMwxxIpbJ9w91HFA7" crossorigin="anonymous">
+<link rel="stylesheet" href="browser/access.css?wg=330fee23f48304b6" integrity="sha384-W/rv+yefXcsV92o/pyZm5n6B3cCjWGSfIpFV2S1Jwp7cXIeuWOnNq1uSwGfDy6l5" crossorigin="anonymous">
 </head>
 <body>
 
@@ -103,66 +103,67 @@
 <div id="modalRoot"></div>
 
 <!-- Scripts share the local page context; app.js must load last. -->
-<script src="vendor/minisearch-7.2.0.min.js?wg=dce56951487b068f" integrity="sha384-9Eacb80ywplqCp0P/bR61+zYn5Pg2LmQ7T8rppdoKHcQMmXbRh1wHwRC8avUJvnz" crossorigin="anonymous"></script>
-<script src="vendor/purify.min.js?wg=dce56951487b068f" integrity="sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx" crossorigin="anonymous"></script>
-<script src="vendor/ipaddr-2.5.0.js?wg=dce56951487b068f" integrity="sha384-7Z6zwiT4LDJEu3KQ3IrYzUDhQ1kvrOkbKmo0d+6H/u8HGuHmOmviYyTQuuJ5UHgD" crossorigin="anonymous"></script>
-<script src="js/data/modules.js?wg=dce56951487b068f" integrity="sha384-KZvDgAxaiez7pLcr2js5ZpPS371yR+rwbW6CTI00ymmFxrO3lfG18hHSqtAdJJ6n" crossorigin="anonymous"></script>
-<script src="js/core.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-6NJ0gi5tdRq0/iTX7U715jfEyo7M8jB0l6IbWkXHvTFxyj2U79bXrnm2hEIyjcvs" crossorigin="anonymous"></script>
-<script src="js/desktop.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-4YwwWSXmqdV6BcQ7ej5ofvFdef2YcVO7y4cHkmGTdE7PVXgZ6COtiDVx7zPQ/47Q" crossorigin="anonymous"></script>
-<script src="js/data/database.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-NttnVHVlh7Iw0TREDKvwptrV5TpvnxVYHT+LQqp46RDZrtkjDsa3qsW0BQYyIaxT" crossorigin="anonymous"></script>
-<script src="js/security.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-WxMgGWZtuNAjf+56vyslcl1RW9S3PULuYw1wpG0xMvTQt2Hlv1AnEi9czopl7ETY" crossorigin="anonymous"></script>
-<script src="js/network/ip-tools.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-+/bisyU0bNS+M2T+gNyAoUoIJ3118APQ0ZC4MTMNgL/FHhqhsGg1yHM0PewR7BG6" crossorigin="anonymous"></script>
-<script src="vendor/hash-wasm-4.12.0-md5.min.js?wg=dce56951487b068f" integrity="sha384-jn7ABecBE192vLooQu4ESl94lGm9VZq8dPxZCl0zlaqx/hxcLKhfEW9mpy8G4j1s" crossorigin="anonymous"></script>
-<script src="vendor/hash-wasm-4.12.0-sha1.min.js?wg=dce56951487b068f" integrity="sha384-sjYIO4kzgsgPCRLx+UkW0gDaXDBAEDPhwequJyreYGCdgGvIIHMk+cSQjVkhauMc" crossorigin="anonymous"></script>
-<script src="vendor/hash-wasm-4.12.0-sha256.min.js?wg=dce56951487b068f" integrity="sha384-Wgjx+8tLxXJSOx0qsuYHWUruquWEGSmkfn24UY1UGLJpwzCAMKZ3kbRI89jpYIVm" crossorigin="anonymous"></script>
-<script src="vendor/hash-wasm-4.12.0-sha384.min.js?wg=dce56951487b068f" integrity="sha384-JHuNIlLKalxbeggacbO/uNYfaZsp9waYHDn3DOhIZ9QtiEgg8pZcFoRAskf+H3JF" crossorigin="anonymous"></script>
-<script src="vendor/hash-wasm-4.12.0-sha512.min.js?wg=dce56951487b068f" integrity="sha384-+wVluXb6shQ1JDZWaQ+1XjXfYY4cr9Xc7apPl6+OivKfZLo/6gZ+23C5zRTDXhXQ" crossorigin="anonymous"></script>
-<script src="js/network/hash-tools.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-j/dp3tEYlGvkk+Ive31RGy/p0stBrei6gd9GUP8tjZ49Ki8NTmWSwsm+7kMoJUHL" crossorigin="anonymous"></script>
-<script src="js/data/item-relations.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-clk/6huVzuByVM3lruoiaBe3Mb4/LEluHS2YPvob4vsp5uYLtAEj4EIclyAzrFXg" crossorigin="anonymous"></script>
-<script src="js/data/legacy-library.js?wg=dce56951487b068f" integrity="sha384-ZL5ymldjZPIBG5B+7LkQVTdU9q0qEJK4l+cGWQLeEiscstqwin5vloZzSFLBMfTu" crossorigin="anonymous"></script>
-<script src="js/data/memo-quality.js?wg=dce56951487b068f" integrity="sha384-xY+RD3kx+ntrgbOaI3jvDR+ztJ9JvBDCb4OO1rDa/omxjJR75kX553qrqtG+072m" crossorigin="anonymous"></script>
-<script src="js/data/workspace-layout.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-u9G7NONMRWARQOo5ZS2LB2bMgjJc/j+lcEIJ3F+cUIQhy54fZiQ5QME0w/nOvECG" crossorigin="anonymous"></script>
-<script src="js/data/workspace-mode.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-n7O96/slEW1xqtQo+n5yNFkYZDTPAuURsFIFybQgwwb2sBGK+utmWt2RLy/odS4S" crossorigin="anonymous"></script>
-<script src="js/data/workspace-file.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-Xon0azK1CS+cKcal3HhNTdRNEDSv7idjbWG4AtskBa9It5z7+kHfWYwjNJIrKzAc" crossorigin="anonymous"></script>
-<script src="js/data/library-model.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-8cmse0t9bQjnvaxif24b48KbrFNN+ObHd2mjHtwbsDVeT3w5wRZkHA3EykoXm7TK" crossorigin="anonymous"></script>
-<script src="js/data/library-migration.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-BT0zmmjYsWjn98pU4Cb2Jac7XM/jQVQtHEwo3s9TTdlMGGyV4KE7V6DPk35LFtZ7" crossorigin="anonymous"></script>
-<script src="js/ui/shared-icons.js?wg=dce56951487b068f" integrity="sha384-3FcT0y1MubdcnoHY7z3Dh2a/FQShDirQTNuIfEWp2z/29c02Hh7z14Tg+j63NQAM" crossorigin="anonymous"></script>
-<script src="js/ui/helpers.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-A5O7RuODoDTnCeErfvWdyNUgraedtR7aiHy68t1KXIjDXfAxKbKLkXo9/4H2l43s" crossorigin="anonymous"></script>
-<script src="js/ui/unlock-transition.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-bjVs3FnOzT9E/Oq0uUePEg15ILKua5jtQFjrpQbDDOjvKCW3aNocPH7+dFU/RFVE" crossorigin="anonymous"></script>
-<script src="js/ui/section-transition.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-4xBu0yFqTd2wJfiH88gn81CbWedS3xaiVi1ZLVBryfs8n+cF3Vy3YyMzqBJlnaN9" crossorigin="anonymous"></script>
-<script src="js/ui/item-actions.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-gOo74sormEqBT4FOt6qUl58n9pGcWoBv9WiHlMUq8+XCRYts6dI/8qgN7otxjGyB" crossorigin="anonymous"></script>
-<script src="js/ui/workspace-controls.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-Cyr5FwMv4vteTggprnygZjScrzYX3gHbZA6mUy78JcDcHhe5Xj0OMTk0xH9tu1IX" crossorigin="anonymous"></script>
-<script src="js/ui/collection-search.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-0RWFFwi/AlsCC8Evx5se1cKAzMwngK73QB9MQQoyYmVY3a4FgZnxMLKj8ARiB22p" crossorigin="anonymous"></script>
-<script src="js/ui/collection-pagination.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-8TQTOwlAmH4vs1nrae4RK+e0e1JBy0NlLb/gu9K7rFfQAzPq8ZB2yHKu9PQgCy06" crossorigin="anonymous"></script>
-<script src="js/ui/primary-workspaces.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-e+1AvlcKS4Nh5L3zAPmybWxOFJdwa1KpC57R5pPm1Zib2314LMZNiwmRzxUthdI1" crossorigin="anonymous"></script>
-<script src="js/ui/top-navigation.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-aRsWpsRlkVTSvPplXjojPUvKGXFuoaR9nJgPQs1Iwqkeg6mTOATkPO4DyxI2dv/7" crossorigin="anonymous"></script>
-<script src="js/ui/dialogs.js?wg=dce56951487b068f" integrity="sha384-IEtsuLbJqISpBVszECQ+AfF7/4/wUWgpF9krOND1sWW1Mwo6+aqLnWYRGqpm2v2U" crossorigin="anonymous"></script>
-<script src="js/ui/item-relations.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-8YgOUsuU5+lsH3YufOVMVBWNJIyVOXokYDkObPl1N1QF2BdT6scgXyCeYLThEzqj" crossorigin="anonymous"></script>
-<script src="js/ui/navigation.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-ZPa1EfDdVsAzwxIzcE4KAuQL2oGLWEyNgoL1jgJIptee+oUvGflwyNdYWvPDjw0l" crossorigin="anonymous"></script>
-<script src="js/ui/context-menu.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-PD4Am3RnqImYgldXl50vea8c+FXtjUnkgNc7MVEnZ2RVtOSQ4OSo7VJrhHJ0GIzb" crossorigin="anonymous"></script>
-<script src="js/ui/rich-editor.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-6wLlkPdXNL8/voK+gRrhKzQDW0+Ybv4xpVEhyL5RI+LPxcQ+kK6Wef0QzBNCbLrF" crossorigin="anonymous"></script>
-<script src="js/ui/items.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-ppfak2wdzcEBypLjk1153B2b9V4raVl7tbjJQwkAiQBSusmHlhbVU8ezT9D4L9JH" crossorigin="anonymous"></script>
-<script src="js/views/vault-catalog.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-gcPO7PnnbZlN5trwMXBa5vkM+yDIkZ2iRzXQ3lxEe3zdS3DAqNvK6NppYbuSsjMP" crossorigin="anonymous"></script>
-<script src="js/views/vault.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-EACDazqK0ergddzaywNcOC24trDlKIoZY5jshvXbsKwismSoFYAQEnw0nVaFjjAf" crossorigin="anonymous"></script>
-<script src="js/views/protocols.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-G+XWHy2kULdAYXtPUy0PKy5BJUhLRma8SF2Rh/nn1B/WDrFaAGdYmmhAHeVV5DZ9" crossorigin="anonymous"></script>
-<script src="js/data/protocol-diagnostics.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-PijLgWculMRFdSb007Z7iLMthB6Zrc8uHXqoB1D5aUyN3KrkpRhykHtbjCnx2GeA" crossorigin="anonymous"></script>
-<script src="js/views/protocol-reference.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-4QjlAbKxDMX1Jcz+O27GsLOkc9sLVLYaDWfFgC6buMnjVlQv0WgTqCoSNCqjk4AR" crossorigin="anonymous"></script>
-<script src="js/views/protocol-matrix.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-EtdVFpY/OPocrUpOkFHvhr4pVkwaLhocYy+M2dMx4O153l1iSCXcVgnHVupz1WL9" crossorigin="anonymous"></script>
-<script src="js/views/document-reader.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-1uSwrdcnjm6RHR6qRuynkJQMYizjFmVUX4bvemO1I0FL4S1d6zDavCxNA5vuECDd" crossorigin="anonymous"></script>
-<script src="js/views/library.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-J0fgpxEPPD34sa8TRdpkqCSYW5qFdTlxIHqG7t+mNk5XW5AFisSdXCWgiH1q7N8B" crossorigin="anonymous"></script>
-<script src="js/views/network-tools.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-Q6X+SSbtHQN8SpJtcWaisMng2rCfASKohc7cA+Gf65GxHvAqqEtvGCIusnyqcd9w" crossorigin="anonymous"></script>
-<script src="js/views/text-tools.js?wg=dce56951487b068f" integrity="sha384-Vvqqi/mTP1LFp5pJ3On1cnDqJBFOkT1XiqxPMlAn2/78RF+K5H58p0R9rDV1ZwEY" crossorigin="anonymous"></script>
-<script src="js/views/scan-console.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-UEiodRIB8gqm7KEPWJxqll65n3Wh/Zw0A0IBmpmZH7syZpKTVVJvUWonpfpo6scE" crossorigin="anonymous"></script>
-<script src="js/views/passive-workbench.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-NU7ZH4VLLvVlSlB/OWboewdxDNdtoHlM3TGxjg4g2W48XzuzR5Yqcl/Q8W8lIS40" crossorigin="anonymous"></script>
-<script src="js/views/passive-scan.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-Uyp0thPgShpjuHZyRhF9Wt86rX7Wf3E2CFfwAnAn8r8PG57xUW7HjYPNfZj38yxz" crossorigin="anonymous"></script>
-<script src="js/views/scan.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-lnY9g5XQuHeJaHmAy1U9j23g7Z5FCA31VJxOEERrTqo6Ynq37AkwUXVdQGSjNHY2" crossorigin="anonymous"></script>
-<script src="js/views/toolbox.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-lFnI3njaDucGsOMW/3apeYQnkD4sFX0n7D11ZrlzS68fZkHqzLcHLuj7HKp5OgF9" crossorigin="anonymous"></script>
-<script src="js/views/settings.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-GI0+OTc4frKt4VuWz+izCCNMYE/ScUPTXN2TCRicxxbYFU0Ij8H6SLizD1dWdmC9" crossorigin="anonymous"></script>
-<script src="js/search/engine.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-AWxcEan224u2AKU7KbsIAzZDmrSFPL8G2NT5DIvtnvHIdg4JvzyvhCIwpd+87eoi" crossorigin="anonymous"></script>
-<script src="js/search/controller.js?v=cleanup-20261020&wg=dce56951487b068f" integrity="sha384-L+yOdbM/+YnI3fRwhKV/VuQ1jpuxpFwQbyrzYDUuFwcRcUSzkpBVuI5GfZ0AbTBQ" crossorigin="anonymous"></script>
-<script src="browser/crypto.bundle.js?wg=dce56951487b068f" integrity="sha384-RkFso8FSTmb2pWShLngMG22OIaO/V3UipUzbhGLLFHgo+1t7yHj+VZbnDrzX6qw+" crossorigin="anonymous"></script>
-<script src="browser/storage.bundle.js?wg=dce56951487b068f" integrity="sha384-DbwOeaRkSFfopCGq5qCA652vQYmQlb+JShdiUwx8SgxprC2EpMTSQAwcZYnAwHSY" crossorigin="anonymous"></script>
-<script src="browser/actions.js?wg=dce56951487b068f" integrity="sha384-gSy47QkcM7rCPNiRR4o1QKh5CxruFLf27f2OatCn7f5ql7SeOcJQzxoOl73zanQY" crossorigin="anonymous"></script>
-<script src="browser/adapter.js?wg=dce56951487b068f" integrity="sha384-zk6BsBxF3LfbDArJidwfkxf61x37OXrILuVnX7nFYt/uJrLPgTYyKKITPMCpHacT" crossorigin="anonymous"></script>
+<script src="vendor/minisearch-7.2.0.min.js?wg=330fee23f48304b6" integrity="sha384-9Eacb80ywplqCp0P/bR61+zYn5Pg2LmQ7T8rppdoKHcQMmXbRh1wHwRC8avUJvnz" crossorigin="anonymous"></script>
+<script src="vendor/purify.min.js?wg=330fee23f48304b6" integrity="sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx" crossorigin="anonymous"></script>
+<script src="vendor/ipaddr-2.5.0.js?wg=330fee23f48304b6" integrity="sha384-7Z6zwiT4LDJEu3KQ3IrYzUDhQ1kvrOkbKmo0d+6H/u8HGuHmOmviYyTQuuJ5UHgD" crossorigin="anonymous"></script>
+<script src="js/data/modules.js?wg=330fee23f48304b6" integrity="sha384-KZvDgAxaiez7pLcr2js5ZpPS371yR+rwbW6CTI00ymmFxrO3lfG18hHSqtAdJJ6n" crossorigin="anonymous"></script>
+<script src="js/core.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-6NJ0gi5tdRq0/iTX7U715jfEyo7M8jB0l6IbWkXHvTFxyj2U79bXrnm2hEIyjcvs" crossorigin="anonymous"></script>
+<script src="js/desktop.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-4YwwWSXmqdV6BcQ7ej5ofvFdef2YcVO7y4cHkmGTdE7PVXgZ6COtiDVx7zPQ/47Q" crossorigin="anonymous"></script>
+<script src="js/data/database.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-NttnVHVlh7Iw0TREDKvwptrV5TpvnxVYHT+LQqp46RDZrtkjDsa3qsW0BQYyIaxT" crossorigin="anonymous"></script>
+<script src="js/security.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-WxMgGWZtuNAjf+56vyslcl1RW9S3PULuYw1wpG0xMvTQt2Hlv1AnEi9czopl7ETY" crossorigin="anonymous"></script>
+<script src="js/network/ip-tools.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-+/bisyU0bNS+M2T+gNyAoUoIJ3118APQ0ZC4MTMNgL/FHhqhsGg1yHM0PewR7BG6" crossorigin="anonymous"></script>
+<script src="vendor/hash-wasm-4.12.0-md5.min.js?wg=330fee23f48304b6" integrity="sha384-jn7ABecBE192vLooQu4ESl94lGm9VZq8dPxZCl0zlaqx/hxcLKhfEW9mpy8G4j1s" crossorigin="anonymous"></script>
+<script src="vendor/hash-wasm-4.12.0-sha1.min.js?wg=330fee23f48304b6" integrity="sha384-sjYIO4kzgsgPCRLx+UkW0gDaXDBAEDPhwequJyreYGCdgGvIIHMk+cSQjVkhauMc" crossorigin="anonymous"></script>
+<script src="vendor/hash-wasm-4.12.0-sha256.min.js?wg=330fee23f48304b6" integrity="sha384-Wgjx+8tLxXJSOx0qsuYHWUruquWEGSmkfn24UY1UGLJpwzCAMKZ3kbRI89jpYIVm" crossorigin="anonymous"></script>
+<script src="vendor/hash-wasm-4.12.0-sha384.min.js?wg=330fee23f48304b6" integrity="sha384-JHuNIlLKalxbeggacbO/uNYfaZsp9waYHDn3DOhIZ9QtiEgg8pZcFoRAskf+H3JF" crossorigin="anonymous"></script>
+<script src="vendor/hash-wasm-4.12.0-sha512.min.js?wg=330fee23f48304b6" integrity="sha384-+wVluXb6shQ1JDZWaQ+1XjXfYY4cr9Xc7apPl6+OivKfZLo/6gZ+23C5zRTDXhXQ" crossorigin="anonymous"></script>
+<script src="js/network/hash-tools.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-j/dp3tEYlGvkk+Ive31RGy/p0stBrei6gd9GUP8tjZ49Ki8NTmWSwsm+7kMoJUHL" crossorigin="anonymous"></script>
+<script src="js/data/item-relations.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-clk/6huVzuByVM3lruoiaBe3Mb4/LEluHS2YPvob4vsp5uYLtAEj4EIclyAzrFXg" crossorigin="anonymous"></script>
+<script src="js/data/legacy-library.js?wg=330fee23f48304b6" integrity="sha384-ZL5ymldjZPIBG5B+7LkQVTdU9q0qEJK4l+cGWQLeEiscstqwin5vloZzSFLBMfTu" crossorigin="anonymous"></script>
+<script src="js/data/memo-quality.js?wg=330fee23f48304b6" integrity="sha384-xY+RD3kx+ntrgbOaI3jvDR+ztJ9JvBDCb4OO1rDa/omxjJR75kX553qrqtG+072m" crossorigin="anonymous"></script>
+<script src="js/data/workspace-layout.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-u9G7NONMRWARQOo5ZS2LB2bMgjJc/j+lcEIJ3F+cUIQhy54fZiQ5QME0w/nOvECG" crossorigin="anonymous"></script>
+<script src="js/data/workspace-mode.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-n7O96/slEW1xqtQo+n5yNFkYZDTPAuURsFIFybQgwwb2sBGK+utmWt2RLy/odS4S" crossorigin="anonymous"></script>
+<script src="js/data/workspace-file.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-Xon0azK1CS+cKcal3HhNTdRNEDSv7idjbWG4AtskBa9It5z7+kHfWYwjNJIrKzAc" crossorigin="anonymous"></script>
+<script src="js/data/library-model.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-8cmse0t9bQjnvaxif24b48KbrFNN+ObHd2mjHtwbsDVeT3w5wRZkHA3EykoXm7TK" crossorigin="anonymous"></script>
+<script src="js/data/library-migration.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-BT0zmmjYsWjn98pU4Cb2Jac7XM/jQVQtHEwo3s9TTdlMGGyV4KE7V6DPk35LFtZ7" crossorigin="anonymous"></script>
+<script src="js/ui/shared-icons.js?wg=330fee23f48304b6" integrity="sha384-3FcT0y1MubdcnoHY7z3Dh2a/FQShDirQTNuIfEWp2z/29c02Hh7z14Tg+j63NQAM" crossorigin="anonymous"></script>
+<script src="js/ui/helpers.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-A5O7RuODoDTnCeErfvWdyNUgraedtR7aiHy68t1KXIjDXfAxKbKLkXo9/4H2l43s" crossorigin="anonymous"></script>
+<script src="js/ui/unlock-transition.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-bjVs3FnOzT9E/Oq0uUePEg15ILKua5jtQFjrpQbDDOjvKCW3aNocPH7+dFU/RFVE" crossorigin="anonymous"></script>
+<script src="js/ui/section-transition.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-4xBu0yFqTd2wJfiH88gn81CbWedS3xaiVi1ZLVBryfs8n+cF3Vy3YyMzqBJlnaN9" crossorigin="anonymous"></script>
+<script src="js/ui/item-actions.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-gOo74sormEqBT4FOt6qUl58n9pGcWoBv9WiHlMUq8+XCRYts6dI/8qgN7otxjGyB" crossorigin="anonymous"></script>
+<script src="js/ui/workspace-controls.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-Cyr5FwMv4vteTggprnygZjScrzYX3gHbZA6mUy78JcDcHhe5Xj0OMTk0xH9tu1IX" crossorigin="anonymous"></script>
+<script src="js/ui/collection-search.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-0RWFFwi/AlsCC8Evx5se1cKAzMwngK73QB9MQQoyYmVY3a4FgZnxMLKj8ARiB22p" crossorigin="anonymous"></script>
+<script src="js/ui/collection-pagination.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-8TQTOwlAmH4vs1nrae4RK+e0e1JBy0NlLb/gu9K7rFfQAzPq8ZB2yHKu9PQgCy06" crossorigin="anonymous"></script>
+<script src="js/ui/primary-workspaces.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-e+1AvlcKS4Nh5L3zAPmybWxOFJdwa1KpC57R5pPm1Zib2314LMZNiwmRzxUthdI1" crossorigin="anonymous"></script>
+<script src="js/ui/top-navigation.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-aRsWpsRlkVTSvPplXjojPUvKGXFuoaR9nJgPQs1Iwqkeg6mTOATkPO4DyxI2dv/7" crossorigin="anonymous"></script>
+<script src="js/ui/dialogs.js?wg=330fee23f48304b6" integrity="sha384-IEtsuLbJqISpBVszECQ+AfF7/4/wUWgpF9krOND1sWW1Mwo6+aqLnWYRGqpm2v2U" crossorigin="anonymous"></script>
+<script src="js/ui/item-relations.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-8YgOUsuU5+lsH3YufOVMVBWNJIyVOXokYDkObPl1N1QF2BdT6scgXyCeYLThEzqj" crossorigin="anonymous"></script>
+<script src="js/ui/navigation.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-ZPa1EfDdVsAzwxIzcE4KAuQL2oGLWEyNgoL1jgJIptee+oUvGflwyNdYWvPDjw0l" crossorigin="anonymous"></script>
+<script src="js/ui/context-menu.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-PD4Am3RnqImYgldXl50vea8c+FXtjUnkgNc7MVEnZ2RVtOSQ4OSo7VJrhHJ0GIzb" crossorigin="anonymous"></script>
+<script src="js/ui/rich-editor.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-6wLlkPdXNL8/voK+gRrhKzQDW0+Ybv4xpVEhyL5RI+LPxcQ+kK6Wef0QzBNCbLrF" crossorigin="anonymous"></script>
+<script src="js/ui/items.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-ppfak2wdzcEBypLjk1153B2b9V4raVl7tbjJQwkAiQBSusmHlhbVU8ezT9D4L9JH" crossorigin="anonymous"></script>
+<script src="js/views/vault-catalog.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-gcPO7PnnbZlN5trwMXBa5vkM+yDIkZ2iRzXQ3lxEe3zdS3DAqNvK6NppYbuSsjMP" crossorigin="anonymous"></script>
+<script src="js/views/vault.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-EACDazqK0ergddzaywNcOC24trDlKIoZY5jshvXbsKwismSoFYAQEnw0nVaFjjAf" crossorigin="anonymous"></script>
+<script src="js/views/protocols.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-G+XWHy2kULdAYXtPUy0PKy5BJUhLRma8SF2Rh/nn1B/WDrFaAGdYmmhAHeVV5DZ9" crossorigin="anonymous"></script>
+<script src="js/data/protocol-diagnostics.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-PijLgWculMRFdSb007Z7iLMthB6Zrc8uHXqoB1D5aUyN3KrkpRhykHtbjCnx2GeA" crossorigin="anonymous"></script>
+<script src="js/views/protocol-reference.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-4QjlAbKxDMX1Jcz+O27GsLOkc9sLVLYaDWfFgC6buMnjVlQv0WgTqCoSNCqjk4AR" crossorigin="anonymous"></script>
+<script src="js/views/protocol-matrix.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-EtdVFpY/OPocrUpOkFHvhr4pVkwaLhocYy+M2dMx4O153l1iSCXcVgnHVupz1WL9" crossorigin="anonymous"></script>
+<script src="js/views/document-reader.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-1uSwrdcnjm6RHR6qRuynkJQMYizjFmVUX4bvemO1I0FL4S1d6zDavCxNA5vuECDd" crossorigin="anonymous"></script>
+<script src="js/views/library.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-J0fgpxEPPD34sa8TRdpkqCSYW5qFdTlxIHqG7t+mNk5XW5AFisSdXCWgiH1q7N8B" crossorigin="anonymous"></script>
+<script src="js/views/network-tools.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-Q6X+SSbtHQN8SpJtcWaisMng2rCfASKohc7cA+Gf65GxHvAqqEtvGCIusnyqcd9w" crossorigin="anonymous"></script>
+<script src="js/views/text-tools.js?wg=330fee23f48304b6" integrity="sha384-Vvqqi/mTP1LFp5pJ3On1cnDqJBFOkT1XiqxPMlAn2/78RF+K5H58p0R9rDV1ZwEY" crossorigin="anonymous"></script>
+<script src="js/views/scan-console.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-UEiodRIB8gqm7KEPWJxqll65n3Wh/Zw0A0IBmpmZH7syZpKTVVJvUWonpfpo6scE" crossorigin="anonymous"></script>
+<script src="js/views/passive-workbench.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-NU7ZH4VLLvVlSlB/OWboewdxDNdtoHlM3TGxjg4g2W48XzuzR5Yqcl/Q8W8lIS40" crossorigin="anonymous"></script>
+<script src="js/views/passive-scan.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-Uyp0thPgShpjuHZyRhF9Wt86rX7Wf3E2CFfwAnAn8r8PG57xUW7HjYPNfZj38yxz" crossorigin="anonymous"></script>
+<script src="js/views/scan.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-lnY9g5XQuHeJaHmAy1U9j23g7Z5FCA31VJxOEERrTqo6Ynq37AkwUXVdQGSjNHY2" crossorigin="anonymous"></script>
+<script src="js/views/toolbox.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-lFnI3njaDucGsOMW/3apeYQnkD4sFX0n7D11ZrlzS68fZkHqzLcHLuj7HKp5OgF9" crossorigin="anonymous"></script>
+<script src="js/views/settings.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-GI0+OTc4frKt4VuWz+izCCNMYE/ScUPTXN2TCRicxxbYFU0Ij8H6SLizD1dWdmC9" crossorigin="anonymous"></script>
+<script src="js/search/engine.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-AWxcEan224u2AKU7KbsIAzZDmrSFPL8G2NT5DIvtnvHIdg4JvzyvhCIwpd+87eoi" crossorigin="anonymous"></script>
+<script src="js/search/controller.js?v=cleanup-20261020&wg=330fee23f48304b6" integrity="sha384-L+yOdbM/+YnI3fRwhKV/VuQ1jpuxpFwQbyrzYDUuFwcRcUSzkpBVuI5GfZ0AbTBQ" crossorigin="anonymous"></script>
+<script src="browser/crypto.bundle.js?wg=330fee23f48304b6" integrity="sha384-RkFso8FSTmb2pWShLngMG22OIaO/V3UipUzbhGLLFHgo+1t7yHj+VZbnDrzX6qw+" crossorigin="anonymous"></script>
+<script src="browser/storage.bundle.js?wg=330fee23f48304b6" integrity="sha384-vg2EC2D28LsIeHJbKfWXyuIGuitz0MmJlYvReUbjWEk32jNCnuyxNt2GRN8t1Akz" crossorigin="anonymous"></script>
+<script src="browser/github-sync.bundle.js?wg=330fee23f48304b6" integrity="sha384-egXyVYVdNIZcxnj0ZthlTcQQHJr6P/8l8VAxBDeX73lSEtA/lNZH9kXZazPZmBqV" crossorigin="anonymous"></script>
+<script src="browser/actions.js?wg=330fee23f48304b6" integrity="sha384-gSy47QkcM7rCPNiRR4o1QKh5CxruFLf27f2OatCn7f5ql7SeOcJQzxoOl73zanQY" crossorigin="anonymous"></script>
+<script src="browser/adapter.js?wg=330fee23f48304b6" integrity="sha384-xpEB78bzs+NphIQi527fiSFUdkBYs+3PyeHWDfqtvfMQQfnCIE/M4PJwu7p+Tb78" crossorigin="anonymous"></script>
 </body>
 </html>

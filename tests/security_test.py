@@ -126,7 +126,7 @@ def run():
             def corrupt(route):
                 response=route.fetch()
                 route.fulfill(response=response,body=response.body()+b'\n// altered asset')
-            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js']:
+            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js','github-sync.bundle.js']:
                 tampered=browser.new_context();blocked=tampered.new_page()
                 blocked.route('**/browser/'+asset+'?*',corrupt)
                 blocked.goto(url)
