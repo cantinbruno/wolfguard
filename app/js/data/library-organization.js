@@ -5,7 +5,7 @@
 function buildMemoFolderOrganization(snapshot, stamp = new Date().toISOString()) {
   const versionKey='memo-folder-organization-version';
   const empty={operations:[],summary:{movedItems:0,mergedFolders:0,updatedFolders:0,emptyFolders:0}};
-  if(snapshot.settings?.some(row=>row.key===versionKey && Number(row.value)>=1))return empty;
+  if(snapshot.settings?.some(row=>row.key===versionKey && Number(row.value)>=2))return empty;
   const sections=new Set(['library','memo','personal','command','template']);
   const types=new Set(['memo','procedure','personal','command','mail','report','template']);
   const active=record=>!record.deletedAt;
@@ -43,6 +43,26 @@ function buildMemoFolderOrganization(snapshot, stamp = new Date().toISOString())
     if(alias[0]===3){
       if(second==='chiffrement')path=[roots[3],'Chiffrement des postes',...names.slice(2)];
       else if(second==='conteneurs')path=[roots[3],'Conteneurs et chaîne logicielle',...names.slice(2)];
+    }
+    // Retire the old 09/10 catch-all roots and classify their useful documents
+    // under the existing eight technical themes instead.
+    if(path[0]===roots[8]){
+      const subject=key(path[1]);
+      if(subject==='microsoft 365')path=[roots[5],...path.slice(1)];
+      else if(subject==='telephonie')path=[roots[0],...path.slice(1)];
+      else if(subject==='messagerie')path=[roots[1],...path.slice(1)];
+      else path=[roots[5],'Collaboration',...path.slice(1)];
+    }
+    if(path[0]===roots[9]){
+      const subject=key(path[1]),detail=key(path[2]);
+      if(['applications et deploiement','navigateurs','impression'].includes(subject))path=[roots[1],...path.slice(1)];
+      else if(subject==='documentation'){
+        if(detail==='inventaire')path=[roots[7],...path.slice(2)];
+        else if(detail==='procedures')path=[roots[7],'Exploitation',...path.slice(2)];
+        else path=[roots[5],'Documentation et projets',...path.slice(2)];
+      }else if(subject==='collecte et restitution')path=[roots[7],'Diagnostic',...path.slice(1)];
+      else if(subject==='exploitation')path=[roots[7],...path.slice(1)];
+      else path=[roots[7],'Exploitation',...path.slice(1)];
     }
     return {names:path,recognized:true};
   }
@@ -102,7 +122,7 @@ function buildMemoFolderOrganization(snapshot, stamp = new Date().toISOString())
   // User-created empty folders remain available for future notes.
   for(const [,group] of [...ordered].reverse()){
     const id=canonical.get(pathKey(group.names)),folder=planned.get(id);
-    if(folder.id.startsWith('tech-folder-')&&!occupied.has(id)&&![...planned.values()].some(child=>!child.deletedAt&&child.parentId===id)){
+    if(/^(?:tech-folder-|wg-memo-folder-)/.test(folder.id)&&!occupied.has(id)&&![...planned.values()].some(child=>!child.deletedAt&&child.parentId===id)){
       planned.set(id,{...folder,deletedAt:stamp,organizationEmpty:true});summary.emptyFolders++;
     }
   }
@@ -114,7 +134,7 @@ function buildMemoFolderOrganization(snapshot, stamp = new Date().toISOString())
     const previous=byId.get(id);if(JSON.stringify(previous)!==JSON.stringify(record)){operations.push({action:'put',store:'folders',record});summary.updatedFolders++;}
   }
   operations.push(...itemOperations);
-  operations.push({action:'put',store:'settings',record:{key:versionKey,value:1}});
+  operations.push({action:'put',store:'settings',record:{key:versionKey,value:2}});
   operations.push({action:'put',store:'settings',record:{key:'memo-folder-organization-report',value:{at:stamp,...summary}}});
   return {operations,summary};
 }

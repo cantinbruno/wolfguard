@@ -33,7 +33,8 @@ test('811 provided documents keep all content, attachments, IDs and links under 
   const paths=live.map(folder=>pathOf(folder,folders));assert.equal(new Set(paths.map(value=>value.toLowerCase())).size,paths.length);
   for(const item of after.items)if(item.folderId)assert.ok(folders.has(item.folderId),'every document retains an active destination: '+item.id);
   const roots=live.filter(folder=>!folder.parentId).map(folder=>folder.name).sort();
-  assert.equal(roots.length,11);assert.ok(roots.includes('01 · Réseaux'));assert.ok(roots.includes('99 · Archives et anciennes versions'));
+  assert.equal(roots.length,9);assert.ok(roots.includes('01 · Réseaux'));assert.ok(roots.includes('99 · Archives et anciennes versions'));
+  assert.ok(!live.some(folder=>/^(09|10)\s*[·.: -]/.test(folder.name)));
   assert.ok(result.summary.mergedFolders>=148);
   for(const folder of after.folders)pathOf(folder,new Map(after.folders.map(row=>[row.id,row])));
   assert.deepEqual(plan(after).operations,[]);

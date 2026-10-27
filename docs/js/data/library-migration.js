@@ -106,21 +106,29 @@ async function ensureUnifiedLibrary() {
   if (libraryMigration) return libraryMigration;
 
   libraryMigration = (async () => {
-    const [items, folders, settings] = await Promise.all([all('items'), all('folders'), all('settings')]);
+    const [items, folders, settings, activity] = await Promise.all([all('items'), all('folders'), all('settings'), all('activity')]);
     const source = {
       items,
       folders,
-      settings
+      settings,
+      activity
     };
     const unified=buildUnifiedLibraryMigration(source);
     const normalized={};
-    for(const store of ['items','folders','settings']){
+    for(const store of ['items','folders','settings','activity']){
       const field=store==='settings'?'key':'id',records=new Map(source[store].map(record=>[record[field],record]));
       for(const operation of unified.operations)if(operation.store===store)records.set(operation.record[field],operation.record);
       normalized[store]=[...records.values()];
     }
+    const cleanup=buildMemoMailCleanup(normalized);
+    for(const operation of cleanup.operations){
+      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===(operation.record?.[field]||operation.id));
+      if(operation.action==='delete'){if(index>=0)rows.splice(index,1);}
+      else if(index>=0)rows[index]=operation.record;
+      else rows.push(operation.record);
+    }
     const organization=buildMemoFolderOrganization(normalized);
-    const operations=[...unified.operations,...organization.operations];
+    const operations=[...unified.operations,...cleanup.operations,...organization.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);
@@ -128,8 +136,11 @@ async function ensureUnifiedLibrary() {
     }
 
     await new Promise((resolve, reject) => {
-      const transaction = db.transaction(['items', 'folders', 'settings'], 'readwrite');
-      for (const operation of operations) transaction.objectStore(operation.store).put(operation.record);
+      const transaction = db.transaction(['items', 'folders', 'settings', 'activity'], 'readwrite');
+      for (const operation of operations) {
+        if(operation.action==='delete')transaction.objectStore(operation.store).delete(operation.id);
+        else transaction.objectStore(operation.store).put(operation.record);
+      }
       transaction.oncomplete = () => {
         resetSettingsCache();
         window.workspaceSearch?.invalidate();

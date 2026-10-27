@@ -122,12 +122,12 @@ async function preserveAtKey(envelope,key,replace) {
   });
 }
 export async function preserve(envelope,pending=false) {return preserveAtKey(envelope,pending?'cloud-pending':'cloud-original',pending);}
-export async function preserveOrganization(envelope) {return preserveAtKey(envelope,'memo-organization-before',false);}
+export async function preserveOrganization(envelope,version=1) {return preserveAtKey(envelope,version>=2?'memo-cleanup-before-v2':'memo-organization-before',false);}
 export async function recoveries() {
   const database=await connect();
   return new Promise((resolve,reject)=>{
     const transaction=database.transaction('encrypted','readonly'),store=transaction.objectStore('encrypted');
-    const requests=['cloud-original','cloud-pending','memo-organization-before'].map(key=>({key,request:store.get(key)}));
+    const requests=['cloud-original','cloud-pending','memo-organization-before','memo-cleanup-before-v2'].map(key=>({key,request:store.get(key)}));
     transaction.oncomplete=()=>resolve(requests.filter(row=>row.request.result).map(row=>({key:row.key,envelope:row.request.result})));
     transaction.onabort=()=>reject(new Error('Lecture des copies locales impossible.'));
   });

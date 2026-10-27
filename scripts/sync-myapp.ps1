@@ -50,7 +50,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des protections de securite echouee. Aucune publication.' }
     & python tests/shared_workspace_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification du partage entre appareils echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser server docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }
