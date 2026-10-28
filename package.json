@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-web.mjs",
-    "test": "node scripts/check-publication.mjs && node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/form_cleanup.test.mjs tests/agent.test.mjs && python tests/keyboard_test.py && python tests/original_app_test.py && python tests/animations_test.py && python tests/editor_layout_test.py && python tests/scan_workspace_test.py && python tests/timeout_test.py && python tests/security_test.py && python tests/shared_workspace_test.py && python tests/agent_workspace_test.py",
+    "test": "node scripts/check-publication.mjs && node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/form_cleanup.test.mjs tests/agent.test.mjs && python tests/keyboard_test.py && python tests/original_app_test.py && python tests/animations_test.py && python tests/editor_layout_test.py && python tests/command_reader_test.py && python tests/scan_workspace_test.py && python tests/timeout_test.py && python tests/security_test.py && python tests/shared_workspace_test.py && python tests/agent_workspace_test.py",
     "preview": "python -m http.server 4173 --bind 127.0.0.1 --directory docs"
   }
 }

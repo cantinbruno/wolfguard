@@ -68,7 +68,12 @@ async function renderLibraryWorkspace() {
     commandPanel.classList.add('library-command-panel');
     commandPanel.setAttribute('aria-label', 'Commandes de la fiche');
     commandPanel.querySelector('h2').innerHTML = '<span class="library-panel-title">' + workspaceSectionIcon('command') + 'Commandes</span>';
-    root.querySelector('.reader-layout').append(commandPanel);
+    commandPanel.id='library-commands-'+String(item.id).replace(/[^a-zA-Z0-9_-]/g,'');
+    const jump=document.createElement('a');
+    jump.className='library-command-jump';
+    jump.href='#'+commandPanel.id;
+    jump.innerHTML=workspaceSectionIcon('command')+'<span>'+blocks.length+' commande'+(blocks.length>1?'s':'')+' ↓</span>';
+    heading.append(jump);
   } else commandPanel.remove();
 
   const extras = root.querySelector('.reader-extras');
@@ -194,10 +199,14 @@ function addLibraryCommand() {
 }
 async function renderLibraryEdit(item) {
   const folders = await foldersForSection('library');
+  const referenceFields=[['description','Description de la fiche'],['context','Contexte et précautions'],['platform','Environnement'],['vendor','Éditeur / technologie'],['prerequisites','Prérequis']];
+  const hasReference=referenceFields.some(([field])=>item[field]);
+  const referenceEditor=hasReference?'<section class="library-editor-reference" aria-labelledby="libraryReferenceTitle"><h3 id="libraryReferenceTitle">Description et contexte</h3><div>'+referenceFields.map(([field,label])=>'<label>'+label+(['description','context','prerequisites'].includes(field)?'<textarea data-reference-field="'+field+'" rows="'+(field==='prerequisites'?2:3)+'">'+esc(item[field]??'')+'</textarea>':'<input data-reference-field="'+field+'" value="'+esc(item[field]??'')+'">')+'</label>').join('')+'</div></section>':'';
   selectedEditorImage = null;
   $('#detailHost').innerHTML = `<div class="library-editor"><header class="library-editor-heading"><h2>Modifier la fiche</h2><div class="actions"><button type="button" class="secondary" data-wg-click="cancelLibraryEdit()">Annuler</button><button type="button" class="primary" data-wg-click="saveLibraryItem('${item.id}')">Enregistrer</button></div></header>
     <div class="library-editor-scroll">
     <div class="library-editor-fields"><label for="fTitle">Titre de la fiche<input id="fTitle" value="${esc(item.title)}"></label><label for="fFolder">Dossier<select id="fFolder"><option value="">Racine des fiches</option>${folderSelectOptions(folders,item.folderId)}</select></label></div>
+    ${referenceEditor}
     <div class="library-compose-surface" role="group" aria-label="Éditeur de la fiche">
       <div class="library-text-editor">
       <div class="library-compose-toolbar">${richTextToolbar()}<div class="library-compose-insert"><button type="button" class="secondary" data-wg-click="addLibraryCommand()">+ Ajouter une commande</button></div></div>
@@ -227,6 +236,11 @@ async function cancelLibraryEdit() {
 }
 
 function libraryItemFromEditor(source) {
+  const reference={};
+  for(const input of document.querySelectorAll('.library-editor-reference [data-reference-field]')){
+    const field=input.dataset.referenceField;
+    if(['description','context','platform','vendor','prerequisites'].includes(field)&&input.value!==String(source[field]??''))reference[field]=input.value;
+  }
   const commandBlocks = [...document.querySelectorAll('.library-command-editor')].map(node => ({
     ...node.libraryOriginalBlock,
     ...Object.fromEntries([...node.querySelectorAll('[data-command-field]')].map(input => [input.dataset.commandField, input.value]))
@@ -243,6 +257,7 @@ function libraryItemFromEditor(source) {
   }
   return {
     ...source,
+    ...reference,
     type: 'memo',
     unifiedDocument: true,
     unifiedDocumentVersion: 2,
