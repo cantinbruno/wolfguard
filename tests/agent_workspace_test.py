@@ -39,8 +39,18 @@ def run():
             navigate(first,'passive');first.locator('#wgAgentSetup').click();first.locator('#wgAgentPair').click()
             expect(first.locator('#wgAgentPairCode code')).to_have_text(__import__('re').compile(r'^[a-f0-9]{32}$'))
             code=first.locator('#wgAgentPairCode code').inner_text()
+            first.screenshot(path=str(ROOT/'.cache/agent-download-desktop.png'),full_page=True)
+            first.set_viewport_size({'width':390,'height':844})
+            assert first.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            assert first.locator('#wgAgentSetupDialog').evaluate('el=>el.scrollWidth<=el.clientWidth+1')
+            first.screenshot(path=str(ROOT/'.cache/agent-download-mobile.png'),full_page=True)
+            first.set_viewport_size({'width':1280,'height':900})
             with first.expect_download() as download:first.locator('.wgscan-agent-download').click()
-            assert download.value.suggested_filename=='WolfGuard-Agent-Windows.zip'
+            assert download.value.suggested_filename=='WolfGuard-Agent-Windows.exe'
+            installer=Path(download.value.path()).read_bytes()
+            assert installer==(ROOT/'app/downloads/WolfGuard-Agent-Windows.exe').read_bytes()
+            assert installer[:2]==b'MZ'
+            expect(first.locator('#wgAgentSetupDialog')).not_to_contain_text('dans la console')
             runner=subprocess.Popen([str(node),str(ROOT/'tests/agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
             runner.stdin.write(json.dumps({'backend':backend,'code':code}));runner.stdin.close();assert runner.stdout.readline().strip()=='ready'
             first.locator('#wgAgentCloseSetup').click();expect(first.locator('#wgAgentLaunch')).to_be_enabled(timeout=20000)

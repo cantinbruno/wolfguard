@@ -1,6 +1,14 @@
-param([switch]$Pair)
+param([switch]$Pair, [switch]$Headless)
 $ErrorActionPreference = 'Stop'
 $agentRoot = [IO.Path]::GetFullPath($PSScriptRoot)
+if (-not $Headless) {
+  $window = Join-Path $agentRoot 'WolfGuard-Agent.exe'
+  if (-not (Test-Path -LiteralPath $window)) { $window = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/WolfGuard-Agent.exe' }
+  if (-not (Test-Path -LiteralPath $window)) { throw 'Telecharge WolfGuard-Agent-Windows.exe depuis le site pour ouvrir la fenetre de l agent.' }
+  if ($Pair) { Start-Process -FilePath $window -ArgumentList '--pair' -WindowStyle Normal }
+  else { Start-Process -FilePath $window -WindowStyle Normal }
+  exit
+}
 $runtimeDirectory = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/runtime'
 $nodePath = Join-Path $runtimeDirectory 'node-v22.23.4-win-x64/node.exe'
 if (-not (Test-Path -LiteralPath $nodePath)) {

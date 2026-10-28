@@ -1,27 +1,36 @@
 WolfGuard Agent - Windows 10/11 x64
 
-1. Extraire toute l archive dans un dossier durable.
-2. Ouvrir WolfGuard sur le web et deverrouiller avec ton code habituel.
-3. Dans Scan passif ou Scan actif, cliquer sur Associer un agent puis Generer un code.
-4. Lancer Demarrer-agent.cmd et coller ce code temporaire dans la console.
-5. Garder l agent ouvert. Choisir ce poste dans le site puis lancer le scan.
+Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
+La fenetre affiche le grand logo, la connexion et la progression des scans.
+Aucune extraction d archive ni console n est necessaire.
 
-Le moteur Node.js est telecharge depuis nodejs.org et son SHA-256 est verifie.
-Ton code WolfGuard n est jamais demande par l agent. Son acces est protege par
-Windows DPAPI pour ton utilisateur. Aucun port entrant n est ouvert.
+1. Ouvrir WolfGuard, saisir le code habituel puis Scan > Connecter un poste.
+2. Generer et copier le code temporaire d association.
+3. Le coller dans la fenetre de l agent et cliquer sur Associer ce poste.
+4. Attendre l etat Connecte puis choisir ce poste et lancer le scan sur le site.
 
-L agent lit les caches et tables reseau pour le passif. L actif emet des sondes
-TCP/ICMP uniquement vers des adresses privees, locales ou de boucle locale.
-Maximum 256 adresses, 4096 tests, 32 tests simultanes, 3 minutes par scan.
-L identification facultative peut envoyer une requete HTTP HEAD ou negocier TLS.
+Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
+Fermer la console de l ancien agent avant d ouvrir cette version graphique.
+Une association existante est reutilisee pour le meme utilisateur Windows.
+Nouvelle association permet de remplacer un acces revoque ou illisible.
 
-Pour un lancement a chaque connexion Windows, executer Activer-demarrage-auto.cmd
-apres l association. Conserver ce dossier au meme emplacement. Utiliser
-Desactiver-demarrage-auto.cmd pour retirer ce demarrage automatique.
+Au premier lancement, le moteur Node.js est telecharge depuis nodejs.org ;
+son SHA-256 est verifie avant extraction et execution. Les fichiers de
+l application sont installes dans le dossier local de ta session Windows.
+Aucun droit administrateur n est demande. Le code WolfGuard n est jamais
+transmis a l agent ; son acces est protege par Windows DPAPI.
+Le fichier executable n est pas signe numeriquement.
 
-Pour retirer l acces du poste : Associer un agent > Revoquer sur le site.
-Apres un changement du code WolfGuard, relancer Associer-agent.cmd.
-Les resultats de scan sont conserves sur le relais pendant sept jours.
-Enregistrer le rapport dans l espace WolfGuard pour le conserver durablement.
+Etats : A associer, Connexion, Connecte, Scan en cours avec compteurs,
+Scan termine, Scan arrete, Hors ligne avec nouvelle tentative, acces revoque.
+Connecte apparait uniquement apres une reponse effective du serveur.
+Arreter l agent suspend sa connexion et annule le scan en cours.
+Fermer la fenetre termine son moteur ; reduire la fenetre le garde actif.
+La case Ouvrir l agent avec ma session Windows est facultative.
 
-Sources completes : https://github.com/cantinbruno/wolfguard/tree/main/agent
+Aucun port entrant n est ouvert. Les scans actifs ciblent uniquement des
+adresses privees ou locales : 256 adresses, 4096 tests, 32 tests simultanes
+et trois minutes maximum. Les resultats restent sur le relais sept jours.
+Enregistrer le rapport dans WolfGuard pour le conserver durablement.
+
+Sources : https://github.com/cantinbruno/wolfguard/tree/main/agent

@@ -1,18 +1,19 @@
 param([switch]$Remove)
 $ErrorActionPreference = 'Stop'
+$key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $taskName = 'WolfGuard-Scan-Agent'
+$legacy = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $Remove) {
+  $launcher = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/WolfGuard-Agent.exe'
+  if (-not (Test-Path -LiteralPath $launcher)) { throw 'Ouvre d abord WolfGuard-Agent.exe pour installer la fenetre de l agent.' }
+}
+if ($legacy -and $legacy.Principal.UserId -in @($identity.Name,$identity.User.Value)) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
 if ($Remove) {
-  Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-  Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-  Write-Host 'Demarrage automatique retire. Tu peux revoquer cet agent depuis WolfGuard.'
+  Remove-ItemProperty -LiteralPath $key -Name 'WolfGuardAgent' -ErrorAction SilentlyContinue
+  Write-Host 'Demarrage automatique retire. La fenetre actuelle reste ouverte.'
   exit
 }
-$launcher = Join-Path ([IO.Path]::GetFullPath($PSScriptRoot)) 'Start-Agent.ps1'
-if (-not (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/credential.dpapi'))) { throw 'Associe d abord cet agent au site avec Demarrer-agent.cmd.' }
-$account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$launcher+'"')
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $account
-$principal = New-ScheduledTaskPrincipal -UserId $account -LogonType Interactive -RunLevel Limited
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-Write-Host 'Demarrage automatique active pour ta session Windows, sans droits administrateur.'
+New-Item -Path $key -Force | Out-Null
+Set-ItemProperty -LiteralPath $key -Name 'WolfGuardAgent' -Value ('"'+$launcher+'"')
+Write-Host 'La fenetre WolfGuard Agent s ouvrira avec ta session Windows.'

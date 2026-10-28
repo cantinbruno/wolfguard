@@ -8,6 +8,10 @@ import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import {scanSpec,targets} from '../server/lib/wolfguard/scan-spec.mjs';
 import {runNetworkScan,fixedProcess} from '../agent/network.mjs';
 import {fileURLToPath} from 'node:url';
+import {PassThrough} from 'node:stream';
+import {desktopAgent,runAgent} from '../agent/agent.mjs';
+
+async function until(predicate,timeout=6000){const end=Date.now()+timeout;while(!predicate()){if(Date.now()>end)throw new Error('Agent state timeout');await new Promise(resolve=>setTimeout(resolve,15));}}
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
   prepare(sql){const statement=this.db.prepare(sql);let values=[];return {bind(...args){values=args;return this;},async first(){return statement.get(...values)||null;},async all(){return {results:statement.all(...values)};},async run(){const result=statement.run(...values);return {meta:{changes:Number(result.changes)}};}};}
@@ -76,4 +80,47 @@ test('Windows protects the agent credential for the current user using real DPAP
   const run=(mode,input)=>fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script,'-Mode',mode],{input});
   const synthetic=JSON.stringify({token:randomBytes(32).toString('hex'),api:'synthetic-test'});
   const cipher=await run('protect',synthetic);assert.ok(!cipher.includes('synthetic-test'));assert.equal(await run('unprotect',cipher),synthetic);
+});
+
+test('the displayed connected state requires a successful poll and recovers honestly after an outage',async()=>{
+  const states=[],cancel=new AbortController();let acknowledge,count=0;
+  const client={async post(){count++;if(count===1)return new Promise(resolve=>{acknowledge=resolve;});if(count===2)throw new Error('Synthetic outage');return {job:null};}};
+  const work=runAgent(client,{signal:cancel.signal,pollMs:20,onStatus:(_message,detail)=>states.push(detail.state)});
+  try{
+    await until(()=>!!acknowledge);
+    assert.deepEqual(states,['connecting']);
+    acknowledge({job:null});
+    await until(()=>states.includes('offline')&&states.filter(state=>state==='connected').length>=2);
+    assert.deepEqual(states.slice(0,4),['connecting','connected','offline','connected']);
+  }finally{cancel.abort();await work;}
+});
+
+test('the desktop protocol pairs, reports real scans, stops and re-pairs without emitting credentials',async()=>{
+  const s=await setup(),input=new PassThrough(),events=[];let credential=null;
+  const client={origin:'https://test.invalid',token:'',async post(route,body){const response=await s.api('agent/'+route,body,this.token?'Agent '+this.token:undefined);const value=await response.json();if(!response.ok){const error=new Error(value.error);error.status=response.status;throw error;}return value;}};
+  const store={async load(){return null;},async save(value){credential=value;}};
+  const work=desktopAgent({client,store,input,emit:event=>events.push(event),name:'Fenêtre de test',pollMs:20,passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening'}],warnings:[]})});
+  const send=value=>input.write(JSON.stringify(value)+'\n');
+  try{
+    await until(()=>events.at(-1)?.state==='pairing');
+    send({type:'pair',code:'01234567'});
+    await until(()=>events.at(-1)?.message.includes('32 caractères'));
+    assert.equal(credential,null);
+    const ticket=await (await s.api('agents/pair',{},s.user)).json();send({type:'pair',code:ticket.code});
+    await until(()=>events.at(-1)?.state==='connected');
+    assert.ok(credential&&/^[a-f0-9]{64}$/.test(credential.token));
+    const job=await (await s.api('scans',{agentId:credential.id,strategy:'passive'},s.user)).json();
+    await until(()=>events.some(event=>event.state==='completed'));
+    assert.ok(events.some(event=>event.state==='scanning'));
+    const report=await (await s.api('scans/result?id='+job.id,undefined,s.user)).json();
+    assert.equal(report.status,'completed');assert.equal(report.report.results[0].port,22);
+    send({type:'stop'});await until(()=>events.at(-1)?.state==='stopped');
+    const last=events.length;await new Promise(resolve=>setTimeout(resolve,80));assert.equal(events.length,last);
+    send({type:'start'});await until(()=>events.at(-1)?.state==='connected');
+    await s.api('agents/revoke',{id:credential.id},s.user);
+    await until(()=>events.at(-1)?.state==='revoked');
+    send({type:'repair'});await until(()=>events.at(-1)?.state==='pairing');
+    const serialized=JSON.stringify(events);assert.ok(!serialized.includes(credential.token));assert.ok(!serialized.includes(ticket.code));assert.ok(!serialized.includes('127.0.0.1'));
+    send({type:'shutdown'});await work;
+  }finally{input.end();await work;s.env.DB.db.close();}
 });

@@ -38,6 +38,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Controle des fichiers publiables echoue. Aucun push.' }
     & python tests/private_entry_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des adresses du site echouee. Aucune publication.' }
+    & python tests/agent_window_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification de la fenetre native de l agent echouee. Aucune publication.' }
     & python tests/procedure_organization_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification du classement des procedures echouee. Aucune publication.' }
     & python tests/original_app_test.py

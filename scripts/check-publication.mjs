@@ -11,7 +11,8 @@ for(const name of new Set(files)) {
   if(!existsSync(filename))continue;
   if(lstatSync(filename).isSymbolicLink()) {issues.add(name);continue;}
   if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
-  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|exe|dpapi)$/i.test(name)){issues.add(name);continue;}
+  if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
+  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi)$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');

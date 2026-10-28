@@ -12,6 +12,8 @@ test-results/
 *.wgmodule
 *.wgweb
 *.exe
+!app/downloads/WolfGuard-Agent-Windows.exe
+!docs/downloads/WolfGuard-Agent-Windows.exe
 *.dpapi
 *.zip
 !app/downloads/WolfGuard-Agent-Windows.zip
