@@ -2,12 +2,17 @@ import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createHash} from 'node:crypto';
+import {createHash, createCipheriv, randomBytes} from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 const allowed = new Set(['.zip','.html','.css','.js','.json','.svg','.txt','.md']);
+// Never replace a lost key automatically: doing so would invalidate bookmarks.
+const entryFile=path.join(root,'.local-archive','site-access.json');
+if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer .local-archive/site-access.json avant de publier.');
+const entryKey=JSON.parse(readFileSync(entryFile,'utf8')).key;
+if(!/^[a-f0-9]{64}$/.test(entryKey||''))throw new Error('Clé du lien privé invalide.');
 const digest=createHash('sha256');
 function verify(directory) {
   for (const entry of readdirSync(directory, {withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -51,6 +56,7 @@ writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');
+html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
 html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.paledove36.chatgpt.site");
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
 html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
@@ -83,7 +89,23 @@ for (const directory of [path.join(output,'js'),path.join(output,'browser')]) {
   const check=folder=>{for(const entry of readdirSync(folder,{withFileTypes:true})) {const filename=path.join(folder,entry.name);if(entry.isDirectory())check(filename);else if(entry.name.endsWith('.js') && /(?<![\w.-])on[a-z]+="/.test(readFileSync(filename,'utf8')))throw new Error('Gestionnaire HTML exécutable : '+entry.name);}};
   check(directory);
 }
-writeFileSync(path.join(output,'index.html'),html);
+// Keep the complete document out of the public web root. The original source
+// remains public, but the live entry and its random key cannot be discovered
+// from a directory name, a redirect or the published JavaScript.
+mkdirSync(path.join(root,'.cache'),{recursive:true});
+writeFileSync(path.join(root,'.cache','site-document.html'),html);
+const iv=randomBytes(12);
+const cipher=createCipheriv('aes-256-gcm',Buffer.from(entryKey,'hex'),iv);
+cipher.setAAD(Buffer.from('WolfGuard private entry v1'));
+const encrypted=Buffer.concat([cipher.update(html,'utf8'),cipher.final(),cipher.getAuthTag()]);
+writeFileSync(path.join(output,'browser','site-entry.json'),JSON.stringify({iv:iv.toString('base64'),data:encrypted.toString('base64')}));
+let gateHTML=readFileSync(path.join(root,'browser','private-entry.html'),'utf8').replace(/\r\n/g,'\n');
+const loaderHash=createHash('sha384').update(readFileSync(path.join(output,'browser','private-entry.js'))).digest('base64');
+gateHTML=gateHTML.replace('src="browser/private-entry.js"','src="browser/private-entry.js?wg='+revision+'" integrity="sha384-'+loaderHash+'" crossorigin="anonymous"');
+writeFileSync(path.join(output,'index.html'),gateHTML);
+// Do not publish the source template separately as an alternate entry.
+rmSync(path.join(output,'browser','private-entry.html'));
+writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');
 writeFileSync(path.join(output, 'CNAME'), 'wolfguard.wavetools.fr\n');
 console.log('Application originale et adaptation navigateur publiables dans docs/.');

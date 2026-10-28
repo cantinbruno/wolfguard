@@ -12,7 +12,9 @@ PASSWORD = '01234567'
 NEW_PASSWORD = '08765432'
 LEGACY_PASSWORD = 'ancien mot de passe de test 643!'
 
-class Quiet(SimpleHTTPRequestHandler):
+from site_fixture import WolfGuardTestHandler
+
+class Quiet(WolfGuardTestHandler):
     def log_message(self, *_args):
         pass
 

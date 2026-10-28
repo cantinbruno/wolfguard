@@ -1,6 +1,10 @@
 # WolfGuard : la même application sur le Web
 
-Site : **https://wolfguard.wavetools.fr/** · GitHub Pages : branche `main`, dossier `/docs`.
+Site : domaine **wolfguard.wavetools.fr**, accessible uniquement avec le lien privé fourni séparément · GitHub Pages : branche `main`, dossier `/docs`.
+
+Sans la clé aléatoire de 256 bits présente dans le fragment du lien (`#access=…`), la page affiche « Page introuvable ». Le serveur vérifie cette clé indépendamment du code à huit chiffres ; elle permet ensuite de déchiffrer le document d’entrée. Le code habituel reste nécessaire pour ouvrir les données. Le domaine et le stockage navigateur restent identiques. La clé n’est ni publiée dans Git, ni placée dans une redirection ou dans `robots.txt`. Le fragment n’est pas envoyé à GitHub Pages ; la vérification utilise un en-tête Authorization vers le serveur. Conserver ce lien dans un favori privé : toute personne qui le reçoit peut afficher le clavier. Les directives de non-indexation demandent aux moteurs de ne pas référencer le site ; elles ne garantissent pas le retrait immédiat de résultats existants. Le code source et les anciennes versions du dépôt restent publics : ce dispositif rend l’accès courant discret, il ne rend pas le logiciel confidentiel.
+
+La publication conserve la même clé dans `.local-archive/site-access.json`, ignoré par Git. Ne pas supprimer ce fichier : sa restauration est nécessaire avant toute nouvelle compilation. Le serveur conserve uniquement son empreinte dans le secret `ENTRY_LINK_HASH`. `scripts/create-private-link.mjs` sert à la création initiale et préserve un fichier existant. Les tests d’interface utilisent le document généré dans `.cache/site-document.html` ; le test du lien privé exerce séparément la vraie page publiée, son déchiffrement et le contrôle serveur.
 
 La version web utilise directement le HTML, les styles, les vues et les outils de l’application Windows. Les dossiers et sous-dossiers, l’éditeur riche, les commandes intégrées, les images et pièces jointes existantes, la recherche, les vues liste/cartes et les paramètres sont conservés. La bibliothèque fournie contient 740 fiches après le retrait des six modèles de mails et des 65 formulaires vierges. Les bases personnelles ne sont pas publiées avec le code.
 

@@ -124,7 +124,11 @@ export async function handleAPI(request,env,clock=Date.now) {
   try {
     if(origin && !cors)fail(403,'Origine non autorisée.');
     if(request.method==='OPTIONS')response=new Response(null,{status:204});
-    else {
+    else if(new URL(request.url).pathname==='/api/entry') {
+      const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
+      if(request.method!=='POST'||!token||!/^[a-f0-9]{64}$/.test(env.ENTRY_LINK_HASH||'')||!equal(await digest(token),env.ENTRY_LINK_HASH))fail(404,'Adresse inconnue.');
+      response=new Response(null,{status:204});
+    } else {
       if(!env.DB||!env.BUCKET||!/^[a-f0-9]{64}$/.test(env.AUTH_PEPPER||'')||!/^[a-f0-9]{64}$/.test(env.STORAGE_KEY||'')||!/^[a-f0-9]{64}$/.test(env.BOOTSTRAP_HASH||''))fail(503,'Stockage partagé indisponible.');
       const path=new URL(request.url).pathname,now=clock();
       if(path==='/api/status'&&request.method==='GET')response=json({initialized:!!(await state(env))});
@@ -163,6 +167,7 @@ export async function handleAPI(request,env,clock=Date.now) {
   } catch(error){response=json({error:error instanceof Failure?error.message:'Stockage partagé temporairement indisponible.',...(error instanceof Failure?error.extra:{})},error instanceof Failure?error.status:503);}
   const headers=new Headers(response.headers);
   headers.set('Cache-Control','no-store, max-age=0');headers.set('Pragma','no-cache');headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('Vary','Origin');
+  headers.set('X-Robots-Tag','noindex, nofollow, noarchive, nosnippet');
   if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
   if(response.status===429||response.status===401){const data=await response.clone().json();if(data.retryAfter)headers.set('Retry-After',String(data.retryAfter));}
   return new Response(response.body,{status:response.status,headers});

@@ -10,7 +10,9 @@ from playwright.sync_api import sync_playwright,expect
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.paledove36.chatgpt.site'
 CODE='07942685'
-class Quiet(SimpleHTTPRequestHandler):
+from site_fixture import WolfGuardTestHandler
+
+class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
 def ready(page):expect(page.locator('#keypad button').first).to_be_enabled(timeout=20000)
 def unlock(page):

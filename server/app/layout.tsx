@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: false },
   title: "WolfGuard · Stockage partagé",
   description: "Stockage chiffré WolfGuard accessible avec votre code.",
   icons: {

@@ -14,7 +14,9 @@ PASSIVE={'neighbors':[{'IPAddress':'192.0.2.1','LinkLayerAddress':'00-11-22-33-4
     'udp':[{'LocalAddress':'0.0.0.0','LocalPort':5353,'OwningProcess':42}]}
 XML='''<?xml version="1.0"?><!DOCTYPE nmaprun><nmaprun startstr="Wed Oct 28 08:00:00 2026"><host><status state="up" reason="echo-reply"/><address addr="192.0.2.50" addrtype="ipv4"/><hostnames><hostname name="&lt;img src=x onerror=alert(1)&gt;"/></hostnames><ports><extraports state="closed" count="997"/><port protocol="tcp" portid="22"><state state="open" reason="syn-ack"/><service name="ssh" product="OpenSSH" version="9.9"/><script id="ssh-hostkey" output="&lt;script&gt;alert(1)&lt;/script&gt;"/></port><port protocol="tcp" portid="23"><state state="closed" reason="reset"/><service name="telnet"/></port><port protocol="udp" portid="53"><state state="open|filtered"/><service name="domain"/></port></ports></host><host><status state="down" reason="no-response"/><address addr="192.0.2.51" addrtype="ipv4"/></host></nmaprun>'''
 
-class Quiet(SimpleHTTPRequestHandler):
+from site_fixture import WolfGuardTestHandler
+
+class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
 
 def navigate(page,kind):

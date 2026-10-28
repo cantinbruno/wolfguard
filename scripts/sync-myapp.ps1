@@ -36,6 +36,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Preparation du site echouee.' }
     & $Node scripts/check-publication.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Controle des fichiers publiables echoue. Aucun push.' }
+    & python tests/private_entry_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification du lien prive echouee. Aucune publication.' }
     & python tests/original_app_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification navigateur echouee. Aucune publication.' }
     & python tests/keyboard_test.py
@@ -56,7 +58,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification du partage entre appareils echouee. Aucune publication.' }
     & python tests/agent_workspace_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification agent vers web echouee. Aucune publication.' }
-    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/form_cleanup.test.mjs tests/agent.test.mjs
+    & $Node --test tests/migration.test.mjs tests/security.test.mjs tests/publication.test.mjs tests/server.test.mjs tests/organization.test.mjs tests/mail_cleanup.test.mjs tests/form_cleanup.test.mjs tests/agent.test.mjs tests/private-entry.test.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Verification du chiffrement echouee. Aucune publication.' }
     & git add -- app browser server agent docs scripts tests README.md package.json .gitignore
     if ($LASTEXITCODE -ne 0) { throw 'Preparation Git echouee.' }
