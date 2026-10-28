@@ -16,10 +16,11 @@ The public backend must allow anonymous platform access to avoid requiring ChatG
 ## Protection and consistency
 
 `ENTRY_LINK_HASH` is the SHA-256 of the independent random private-link key.
-`POST /api/entry` checks it from the Authorization header and returns no vault
-data and no PIN session. Missing or invalid links receive 404. The root page
-does not advertise the frontend. Do not rotate any existing storage secrets
-when configuring this additional hash.
+The legacy `POST /api/entry` checks it from the Authorization header and returns
+no vault data and no PIN session. The frontend now opens its PIN screen directly
+at the ordinary URL and does not call this verifier. Unknown frontend paths
+return to that ordinary URL through the GitHub Pages recovery page. The backend
+root does not advertise the frontend. Preserve existing storage secrets.
 
 PIN verification uses a secret pepper, random salt, and PBKDF2-SHA-256 at 100,000 iterations (the production Workers ceiling). Every failed login increments a shared D1 counter and imposes 5 additional seconds of delay. A database lease serializes verification, including concurrent devices. Sessions are opaque random 256-bit values, stored only as SHA-256 hashes in D1, with one-minute idle expiry and fifteen-minute maximum lifetime. The browser retains the bearer token only in memory.
 

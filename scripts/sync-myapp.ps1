@@ -37,7 +37,7 @@ try {
     & $Node scripts/check-publication.mjs
     if ($LASTEXITCODE -ne 0) { throw 'Controle des fichiers publiables echoue. Aucun push.' }
     & python tests/private_entry_test.py
-    if ($LASTEXITCODE -ne 0) { throw 'Verification du lien prive echouee. Aucune publication.' }
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des adresses du site echouee. Aucune publication.' }
     & python tests/procedure_organization_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification du classement des procedures echouee. Aucune publication.' }
     & python tests/original_app_test.py

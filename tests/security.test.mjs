@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 
 test('SRI matches the LF bytes published by Git from a Windows workspace',()=>{
   const base=new URL('../docs/',import.meta.url);
-  const html=readFileSync(new URL('../.cache/site-document.html',import.meta.url),'utf8');
+  const html=readFileSync(new URL('index.html',base),'utf8');
   let checked=0;
   for(const match of html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"?]+)(?:\?[^\"]*)?"[^>]*integrity="sha384-([^"]+)"/g)) {
     const bytes=readFileSync(new URL(match[1],base));
