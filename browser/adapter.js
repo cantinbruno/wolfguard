@@ -99,7 +99,7 @@ const webWorkspace = (() => {
       const payload = structuredClone(current.payload);
       const result = change(payload);
       validate(payload);
-      if(backupOrganization)await storage.preserveOrganization(current.envelope,backupOrganization);
+      for(const version of Array.isArray(backupOrganization)?backupOrganization:backupOrganization?[backupOrganization]:[])await storage.preserveOrganization(current.envelope,version);
       const encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
       if(cloud.enabled){
         try{await cloud.save(encrypted);}catch(error){await storage.preserve(encrypted,true);throw error;}
@@ -121,6 +121,8 @@ const webWorkspace = (() => {
     storageFiles() { return [{id:'main',name:cloud?.enabled?'Espace partagé chiffré':'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
     batch(operations) {
       const records = structuredClone(operations);
+      const backupVersion=records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-form-cleanup-version')?3:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-mail-cleanup-version')?2:records.find(operation=>operation.store==='settings' && operation.record?.key==='memo-folder-organization-version')?.record.value||false;
+      const backupOrganization=[...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='procedure-technology-organization-version')?[4]:[]),...(backupVersion?[backupVersion]:[])];
       return commit(payload => {
         for (const operation of records) {
           if (!STORES.includes(operation.store)) throw new Error('Collection invalide.');
@@ -133,7 +135,7 @@ const webWorkspace = (() => {
           } else throw new Error('Opération de stockage invalide.');
         }
         return true;
-      },{backupOrganization:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-form-cleanup-version')?3:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-mail-cleanup-version')?2:records.find(operation=>operation.store==='settings' && operation.record?.key==='memo-folder-organization-version')?.record.value||false});
+      },{backupOrganization});
     }
     deleteItem(id) { return commit(payload => {
       payload.items = payload.items.filter(record => record.id !== id);
@@ -465,7 +467,7 @@ const webWorkspace = (() => {
     for(const recovery of await storage.recoveries()){
       if(!session || !$('#settings-data'))break;
       const button=document.createElement('button');button.type='button';button.className='settings-btn';
-      button.textContent=recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
+      button.textContent=recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
       button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
     }
   };
