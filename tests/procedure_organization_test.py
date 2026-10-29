@@ -61,7 +61,7 @@ def run():
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.evaluate('''()=>{
               const original=IDBObjectStore.prototype.put;let fail=true;
-              IDBObjectStore.prototype.put=function(value,key){const result=Reflect.apply(original,this,arguments);if(key==='procedure-technology-before-v1'&&fail){fail=false;this.transaction.abort();}return result;};
+                IDBObjectStore.prototype.put=function(value,key){const result=Reflect.apply(original,this,arguments);if(key==='memo-consolidation-before-v1'&&fail){fail=false;this.transaction.abort();}return result;};
             }''')
             page.keyboard.type(CODE)
             expect(page.locator('#lockError')).to_contain_text('Conservation',timeout=20000)
@@ -82,30 +82,58 @@ def run():
             assert items['ad-command']['folderId']==items['ad']['folderId']
             assert items['shared']['folderId']=='tech-folder-win'
             assert items['personal']['folderId']=='mine'
+            ad_guide=items[items['ad']['consolidatedInto']]
+            eset_guide=items[items['eset']['consolidatedInto']]
+            assert items['ad-command']['consolidatedInto']==ad_guide['id']
+            assert 'Get-ADUser -Filter *' in ad_guide['content']
+            assert '<p>Texte original AD</p>' in ad_guide['content']
+            assert eset_guide['title']=='ESET'
+            assert 'consolidatedInto' not in items['personal']
+            assert page.evaluate('async()=>(await explorerData()).items.length')==4
             for original in before['payload']['items']:
-                assert {**items[original['id']],'folderId':original['folderId']}==original
+                restored={key:value for key,value in items[original['id']].items() if key!='consolidatedInto'}
+                assert {**restored,'folderId':original['folderId']}==original
             recoveries=page.evaluate('''async code=>{
               const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');
-              return Promise.all((await s.recoveries()).filter(row=>['procedure-technology-before-v1','memo-form-cleanup-before-v3'].includes(row.key)).map(async row=>({key:row.key,data:row.envelope.data,payload:(await c.open(row.envelope,code)).payload})));
+              return Promise.all((await s.recoveries()).filter(row=>['memo-consolidation-before-v1','procedure-technology-before-v1','memo-form-cleanup-before-v3'].includes(row.key)).map(async row=>({key:row.key,data:row.envelope.data,payload:(await c.open(row.envelope,code)).payload})));
             }''',CODE)
-            assert len(recoveries)==2
+            assert len(recoveries)==3
             assert all(copy['payload']==before['payload'] for copy in recoveries)
             assert all(copy['data']==before['envelope']['data'] for copy in recoveries)
             page.evaluate('openSettings()')
             page.locator('[data-settings-tab="data"]').click()
             expect(page.get_by_role('button',name='Exporter avant le classement des procédures',exact=True)).to_be_visible()
+            expect(page.get_by_role('button',name='Exporter avant le regroupement des fiches',exact=True)).to_be_visible()
             second=b.new_page();second.on('pageerror',lambda error:errors.append(str(error)))
             second.goto(url+'?sync-test');unlock(second)
             assert second.evaluate('async()=>({items:await all("items"),folders:await all("folders")})')=={'items':saved['items'],'folders':saved['folders']}
             # A later manual choice must not be undone on the next unlock.
-            second.evaluate('''async()=>{const item=await get('items','ad');await put('items',{...item,folderId:'mine'});}''')
+            second.evaluate('''async()=>{const source=await get('items','ad'),item=await get('items',source.consolidatedInto);await put('items',{...item,folderId:'mine'});}''')
             second.reload();unlock(second)
-            assert second.evaluate('async()=>(await get("items","ad")).folderId')=='mine'
+            assert second.evaluate('async()=>{const source=await get("items","ad");return (await get("items",source.consolidatedInto)).folderId}')=='mine'
             page.reload();unlock(page)
-            assert page.evaluate('async()=>(await get("items","ad")).folderId')=='mine'
+            assert page.evaluate('async()=>{const source=await get("items","ad");return (await get("items",source.consolidatedInto)).folderId}')=='mine'
             page.set_viewport_size({'width':390,'height':844})
+            page.evaluate('id=>openById(id)','ad')
+            expect(page.locator('.reader-article')).to_contain_text('Texte original AD')
+            expect(page.locator('.reader-rich-content pre')).to_have_text('Get-ADUser -Filter *')
+            expect(page.locator('.reader-outline')).to_be_visible()
+            page.evaluate("copyText=async value=>{window.copiedCommand=value;return true}")
+            page.locator('.reader-code button').click()
+            assert page.evaluate('window.copiedCommand')=='Get-ADUser -Filter *'
+            # A source link across two guides still opens its original chapter.
+            page.locator('[data-guide-link="shared"]').click()
+            expect(page.locator('.reader-rich-content')).to_contain_text('Get-Date')
             page.evaluate('id=>openById(id)','eset')
             expect(page.locator('.reader-article')).to_contain_text('Texte original ESET')
+            page.evaluate("setMode('edit')")
+            page.get_by_role('button',name='+ Ajouter une commande',exact=True).click()
+            page.locator('.library-command-editor [data-command-field="title"]').fill('Contrôle ajouté au guide')
+            page.locator('.library-command-editor [data-command-field="code"]').fill('Get-Service ESET')
+            page.locator('.library-editor-heading').get_by_role('button',name='Enregistrer',exact=True).click()
+            expect(page.locator('.reader-rich-content')).to_contain_text('Get-Service ESET')
+            expect(page.locator('.reader-rich-content')).to_contain_text('Texte original ESET')
+            page.screenshot(path=str(ROOT/'.cache/consolidated-guides-mobile.png'),full_page=True)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert not errors,errors
             browser.close()

@@ -27,6 +27,19 @@ function readerURL(value) {
 function prepareReaderContent(item) {
   const holder = document.createElement('div');
   holder.innerHTML = documentHTML(item.content);
+  // Each source document can have its own #introduction or #verification.
+  // Resolve those anchors inside its chapter before namespacing the guide.
+  holder.querySelectorAll('[data-guide-chapter]').forEach((chapter,chapterIndex)=>{
+    const local=new Map();
+    chapter.querySelectorAll('[id]').forEach((node,index)=>{
+      const old=node.id,plain=old.replace(/^user-content-/,''),id='chapter-'+chapterIndex+'-anchor-'+index;
+      local.set(old,id);local.set(plain,id);node.id=id;
+    });
+    chapter.querySelectorAll('a[href^="#"]:not([data-guide-link])').forEach(link=>{
+      const target=local.get(link.getAttribute('href').slice(1));
+      if(target)link.setAttribute('href','#'+target);
+    });
+  });
   const titleKey = value => String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('fr');
   const first = holder.firstElementChild;
   if (first?.tagName === 'H1' && titleKey(first.textContent) === titleKey(item.title)) first.remove();
@@ -130,7 +143,7 @@ async function renderDocumentReader(item, crumb, options = {}) {
 }
 
 function buildDocumentOutline(root, item) {
-  const headings = [...root.querySelectorAll('.reader-rich-content :is(h1,h2,h3,h4),.library-command-panel :is(h1,h2,h3,h4)')].filter(heading => heading.textContent.trim() && !heading.closest('.reader-empty'));
+  const headings = [...root.querySelectorAll(item.consolidatedGuideVersion?'.reader-rich-content [data-guide-chapter] > h2':'.reader-rich-content :is(h1,h2,h3,h4),.library-command-panel :is(h1,h2,h3,h4)')].filter(heading => heading.textContent.trim() && !heading.closest('.reader-empty'));
   const scroll = root.querySelector('.reader-scroll');
   if (root.readerOutlineTrack) scroll.removeEventListener('scroll', root.readerOutlineTrack);
   const outline = root.querySelector('[data-reader-outline]'),
@@ -197,6 +210,13 @@ function bindDocumentReader(root, item, key) {
   root.addEventListener('click', event => {
     const link = event.target.closest('a[href^="#"]');
     if (!link || !valid()) return;
+    if (link.dataset.guideLink) {
+      event.preventDefault();
+      const chapter=[...root.querySelectorAll('[data-guide-chapter]')].find(node=>node.dataset.guideChapter===link.dataset.guideLink);
+      if(chapter)chapter.scrollIntoView({block:'start',behavior:'instant'});
+      else openById(link.dataset.guideLink);
+      return;
+    }
     const target = [...root.querySelectorAll('[id]')].find(node => node.id === link.getAttribute('href').slice(1));
     if (!target) return;
     event.preventDefault();

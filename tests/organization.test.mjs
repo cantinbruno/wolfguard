@@ -6,11 +6,12 @@ import vm from 'node:vm';
 const context=vm.createContext({});
 vm.runInContext(readFileSync(new URL('../app/js/data/library-organization.js',import.meta.url),'utf8'),context);
 vm.runInContext(readFileSync(new URL('../app/js/data/procedure-organization.js',import.meta.url),'utf8'),context);
+for(const file of ['library-mail-cleanup','library-form-cleanup','library-consolidation'])vm.runInContext(readFileSync(new URL('../app/js/data/'+file+'.js',import.meta.url),'utf8'),context);
 const plan=snapshot=>JSON.parse(JSON.stringify(context.buildMemoFolderOrganization(snapshot,'2026-10-27T12:00:00.000Z')));
 const technologyPlan=snapshot=>JSON.parse(JSON.stringify(context.buildProcedureTechnologyOrganization(snapshot,'2026-10-28T18:00:00.000Z')));
 function apply(snapshot,operations){
   const next=structuredClone(snapshot);
-  for(const operation of operations){const field=operation.store==='settings'?'key':'id',rows=next[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);if(index<0)rows.push(operation.record);else rows[index]=operation.record;}
+  for(const operation of operations){const field=operation.store==='settings'?'key':'id',rows=next[operation.store],index=rows.findIndex(row=>row[field]===(operation.record?.[field]||operation.id));if(operation.action==='delete'){if(index>=0)rows.splice(index,1);}else if(index<0)rows.push(operation.record);else rows[index]=operation.record;}
   return next;
 }
 function bundled(){
@@ -137,4 +138,59 @@ test('personal folders, trash, protected records and ambiguous command links are
   const cycle=structuredClone(source);
   cycle.folders[0].parentId='tech-folder-eset';cycle.folders[1].parentId='tech-folder-win';
   assert.throws(()=>technologyPlan(cycle),/Cycle/);
+});
+
+test('740 bundled fiches become exactly 100 guides with lossless encrypted source records',()=>{
+  let source=bundled();
+  for(const fn of ['buildMemoMailCleanup','buildMemoFormCleanup','buildMemoFolderOrganization','buildProcedureTechnologyOrganization'])source=apply(source,context[fn](source).operations);
+  source=JSON.parse(JSON.stringify(source));
+  const before=JSON.stringify(source),result=JSON.parse(JSON.stringify(context.buildLibraryConsolidation(source,'2026-10-29T12:00:00.000Z'))),after=apply(source,result.operations);
+  assert.equal(JSON.stringify(source),before);
+  assert.equal(result.summary.sourceItems,740);assert.equal(result.summary.guides,100);
+  const guides=after.items.filter(item=>item.consolidatedGuideVersion),visible=after.items.filter(item=>!item.deletedAt&&!item.consolidatedInto);
+  assert.equal(visible.length,100);assert.equal(new Set(guides.map(item=>item.title)).size,100);
+  const byId=new Map(after.items.map(item=>[item.id,item]));
+  for(const original of source.items) {
+    const record=byId.get(original.id),{consolidatedInto,...rest}=record;
+    assert.deepEqual(rest,original,'all source fields stay intact: '+original.id);
+    const guide=byId.get(consolidatedInto);
+    assert.ok(guide.guideSourceIds.includes(original.id));
+    if(original.type!=='command')assert.ok(guide.content.includes(original.content||''),'source body stays verbatim');
+    else {
+      const escaped=String(original.content||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+      assert.ok(guide.content.includes(escaped),'every command stays verbatim after HTML decoding: '+original.id);
+    }
+    for(const attachment of original.attachments||[])assert.ok(guide.attachments.some(file=>JSON.stringify(file)===JSON.stringify(attachment)));
+  }
+  for(const guide of guides) {
+    assert.ok(after.folders.some(folder=>folder.id===guide.folderId&&!folder.deletedAt&&!folder.consolidatedFolder));
+    for(const target of guide.linkedItemIds)assert.ok(byId.has(target)&&!byId.get(target).consolidatedInto);
+  }
+  assert.deepEqual(after.activity,source.activity);
+  assert.equal(after.folders.filter(folder=>!folder.deletedAt&&!folder.consolidatedFolder).length,6);
+  assert.deepEqual(Array.from(context.buildLibraryConsolidation(after).operations),[]);
+});
+
+test('consolidation preserves personal notes, trash, foreign sections and manual changes',()=>{
+  const source={settings:[],activity:[{id:'event',itemId:'ad'}],folders:[
+    {id:'tech-folder-win',name:'Windows',section:'library',parentId:null},
+    {id:'mine',name:'Mes clients',section:'library',parentId:null},
+    {id:'tech-folder-vault',name:'Windows',section:'vault',parentId:null}
+  ],items:[
+    {id:'ad',type:'procedure',title:'Active Directory - Contrôler',folderId:'tech-folder-win',content:'<p>Texte riche</p>',attachments:[{name:'preuve.txt',dataUrl:'data:text/plain;base64,QQ=='}],linkedItemIds:['cmd']},
+    {id:'cmd',type:'command',title:'Contrôle AD',folderId:'tech-folder-win',content:'Get-ADUser -Filter *',context:'Lecture seulement',example:'Exemple intégral'},
+    {id:'mine-note',type:'memo',title:'Windows client',folderId:'mine',content:'Privé'},
+    {id:'trash',type:'memo',folderId:'tech-folder-win',title:'Supprimé',deletedAt:'2026-10-01'},
+    {id:'vault',type:'vault',title:'Secret',folderId:'tech-folder-vault',vaultBlobEnc:'opaque'}
+  ]};
+  const after=apply(source,context.buildLibraryConsolidation(source).operations);
+  const guide=after.items.find(item=>item.consolidatedGuideVersion);
+  assert.equal(after.items.find(item=>item.id==='cmd').consolidatedInto,guide.id);
+  assert.match(guide.content,/Get-ADUser -Filter \*/);assert.match(guide.content,/Exemple intégral/);
+  for(const id of ['mine-note','trash','vault'])assert.deepEqual(after.items.find(item=>item.id===id),source.items.find(item=>item.id===id));
+  for(const folder of source.folders)assert.deepEqual(after.folders.find(row=>row.id===folder.id),folder);
+  guide.title='Mon guide';guide.content='<p>Changement volontaire</p>';
+  assert.deepEqual(Array.from(context.buildLibraryConsolidation(after).operations),[]);
+  const cycle=structuredClone(source);cycle.folders[0].parentId=cycle.folders[0].id;
+  assert.throws(()=>context.buildLibraryConsolidation(cycle),/Cycle/);
 });

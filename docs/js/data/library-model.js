@@ -54,6 +54,10 @@ function libraryCommandDescription(item, block) {
 }
 
 function libraryDocument(item) {
+  if (item.consolidatedGuideVersion) {
+    const added=libraryCommands(item).filter(block=>!block.fromMemo);
+    return {...item,content:(item.content||'')+added.map(block=>'<section><h2>'+esc(block.title||'Commande')+'</h2>'+(block.context?'<p>'+esc(block.context)+'</p>':'')+'<pre><code>'+esc(block.code)+'</code></pre>'+(block.example?'<p>'+esc(block.example)+'</p>':'')+'</section>').join('')};
+  }
   const commands = libraryCommands(item).map(block => {
     const description = libraryCommandDescription(item, block);
     return '<section class="library-command-card"><h3>' + esc(block.title || 'Commande') + '</h3><p class="library-command-description" title="' + esc(description) + '">' + esc(description) + '</p><pre><code>' + esc(block.code) + '</code></pre></section>';
@@ -80,6 +84,7 @@ function libraryText(item) {
 }
 
 function normalizeLibraryItem(item) {
+  if (item.consolidatedGuideVersion || item.consolidatedInto) return item;
   if (!LIBRARY_TYPES.includes(item.type)) return item;
 
   const normalized = {

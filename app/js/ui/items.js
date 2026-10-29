@@ -6,6 +6,7 @@ async function openItem(id) {
   try {
     saveExplorerScroll();
     const x = await get('items', id);
+    if (x?.consolidatedInto) return openConsolidatedChapter(x);
     if (!x || x.deletedAt || !workspaceModules.allowsItem(x)) return;
     state.item = id;
     state.folder = x.folderId || null;
@@ -170,7 +171,17 @@ async function folderMenu(id) {
 
 async function openById(id) {
   const x = await get('items', id);
+  if (x?.consolidatedInto) return openConsolidatedChapter(x);
   if (!x || x.deletedAt || !workspaceModules.allowsItem(x) || $('#app').classList.contains('hidden')) return;
   const sec = sectionForItem(x);
   if (await openSection(sec, id)) await logActivity(x);
+}
+
+async function openConsolidatedChapter(source) {
+  if (source.deletedAt || $('#app').classList.contains('hidden')) return;
+  const guide=await get('items',source.consolidatedInto);
+  if (!guide || guide.deletedAt || !workspaceModules.allowsItem(guide)) return;
+  if (!await openSection('library',guide.id)) return;
+  const chapter=[...document.querySelectorAll('[data-guide-chapter]')].find(node=>node.dataset.guideChapter===source.id);
+  chapter?.scrollIntoView({block:'start'});
 }

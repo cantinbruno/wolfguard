@@ -56,8 +56,8 @@ def run():
             enter_code(page,PASSWORD,creating=True)
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
-            count=page.evaluate("async()=> (await all('items')).length")
-            assert count == 740, count
+            counts=page.evaluate("async()=>({sources:(await all('items')).filter(item=>item.consolidatedInto).length,visible:(await activeItems()).length})")
+            assert counts == {'sources':740,'visible':100}, counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
             assert page.locator('.workspace-section-button').count()==4
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)

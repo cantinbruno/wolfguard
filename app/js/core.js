@@ -63,8 +63,8 @@ const sectionForItem = item => ['vault', 'protocol'].includes(item.type) ? item.
 
 const isDeleted = x => !!x?.deletedAt;
 async function activeItems() {
-  return (await all('items')).filter(x => !isDeleted(x))
+  return (await all('items')).filter(x => !isDeleted(x) && !x.consolidatedInto)
 }
 async function activeFolders() {
-  return (await all('folders')).filter(x => !isDeleted(x))
+  return (await all('folders')).filter(x => !isDeleted(x) && !x.consolidatedFolder)
 }

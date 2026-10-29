@@ -33,6 +33,10 @@ async function renderLibraryWorkspace() {
   const item = await get('items', state.item);
   if (!item) return;
   if (state.mode === 'edit') return renderLibraryEdit(item);
+  if (item.consolidatedGuideVersion) {
+    await renderDocumentReader(libraryDocument(item), await breadcrumbHTML(item));
+    return;
+  }
   const blocks = libraryCommands(item);
   await renderDocumentReader(libraryDocument(item), await breadcrumbHTML(item), {
     relations: false,

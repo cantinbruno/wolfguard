@@ -136,7 +136,12 @@ async function ensureUnifiedLibrary() {
       if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
     }
     const technology=buildProcedureTechnologyOrganization(normalized);
-    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations];
+    for(const operation of technology.operations) {
+      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
+      if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
+    }
+    const consolidation=buildLibraryConsolidation(normalized);
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);

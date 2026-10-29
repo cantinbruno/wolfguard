@@ -47,7 +47,7 @@ const webWorkspace = (() => {
         const id = store === 'settings' ? record?.key : record?.id;
         if ((store === 'settings' ? typeof id !== 'string' || id.length > 200 : !safeId(id)) || ids.has(id)) throw new Error('Identifiant de fiche invalide.');
         ids.add(id);
-        for (const field of ['folderId','parentId','itemId']) if (record[field] != null && !safeId(record[field])) throw new Error('Lien de fiche invalide.');
+        for (const field of ['folderId','parentId','itemId','consolidatedInto']) if (record[field] != null && !safeId(record[field])) throw new Error('Lien de fiche invalide.');
         if (store === 'items' && (!types.has(record.type) || typeof record.title !== 'string')) throw new Error('Type de fiche invalide.');
         if (record.tags != null && (!Array.isArray(record.tags) || record.tags.length>256 || record.tags.some(tag=>typeof tag!=='string' || tag.length>200))) throw new Error('Étiquettes invalides.');
         if (record.linkedItemIds != null && (!Array.isArray(record.linkedItemIds) || record.linkedItemIds.some(id=>!safeId(id)))) throw new Error('Liens de fiches invalides.');
@@ -122,7 +122,7 @@ const webWorkspace = (() => {
     batch(operations) {
       const records = structuredClone(operations);
       const backupVersion=records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-form-cleanup-version')?3:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-mail-cleanup-version')?2:records.find(operation=>operation.store==='settings' && operation.record?.key==='memo-folder-organization-version')?.record.value||false;
-      const backupOrganization=[...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='procedure-technology-organization-version')?[4]:[]),...(backupVersion?[backupVersion]:[])];
+      const backupOrganization=[...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='memo-consolidation-version')?[5]:[]),...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='procedure-technology-organization-version')?[4]:[]),...(backupVersion?[backupVersion]:[])];
       return commit(payload => {
         for (const operation of records) {
           if (!STORES.includes(operation.store)) throw new Error('Collection invalide.');
@@ -467,7 +467,7 @@ const webWorkspace = (() => {
     for(const recovery of await storage.recoveries()){
       if(!session || !$('#settings-data'))break;
       const button=document.createElement('button');button.type='button';button.className='settings-btn';
-      button.textContent=recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
+      button.textContent=recovery.key==='memo-consolidation-before-v1'?'Exporter avant le regroupement des fiches':recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
       button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
     }
   };

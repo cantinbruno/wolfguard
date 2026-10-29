@@ -5,8 +5,10 @@ function itemLinkIds(item) {
 }
 
 function relatedItemRecords(item, items) {
-  const links = new Set(itemLinkIds(item));
-  return items.filter(record => record.id !== item.id && !isDeleted(record) && (links.has(record.id) || itemLinkIds(record).includes(item.id)));
+  const guides=new Map(items.flatMap(record=>(record.guideSourceIds||[]).map(id=>[id,record.id])));
+  const target=id=>guides.get(id)||id;
+  const links = new Set(itemLinkIds(item).map(target));
+  return items.filter(record => record.id !== item.id && !isDeleted(record) && (links.has(record.id) || itemLinkIds(record).map(target).includes(item.id)));
 }
 
 function saveItemRelations(id, selection, key = state.vaultKey) {

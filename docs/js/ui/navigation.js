@@ -230,7 +230,7 @@ function sectionItemLabel(item) {
   return item.title || 'Sans titre';
 }
 async function explorerData() {
-  const folders = (db?.native ? (await db.readOnly('folders')).filter(folder => !isDeleted(folder)) : await activeFolders())
+  const folders = (db?.native ? (await db.readOnly('folders')).filter(folder => !isDeleted(folder) && !folder.consolidatedFolder) : await activeFolders())
     .filter(f => f.section === state.section)
     .map(f => ({
       ...f,
@@ -238,7 +238,7 @@ async function explorerData() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const items = (db?.native ? (await db.readOnly('items')).filter(item => !isDeleted(item)) : await activeItems())
+  const items = (db?.native ? (await db.readOnly('items')).filter(item => !isDeleted(item) && !item.consolidatedInto) : await activeItems())
     .filter(x => sectionTypes().includes(x.type))
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 

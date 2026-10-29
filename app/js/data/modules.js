@@ -33,7 +33,7 @@ const workspaceModules = (() => {
     get landingSection() {
       return has('memo') ? 'library' : has('tools') ? 'tools' : 'modules';
     },
-    allowsItem: item => item.type !== 'task' && allows(['vault', 'protocol'].includes(item.type) ? item.type : 'library')
+    allowsItem: item => !item.consolidatedInto && item.type !== 'task' && allows(['vault', 'protocol'].includes(item.type) ? item.type : 'library')
   };
 })();
 
