@@ -45,7 +45,7 @@ def run():
                 {id:'tech-folder-eset',name:'ESET',section:'library',parentId:null},
                 {id:'mine',name:'Mes clients',section:'library',parentId:null}
               ],settings:[{key:'memo-folder-organization-version',value:2},{key:'memo-mail-cleanup-version',value:1},{key:'memo-form-cleanup-version',value:1}],activity:[],items:[
-                {id:'ad',type:'procedure',title:'Active Directory - Créer un utilisateur',folderId:'tech-folder-win',content:'<p>Texte original AD</p>',attachments:[],linkedItemIds:['ad-command','shared'],tags:['identité']},
+                {id:'ad',type:'procedure',title:'Active Directory - Créer un utilisateur',description:'Texte original AD',folderId:'tech-folder-win',content:'<h1 id="origine-ad">Active Directory - Créer un utilisateur</h1><p>Texte original AD</p><h2>Procédure</h2><p>Conserver cette procédure.</p><a href="#origine-ad">Retour au titre</a>',attachments:[],linkedItemIds:['ad-command','shared'],tags:['identité']},
                 {id:'eset',type:'procedure',title:'ESET - Déployer par GPO',folderId:'tech-folder-eset',content:'<p>Texte original ESET</p>',linkedItemIds:['shared']},
                 {id:'ad-command',type:'command',title:'Commande AD',folderId:'tech-folder-win',content:'Get-ADUser -Filter *'},
                 {id:'shared',type:'command',title:'Diagnostic partagé',folderId:'tech-folder-win',content:'Get-Date'},
@@ -117,7 +117,17 @@ def run():
             page.evaluate('id=>openById(id)','ad')
             expect(page.locator('.reader-article')).to_contain_text('Texte original AD')
             expect(page.locator('.reader-rich-content pre')).to_have_text('Get-ADUser -Filter *')
-            expect(page.locator('.reader-outline')).to_be_visible()
+            assert page.locator('.reader-rich-content pre').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgb(238, 245, 255)'
+            expect(page.locator('.document-reader.unified-reader')).to_be_visible()
+            expect(page.locator('.reader-outline')).to_have_count(0)
+            expect(page.locator('.reader-eyebrow,.reader-reading-time')).to_have_count(0)
+            assert page.locator('.reader-article').evaluate('el=>getComputedStyle(el).backgroundColor')=='rgb(255, 255, 255)'
+            chapter=page.locator('[data-guide-chapter="ad"]')
+            expect(chapter.get_by_role('heading',name='Active Directory - Créer un utilisateur',exact=True)).to_have_count(1)
+            assert chapter.inner_text().count('Texte original AD')==1
+            assert page.evaluate('async id=>(await get("items",id)).content',ad_guide['id'])==ad_guide['content']
+            chapter.get_by_role('link',name='Retour au titre').click()
+            assert chapter.get_by_role('link',name='Retour au titre').evaluate('el=>!!document.getElementById(el.hash.slice(1))')
             page.evaluate("copyText=async value=>{window.copiedCommand=value;return true}")
             page.locator('.reader-code button').click()
             assert page.evaluate('window.copiedCommand')=='Get-ADUser -Filter *'
@@ -135,6 +145,10 @@ def run():
             expect(page.locator('.reader-rich-content')).to_contain_text('Texte original ESET')
             page.screenshot(path=str(ROOT/'.cache/consolidated-guides-mobile.png'),full_page=True)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            page.set_viewport_size({'width':1440,'height':950})
+            expect(page.locator('.document-reader.unified-reader')).to_be_visible()
+            assert page.locator('.reader-article').bounding_box()['width']>0.9*page.locator('.document-reader').bounding_box()['width']
+            page.screenshot(path=str(ROOT/'.cache/consolidated-guides-desktop.png'),full_page=True)
             assert not errors,errors
             browser.close()
             print('PASS: classement systeme/technologie, commandes liees, refus si sauvegarde impossible, sauvegardes chiffrees distinctes, synchronisation et choix manuels preserves sur deux navigateurs')

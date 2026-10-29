@@ -33,10 +33,6 @@ async function renderLibraryWorkspace() {
   const item = await get('items', state.item);
   if (!item) return;
   if (state.mode === 'edit') return renderLibraryEdit(item);
-  if (item.consolidatedGuideVersion) {
-    await renderDocumentReader(libraryDocument(item), await breadcrumbHTML(item));
-    return;
-  }
   const blocks = libraryCommands(item);
   await renderDocumentReader(libraryDocument(item), await breadcrumbHTML(item), {
     relations: false,
@@ -57,6 +53,15 @@ async function renderLibraryWorkspace() {
 
   heading.replaceChildren(copy);
 
+  // Regrouping changes the content, not the established white reading sheet.
+  // Guide commands already sit in their chapters; retain that stored order.
+  if (item.consolidatedGuideVersion) {
+    addLibraryCommandJump(heading,item,blocks,root.querySelector('.reader-rich-content .reader-code'));
+    const extras=root.querySelector('.reader-extras');
+    extras.classList.toggle('is-minimal',!extras.querySelector('section'));
+    return;
+  }
+
   const reference = root.querySelector('[data-library-part="reference"]');
   reference.querySelector(':scope > h2')?.remove();
   if (!reference.textContent.trim()) reference.remove();
@@ -72,16 +77,21 @@ async function renderLibraryWorkspace() {
     commandPanel.classList.add('library-command-panel');
     commandPanel.setAttribute('aria-label', 'Commandes de la fiche');
     commandPanel.querySelector('h2').innerHTML = '<span class="library-panel-title">' + workspaceSectionIcon('command') + 'Commandes</span>';
-    commandPanel.id='library-commands-'+String(item.id).replace(/[^a-zA-Z0-9_-]/g,'');
-    const jump=document.createElement('a');
-    jump.className='library-command-jump';
-    jump.href='#'+commandPanel.id;
-    jump.innerHTML=workspaceSectionIcon('command')+'<span>'+blocks.length+' commande'+(blocks.length>1?'s':'')+' ↓</span>';
-    heading.append(jump);
+    addLibraryCommandJump(heading,item,blocks,commandPanel);
   } else commandPanel.remove();
 
   const extras = root.querySelector('.reader-extras');
   extras.classList.toggle('is-minimal', !extras.querySelector('section'));
+}
+
+function addLibraryCommandJump(heading,item,blocks,target) {
+  if(!blocks.length || !target)return;
+  if(!target.id)target.id='library-commands-'+String(item.id).replace(/[^a-zA-Z0-9_-]/g,'');
+  const jump=document.createElement('a');
+  jump.className='library-command-jump';
+  jump.href='#'+target.id;
+  jump.innerHTML=workspaceSectionIcon('command')+'<span>'+blocks.length+' commande'+(blocks.length>1?'s':'')+' ↓</span>';
+  heading.append(jump);
 }
 async function renderLibraryCatalog() {
   trackWorkspaceCollection();

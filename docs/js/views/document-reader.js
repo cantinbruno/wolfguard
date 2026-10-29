@@ -27,9 +27,28 @@ function readerURL(value) {
 function prepareReaderContent(item) {
   const holder = document.createElement('div');
   holder.innerHTML = documentHTML(item.content);
+  const titleKey = value => String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('fr');
+  const removeDuplicate = node => {
+    // Keep destinations for links to an introduction hidden only in this view.
+    if(node.id){const anchor=document.createElement('span');anchor.id=node.id;node.replaceWith(anchor);}
+    else node.remove();
+  };
   // Each source document can have its own #introduction or #verification.
   // Resolve those anchors inside its chapter before namespacing the guide.
   holder.querySelectorAll('[data-guide-chapter]').forEach((chapter,chapterIndex)=>{
+    const title=chapter.firstElementChild;
+    if(title?.tagName==='H2') {
+      const firstHeading=[...chapter.children].find(node=>node!==title && /^H[1-6]$/.test(node.tagName));
+      if(firstHeading && titleKey(firstHeading.textContent)===titleKey(title.textContent))removeDuplicate(firstHeading);
+      const paragraphs=[...chapter.children].filter(node=>node.tagName==='P');
+      for(const paragraph of paragraphs) {
+        const label=paragraph.firstElementChild;
+        if(label?.tagName!=='STRONG' || !/^description\s*:$/.test(titleKey(label.textContent)))continue;
+        const copy=paragraph.cloneNode(true);copy.firstElementChild.remove();
+        const description=titleKey(copy.textContent);
+        if(description && paragraphs.some(node=>node!==paragraph && titleKey(node.textContent)===description))removeDuplicate(paragraph);
+      }
+    }
     const local=new Map();
     chapter.querySelectorAll('[id]').forEach((node,index)=>{
       const old=node.id,plain=old.replace(/^user-content-/,''),id='chapter-'+chapterIndex+'-anchor-'+index;
@@ -40,20 +59,11 @@ function prepareReaderContent(item) {
       if(target)link.setAttribute('href','#'+target);
     });
   });
-  const titleKey = value => String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('fr');
   const first = holder.firstElementChild;
   if (first?.tagName === 'H1' && titleKey(first.textContent) === titleKey(item.title)) first.remove();
   const memo = holder.querySelector('[data-library-part="memo"]');
   if (memo) {
     const intro = [...memo.children].slice(1).filter(node => node.textContent.trim() || node.matches('img,table,hr'));
-    const removeDuplicate = node => {
-      // Keep destinations for any links to the original introduction.
-      if (node.id) {
-        const anchor = document.createElement('span');
-        anchor.id = node.id;
-        node.replaceWith(anchor);
-      } else node.remove();
-    };
     if (intro[0]?.tagName === 'H1' && titleKey(intro[0].textContent) === titleKey(item.title)) removeDuplicate(intro.shift());
     if (intro[0]?.tagName === 'P' && item.description && titleKey(intro[0].textContent) === titleKey(item.description)) removeDuplicate(intro[0]);
   }
