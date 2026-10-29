@@ -26,7 +26,12 @@ The generated document is imported from `lib/wolfguard/frontend.html`; its
 static resources live in `public/`. Build these from the parent repository with
 `node scripts/build-web.mjs`, then synchronize the server source checkout and
 publish with Sites. Do not publish an index.html as a public static asset.
-The two agent downloads redirect to their existing GitHub Pages files.
+The two agent downloads are served directly as static files, so the custom
+domain can move from GitHub Pages to Sites without a redirect loop.
+After custom-domain DNS and HTTPS are active, set `FRONTEND_HOST` to
+`wolfguard.wavetools.fr` and redeploy the same saved version to restrict page
+entry to that hostname. Leave it unset while DNS is pending, keeping the
+existing Sites link available. API routes and static resources are unaffected.
 Responses disable caching, framing, indexing and referrers. Application code
 does not log the URL; its query is sent to the server over HTTPS.
 The legacy `POST /api/entry` verifier remains independent of PIN sessions.

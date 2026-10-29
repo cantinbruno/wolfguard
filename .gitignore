@@ -14,10 +14,12 @@ test-results/
 *.exe
 !app/downloads/WolfGuard-Agent-Windows.exe
 !docs/downloads/WolfGuard-Agent-Windows.exe
+!server/public/downloads/WolfGuard-Agent-Windows.exe
 *.dpapi
 *.zip
 !app/downloads/WolfGuard-Agent-Windows.zip
 !docs/downloads/WolfGuard-Agent-Windows.zip
+!server/public/downloads/WolfGuard-Agent-Windows.zip
 *.tar
 *.bak
 donnees/

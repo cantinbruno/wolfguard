@@ -23,6 +23,7 @@ def run():
                 calls.append(url.path)
                 route.fulfill(response=route.fetch(url=backend+url.path+('?' + url.query if url.query else '')))
             context.route(SITE+'/**',proxy)
+            context.route('https://wolfguard.wavetools.fr/**',proxy)
             page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
             for suffix in ['/', '/#access='+key, '/?access='+('f'*64), '/?access=incorrect', '/?access='+key+'&extra=1', '/index.html?access='+key, '/inconnu?access='+key]:
                 response=context.request.get(backend+suffix)
@@ -50,6 +51,15 @@ def run():
             assert page.locator('script:not([integrity]),link[rel=stylesheet]:not([integrity])').count()==0
             assert not errors,errors
             assert '/api/status' in calls
+            response=page.goto('https://wolfguard.wavetools.fr/?access='+key)
+            assert response.status==200
+            expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            assert page.evaluate('WolfGuardCloud.enabled && WolfGuardCloud.isInitialized()===true')
+            for filename in ['WolfGuard-Agent-Windows.exe','WolfGuard-Agent-Windows.zip']:
+                response=context.request.get(backend+'/downloads/'+filename,max_redirects=0)
+                assert response.status==200
+                assert 'location' not in response.headers
+                assert response.body()==(ROOT/'app/downloads'/filename).read_bytes()
             browser.close()
         print('PASS: vraies reponses HTTP 404 vides sans lien valide, HTTP 200 uniquement avec la bonne cle, code et donnees conserves au rechargement, bureau et mobile')
     finally:

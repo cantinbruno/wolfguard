@@ -10,10 +10,11 @@ for(const name of new Set(files)) {
   const filename=path.join(root,name);
   if(!existsSync(filename))continue;
   if(lstatSync(filename).isSymbolicLink()) {issues.add(name);continue;}
-  if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
-  if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
+  if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip','server/public/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
+  if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe','server/public/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
   if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi)$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
+  if(/^server\/public\/downloads\//.test(name)&&!bytes.equals(readFileSync(path.join(root,'app','downloads',path.basename(name)))))issues.add(name);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');
   if(secrets.some(pattern=>pattern.test(text)))issues.add(name);

@@ -44,6 +44,8 @@ test('entry sends an actual empty HTTP 404 before HTML for every missing or inva
   }
   assert.equal((await call('/?access='+key,'POST')).status,404);
   assert.equal((await call('/?access='+key,'GET',{})).status,404);
+  assert.equal((await call('/?access='+key,'GET',{...env,FRONTEND_HOST:'wolfguard.wavetools.fr'})).status,404);
+  assert.equal((await handleFrontend(new Request('https://wolfguard.wavetools.fr/?access='+key),{...env,FRONTEND_HOST:'wolfguard.wavetools.fr'},html)).status,200);
   const valid=await call('/?access='+key);
   assert.equal(valid.status,200);
   assert.equal(await valid.text(),html);
@@ -53,7 +55,7 @@ test('entry sends an actual empty HTTP 404 before HTML for every missing or inva
   assert.match(valid.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
   const head=await call('/?access='+key,'HEAD');
   assert.equal(head.status,200);assert.equal(await head.text(),'');
-  for(const suffix of ['/api/status','/api/login','/browser/cloud.bundle.js','/css/base.css'])assert.equal(await call(suffix),null);
+  for(const suffix of ['/api/status','/api/login','/browser/cloud.bundle.js','/css/base.css','/downloads/WolfGuard-Agent-Windows.exe','/downloads/WolfGuard-Agent-Windows.zip'])assert.equal(await call(suffix),null);
   assert.equal(existsSync(new URL('../docs/index.html',import.meta.url)),false);
   assert.equal(existsSync(new URL('../docs/404.html',import.meta.url)),false);
   assert.equal(existsSync(new URL('../server/public/index.html',import.meta.url)),false);

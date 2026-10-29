@@ -101,6 +101,8 @@ function copyAssets(folder,target) {
   }
 }
 for(const folder of ['browser','css','data','images','js','vendor'])copyAssets(path.join(output,folder),path.join(publicRoot,folder));
+mkdirSync(path.join(publicRoot,'downloads'),{recursive:true});
+for(const name of ['WolfGuard-Agent-Windows.exe','WolfGuard-Agent-Windows.zip'])writeChanged(path.join(publicRoot,'downloads',name),readFileSync(path.join(output,'downloads',name)));
 rmSync(path.join(output,'index.html'));
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');

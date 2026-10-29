@@ -16,8 +16,9 @@ export async function handleFrontend(request,env,html) {
   if(url.pathname.startsWith('/api/') || assets.test(url.pathname) || ['/favicon.svg','/robots.txt'].includes(url.pathname))return null;
   if(!['GET','HEAD'].includes(request.method))return missing();
   if(/^\/downloads\/WolfGuard-Agent-Windows\.(?:exe|zip)$/.test(url.pathname)) {
-    return new Response(null,{status:302,headers:{...headers,Location:'https://wolfguard.wavetools.fr'+url.pathname}});
+    return null;
   }
+  if(env.FRONTEND_HOST && url.hostname!==env.FRONTEND_HOST)return missing();
   if(url.pathname!=='/' || !/^\?access=[a-f0-9]{64}$/.test(url.search) || !/^[a-f0-9]{64}$/.test(env.ENTRY_LINK_HASH||''))return missing();
   const key=url.search.slice('?access='.length);
   const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
