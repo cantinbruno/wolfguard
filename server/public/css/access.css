@@ -1,0 +1,343 @@
+/* Access screens share the application's midnight palette. */
+.access-screen {
+  --ui-accent: #b8c8da;
+  --ui-accent-hover: #d8e2ed;
+  --ui-accent-soft: #26384a;
+  --accent: var(--ui-accent);
+  --accent2: var(--ui-accent-hover);
+  color: var(--ui-text);
+  color-scheme: dark;
+  letter-spacing: 0
+}
+
+.access-screen * {
+  letter-spacing: 0
+}
+
+#connectionGate.access-screen,
+#lock.access-screen {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: safe center !important;
+  justify-content: stretch;
+  align-content: stretch;
+  padding: 24px !important;
+  background: var(--ui-page) !important;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+#connectionGate.hidden,
+#lock.hidden {
+  display: none !important
+}
+
+#connectionGate .access-panel,
+#lock .access-panel {
+  width: min(420px, 100%) !important;
+  max-height: none !important;
+  margin: auto;
+  padding: 30px 32px 22px !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: 8px !important;
+  background: var(--ui-sidebar) !important;
+  box-shadow: 0 18px 60px #0003 !important;
+  backdrop-filter: none !important;
+  overflow: visible;
+}
+
+.access-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center
+}
+
+#connectionGate .connection-brand,
+#lock .lock-logo {
+  --brand-mark-size: 152px;
+  width: 152px;
+  height: 152px;
+  min-width: 152px;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  flex: none;
+}
+
+.access-heading {
+  margin: 24px 0 22px;
+  text-align: center
+}
+
+.access-heading h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere
+}
+
+.access-screen .connection-actions {
+  margin: 0 !important
+}
+
+.access-screen .connection-actions.hidden {
+  display: none !important
+}
+
+.access-screen .connection-actions .primary {
+  width: 100%;
+  height: 48px;
+  min-width: 0 !important;
+  border-radius: 6px
+}
+
+.access-screen .first-pin-box {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none
+}
+
+.access-code-field {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 18px
+}
+
+.access-code-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text)
+}
+
+.access-code-label span {
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 400;
+  flex: none
+}
+
+.access-screen .first-pin-box input {
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-page);
+  color: var(--ui-text);
+  font-family: Segoe UI, Arial, sans-serif;
+  font-size: 18px;
+  line-height: normal;
+  outline: none;
+  letter-spacing: 0;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.access-screen .first-pin-box input::placeholder {
+  color: var(--ui-subtle);
+  font-size: 13px;
+  opacity: 1
+}
+
+.access-screen .first-pin-box input:hover {
+  border-color: var(--ui-accent)
+}
+
+.access-screen .first-pin-box input:focus {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-soft)
+}
+
+.access-screen .first-pin-box input[aria-invalid=true] {
+  border-color: #eb99ae;
+  box-shadow: 0 0 0 3px #eb99ae12
+}
+
+.access-screen .access-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  min-width: 0 !important;
+  margin-top: 4px;
+  border: 1px solid var(--ui-highlight);
+  border-radius: 6px;
+  background: var(--ui-highlight);
+  color: var(--ui-on-accent);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.access-screen .access-submit:hover:not(:disabled) {
+  background: var(--ui-highlight-hover);
+  border-color: var(--ui-highlight-hover)
+}
+
+.access-screen .access-submit:focus-visible,
+.access-screen .key:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px
+}
+
+.access-submit svg {
+  width: 17px;
+  height: 17px;
+  flex: none
+}
+
+.access-submit:disabled {
+  cursor: wait;
+  opacity: .65
+}
+
+.access-status-slot {
+  min-height: 44px;
+  padding-top: 10px
+}
+
+.access-screen .connection-status {
+  margin: 0 !important;
+  min-height: 0;
+  text-align: left;
+  font-size: 12px !important;
+  line-height: 1.5;
+  overflow-wrap: anywhere
+}
+
+.access-screen .connection-status.error {
+  color: #f2a7b7
+}
+
+.access-screen .connection-status.ok {
+  color: #9fdbc8
+}
+
+#lock .pin-dots {
+  gap: 12px;
+  margin: 0 0 24px
+}
+
+#lock .dot {
+  position: relative;
+  width: 42px;
+  height: 44px;
+  flex: none;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-page)
+}
+
+#lock .dot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ui-border);
+  transform: translate(-50%, -50%)
+}
+
+#lock .dot.on {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent-soft)
+}
+
+#lock .dot.on::after {
+  background: var(--ui-accent)
+}
+
+#lock .keypad {
+  gap: 9px
+}
+
+#lock .key {
+  height: 52px;
+  padding: 0;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-page);
+  color: var(--ui-text);
+  font-size: 19px;
+  line-height: 1
+}
+
+#lock .key:hover:not(:disabled) {
+  background: var(--ui-raised);
+  border-color: var(--ui-accent)
+}
+
+#lock .key:active:not(:disabled) {
+  background: var(--ui-accent-soft)
+}
+
+#lock .key svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: auto
+}
+
+#lock .key[data-key=C],
+#lock .key[data-key="\232b"] {
+  font-size: 15px;
+  color: var(--ui-muted)
+}
+
+#lock .lock-error {
+  min-height: 42px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #f2a7b7;
+  overflow-wrap: anywhere
+}
+
+@media(max-width:420px) {
+
+  #connectionGate.access-screen,
+  #lock.access-screen {
+    padding: 16px !important
+  }
+
+  #connectionGate .access-panel,
+  #lock .access-panel {
+    padding: 24px 22px 18px !important
+  }
+
+  #connectionGate .connection-brand,
+  #lock .lock-logo {
+    --brand-mark-size: 128px;
+    width: 128px;
+    height: 128px;
+    min-width: 128px
+  }
+
+  .access-heading {
+    margin: 20px 0
+  }
+
+  .access-heading h2 {
+    font-size: 18px
+  }
+}
+
+@media(prefers-reduced-motion:reduce) {
+
+  .access-screen input,
+  .access-screen button {
+    transition: none !important
+  }
+}

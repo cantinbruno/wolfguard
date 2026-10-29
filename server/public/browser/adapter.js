@@ -1,0 +1,566 @@
+'use strict';
+
+// The original UI, editors and tools stay unchanged. Only desktop storage and
+// the access-code entry are adapted to an encrypted browser workspace.
+const webWorkspace = (() => {
+  let cryptography, storage, cloud, session = null, envelope = null, pendingBackup = null;
+  let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
+  let enteredCode = '', creationCode = '', booting = true;
+  let sessionClock = null, rotating = false, cloudHeartbeat = null;
+  const IDLE_MS = 60000, SESSION_MS = 15 * 60000;
+  function sessionExpired() {
+    if (!session || !sessionClock) return false;
+    const wall=Date.now(), mono=performance.now(), clock=sessionClock;
+    return wall<clock.started || wall<clock.active || wall-clock.active>=IDLE_MS || mono-clock.monotonicActive>=IDLE_MS || wall-clock.started>=SESSION_MS || mono-clock.monotonicStart>=SESSION_MS;
+  }
+  function assertFreshSession() {
+    if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
+  }
+  function armSessionTimer() {
+    clearTimeout(autoLockTimer);autoLockTimer=null;
+    if (!session || !sessionClock) return;
+    const wall=Date.now(),mono=performance.now(),clock=sessionClock;
+    const remaining=Math.min(IDLE_MS-(wall-clock.active),IDLE_MS-(mono-clock.monotonicActive),SESSION_MS-(wall-clock.started),SESSION_MS-(mono-clock.monotonicStart));
+    autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
+  }
+  let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
+  const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
+  const accessScope = () => cloud?.enabled ? 'shared' : (pendingBackup || envelope)?.salt || '';
+  const accessBlocked = () => attemptsUnavailable || (attemptScope === accessScope() && attemptState.blockedUntil > Date.now());
+  async function loadAttempts() {
+    const scope=accessScope(), state=await storage.readAttempts(scope);
+    if(scope===accessScope()){attemptScope=scope;attemptState=state;attemptsUnavailable=false;}
+  }
+  const announceAttempts = scope => attemptChannel?.postMessage({scope});
+  const originalSettings = openSettings;
+  // Keep saved Checklist records readable after restoring the vault interface.
+  const types = new Set(['task','vault','memo','procedure','personal','protocol','command','mail','report','template']);
+  const safeId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
+
+  function validate(snapshot) {
+    if (!snapshot || !STORES.every(store => Array.isArray(snapshot[store]))) throw new Error('La sauvegarde ne contient pas un espace WolfGuard complet.');
+    for (const store of STORES) {
+      if (snapshot[store].length > 50000) throw new Error('Sauvegarde trop volumineuse.');
+      const ids = new Set();
+      for (const record of snapshot[store]) {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('Enregistrement invalide.');
+        const id = store === 'settings' ? record?.key : record?.id;
+        if ((store === 'settings' ? typeof id !== 'string' || id.length > 200 : !safeId(id)) || ids.has(id)) throw new Error('Identifiant de fiche invalide.');
+        ids.add(id);
+        for (const field of ['folderId','parentId','itemId','consolidatedInto']) if (record[field] != null && !safeId(record[field])) throw new Error('Lien de fiche invalide.');
+        if (store === 'items' && (!types.has(record.type) || typeof record.title !== 'string')) throw new Error('Type de fiche invalide.');
+        if (record.tags != null && (!Array.isArray(record.tags) || record.tags.length>256 || record.tags.some(tag=>typeof tag!=='string' || tag.length>200))) throw new Error('Étiquettes invalides.');
+        if (record.linkedItemIds != null && (!Array.isArray(record.linkedItemIds) || record.linkedItemIds.some(id=>!safeId(id)))) throw new Error('Liens de fiches invalides.');
+        if (store === 'items' && record.type === 'task' && (record.title.length > 300 || typeof record.content !== 'string' || record.content.length > 10000 || typeof record.completed !== 'boolean' || !['low','normal','high'].includes(record.priority) || typeof record.dueDate !== 'string' || (record.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(record.dueDate)))) throw new Error('Tâche invalide.');
+        if (store === 'folders' && (typeof record.name !== 'string' || typeof record.section !== 'string')) throw new Error('Dossier invalide.');
+        if (record.attachments && (!Array.isArray(record.attachments) || record.attachments.some(file => typeof file?.name !== 'string' || (file.dataUrl && !/^data:[\w.+-]+\/[\w.+-]+(?:;charset=[^;,]+)?;base64,/i.test(file.dataUrl))))) throw new Error('Pièce jointe invalide.');
+      }
+    }
+    const folders = new Map(snapshot.folders.map(folder => [folder.id, folder]));
+    for (const folder of folders.values()) {
+      const seen = new Set([folder.id]); let parent = folder.parentId;
+      while (parent && folders.has(parent)) { if (seen.has(parent)) throw new Error('Cycle dans les dossiers.'); seen.add(parent); parent = folders.get(parent).parentId; }
+    }
+    return snapshot;
+  }
+  const saveStatus = message => { $('#webSaveState').textContent = message; };
+  const savedMessage = () => cloud?.enabled ? 'Enregistré · Synchronisé et chiffré' : 'Enregistré · Chiffré sur cet appareil';
+  const gateExists = () => !!(pendingBackup || envelope) || (cloud?.enabled && (cloud.isInitialized()!==false || !cloud.canActivate()));
+  async function claimTab() {
+    if (releaseTab) return;
+    if (!navigator.locks) throw new Error('Un navigateur récent avec Web Locks est nécessaire.');
+    await new Promise((resolve,reject) => {
+      navigator.locks.request('wolfguard-web-editor', {ifAvailable:true}, async lock => {
+        if (!lock) { reject(new Error('Cet espace est déjà ouvert dans un autre onglet. Verrouille-le avant de continuer ici.')); return; }
+        await new Promise(release => { releaseTab = release; resolve(); });
+      }).catch(reject);
+    });
+  }
+  function release() { releaseTab?.(); releaseTab = null; }
+  async function cacheSnapshot(value,expectedRevision) {
+    try{await storage.write(value,expectedRevision);}
+    catch(error){
+      if(cloud.enabled && session){
+        // The server already committed. Continuing with an older payload or
+        // key could overwrite the new snapshot, especially after code rotation.
+        queueMicrotask(()=>lock());
+        throw new Error('La copie partagée est enregistrée. Rouvre WolfGuard pour la récupérer sur cet appareil.');
+      }
+      throw error;
+    }
+  }
+  async function commit(change,{backupOrganization=false}={}) {
+    assertFreshSession();
+    const current = session, generation = epoch;
+    if (!current) throw new Error('Espace verrouillé.');
+    saveStatus('Enregistrement…');
+    const work = queue.then(async () => {
+      if (session !== current || generation !== epoch) throw new Error('Espace verrouillé.');
+      const payload = structuredClone(current.payload);
+      const result = change(payload);
+      validate(payload);
+      for(const version of Array.isArray(backupOrganization)?backupOrganization:backupOrganization?[backupOrganization]:[])await storage.preserveOrganization(current.envelope,version);
+      const encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
+      if(cloud.enabled){
+        try{await cloud.save(encrypted);}catch(error){await storage.preserve(encrypted,true);throw error;}
+        if(session!==current || generation!==epoch)throw new Error('Espace verrouillé. La copie distante est enregistrée.');
+      }
+      await cacheSnapshot(encrypted,current.envelope.revision);
+      current.payload = payload; current.envelope = encrypted; envelope = encrypted;
+      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); }
+      return result;
+    });
+    queue = work.catch(() => {});
+    return work.catch(error => { if (session === current) saveStatus('Échec de l’enregistrement'); throw error; });
+  }
+  class BrowserDatabase {
+    constructor() { this.native = true; }
+    async get(store,id) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
+    async all(store) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store] || []); }
+    readOnly(store) { return this.all(store); }
+    storageFiles() { return [{id:'main',name:cloud?.enabled?'Espace partagé chiffré':'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
+    batch(operations) {
+      const records = structuredClone(operations);
+      const backupVersion=records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-form-cleanup-version')?3:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-mail-cleanup-version')?2:records.find(operation=>operation.store==='settings' && operation.record?.key==='memo-folder-organization-version')?.record.value||false;
+      const backupOrganization=[...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='memo-consolidation-version')?[5]:[]),...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='procedure-technology-organization-version')?[4]:[]),...(backupVersion?[backupVersion]:[])];
+      return commit(payload => {
+        for (const operation of records) {
+          if (!STORES.includes(operation.store)) throw new Error('Collection invalide.');
+          const store = operation.store, field = store === 'settings' ? 'key' : 'id';
+          if (operation.action === 'clear') payload[store] = [];
+          else if (operation.action === 'delete') payload[store] = payload[store].filter(record => record[field] !== operation.id);
+          else if (operation.action === 'put') {
+            const index = payload[store].findIndex(record => record[field] === operation.record[field]);
+            if (index < 0) payload[store].push(operation.record); else payload[store][index] = operation.record;
+          } else throw new Error('Opération de stockage invalide.');
+        }
+        return true;
+      },{backupOrganization});
+    }
+    deleteItem(id) { return commit(payload => {
+      payload.items = payload.items.filter(record => record.id !== id);
+      for (const record of payload.items) if (record.linkedItemIds) record.linkedItemIds = record.linkedItemIds.filter(target => target !== id);
+      payload.activity = payload.activity.filter(record => record.itemId !== id);
+    }); }
+    updateItem(id,update) { return commit(payload => { const item = payload.items.find(record => record.id === id && !isDeleted(record)); if (item) update(item); return structuredClone(item); }); }
+    async flush() { await queue; return true; }
+  }
+  async function seed() {
+    const snapshot = {version:2,items:[],folders:[],settings:[{key:'autoLockMinutes',value:5}],activity:[]};
+    const files = ['technical-library.json','technical-library-extra.json','technical-library-network-cyber.json'];
+    const items = new Map(), folders = new Map();
+    for (const file of files) {
+      const response = await fetch('data/'+file);
+      if (!response.ok) throw new Error('Bibliothèque fournie inaccessible. Réessaie après le chargement du site.');
+      const data = await response.json();
+      for (const record of data.items || []) items.set(record.id,record);
+      for (const record of data.folders || []) folders.set(record.id,record);
+    }
+    snapshot.items = [...items.values()]; snapshot.folders = [...folders.values()];
+    return validate(snapshot);
+  }
+  async function upgrade(result) {
+    const source = result.payload;
+    if (Array.isArray(source.settings)) return validate(source);
+    // Preserve spaces created with the previous, simplified web release.
+    if (source.version !== 1 || !Array.isArray(source.items) || !Array.isArray(source.folders)) throw new Error('Ancienne sauvegarde incompatible.');
+    const payload = {version:2,items:[],folders:source.folders.map(folder => ({id:folder.id,name:folder.name,parentId:null,section:folder.section === 'vault' ? 'vault' : 'library'})),settings:[{key:'autoLockMinutes',value:5}],activity:[]};
+    for (const item of source.items) {
+      const record = {id:item.id,type:item.type,title:item.title,folderId:item.folder || null,updatedAt:item.updatedAt,createdAt:item.updatedAt,tags:[]};
+      if (item.type === 'vault') { record.vaultBlobEnc = await encryptBlobWithKey(JSON.stringify({username:item.username,password:item.password,url:item.url,host:'',notes:item.content,custom:[]}),result.key); record.encryptionVersion=2; }
+      else { record.type='memo'; record.content='<p>'+esc(item.content).replace(/\n/g,'<br>')+'</p>'; record.unifiedDocument=true; record.commandBlocks=[]; record.attachments=[]; }
+      payload.items.push(record);
+    }
+    return validate(payload);
+  }
+  function renderKeypad() {
+    if(!$('#webAccessForm'))return;
+    const exists=gateExists();
+    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
+    $('#pinDots').classList.remove('hidden');
+    $('#keypad').classList.remove('hidden');
+    $('#webAccessForm').hidden=true;
+    $('.web-access-actions').hidden=!pendingBackup;
+    $('#pinDots').setAttribute('aria-label',enteredCode.length+' chiffres saisis sur 8');
+    const blocked=accessBlocked();
+    $('#pinDots').querySelectorAll('.dot').forEach((dot,index)=>{
+      dot.classList.toggle('on',index<enteredCode.length);
+      dot.classList.toggle('is-next',index===enteredCode.length && !busy && !blocked);
+    });
+    $('#lock').classList.toggle('is-checking',busy && !locking);
+    $('#lock').classList.toggle('is-blocked',blocked);
+    const hint=$('#webKeyHint');
+    if(hint)hint.textContent=booting?'Chargement de ton espace…':busy?'Vérification du code…':blocked?'Accès temporairement suspendu':'Saisie au clavier ou à l’écran';
+    $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking || booting || blocked;});
+    $('#webUnlock').disabled=busy || locking || booting || blocked;
+    $('#webCancelRestore').disabled=busy || locking || booting;
+    $('#lock').setAttribute('aria-busy',String(busy || locking || booting));
+    clearTimeout(attemptTimer);attemptTimer=null;
+    if(attemptsUnavailable){
+      $('#lockError').textContent='Le contrôle des tentatives est indisponible. Vérifie le stockage du navigateur puis recharge la page.';
+    }else if(blocked){
+      $('#lockError').dataset.accessTimeout='true';
+      $('#lockError').textContent='Code incorrect. Réessaie dans '+Math.ceil((attemptState.blockedUntil-Date.now())/1000)+' s.';
+      if(!$('#lock').classList.contains('hidden'))attemptTimer=setTimeout(renderKeypad,Math.min(1000,attemptState.blockedUntil-Date.now()));
+    }else if($('#lockError').dataset.accessTimeout){
+      delete $('#lockError').dataset.accessTimeout;$('#lockError').textContent='';
+    }
+  }
+  function showGate() {
+    const exists = gateExists();
+    $('#connectionGate').classList.add('hidden'); $('#lock').classList.remove('hidden'); $('#app').classList.add('hidden');
+    enteredCode=''; creationCode='';
+    $('#webConfirmRow').hidden=true; $('#webConfirm').required=!exists;
+    $('#webPassword').autocomplete=exists ? 'current-password' : 'new-password';
+    $('#webPassword').minLength=exists ? 1 : 8;
+    $('#webPassword').maxLength=exists ? 1024 : 8;
+    $('#webPassword').inputMode='numeric';
+    if (exists) $('#webPassword').removeAttribute('pattern'); else $('#webPassword').pattern='[0-9]{8}';
+    $('.web-access-hint').textContent='Saisis l’ancien mot de passe de cette base ou de cette sauvegarde.';
+    $('#webUnlock').textContent=exists ? 'Déverrouiller' : 'Créer et ouvrir';
+    $('#webUnlock').disabled=busy || locking;
+    $('#webCancelRestore').hidden=!pendingBackup;
+    $('#webPassword').value=''; $('#webConfirm').value=''; $('#lockError').textContent='';
+    renderKeypad();
+    $('#lock').tabIndex=-1;
+    $('#lock').focus({preventScroll:true});
+  }
+  async function keypadKey(key) {
+    if (busy || locking || booting || accessBlocked() || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
+    const pressed=$('#keypad').querySelector('[data-key="'+key+'"]');
+    if(pressed){pressed.classList.add('is-pressed');setTimeout(()=>pressed.classList.remove('is-pressed'),130);}
+    $('#lockError').textContent='';
+    if (key==='C') { enteredCode=''; creationCode=''; }
+    else if (key==='Backspace') enteredCode=enteredCode.slice(0,-1);
+    else if (/^[0-9]$/.test(key) && enteredCode.length<8) enteredCode+=key;
+    else return;
+    renderKeypad();
+    if (enteredCode.length!==8) return;
+    const exists=gateExists();
+    if (!exists && !creationCode) { creationCode=enteredCode; enteredCode=''; renderKeypad(); return; }
+    if (!exists && enteredCode!==creationCode) {
+      enteredCode=''; creationCode=''; renderKeypad(); $('#lockError').textContent='Les codes ne correspondent pas. Choisis à nouveau ton code.'; return;
+    }
+    $('#webPassword').value=exists ? enteredCode : creationCode;
+    $('#webConfirm').value=exists ? '' : enteredCode;
+    await authenticate({preventDefault(){}});
+  }
+  async function openShared(password) {
+    if(!/^[0-9]{8}$/.test(password))throw new Error('Le partage utilise ton code de 8 chiffres.');
+    await cloud.status();
+    let result, remote=false;
+    const previous=envelope;
+    if(!cloud.isInitialized()){
+      if(!cloud.canActivate())throw new Error('Active le partage une seule fois avec le lien privé, sur l’appareil qui contient tes données.');
+      if(previous)result=await cryptography.open(previous,password);
+      else{
+        if(password!==$('#webConfirm').value)throw new Error('Les codes ne correspondent pas.');
+        result=await cryptography.create(await seed(),password);
+      }
+      result.payload=await upgrade(result);
+      await cloud.initialize(password);
+    }else{
+      const info=await cloud.login(password);
+      if(info.exists){result=await cryptography.open(cryptography.validateEnvelope(await cloud.load()),password);remote=true;}
+      else if(previous)result=await cryptography.open(previous,password);
+      else throw new Error('Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
+      result.payload=await upgrade(result);
+    }
+    if(result.envelope.version!==cryptography.WORKSPACE_VERSION){result.envelope=await cryptography.seal(result.payload,result.key,result.salt,result.envelope.revision+1);remote=false;}
+    if(!remote)await cloud.save(result.envelope);
+    if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
+    await storage.write(result.envelope,previous?.revision||0);
+    return result;
+  }
+  async function authenticate(event) {
+    event.preventDefault(); if (busy || locking || booting || accessBlocked()) {renderKeypad();return;}
+    busy=true; $('#webUnlock').disabled=true; $('#lockError').textContent='';
+    renderKeypad();
+    const generation=epoch; let password=$('#webPassword').value, retained=false, attemptedScope='';
+    try {
+      await claimTab(); await queue; envelope=await storage.read();
+      await loadAttempts();
+      if(accessBlocked())return;
+      attemptedScope=accessScope();
+      let result;
+      if(cloud.enabled)result=await openShared(password);
+      else if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
+      else {
+        if (password !== $('#webConfirm').value) throw new Error('Les codes ne correspondent pas.');
+        cryptography.checkPassword(password); result=await cryptography.create(await seed(),password);
+      }
+      if(!cloud.enabled)result.payload=await upgrade(result);
+      if (generation !== epoch || document.hidden) return;
+      await storage.resetAttempts(attemptedScope);
+      attemptState={failures:0,blockedUntil:0};attemptScope=attemptedScope;
+      announceAttempts(attemptedScope);
+      if (pendingBackup && envelope && !await appConfirm('Remplacer l’espace de ce navigateur par cette sauvegarde ? Exporte d’abord les modifications à conserver.')) return;
+      if (!cloud.enabled && (pendingBackup || !envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION)) {
+        result.envelope=await cryptography.seal(result.payload,result.key,result.salt,(envelope?.revision || 0)+1);
+        await storage.write(result.envelope,envelope?.revision || 0);
+        envelope=result.envelope;
+      }
+      if (generation !== epoch || document.hidden) return;
+      session=result; envelope=result.envelope; pendingBackup=null; db=new BrowserDatabase();
+      sessionClock={started:Date.now(),active:Date.now(),monotonicStart:performance.now(),monotonicActive:performance.now()};
+      armSessionTimer();
+      if(cloud.enabled){clearInterval(cloudHeartbeat);cloudHeartbeat=setInterval(()=>{if(session && !sessionExpired())cloud.touch().catch(()=>lock());},25000);}
+      resetSettingsCache(result.payload.settings); connectedWorkspaceReady=true; portableFileName=cloud.enabled?'Espace partagé chiffré':'Espace local chiffré';
+      state.vaultKey=result.key; sessionAccessCode=''; retained=true;
+      $('#webPassword').value=''; $('#webConfirm').value='';
+      await openSection(workspaceModules.landingSection);
+      if (generation !== epoch) return;
+      await unlockTransition.play();
+      await scheduleAutoLock(); saveStatus(savedMessage());
+      navigator.storage?.persist?.().catch(() => {});
+    } catch (error) {
+      if (retained) { await lock();retained=false; }
+      if(cloud.enabled)cloud.clear();
+      if(error.retryAfter && attemptedScope){
+        try{attemptState=await storage.blockAttempts(attemptedScope,error.retryAfter);attemptScope=attemptedScope;announceAttempts(attemptedScope);}catch{attemptsUnavailable=true;}
+      }else if(error.code==='INVALID_ACCESS_CODE' && attemptedScope){
+        try {
+          attemptState=await storage.registerFailure(attemptedScope);attemptScope=attemptedScope;
+          announceAttempts(attemptedScope);
+        } catch { attemptsUnavailable=true; }
+      }
+      $('#lockError').textContent=error.message;
+    }
+    finally {
+      password=''; busy=false; $('#webUnlock').disabled=false;
+      enteredCode=''; creationCode=''; $('#webPassword').value=''; $('#webConfirm').value='';
+      if (!retained) release();
+      if(!retained && cloud?.enabled)cloud.clear();
+      renderKeypad();
+    }
+  }
+  async function lock() {
+    if (locking) return;
+    locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
+    clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
+    clearTimeout(autoLockTimer); autoLockTimer=null;
+    unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
+    resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
+    state.vaultKey=null; state.item=null; state.folder=null; state.mode='view'; sessionAccessCode='';selectedEditorImage=null;
+    $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
+    document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
+    document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
+    pendingBackup=null; saveStatus('Espace verrouillé'); showGate();
+    secretClipboard.clear();
+    try { await queue; envelope=await storage.read(); await loadAttempts(); }
+    finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
+  }
+  function download(value) {
+    const url=URL.createObjectURL(new Blob([JSON.stringify(value)],{type:'application/json'}));
+    const anchor=document.createElement('a'); anchor.href=url; anchor.download='WolfGuard-'+new Date().toISOString().slice(0,10)+'.wgweb'; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url),1000);
+  }
+  async function exportWorkspace() {
+    assertFreshSession();
+    const current=session; if (!current) return;
+    await queue; if (session===current) { download(current.envelope); appNotify('Sauvegarde chiffrée exportée.'); }
+  }
+  async function importWorkspace(files) {
+    const file=files?.[0]; if (!file || busy || locking) return;
+    if (file.size > cryptography.MAX_BYTES*1.4) throw new Error('Sauvegarde trop volumineuse.');
+    const backup=cryptography.validateEnvelope(JSON.parse(await file.text()));
+    if(cloud.enabled){
+      if(!session)throw new Error('Ouvre ton espace avec ton code avant de restaurer une sauvegarde.');
+      if(!await appConfirm('Remplacer la copie partagée par cette sauvegarde ? Une copie chiffrée de l’espace actuel sera conservée sur cet appareil.'))return;
+      let code=await appPrompt('Code de la sauvegarde','',{title:'Restaurer une sauvegarde',inputType:'password',confirmLabel:'Restaurer'});
+      if(code===null)return;
+      try{
+        const restored=await cryptography.open(backup,code),payload=await upgrade(restored);
+        const current=session;if(!current)throw new Error('Espace verrouillé.');
+        for(const item of payload.items.filter(item=>item.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],restored.key),current.key);
+        await storage.preserve(current.envelope,true);
+        await commit(target=>{for(const store of STORES)target[store]=payload[store];});
+        await lock();appNotify('Sauvegarde restaurée et synchronisée. Saisis ton code habituel.');
+      }finally{code='';}
+      return;
+    }
+    if (session && !await appConfirm('Ouvrir une sauvegarde verrouille la base actuelle. As-tu exporté les modifications à conserver ?')) return;
+    await lock(); pendingBackup=backup; await loadAttempts(); showGate();
+  }
+  async function rotatePassword() {
+    if(rotating)return;
+    assertFreshSession();rotating=true;
+    let oldPassword=$('#oldAccessCode').value, password=$('#newAccessCode').value;
+    const current=session, generation=epoch;
+    try {
+      if (!current) throw new Error('Espace verrouillé.');
+      cryptography.checkPassword(password);
+      if (password !== $('#confirmAccessCode').value) throw new Error('Les codes ne correspondent pas.');
+      await cryptography.open(current.envelope,oldPassword);
+      const work=queue.then(async () => {
+        if (session!==current || epoch!==generation) throw new Error('Espace verrouillé.');
+        const payload=structuredClone(current.payload);
+        const result=await cryptography.create(payload,password,current.envelope.revision+1);
+        for (const item of payload.items.filter(item => item.type==='vault')) {
+          for (const field of ['vaultBlobEnc','passwordEnc']) if (item[field]) item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),result.key);
+        }
+        result.envelope=await cryptography.seal(payload,result.key,result.salt,current.envelope.revision+1);
+        if(cloud.enabled){
+          const rotation=await cloud.prepareRotation(oldPassword,password);
+          await storage.preserve(current.envelope,true);
+          await cloud.save(result.envelope,rotation);
+        }
+        await cacheSnapshot(result.envelope,current.envelope.revision);
+        Object.assign(current,result); envelope=result.envelope;
+        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
+      });
+      queue=work.catch(() => {}); await work;
+    } catch (error) { appNotify(error.message,{kind:'error'}); }
+    finally { oldPassword='';password='';rotating=false;document.querySelectorAll('#changeCodeArea input').forEach(input=>{input.value='';}); }
+  }
+
+  // Replace host-dependent entry points while retaining the original UI code.
+  openDB=async () => db;
+  workspaceCanWrite=() => !!session;
+  workspaceConnectionLabel=() => cloud?.enabled ? 'Espace partagé · Enregistrement chiffré' : 'Navigateur · Enregistrement chiffré';
+  ensureSecuritySettings=async () => !!session;
+  scheduleAutoLock=async () => armSessionTimer();
+  registerActivityForAutoLock=() => {
+    for(const name of ['mousedown','keydown','touchstart','wheel'])document.addEventListener(name,event=>{
+      if(!session)return;
+      if(sessionExpired()){event.preventDefault();event.stopImmediatePropagation();lock();return;}
+      if(event.isTrusted){sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();armSessionTimer();}
+    },{capture:true,passive:false});
+  };
+  // Older desktop listeners must not re-enable the keypad during a web timeout.
+  refreshPinLockout=renderKeypad;
+  lockApplication=lock;
+  exportDB=exportWorkspace;
+  importDB=importWorkspace;
+  writePortableFile=async () => { await queue; return !!session; };
+  reloadWorkspaceFromSettings=async () => { if (await appConfirm('Verrouiller et recharger cet espace ?')) await lock(); };
+  saveWorkspaceFromSettings=async () => { await queue; appNotify(cloud.enabled?'Les modifications sont enregistrées dans ton espace partagé chiffré.':'Les modifications sont enregistrées et chiffrées dans ce navigateur.'); };
+  changeWorkspaceFromSettings=() => $('#webBackupFile').click();
+  changeAccessCode=rotatePassword;
+  showChangeCodeForm=() => {
+    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
+    $('#webChangePassword').onclick=rotatePassword;
+  };
+  openSettings=async initialTab => {
+    assertFreshSession();
+    if (!session) return;
+    await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
+    if (!session) { closeModal(); return; }
+    $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
+    const security=$('#changeCodeBtn').closest('.settings-row');
+    security.querySelector('.settings-row-title').textContent='Code d’accès';
+    security.querySelector('.settings-row-desc').textContent='8 chiffres · Chiffrement de la base complète';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Le même code ouvre ton espace sur tous tes appareils. Conserve-le : il ne peut pas être récupéré.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
+    $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
+    const idle=$('#autoLockSelect');
+    idle.replaceChildren(new Option('1 minute','1',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 minute d’inactivité · Session limitée à 15 minutes · Verrouillage si l’onglet est masqué';
+    const recovery=await storage.readRecovery().catch(()=>null);
+    if(recovery && session && $('#settings-data')){
+      const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
+      button.textContent='Exporter la copie de secours';
+      button.onclick=()=>{try{download(cryptography.validateEnvelope(recovery));}catch(error){appNotify(error.message,{kind:'error'});}};
+      $('#settings-data').append(button);
+    }
+    for(const recovery of await storage.recoveries()){
+      if(!session || !$('#settings-data'))break;
+      const button=document.createElement('button');button.type='button';button.className='settings-btn';
+      button.textContent=recovery.key==='memo-consolidation-before-v1'?'Exporter avant le regroupement des fiches':recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
+      button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
+    }
+  };
+  generatePassword=cryptographicPassword;
+  function cryptographicPassword(options={}) {
+    const length=Math.max(8,Math.min(128,Number(options.length)||24));
+    let alphabet='';
+    if (options.lower!==false) alphabet+='abcdefghijkmnopqrstuvwxyz';
+    if (options.upper!==false) alphabet+='ABCDEFGHJKLMNPQRSTUVWXYZ';
+    if (options.numbers!==false) alphabet+='23456789';
+    if (options.symbols!==false) alphabet+='!@#$%&*+-_=?.';
+    if (!alphabet) alphabet='abcdefghijkmnopqrstuvwxyz';
+    const limit=Math.floor(256/alphabet.length)*alphabet.length; let value='';
+    while (value.length<length) for (const byte of crypto.getRandomValues(new Uint8Array(128))) { if (byte<limit) value+=alphabet[byte%alphabet.length]; if (value.length===length) break; }
+    return value;
+  }
+  async function start() {
+    if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
+    [cryptography,storage,cloud]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud];
+    window.addEventListener('hashchange',()=>{if(cloud.enabled && cloud.canActivate() && !session && !busy && !locking && !booting)showGate();});
+    $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
+    $('#pinDots').setAttribute('role','status');
+    $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
+    const brandName=document.createElement('span');brandName.className='web-access-brandname';brandName.textContent='WolfGuard';$('#lock .access-brand').append(brandName);
+    const keyHint=document.createElement('p');keyHint.id='webKeyHint';keyHint.className='web-key-hint';keyHint.textContent='Saisie au clavier ou à l’écran';$('#keypad').after(keyHint);
+    $('#keypad').setAttribute('aria-describedby','webKeyHint');
+    $('#keypad').innerHTML=['1','2','3','4','5','6','7','8','9','Backspace','0','C'].map(key=>'<button type="button" class="key" data-key="'+key+'"'+(key==='Backspace'?' aria-label="Effacer le dernier chiffre"':key==='C'?' aria-label="Effacer le code"':'')+'>'+(key==='Backspace'?'⌫':key==='C'?settingsIcon('rotate-ccw'):key)+'</button>').join('');
+    $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};
+    window.addEventListener('keydown',event=>{
+      if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || document.querySelector('.app-dialog[open]')) return;
+      // AZERTY reports &, é, etc. on Digit1, Digit2... without Shift. Numpad
+      // codes identify the digits even when NumLock reports navigation keys.
+      const physical=/^(?:Digit|Numpad)([0-9])$/.exec(event.code || '');
+      const digit=/^[0-9]$/.test(event.key) ? event.key : physical?.[1];
+      const action=digit ?? (event.key==='Backspace' ? 'Backspace' : ['Delete','Escape'].includes(event.key) ? 'C' : null);
+      if (action!==null || event.key==='Enter') {
+        event.preventDefault();event.stopPropagation();
+        if(action!==null)keypadKey(action);
+      }
+    },true);
+    document.addEventListener('paste',event=>{
+      if ($('#lock').classList.contains('hidden') || busy || locking || booting || accessBlocked() || document.querySelector('.app-dialog[open]')) return;
+      const code=event.clipboardData?.getData('text');
+      if (!/^[0-9]{8}$/.test(code || '')) {
+        // Keep old encrypted spaces accessible by pasting their original secret,
+        // without displaying another field or button on the keypad screen.
+        if ((pendingBackup || envelope) && code && code.length<=1024) {
+          event.preventDefault(); enteredCode=''; creationCode='';
+          $('#webPassword').value=code; $('#webConfirm').value='';
+          authenticate({preventDefault(){}});
+        }
+        return;
+      }
+      event.preventDefault();enteredCode='';for(const digit of code)keypadKey(digit);
+    });
+    const form=document.createElement('form'); form.id='webAccessForm';
+    form.hidden=true;
+    form.innerHTML='<label>Ancien mot de passe<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow" hidden>Confirmer le code<input id="webConfirm" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><p class="web-access-hint"></p><button type="submit" class="primary" id="webUnlock">Déverrouiller</button>';
+    $('#lockError').before(form); form.onsubmit=authenticate;
+    const actions=document.createElement('div'); actions.className='web-access-actions';
+    actions.hidden=true;
+    actions.innerHTML='<button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
+    $('#lock .lock-card').append(actions);
+    $('#webCancelRestore').onclick=async () => { pendingBackup=null;await loadAttempts();showGate(); };
+    $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
+    const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status'); document.body.append(status);
+    topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
+    document.addEventListener('click',event => { if (!event.target.closest('.search')) hideSearch(); });
+    applyExplorerWidth(getExplorerWidth()); registerActivityForAutoLock();
+    // Rich clipboard HTML must be sanitized before it enters the live editor.
+    document.addEventListener('paste',event => {
+      if (!event.target.closest?.('#richEditor')) return;
+      const html=event.clipboardData?.getData('text/html');
+      if (html) { event.preventDefault(); event.stopImmediatePropagation(); document.execCommand('insertHTML',false,documentHTML(html)); }
+    },true);
+    document.addEventListener('visibilitychange',() => {
+      if(document.hidden){if(session)lock();else epoch++;}
+      else if(storage && !session)loadAttempts().then(renderKeypad);
+    });
+    if(attemptChannel)attemptChannel.onmessage=event=>{
+      if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
+    };
+    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);cloud?.clear();state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
+    window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
+    if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
+    envelope=await storage.read();await loadAttempts();showGate();
+    if(cloud.enabled){
+      try{await cloud.status();showGate();if(!cloud.isInitialized()&&!cloud.canActivate())$('#lockError').textContent='Active le partage avec le lien privé sur ton appareil principal.';}
+      catch(error){$('#lockError').textContent=error.message;}
+    }
+    booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
+  }
+  return {start};
+})();
+webWorkspace.start().catch(error => { $('#startupSplash')?.remove();$('#lock').classList.remove('hidden');$('#lockError').textContent=error.message; });

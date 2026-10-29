@@ -1,0 +1,370 @@
+.item-relations {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #303a44;
+  min-width: 0
+}
+
+.item-relations-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px
+}
+
+.item-relations-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5
+}
+
+.item-relations-head h3>svg {
+  width: 17px;
+  height: 17px;
+  color: var(--section-accent, var(--accent))
+}
+
+.item-relations-head h3>span {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 12px
+}
+
+.item-relations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 4px 16px
+}
+
+.item-related-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+  padding: 10px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #25303a;
+  border-radius: 0;
+  color: var(--text)
+}
+
+.item-related-link:hover {
+  background: #202a33
+}
+
+.item-related-link:focus-visible {
+  outline: 2px solid var(--section-accent, var(--accent));
+  outline-offset: -2px
+}
+
+.item-related-link>svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--muted)
+}
+
+.item-related-icon {
+  width: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--memo)
+}
+
+.item-related-icon svg {
+  width: 18px;
+  height: 18px
+}
+
+.item-related-name {
+  flex: 1;
+  min-width: 0
+}
+
+.item-related-name strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 600;
+  overflow-wrap: anywhere
+}
+
+.item-related-name small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow-wrap: anywhere
+}
+
+.relation-vault {
+  color: var(--vault)
+}
+
+.relation-personal {
+  color: var(--personal)
+}
+
+.relation-protocol {
+  color: var(--protocol)
+}
+
+.relation-command {
+  color: var(--command)
+}
+
+.relation-template {
+  color: var(--template)
+}
+
+.item-relations-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 10px 0
+}
+
+.item-relations-empty[hidden] {
+  display: none !important
+}
+
+.vault-view-body>.item-relations {
+  grid-column: 1/-1
+}
+
+.template-preview>.item-relations {
+  max-width: 1000px;
+  margin: 24px auto 0
+}
+
+.template-preview:has(>.item-relations) {
+  display: block
+}
+
+.memo-paper .item-related-link,
+.procedure-document .item-related-link,
+.paper .item-related-link {
+  color: #1d2733;
+  border-bottom-color: #aeb8c4
+}
+
+.memo-paper .item-related-link:hover,
+.procedure-document .item-related-link:hover,
+.paper .item-related-link:hover {
+  background: #e8edf2
+}
+
+.memo-paper .item-related-name small,
+.procedure-document .item-related-name small,
+.paper .item-related-name small {
+  color: #657181
+}
+
+.memo-paper .item-related-link>svg,
+.procedure-document .item-related-link>svg,
+.paper .item-related-link>svg {
+  color: #657181
+}
+
+.memo-paper .item-relations-head h3>span,
+.procedure-document .item-relations-head h3>span,
+.paper .item-relations-head h3>span,
+.memo-paper .item-relations-empty,
+.procedure-document .item-relations-empty,
+.paper .item-relations-empty {
+  color: #657181
+}
+
+.relation-dialog {
+  width: min(720px, calc(100% - 24px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column
+}
+
+.relation-dialog>h2 {
+  flex: none;
+  margin: 0 0 16px;
+  font-size: 18px
+}
+
+.relation-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0
+}
+
+.relation-picker-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  flex: none;
+  min-width: 0
+}
+
+.relation-picker-source svg {
+  width: 16px;
+  height: 16px;
+  flex: none
+}
+
+.relation-picker-source span {
+  overflow-wrap: anywhere
+}
+
+.relation-picker-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 10px;
+  flex: none
+}
+
+.relation-picker-filters input {
+  height: 34px !important
+}
+
+.relation-picker-filters select {
+  min-width: 0;
+  font-size: 12px;
+  height: 38px;
+  background: #10151b;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 9px
+}
+
+.relation-picker-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  flex: none
+}
+
+.relation-picker-state label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text)
+}
+
+.relation-picker input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--accent)
+}
+
+.relation-picker-state>span {
+  color: var(--muted)
+}
+
+.relation-picker-list {
+  min-height: 0;
+  max-height: 430px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line)
+}
+
+.relation-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 4px;
+  cursor: pointer;
+  border-bottom: 1px solid #25303a
+}
+
+.relation-choice:hover {
+  background: #202a33
+}
+
+.relation-choice:has(input:checked) {
+  background: #1b2c30
+}
+
+.relation-choice:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px
+}
+
+.relation-choice[hidden] {
+  display: none !important
+}
+
+.relation-choice .item-related-name strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden
+}
+
+.relation-picker-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: none;
+  margin-top: 2px
+}
+
+.relation-picker-footer>span {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted)
+}
+
+.relation-picker-footer .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px
+}
+
+.relation-picker-footer svg {
+  width: 16px;
+  height: 16px
+}
+
+@media(max-width:600px) {
+  .relation-dialog {
+    padding: 16px 12px;
+    max-height: calc(100dvh - 20px)
+  }
+
+  .relation-picker-filters {
+    grid-template-columns: minmax(0, 1fr)
+  }
+
+  .relation-picker-footer>span {
+    flex: 1 1 100%
+  }
+
+  .relation-picker-footer>button {
+    flex: 1
+  }
+}

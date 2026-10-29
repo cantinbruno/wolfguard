@@ -17,7 +17,7 @@ for(const name of new Set(files)) {
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');
   if(secrets.some(pattern=>pattern.test(text)))issues.add(name);
-  if(/^(?:app|docs)\/.*\.json$/i.test(name)) {
+  if(/^(?:app|docs|server\/public)\/.*\.json$/i.test(name)) {
     let value;
     try { value=JSON.parse(text); } catch { issues.add(name);continue; }
     if(['wolfguard-web','wolfguard-workspace'].includes(value?.format) || (Array.isArray(value?.settings) && Array.isArray(value?.activity) && Array.isArray(value?.items)) || (Array.isArray(value?.items) && value.items.some(item=>item?.type==='vault' || item?.vaultBlobEnc || item?.passwordEnc)) || (Array.isArray(value?.settings) && value.settings.some(record=>['accessCodeHash','vaultCrypto'].includes(record?.key))))issues.add(name);

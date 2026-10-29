@@ -1,6 +1,7 @@
 # WolfGuard shared storage
 
-Managed server for the GitHub Pages frontend at https://wolfguard.wavetools.fr/.
+Managed application and API at https://wolfguard-web-cantin.cantin-bruno.chatgpt.site/.
+The frontend requires the private `?access=` URL; GitHub Pages serves static/download files only.
 Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the owner's eight-digit PIN.
 
 ## Deployment
@@ -16,16 +17,21 @@ The public backend must allow anonymous platform access to avoid requiring ChatG
 ## Protection and consistency
 
 `ENTRY_LINK_HASH` is the SHA-256 of the independent random private-link key.
-`POST /api/entry` checks it from the Authorization header and returns no vault
-data and no PIN session. The private frontend URL must pass this check before
-its encrypted startup document is decrypted and the PIN screen appears.
-Missing or incorrect links stay closed, including when the verifier is down.
-Unknown frontend paths return a static 404 without a redirect or recovery link.
-Only the canonical root without query parameters is accepted by the loader.
-The private URL key stays in the fragment and is absent from public sources.
-Rotate only `ENTRY_LINK_HASH` for a new private link, then redeploy the existing
-saved server version; preserve the other secrets and storage bindings.
-The backend root does not advertise the frontend.
+`worker/index.ts` calls `handleFrontend` before sending HTML. Only the root with
+exactly `?access=<64 lowercase hex characters>` and the correct SHA-256 hash gets
+HTTP 200. Missing or invalid keys and unknown page paths get an empty HTTP 404,
+without a branded error page or redirect. HEAD has the same authorization and
+status without a body. URL fragments cannot authorize an HTTP request.
+The generated document is imported from `lib/wolfguard/frontend.html`; its
+static resources live in `public/`. Build these from the parent repository with
+`node scripts/build-web.mjs`, then synchronize the server source checkout and
+publish with Sites. Do not publish an index.html as a public static asset.
+The two agent downloads redirect to their existing GitHub Pages files.
+Responses disable caching, framing, indexing and referrers. Application code
+does not log the URL; its query is sent to the server over HTTPS.
+The legacy `POST /api/entry` verifier remains independent of PIN sessions.
+Rotate only `ENTRY_LINK_HASH` for a new private link and redeploy; preserve
+the other secrets and all storage bindings. No database migration is required.
 
 PIN verification uses a secret pepper, random salt, and PBKDF2-SHA-256 at 100,000 iterations (the production Workers ceiling). Every failed login increments a shared D1 counter and imposes 5 additional seconds of delay. A database lease serializes verification, including concurrent devices. Sessions are opaque random 256-bit values, stored only as SHA-256 hashes in D1, with one-minute idle expiry and fifteen-minute maximum lifetime. The browser retains the bearer token only in memory.
 

@@ -1,0 +1,394 @@
+/* Shared navigation, with a separate palette for each workspace. */
+#app {
+  --workspace-radius: 8px;
+  --workspace-accent: var(--workspace-library);
+  --accent: var(--workspace-accent);
+  --section-accent: var(--workspace-accent);
+  --bg: var(--ui-page);
+  --panel: var(--ui-sidebar);
+  --panel2: var(--ui-surface);
+  --panel3: var(--ui-raised);
+  --line: var(--ui-border);
+  --text: var(--ui-text);
+  --muted: var(--ui-muted);
+  --accent2: var(--ui-accent-hover);
+}
+
+#app .main {
+  background: var(--ui-page);
+}
+
+#content> :is(.library-workspace, .toolbox-shell) {
+  border: 1px solid var(--ui-border) !important;
+  border-top: 2px solid var(--workspace-accent) !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+
+#content>.library-workspace::before {
+  display: none;
+}
+
+#app[data-primary-section="library"] {
+  --workspace-accent: var(--workspace-library);
+  --ui-accent: var(--workspace-library);
+}
+
+#app[data-primary-section="scan-passive"] {--workspace-accent:#8cbae8;--ui-accent:#8cbae8}
+#app[data-primary-section="scan-active"] {--workspace-accent:#b8a0eb;--ui-accent:#b8a0eb}
+
+/* Dialogs live outside #app and inherit the active workspace colours here. */
+:root:has(#app[data-primary-section="tools"]:not(.hidden)) {
+  --ui-accent: var(--workspace-tools);
+  --ui-accent-hover: #f0bed8;
+  --ui-accent-soft: #3a2b40;
+  --ui-highlight: var(--workspace-tools);
+  --ui-highlight-hover: #f0bed8;
+  --ui-highlight-soft: #3a2b40;
+  --protocol: var(--workspace-tools);
+  --vault: var(--workspace-tools);
+}
+
+#app[data-primary-section="tools"] {
+  --workspace-accent: var(--workspace-tools);
+  --ui-accent: var(--workspace-tools);
+}
+
+:root:has(#app[data-primary-section="vault"]:not(.hidden)) {
+  --ui-accent: var(--workspace-vault);
+  --ui-accent-hover: #a1ddbd;
+  --ui-accent-soft: #203b34;
+  --ui-highlight: var(--workspace-vault);
+  --ui-highlight-hover: #a1ddbd;
+  --ui-highlight-soft: #203b34;
+  --vault: var(--workspace-vault);
+}
+
+#app[data-primary-section="vault"] {
+  --workspace-accent: var(--workspace-vault);
+  --ui-accent: var(--workspace-vault);
+}
+
+.section-accent-vault {
+  --accent: var(--workspace-vault);
+  --section-accent: var(--workspace-vault);
+}
+
+/* Main header. */
+.topbar .brand-logo {
+  --brand-mark-size: min(var(--logo-column), 84px);
+  grid-area: brand !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: stretch;
+  width: var(--logo-column) !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  margin: 0;
+  padding: 0 !important;
+  border-right: 0 !important;
+  border-radius: 0 !important;
+  line-height: 1.3 !important;
+  letter-spacing: 0;
+}
+
+.topbar .search {
+  grid-area: search !important;
+  justify-self: stretch !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 38px !important;
+  margin: 0;
+  padding: 0 !important;
+  gap: 10px;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: 6px !important;
+  background: var(--ui-sidebar) !important;
+  box-shadow: none;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.topbar .search:hover {
+  border-color: var(--ui-border) !important
+}
+
+.topbar .search:focus-within {
+  background: var(--ui-surface) !important;
+  border-color: var(--workspace-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--workspace-accent) 9%, transparent) !important;
+}
+
+.topbar .search input {
+  height: 36px !important;
+  color: var(--ui-text) !important;
+  font-size: 13px !important;
+}
+
+.topbar .search input::placeholder {
+  color: var(--ui-subtle);
+  opacity: 1
+}
+
+.topbar .global-search-icon {
+  color: var(--ui-muted)
+}
+
+.topbar .search-results {
+  left: 0;
+  right: auto;
+  width: min(620px, calc(100vw - 2 * var(--header-gutter)));
+  min-width: 0;
+  max-width: calc(100vw - 2 * var(--header-gutter));
+}
+
+.topbar .settings-icon-btn {
+  display: grid;
+  place-items: center;
+  grid-area: settings;
+  width: var(--settings-size) !important;
+  min-width: var(--settings-size);
+  height: var(--settings-size) !important;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ui-muted) !important;
+  transition: color 160ms ease;
+}
+
+.topbar .settings-icon-btn svg {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.topbar .settings-icon-btn:hover {
+  color: var(--ui-text) !important;
+  background: transparent !important;
+}
+
+.topbar .settings-icon-btn:focus-visible {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 3px
+}
+
+.topbar .top-actions {
+  grid-area: sections !important;
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  gap: 0 !important;
+  overflow: visible !important
+}
+
+/* Direct access to workspaces in their left-to-right order. */
+.topbar {
+  display: grid !important;
+  flex-shrink: 0;
+  height: auto !important;
+  min-height: 0 !important;
+  align-items: center !important;
+  background: var(--ui-page) !important;
+  border-bottom: 1px solid var(--ui-border) !important;
+  box-shadow: none !important;
+  --logo-column: 64px;
+  --settings-size: 48px;
+  --header-gutter: 16px;
+  grid-template-columns: var(--logo-column) max-content minmax(180px, 1fr) var(--settings-size) !important;
+  grid-template-areas: "brand sections search settings" !important;
+  grid-template-rows: 60px !important;
+  padding: 6px 16px !important;
+  gap: 16px !important;
+}
+
+.topbar .brand-logo {
+  --brand-mark-size: 48px;
+}
+
+.topbar .top-actions {
+  height: 44px;
+  width: auto !important;
+}
+
+.topbar .global-tabs.section-navigation {
+  position: relative;
+  display: grid !important;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px !important;
+  width: 100%;
+  min-width: 0;
+  max-width: none !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--ui-border) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  overflow: clip !important;
+}
+
+.topbar .section-navigation::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: var(--tab-indicator-width, 0px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--workspace-accent);
+  transform: translateX(var(--tab-indicator-x, 0px));
+  opacity: var(--tab-indicator-opacity, 0);
+  pointer-events: none;
+}
+
+.topbar .section-navigation[data-indicator-ready="true"]::after {
+  transition: transform 360ms cubic-bezier(.22, 1, .36, 1), width 360ms cubic-bezier(.22, 1, .36, 1), background-color 180ms ease;
+}
+
+.topbar .section-navigation .workspace-section-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 96px;
+  height: 44px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: 6px 6px 0 0 !important;
+  background: transparent !important;
+  color: var(--ui-muted) !important;
+  font-weight: 600;
+  font-size: 13px !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
+}
+
+.workspace-section-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  opacity: .7;
+}
+
+.workspace-section-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.workspace-section-button.active .workspace-section-icon {
+  opacity: 1;
+}
+
+.workspace-section-button[data-section="library"] {
+  --button-accent: var(--workspace-library);
+}
+
+.workspace-section-button[data-section="tools"] {
+  --button-accent: var(--workspace-tools);
+}
+
+.workspace-section-button[data-section="scan-passive"] {--button-accent:#8cbae8}
+.workspace-section-button[data-section="scan-active"] {--button-accent:#b8a0eb}
+
+.workspace-section-button[data-section="vault"] {
+  --button-accent: var(--workspace-vault);
+}
+
+.topbar .section-navigation .workspace-section-button:hover {
+  background: color-mix(in srgb, var(--ui-text) 4%, transparent) !important;
+  color: var(--ui-text) !important;
+}
+
+.topbar .section-navigation .workspace-section-button.active {
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--button-accent) 8%, transparent)) !important;
+  color: var(--button-accent) !important;
+}
+
+.topbar .workspace-section-button:focus-visible {
+  outline: 2px solid var(--button-accent);
+  outline-offset: -3px;
+}
+
+.workspace-section-button.has-draft::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--button-accent);
+}
+
+@media(prefers-reduced-motion:reduce) {
+  .topbar .section-navigation::after,
+  .topbar .section-navigation .workspace-section-button {
+    transition: none !important;
+  }
+}
+
+@media(max-width:1050px) {
+  .topbar {
+    grid-template-columns: var(--logo-column) max-content minmax(160px, 1fr) var(--settings-size) !important;
+    gap: 10px !important;
+    padding: 6px 16px !important;
+    --logo-column: 64px;
+  }
+}
+
+@media(max-width:980px) {
+  .topbar {
+    --logo-column: 40px;
+    --settings-size: 36px;
+    --header-gutter: 12px;
+    grid-template-columns: var(--logo-column) minmax(0, 1fr) var(--settings-size) !important;
+    grid-template-areas: "brand search settings" "sections sections sections" !important;
+    grid-template-rows: 44px 44px !important;
+    padding: 10px 12px !important;
+    gap: 6px !important;
+  }
+
+  .topbar .brand-logo {
+    --brand-mark-size: 40px;
+  }
+
+  .topbar .top-actions,
+  .topbar .global-tabs.section-navigation {
+    width: 100% !important;
+  }
+
+  .topbar .global-tabs.section-navigation {
+    gap: 0 !important;
+  }
+
+  .topbar .section-navigation .workspace-section-button {
+    min-width: 0;
+    padding: 0 5px !important;
+    font-size: 12px !important;
+  }
+
+  .workspace-section-icon {
+    display: none;
+  }
+
+  .topbar .search {
+    max-width: none !important;
+  }
+
+  .topbar .search-results {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    left: auto;
+    right: 0;
+  }
+}

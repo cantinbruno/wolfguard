@@ -1,8 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash, randomBytes, createDecipheriv} from 'node:crypto';
-import {readFileSync, readdirSync} from 'node:fs';
+import {createHash, randomBytes} from 'node:crypto';
+import {readFileSync, existsSync} from 'node:fs';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
+import {handleFrontend} from '../server/lib/wolfguard/frontend.mjs';
 
 test('private entry checks an independent key without accessing vault storage or creating a PIN session', async () => {
   const key=randomBytes(32).toString('hex');
@@ -29,35 +30,31 @@ test('private entry checks an independent key without accessing vault storage or
   assert.notEqual(sessionAttempt.status,200);
 });
 
-test('the published entry is encrypted, authenticates edits and contains no private-link key', () => {
-  const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
-  const {key}=JSON.parse(read('.local-archive/site-access.json'));
-  const envelope=JSON.parse(read('docs/browser/site-entry.json'));
-  const encrypted=Buffer.from(envelope.data,'base64');
-  const decrypt=(input,material=key)=>{
-    const cipher=createDecipheriv('aes-256-gcm',Buffer.from(material,'hex'),Buffer.from(envelope.iv,'base64'));
-    cipher.setAAD(Buffer.from('WolfGuard private entry v1'));
-    cipher.setAuthTag(input.subarray(-16));
-    return Buffer.concat([cipher.update(input.subarray(0,-16)),cipher.final()]).toString('utf8');
-  };
-  assert.equal(decrypt(encrypted),read('.cache/site-document.html'));
-  assert.match(decrypt(encrypted),/id="keypad"/);
-  const altered=Buffer.from(encrypted);altered[20]^=1;
-  assert.throws(()=>decrypt(altered));
-  assert.throws(()=>decrypt(encrypted,randomBytes(32).toString('hex')));
-  const html=read('docs/index.html');
-  assert.doesNotMatch(html,/id="(?:keypad|app)"/);
-  assert.match(html,/noindex, nofollow/);
-  assert.match(read('docs/robots.txt'),/Disallow: \/\n/);
-  const missing=read('docs/404.html');
-  assert.doesNotMatch(missing,/http-equiv="refresh"|<a\b|<script|#access=/i);
-  assert.match(missing,/Page introuvable/);
-  function inspect(folder) {
-    for(const item of readdirSync(folder,{withFileTypes:true})) {
-      const url=new URL(item.name+(item.isDirectory()?'/':''),folder);
-      if(item.isDirectory())inspect(url);
-      else assert.equal(readFileSync(url).includes(Buffer.from(key)),false,url.pathname);
-    }
+test('entry sends an actual empty HTTP 404 before HTML for every missing or invalid URL key',async()=>{
+  const key=randomBytes(32).toString('hex');
+  const env={ENTRY_LINK_HASH:createHash('sha256').update(key).digest('hex')};
+  const html=readFileSync(new URL('../server/lib/wolfguard/frontend.html',import.meta.url),'utf8');
+  const call=(suffix,method='GET',config=env)=>handleFrontend(new Request('https://backend.test'+suffix,{method}),config,html);
+  for(const suffix of ['/', '/#access='+key, '/?access=', '/?access='+randomBytes(32).toString('hex'), '/?access='+key+'&extra=1','/?access='+key+'&access='+key,'/index.html?access='+key,'/inconnu?access='+key]) {
+    const response=await call(suffix);
+    assert.equal(response.status,404);
+    assert.equal(await response.text(),'');
+    assert.match(response.headers.get('Cache-Control'),/no-store/);
+    assert.equal(response.headers.get('Location'),null);
   }
-  inspect(new URL('../docs/',import.meta.url));
+  assert.equal((await call('/?access='+key,'POST')).status,404);
+  assert.equal((await call('/?access='+key,'GET',{})).status,404);
+  const valid=await call('/?access='+key);
+  assert.equal(valid.status,200);
+  assert.equal(await valid.text(),html);
+  assert.match(html,/id="keypad"/);
+  assert.equal(html.includes(key),false);
+  assert.equal(valid.headers.get('Referrer-Policy'),'no-referrer');
+  assert.match(valid.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
+  const head=await call('/?access='+key,'HEAD');
+  assert.equal(head.status,200);assert.equal(await head.text(),'');
+  for(const suffix of ['/api/status','/api/login','/browser/cloud.bundle.js','/css/base.css'])assert.equal(await call(suffix),null);
+  assert.equal(existsSync(new URL('../docs/index.html',import.meta.url)),false);
+  assert.equal(existsSync(new URL('../docs/404.html',import.meta.url)),false);
+  assert.equal(existsSync(new URL('../server/public/index.html',import.meta.url)),false);
 });
