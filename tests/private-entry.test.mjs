@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash, randomBytes} from 'node:crypto';
-import {readFileSync, existsSync} from 'node:fs';
+import {createHash, randomBytes, createDecipheriv} from 'node:crypto';
+import {readFileSync, readdirSync} from 'node:fs';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 
-test('the legacy link verifier remains separate from vault storage and PIN sessions', async () => {
+test('private entry checks an independent key without accessing vault storage or creating a PIN session', async () => {
   const key=randomBytes(32).toString('hex');
   const env={ENTRY_LINK_HASH:createHash('sha256').update(key).digest('hex')};
   const call=(token,method='POST',origin='https://wolfguard.wavetools.fr',config=env)=>handleAPI(new Request('https://backend.test/api/entry', {
@@ -29,17 +29,35 @@ test('the legacy link verifier remains separate from vault storage and PIN sessi
   assert.notEqual(sessionAttempt.status,200);
 });
 
-test('the normal address opens the PIN screen and unknown paths recover to a fixed app address', () => {
+test('the published entry is encrypted, authenticates edits and contains no private-link key', () => {
   const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
+  const {key}=JSON.parse(read('.local-archive/site-access.json'));
+  const envelope=JSON.parse(read('docs/browser/site-entry.json'));
+  const encrypted=Buffer.from(envelope.data,'base64');
+  const decrypt=(input,material=key)=>{
+    const cipher=createDecipheriv('aes-256-gcm',Buffer.from(material,'hex'),Buffer.from(envelope.iv,'base64'));
+    cipher.setAAD(Buffer.from('WolfGuard private entry v1'));
+    cipher.setAuthTag(input.subarray(-16));
+    return Buffer.concat([cipher.update(input.subarray(0,-16)),cipher.final()]).toString('utf8');
+  };
+  assert.equal(decrypt(encrypted),read('.cache/site-document.html'));
+  assert.match(decrypt(encrypted),/id="keypad"/);
+  const altered=Buffer.from(encrypted);altered[20]^=1;
+  assert.throws(()=>decrypt(altered));
+  assert.throws(()=>decrypt(encrypted,randomBytes(32).toString('hex')));
   const html=read('docs/index.html');
-  assert.match(html,/id="keypad"/);
-  assert.match(html,/id="app" class="[^"]*hidden/);
-  assert.doesNotMatch(html,/private-entry\.js|site-entry\.json|entry-message/);
+  assert.doesNotMatch(html,/id="(?:keypad|app)"/);
   assert.match(html,/noindex, nofollow/);
   assert.match(read('docs/robots.txt'),/Disallow: \/\n/);
-  const recovery=read('docs/404.html');
-  assert.match(recovery,/<meta http-equiv="refresh" content="0;url=https:\/\/wolfguard\.wavetools\.fr\/">/);
-  assert.match(recovery,/<a href="https:\/\/wolfguard\.wavetools\.fr\/"/);
-  assert.doesNotMatch(recovery,/<script|#access=/);
-  assert.equal(existsSync(new URL('../docs/browser/site-entry.json',import.meta.url)),false);
+  const missing=read('docs/404.html');
+  assert.doesNotMatch(missing,/http-equiv="refresh"|<a\b|<script|#access=/i);
+  assert.match(missing,/Page introuvable/);
+  function inspect(folder) {
+    for(const item of readdirSync(folder,{withFileTypes:true})) {
+      const url=new URL(item.name+(item.isDirectory()?'/':''),folder);
+      if(item.isDirectory())inspect(url);
+      else assert.equal(readFileSync(url).includes(Buffer.from(key)),false,url.pathname);
+    }
+  }
+  inspect(new URL('../docs/',import.meta.url));
 });

@@ -6,7 +6,7 @@ import {hostname} from 'node:os';
 import {createInterface} from 'node:readline/promises';
 import {runNetworkScan,fixedProcess} from './network.mjs';
 
-export const API='https://wolfguard-web-cantin.paledove36.chatgpt.site';
+export const API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 export class AgentClient {
   constructor(origin=API,{allowLoopback=false}={}){const url=new URL(origin);if(origin!==API&&!(allowLoopback&&url.protocol==='http:'&&url.hostname==='127.0.0.1'))throw new Error('Relais non autorisé.');this.origin=origin;this.token='';}
   async post(route,body,{signal}={}){const response=await fetch(this.origin+'/api/agent/'+route,{method:'POST',headers:{'Content-Type':'application/json','User-Agent':'WolfGuard-Agent/2.0',...(this.token?{Authorization:'Agent '+this.token}:{})},body:JSON.stringify(body),redirect:'error',credentials:'omit',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});const result=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(result.error||'Relais indisponible.');error.status=result.error?response.status:503;throw error;}return result;}

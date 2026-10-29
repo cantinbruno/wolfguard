@@ -2,12 +2,17 @@ import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createHash} from 'node:crypto';
+import {createHash, createCipheriv, randomBytes} from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md']);
+// A build must preserve the private URL. Never generate a replacement silently.
+const entryFile=path.join(root,'.local-archive','site-access.json');
+if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer .local-archive/site-access.json avant de publier.');
+const entryKey=JSON.parse(readFileSync(entryFile,'utf8')).key;
+if(!/^[a-f0-9]{64}$/.test(entryKey||''))throw new Error('Clé du lien privé invalide.');
 const digest=createHash('sha256');
 function verify(directory) {
   for (const entry of readdirSync(directory, {withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -53,7 +58,7 @@ let html = readFileSync(path.join(output, 'index.html'), 'utf8');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');
 html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
-html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.paledove36.chatgpt.site");
+html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site");
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
 html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
 html = html.replace(/((?:src|href)=")([^\"]+\.(?:js|css)(?:\?[^\"]*)?)(")/g,(_match,before,url,after)=>before+url+(url.includes('?')?'&':'?')+'wg='+revision+after);
@@ -85,9 +90,20 @@ for (const directory of [path.join(output,'js'),path.join(output,'browser')]) {
   const check=folder=>{for(const entry of readdirSync(folder,{withFileTypes:true})) {const filename=path.join(folder,entry.name);if(entry.isDirectory())check(filename);else if(entry.name.endsWith('.js') && /(?<![\w.-])on[a-z]+="/.test(readFileSync(filename,'utf8')))throw new Error('Gestionnaire HTML exécutable : '+entry.name);}};
   check(directory);
 }
-// The regular address always opens the PIN screen. GitHub Pages serves this
-// recovery page for unknown paths, then navigates to the canonical app origin.
-writeFileSync(path.join(output,'index.html'),html);
+// Only the private link can decrypt the live document. The key is never
+// published, and unknown paths must not redirect visitors to a working entry.
+mkdirSync(path.join(root,'.cache'),{recursive:true});
+writeFileSync(path.join(root,'.cache','site-document.html'),html);
+const iv=randomBytes(12);
+const cipher=createCipheriv('aes-256-gcm',Buffer.from(entryKey,'hex'),iv);
+cipher.setAAD(Buffer.from('WolfGuard private entry v1'));
+const encrypted=Buffer.concat([cipher.update(html,'utf8'),cipher.final(),cipher.getAuthTag()]);
+writeFileSync(path.join(output,'browser','site-entry.json'),JSON.stringify({iv:iv.toString('base64'),data:encrypted.toString('base64')}));
+let gateHTML=readFileSync(path.join(root,'browser','private-entry.html'),'utf8').replace(/\r\n/g,'\n');
+const loaderHash=createHash('sha384').update(readFileSync(path.join(output,'browser','private-entry.js'))).digest('base64');
+gateHTML=gateHTML.replace('src="browser/private-entry.js"','src="browser/private-entry.js?wg='+revision+'" integrity="sha384-'+loaderHash+'" crossorigin="anonymous"');
+writeFileSync(path.join(output,'index.html'),gateHTML);
+rmSync(path.join(output,'browser','private-entry.html'));
 writeFileSync(path.join(output,'404.html'),readFileSync(path.join(root,'browser','not-found.html'),'utf8').replace(/\r\n/g,'\n'));
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');

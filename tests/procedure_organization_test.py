@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright, expect
 from site_fixture import WolfGuardTestHandler
 
 ROOT=Path(__file__).resolve().parents[1]
-API='https://wolfguard-web-cantin.paledove36.chatgpt.site'
+API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 CODE='01234567'
 
 class Quiet(WolfGuardTestHandler):

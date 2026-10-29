@@ -1,5 +1,5 @@
 // Public API location, never a credential. Login sessions live in memory only.
-export const API_ORIGIN = 'https://wolfguard-web-cantin.paledove36.chatgpt.site';
+export const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 export const enabled = ['wolfguard.wavetools.fr','cantinbruno.github.io'].includes(location.hostname) || (local && new URLSearchParams(location.search).has('sync-test'));
 let token='',version=0,initialized=null,activation='';
