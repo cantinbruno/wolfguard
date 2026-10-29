@@ -1,4 +1,4 @@
-"""GitHub Pages entry: the good link opens the app; bad links end at real 404s."""
+"""GitHub Pages entry: valid link opens the app, invalid links fail DNS natively."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
@@ -9,6 +9,7 @@ import hashlib,json,os,subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
+UNAVAILABLE='https://site-introuvable.invalid/'
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
     def send_error(self,code,message=None,explain=None):
@@ -31,40 +32,41 @@ def run():
     url='http://127.0.0.1:4178/'
     try:
         with sync_playwright() as p:
-            browser=p.chromium.launch();context=browser.new_context(reduced_motion='reduce')
+            # Inspect the native error screen in a full browser, not headless shell.
+            browser=p.chromium.launch(channel='msedge');context=browser.new_context(reduced_motion='reduce')
             calls=[];errors=[]
             def proxy(route):
                 calls.append(urlsplit(route.request.url).path)
                 route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
             context.route(API+'/**',proxy)
             page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+            def ready():
+                expect(page.locator('#keypad')).to_be_visible(timeout=30000)
+                expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
             def missing(suffix):
                 page.goto('about:blank')
-                with page.expect_response(lambda response:response.url==url+'introuvable') as result:
+                with page.expect_event('requestfailed',predicate=lambda request:request.url==UNAVAILABLE) as failure:
                     page.goto(url+suffix,wait_until='commit')
-                assert result.value.status==404
-                assert result.value.body()==(ROOT/'docs/404.html').read_bytes()
-                expect(page).to_have_url(url+'introuvable')
-                expect(page.locator('h1')).to_have_text('404 Not Found')
+                assert failure.value.failure=='net::ERR_NAME_NOT_RESOLVED'
+                expect(page.locator('#main-frame-error')).to_be_visible()
                 assert page.locator('#keypad,#app,#entry-message').count()==0
             wrong=('0' if key[0]!='0' else '1')+key[1:]
             for suffix in ['', '?access=incorrect','?access='+wrong,'?access='+key+'&extra=1','index.html?access='+key,'#access='+key]:missing(suffix)
-            page.goto('about:blank');response=page.goto(url+'inconnu?access='+key)
-            assert response.status==404
-            assert response.body()==(ROOT/'docs/404.html').read_bytes()
-            assert page.locator('#keypad,#app').count()==0
+            response=context.request.get(url+'inconnu?access='+key)
+            assert response.status==404 and response.body()==(ROOT/'docs/404.html').read_bytes()
+            missing('inconnu?access='+key)
             page.goto(url+'?access='+key)
-            expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            ready()
             assert page.locator('script:not([integrity]),link[rel=stylesheet]:not([integrity])').count()==0
             page.keyboard.type('01234567')
             expect(page.locator('#lock .access-heading h2')).to_have_text('Confirmer le code')
             page.keyboard.type('01234567');expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function('()=>!document.querySelector("#app").inert')
-            page.reload();expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            page.reload();ready()
             page.keyboard.type('01234567');expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function('()=>!document.querySelector("#app").inert')
             page.set_viewport_size({'width':390,'height':844});page.reload()
-            expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            ready()
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             missing('')
             context.unroute(API+'/**');context.route(API+'/**',lambda route:route.abort())
@@ -73,7 +75,7 @@ def run():
             assert not errors,errors
             assert not (ROOT/'docs/browser/not-found.html').exists()
             browser.close()
-        print('PASS: entree GitHub Pages conservee, bon lien ouvre le clavier, mauvais liens diriges vers une vraie 404, donnees conservees au rechargement, mobile et panne API verifies')
+        print('PASS: vrais echecs DNS et ecran natif du navigateur sur mauvais liens et chemins inconnus; bon lien, donnees, rechargement, mobile et panne API verifies')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

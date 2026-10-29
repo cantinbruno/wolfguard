@@ -50,10 +50,11 @@ test('the published entry is encrypted, authenticates edits and contains no priv
   assert.match(html,/noindex, nofollow/);
   assert.match(read('docs/robots.txt'),/Disallow: \/\n/);
   const missing=read('docs/404.html');
-  assert.match(missing,/<title>404 Not Found<\/title>/);
-  assert.doesNotMatch(missing,/WolfGuard|GitHub|<script|<a\b|<form\b|http-equiv="refresh"/i);
+  assert.match(missing,/<meta http-equiv="refresh" content="0;url=https:\/\/site-introuvable\.invalid\/">/);
+  assert.doesNotMatch(missing,/WolfGuard|GitHub|<script|<a\b|<form\b|<h1\b/i);
+  assert.match(missing,/<body>\s*<\/body>/);
   assert.equal(existsSync(new URL('../docs/browser/not-found.html',import.meta.url)),false);
-  assert.match(read('docs/browser/private-entry.js'),/location\.replace\('\/introuvable'\)/);
+  assert.match(read('docs/browser/private-entry.js'),/location\.replace\('https:\/\/site-introuvable\.invalid\/'\)/);
   function inspect(folder) {
     for(const item of readdirSync(folder,{withFileTypes:true})) {
       const url=new URL(item.name+(item.isDirectory()?'/':''),folder);

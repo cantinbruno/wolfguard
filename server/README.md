@@ -21,10 +21,13 @@ data and no PIN session. The private frontend URL must pass this check before
 its encrypted startup document is decrypted and the PIN screen appears.
 Missing or incorrect links stay closed, including when the verifier is down.
 The frontend stays on GitHub Pages at wolfguard.wavetools.fr with its private
-`?access=` query. Missing/incorrect keys navigate to /introuvable, a nonexistent Pages
-path returning a real HTTP 404. The initial root request is still HTTP 200;
-Pages cannot choose its status based on a private key. Unknown paths get 404
-directly. The 404 document is neutral, with no branding or links. The key is absent from sources.
+`?access=` query. Missing/incorrect keys navigate to the reserved hostname
+`site-introuvable.invalid`, producing a real DNS failure and the browser's own
+network error. No key, original path or query is forwarded. The initial root
+request is still HTTP 200; Pages cannot choose its status based on a private
+key. Unknown paths receive 404 then a meta refresh to the same invalid host.
+The valid private link and frontend remain on GitHub Pages. The key is absent
+from public sources.
 Rotate only `ENTRY_LINK_HASH` for a new private link, then redeploy the existing
 saved server version; preserve the other secrets and storage bindings.
 The backend root does not advertise the frontend.

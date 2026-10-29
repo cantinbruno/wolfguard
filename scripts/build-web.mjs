@@ -104,8 +104,8 @@ const loaderHash=createHash('sha384').update(readFileSync(path.join(output,'brow
 gateHTML=gateHTML.replace('src="browser/private-entry.js"','src="browser/private-entry.js?wg='+revision+'" integrity="sha384-'+loaderHash+'" crossorigin="anonymous"');
 writeFileSync(path.join(output,'index.html'),gateHTML);
 rmSync(path.join(output,'browser','private-entry.html'));
-// Pages returns this unbranded document with HTTP 404 for unknown paths.
-// Send invalid entries to a missing path distinct from /404.html itself.
+// Unknown paths receive HTTP 404 then navigate to the reserved .invalid host,
+// letting the browser display its real network error without forwarding a key.
 writeFileSync(path.join(output,'404.html'),readFileSync(path.join(output,'browser','not-found.html')));
 rmSync(path.join(output,'browser','not-found.html'));
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
