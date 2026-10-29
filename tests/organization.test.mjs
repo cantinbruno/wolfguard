@@ -140,15 +140,17 @@ test('personal folders, trash, protected records and ambiguous command links are
   assert.throws(()=>technologyPlan(cycle),/Cycle/);
 });
 
-test('740 bundled fiches become exactly 100 guides with lossless encrypted source records',()=>{
+test('bundled fiches consolidate by subject with lossless source records, without a fixed guide quota',()=>{
   let source=bundled();
   for(const fn of ['buildMemoMailCleanup','buildMemoFormCleanup','buildMemoFolderOrganization','buildProcedureTechnologyOrganization'])source=apply(source,context[fn](source).operations);
   source=JSON.parse(JSON.stringify(source));
   const before=JSON.stringify(source),result=JSON.parse(JSON.stringify(context.buildLibraryConsolidation(source,'2026-10-29T12:00:00.000Z'))),after=apply(source,result.operations);
   assert.equal(JSON.stringify(source),before);
-  assert.equal(result.summary.sourceItems,740);assert.equal(result.summary.guides,100);
+  assert.equal(result.summary.sourceItems,740);
   const guides=after.items.filter(item=>item.consolidatedGuideVersion),visible=after.items.filter(item=>!item.deletedAt&&!item.consolidatedInto);
-  assert.equal(visible.length,100);assert.equal(new Set(guides.map(item=>item.title)).size,100);
+  assert.equal(visible.length,guides.length);assert.equal(result.summary.guides,guides.length);
+  assert.equal(new Set(guides.map(item=>item.title)).size,guides.length);
+  assert.ok(guides.length<source.items.length,'related source records must be consolidated');
   const byId=new Map(after.items.map(item=>[item.id,item]));
   for(const original of source.items) {
     const record=byId.get(original.id),{consolidatedInto,...rest}=record;
