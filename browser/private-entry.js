@@ -4,7 +4,7 @@
 // startup document. Never put the key in public source, storage or logs.
 (async () => {
   if (window.top !== window.self) return;
-  const missing = () => location.replace('/404');
+  const missing = () => location.replace('/introuvable');
   window.addEventListener('hashchange', () => location.reload());
   // The production address is exact: aliases, other paths and extra parameters
   // must not become alternate working links, even with the correct fragment.

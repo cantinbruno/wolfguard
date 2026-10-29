@@ -11,6 +11,14 @@ ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
+    def send_error(self,code,message=None,explain=None):
+        if code!=404:return super().send_error(code,message,explain)
+        data=(ROOT/'docs/404.html').read_bytes()
+        self.send_response(404)
+        self.send_header('Content-Type','text/html; charset=utf-8')
+        self.send_header('Content-Length',str(len(data)))
+        self.end_headers()
+        if self.command!='HEAD':self.wfile.write(data)
 
 def run():
     key=json.loads((ROOT/'.local-archive/site-access.json').read_text())['key']
@@ -32,15 +40,18 @@ def run():
             page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             def missing(suffix):
                 page.goto('about:blank')
-                with page.expect_response(lambda response:response.url==url+'404') as result:
+                with page.expect_response(lambda response:response.url==url+'introuvable') as result:
                     page.goto(url+suffix,wait_until='commit')
                 assert result.value.status==404
-                expect(page).to_have_url(url+'404')
+                assert result.value.body()==(ROOT/'docs/404.html').read_bytes()
+                expect(page).to_have_url(url+'introuvable')
+                expect(page.locator('h1')).to_have_text('404 Not Found')
                 assert page.locator('#keypad,#app,#entry-message').count()==0
             wrong=('0' if key[0]!='0' else '1')+key[1:]
             for suffix in ['', '?access=incorrect','?access='+wrong,'?access='+key+'&extra=1','index.html?access='+key,'#access='+key]:missing(suffix)
             page.goto('about:blank');response=page.goto(url+'inconnu?access='+key)
             assert response.status==404
+            assert response.body()==(ROOT/'docs/404.html').read_bytes()
             assert page.locator('#keypad,#app').count()==0
             page.goto(url+'?access='+key)
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
@@ -60,7 +71,7 @@ def run():
             missing('?access='+key)
             assert calls and all(path=='/api/entry' for path in calls)
             assert not errors,errors
-            assert not (ROOT/'docs/404.html').exists()
+            assert not (ROOT/'docs/browser/not-found.html').exists()
             browser.close()
         print('PASS: entree GitHub Pages conservee, bon lien ouvre le clavier, mauvais liens diriges vers une vraie 404, donnees conservees au rechargement, mobile et panne API verifies')
     finally:

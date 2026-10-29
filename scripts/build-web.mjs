@@ -104,8 +104,10 @@ const loaderHash=createHash('sha384').update(readFileSync(path.join(output,'brow
 gateHTML=gateHTML.replace('src="browser/private-entry.js"','src="browser/private-entry.js?wg='+revision+'" integrity="sha384-'+loaderHash+'" crossorigin="anonymous"');
 writeFileSync(path.join(output,'index.html'),gateHTML);
 rmSync(path.join(output,'browser','private-entry.html'));
-// Leave unknown paths to GitHub Pages' actual HTTP 404 response. The entry
-// loader sends invalid links to /404; no branded error page is published.
+// Pages returns this unbranded document with HTTP 404 for unknown paths.
+// Send invalid entries to a missing path distinct from /404.html itself.
+writeFileSync(path.join(output,'404.html'),readFileSync(path.join(output,'browser','not-found.html')));
+rmSync(path.join(output,'browser','not-found.html'));
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');
 writeFileSync(path.join(output, 'CNAME'), 'wolfguard.wavetools.fr\n');
