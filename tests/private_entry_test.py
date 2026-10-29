@@ -1,68 +1,69 @@
-"""The HTTP server, rather than an error message inside a 200 page, gates entry."""
+"""GitHub Pages entry: the good link opens the app; bad links end at real 404s."""
+from functools import partial
+from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
-from playwright.sync_api import sync_playwright, expect
+from threading import Thread
 from urllib.parse import urlsplit
-import hashlib, json, os, secrets, subprocess
+from playwright.sync_api import sync_playwright,expect
+import hashlib,json,os,subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
-SITE='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
+API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
+class Quiet(SimpleHTTPRequestHandler):
+    def log_message(self,*args):pass
 
 def run():
-    key=secrets.token_hex(32)
+    key=json.loads((ROOT/'.local-archive/site-access.json').read_text())['key']
+    env={**os.environ,'WG_TEST_ENTRY_HASH':hashlib.sha256(key.encode()).hexdigest()}
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    env={**os.environ,'WG_TEST_ENTRY_HASH':hashlib.sha256(key.encode()).hexdigest(),'WG_TEST_FRONTEND_ORIGIN':SITE}
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
+    server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')))
+    Thread(target=server.serve_forever,daemon=True).start()
+    url='http://127.0.0.1:4178/'
     try:
         with sync_playwright() as p:
-            browser=p.chromium.launch()
-            context=browser.new_context(reduced_motion='reduce')
+            browser=p.chromium.launch();context=browser.new_context(reduced_motion='reduce')
             calls=[];errors=[]
             def proxy(route):
-                url=urlsplit(route.request.url)
-                calls.append(url.path)
-                route.fulfill(response=route.fetch(url=backend+url.path+('?' + url.query if url.query else '')))
-            context.route(SITE+'/**',proxy)
-            context.route('https://wolfguard.wavetools.fr/**',proxy)
-            page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
-            for suffix in ['/', '/#access='+key, '/?access='+('f'*64), '/?access=incorrect', '/?access='+key+'&extra=1', '/index.html?access='+key, '/inconnu?access='+key]:
-                response=context.request.get(backend+suffix)
-                assert response.status==404,(suffix,response.status)
-                assert response.body()==b''
-                assert 'no-store' in response.headers['cache-control']
-            assert not (ROOT/'docs/index.html').exists()
-            assert not (ROOT/'docs/404.html').exists()
-            response=page.goto(SITE+'/?access='+key+'#activate='+('b'*64))
-            assert response.status==200
+                calls.append(urlsplit(route.request.url).path)
+                route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
+            context.route(API+'/**',proxy)
+            page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
+            def missing(suffix):
+                page.goto('about:blank')
+                with page.expect_response(lambda response:response.url==url+'404') as result:
+                    page.goto(url+suffix,wait_until='commit')
+                assert result.value.status==404
+                expect(page).to_have_url(url+'404')
+                assert page.locator('#keypad,#app,#entry-message').count()==0
+            wrong=('0' if key[0]!='0' else '1')+key[1:]
+            for suffix in ['', '?access=incorrect','?access='+wrong,'?access='+key+'&extra=1','index.html?access='+key,'#access='+key]:missing(suffix)
+            page.goto('about:blank');response=page.goto(url+'inconnu?access='+key)
+            assert response.status==404
+            assert page.locator('#keypad,#app').count()==0
+            page.goto(url+'?access='+key)
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
-            assert page.evaluate('WolfGuardCloud.enabled')
+            assert page.locator('script:not([integrity]),link[rel=stylesheet]:not([integrity])').count()==0
             page.keyboard.type('01234567')
             expect(page.locator('#lock .access-heading h2')).to_have_text('Confirmer le code')
-            page.keyboard.type('01234567')
-            expect(page.locator('#app')).to_be_visible(timeout=30000)
-            page.reload()
-            expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
-            page.keyboard.type('01234567')
-            expect(page.locator('#app')).to_be_visible(timeout=30000)
-            page.set_viewport_size({'width':390,'height':844})
-            page.reload()
+            page.keyboard.type('01234567');expect(page.locator('#app')).to_be_visible(timeout=30000)
+            page.wait_for_function('()=>!document.querySelector("#app").inert')
+            page.reload();expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            page.keyboard.type('01234567');expect(page.locator('#app')).to_be_visible(timeout=30000)
+            page.wait_for_function('()=>!document.querySelector("#app").inert')
+            page.set_viewport_size({'width':390,'height':844});page.reload()
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-            assert page.locator('script:not([integrity]),link[rel=stylesheet]:not([integrity])').count()==0
+            missing('')
+            context.unroute(API+'/**');context.route(API+'/**',lambda route:route.abort())
+            missing('?access='+key)
+            assert calls and all(path=='/api/entry' for path in calls)
             assert not errors,errors
-            assert '/api/status' in calls
-            response=page.goto('https://wolfguard.wavetools.fr/?access='+key)
-            assert response.status==200
-            expect(page.locator('#keypad button').first).to_be_enabled(timeout=30000)
-            assert page.evaluate('WolfGuardCloud.enabled && WolfGuardCloud.isInitialized()===true')
-            for filename in ['WolfGuard-Agent-Windows.exe','WolfGuard-Agent-Windows.zip']:
-                response=context.request.get(backend+'/downloads/'+filename,max_redirects=0)
-                assert response.status==200
-                assert 'location' not in response.headers
-                assert response.body()==(ROOT/'app/downloads'/filename).read_bytes()
+            assert not (ROOT/'docs/404.html').exists()
             browser.close()
-        print('PASS: vraies reponses HTTP 404 vides sans lien valide, HTTP 200 uniquement avec la bonne cle, code et donnees conserves au rechargement, bureau et mobile')
+        print('PASS: entree GitHub Pages conservee, bon lien ouvre le clavier, mauvais liens diriges vers une vraie 404, donnees conservees au rechargement, mobile et panne API verifies')
     finally:
-        process.terminate();process.wait(timeout=10)
+        server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 
 if __name__=='__main__':run()

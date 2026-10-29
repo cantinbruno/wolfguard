@@ -1,7 +1,7 @@
 """Serve the generated app document only in local regression tests.
 
-The production Worker checks the URL key before returning HTML. The dedicated
-private_entry_test.py tests real HTTP statuses; UI tests use this local fixture.
+Production index.html is the private-link gate. Dedicated private_entry_test.py
+tests that gate; existing UI tests exercise the app without a production key.
 """
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path

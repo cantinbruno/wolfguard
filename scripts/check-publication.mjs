@@ -10,15 +10,14 @@ for(const name of new Set(files)) {
   const filename=path.join(root,name);
   if(!existsSync(filename))continue;
   if(lstatSync(filename).isSymbolicLink()) {issues.add(name);continue;}
-  if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip','server/public/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
-  if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe','server/public/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
+  if(/\.zip$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.zip','docs/downloads/WolfGuard-Agent-Windows.zip'].includes(name)){issues.add(name);continue;}
+  if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
   if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi)$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
-  if(/^server\/public\/downloads\//.test(name)&&!bytes.equals(readFileSync(path.join(root,'app','downloads',path.basename(name)))))issues.add(name);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');
   if(secrets.some(pattern=>pattern.test(text)))issues.add(name);
-  if(/^(?:app|docs|server\/public)\/.*\.json$/i.test(name)) {
+  if(/^(?:app|docs)\/.*\.json$/i.test(name)) {
     let value;
     try { value=JSON.parse(text); } catch { issues.add(name);continue; }
     if(['wolfguard-web','wolfguard-workspace'].includes(value?.format) || (Array.isArray(value?.settings) && Array.isArray(value?.activity) && Array.isArray(value?.items)) || (Array.isArray(value?.items) && value.items.some(item=>item?.type==='vault' || item?.vaultBlobEnc || item?.passwordEnc)) || (Array.isArray(value?.settings) && value.settings.some(record=>['accessCodeHash','vaultCrypto'].includes(record?.key))))issues.add(name);

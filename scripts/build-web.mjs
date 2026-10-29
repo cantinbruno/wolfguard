@@ -2,12 +2,17 @@ import {execFileSync} from 'node:child_process';
 import {cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {createHash} from 'node:crypto';
+import {createHash, createCipheriv, randomBytes} from 'node:crypto';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md']);
+// A build must preserve the private URL. Never generate a replacement silently.
+const entryFile=path.join(root,'.local-archive','site-access.json');
+if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer .local-archive/site-access.json avant de publier.');
+const entryKey=JSON.parse(readFileSync(entryFile,'utf8')).key;
+if(!/^[a-f0-9]{64}$/.test(entryKey||''))throw new Error('Clé du lien privé invalide.');
 const digest=createHash('sha256');
 function verify(directory) {
   for (const entry of readdirSync(directory, {withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -85,25 +90,22 @@ for (const directory of [path.join(output,'js'),path.join(output,'browser')]) {
   const check=folder=>{for(const entry of readdirSync(folder,{withFileTypes:true})) {const filename=path.join(folder,entry.name);if(entry.isDirectory())check(filename);else if(entry.name.endsWith('.js') && /(?<![\w.-])on[a-z]+="/.test(readFileSync(filename,'utf8')))throw new Error('Gestionnaire HTML exécutable : '+entry.name);}};
   check(directory);
 }
-// Sites sends this document only after server-side validation of the URL.
-// GitHub Pages keeps downloadable/static files, with no working HTML entry.
+// Only the private link can decrypt the live document. The key is never
+// published, and unknown paths must not redirect visitors to a working entry.
 mkdirSync(path.join(root,'.cache'),{recursive:true});
 writeFileSync(path.join(root,'.cache','site-document.html'),html);
-const writeChanged=(filename,contents)=>{if(!existsSync(filename)||!readFileSync(filename).equals(Buffer.from(contents)))writeFileSync(filename,contents);};
-writeChanged(path.join(root,'server','lib','wolfguard','frontend.html'),html);
-const publicRoot=path.join(root,'server','public');
-function copyAssets(folder,target) {
-  mkdirSync(target,{recursive:true});
-  for(const entry of readdirSync(folder,{withFileTypes:true})) {
-    const input=path.join(folder,entry.name),destination=path.join(target,entry.name);
-    if(entry.isDirectory())copyAssets(input,destination);
-    else writeChanged(destination,readFileSync(input));
-  }
-}
-for(const folder of ['browser','css','data','images','js','vendor'])copyAssets(path.join(output,folder),path.join(publicRoot,folder));
-mkdirSync(path.join(publicRoot,'downloads'),{recursive:true});
-for(const name of ['WolfGuard-Agent-Windows.exe','WolfGuard-Agent-Windows.zip'])writeChanged(path.join(publicRoot,'downloads',name),readFileSync(path.join(output,'downloads',name)));
-rmSync(path.join(output,'index.html'));
+const iv=randomBytes(12);
+const cipher=createCipheriv('aes-256-gcm',Buffer.from(entryKey,'hex'),iv);
+cipher.setAAD(Buffer.from('WolfGuard private entry v1'));
+const encrypted=Buffer.concat([cipher.update(html,'utf8'),cipher.final(),cipher.getAuthTag()]);
+writeFileSync(path.join(output,'browser','site-entry.json'),JSON.stringify({iv:iv.toString('base64'),data:encrypted.toString('base64')}));
+let gateHTML=readFileSync(path.join(root,'browser','private-entry.html'),'utf8').replace(/\r\n/g,'\n');
+const loaderHash=createHash('sha384').update(readFileSync(path.join(output,'browser','private-entry.js'))).digest('base64');
+gateHTML=gateHTML.replace('src="browser/private-entry.js"','src="browser/private-entry.js?wg='+revision+'" integrity="sha384-'+loaderHash+'" crossorigin="anonymous"');
+writeFileSync(path.join(output,'index.html'),gateHTML);
+rmSync(path.join(output,'browser','private-entry.html'));
+// Leave unknown paths to GitHub Pages' actual HTTP 404 response. The entry
+// loader sends invalid links to /404; no branded error page is published.
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');
 writeFileSync(path.join(output, 'CNAME'), 'wolfguard.wavetools.fr\n');

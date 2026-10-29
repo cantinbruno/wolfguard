@@ -2,7 +2,7 @@ const WolfGuardCloud = (() => {
 // Public API location, never a credential. Login sessions live in memory only.
 const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
-const enabled = ['wolfguard.wavetools.fr','wolfguard-web-cantin.cantin-bruno.chatgpt.site'].includes(location.hostname) || (local && new URLSearchParams(location.search).has('sync-test'));
+const enabled = location.hostname==='wolfguard.wavetools.fr' || (local && new URLSearchParams(location.search).has('sync-test'));
 let token='',version=0,initialized=null,activation='';
 function captureActivation(){
   const match=/^#activate=([a-f0-9]{64})$/.exec(location.hash);
