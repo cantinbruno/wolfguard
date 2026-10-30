@@ -1,6 +1,7 @@
 'use strict';
 
 const webScanWorkspace = (() => {
+  const compareAddresses = new Intl.Collator('en', {numeric: true}).compare;
   let generation=0;
   const make=kind=>({kind,loaded:false,report:null,reference:null,saved:[],tab:'overview',query:'',filter:'all',sort:'address',page:0,target:'',profile:kind==='map'?'discovery':'common',ports:'22,80,443,445,3389',identify:false,platform:'windows',status:'',error:false,busy:false});
   const fresh=()=>Object.fromEntries(Object.keys(scanInsights.definitions).map(kind=>[kind,make(kind)]));
@@ -18,15 +19,18 @@ const webScanWorkspace = (() => {
   function alive(kind,view,token){return token===generation&&view===views[kind]&&state.section==='scan-'+kind&&!$('#app').classList.contains('hidden');}
   function message(view,value,error=false){view.status=value;view.error=error;const el=$('#wgScanStatus');if(el){el.textContent=value;el.classList.toggle('is-error',error);el.setAttribute('role',error?'alert':'status');}}
   function hostRows(report){
-    const hosts=new Map();for(const row of report?.rows||[]){if(!hosts.has(row.address))hosts.set(row.address,{address:row.address,name:row.hostname,rows:[],open:0,listening:0});const host=hosts.get(row.address);host.rows.push(row);if(row.status==='open')host.open++;if(row.status==='listening')host.listening++;}return [...hosts.values()].sort((a,b)=>b.open-a.open||b.listening-a.listening||a.address.localeCompare(b.address,'en',{numeric:true}));
+    const hosts=new Map();for(const row of report?.rows||[]){if(!hosts.has(row.address))hosts.set(row.address,{address:row.address,name:row.hostname,rows:[],open:0,listening:0});const host=hosts.get(row.address);host.rows.push(row);if(row.status==='open')host.open++;if(row.status==='listening')host.listening++;}return [...hosts.values()].sort((a,b)=>b.open-a.open||b.listening-a.listening||compareAddresses(a.address,b.address));
   }
   function summary(view,passive){
-    const rows=view.report?.rows||[],hosts=hostRows(view.report),known=view.report!==null;
-    const metrics=passive?[[hosts.length,'Adresses locales / voisins'],[rows.filter(r=>r.status==='listening').length,'Écoutes TCP'],[rows.filter(r=>r.status==='connection').length,'Connexions TCP'],[new Set(rows.filter(r=>r.pid!==null).map(r=>r.pid)).size,'PID identifiés']]:[[hosts.length,'Machines dans le rapport'],[rows.filter(r=>r.status==='open').length,'Ports ouverts'],[rows.filter(r=>r.status.includes('filtered')).length,'Ports filtrés / ambigus'],[new Set(rows.filter(r=>r.service).map(r=>r.service)).size,'Services nommés']];
-    $('#wgScanMetrics').innerHTML=metrics.map(([n,label],i)=>'<article><span class="wgscan-metric-index">0'+(i+1)+'</span><strong>'+ (known?n.toLocaleString('fr-FR'):'—')+'</strong><span>'+label+'</span></article>').join('');
+    const rows=view.report?.rows||[],known=view.report!==null;
     const stamp=$('#wgScanReportStamp');stamp.textContent=known?view.report.name+' · '+view.report.source+' · importé le '+date(view.report.importedAt):'Aucun relevé chargé';
     $('#wgScanSave').disabled=!known||view.busy;$('#wgScanReference').disabled=!known;$('#wgScanClear').disabled=!known;
     $('#wgScanExport').disabled=!known;
+    // These sections render their own metrics and overview below.
+    if(view.kind==='map'||view.kind==='vulnerability')return;
+    const hosts=hostRows(view.report);
+    const metrics=passive?[[hosts.length,'Adresses locales / voisins'],[rows.filter(r=>r.status==='listening').length,'Écoutes TCP'],[rows.filter(r=>r.status==='connection').length,'Connexions TCP'],[new Set(rows.filter(r=>r.pid!==null).map(r=>r.pid)).size,'PID identifiés']]:[[hosts.length,'Machines dans le rapport'],[rows.filter(r=>r.status==='open').length,'Ports ouverts'],[rows.filter(r=>r.status.includes('filtered')).length,'Ports filtrés / ambigus'],[new Set(rows.filter(r=>r.service).map(r=>r.service)).size,'Services nommés']];
+    $('#wgScanMetrics').innerHTML=metrics.map(([n,label],i)=>'<article><span class="wgscan-metric-index">0'+(i+1)+'</span><strong>'+ (known?n.toLocaleString('fr-FR'):'—')+'</strong><span>'+label+'</span></article>').join('');
     const hints=[];
     if(known){
       if(passive){const broad=rows.filter(r=>['listening','bound'].includes(r.status)&&['0.0.0.0','::','*'].includes(r.address));if(broad.length)hints.push(['À vérifier',broad.length+' écoute(s) ou socket(s) sur toutes les interfaces','Vérifie le besoin du service et les règles du pare-feu. La liaison locale ne prouve pas une exposition à Internet.']);const neighbors=rows.filter(r=>r.status==='observed');if(neighbors.length)hints.push(['Contexte',neighbors.length+' voisin(s) dans les caches','Ces entrées peuvent être anciennes. Ce relevé ne contient aucune preuve de joignabilité.']);}
@@ -39,12 +43,12 @@ const webScanWorkspace = (() => {
   function empty(passive){return `<section class="wgscan-empty"><div class="wgscan-map" aria-hidden="true"><span></span><span></span><span></span><i></i></div><span class="wgscan-kicker">${passive?'OBSERVER · COMPRENDRE · COMPARER':'DÉCOUVRIR · EXAMINER · SUIVRE'}</span><h2>${passive?'Ton réseau, à partir des faits.':'Un rapport brut. Une lecture claire.'}</h2><p>${passive?'Importe un relevé ARP, netstat, ss ou PowerShell pour retrouver les adresses, les écoutes et les connexions dans une seule vue.':'Importe le XML de ton scan Nmap pour explorer les machines, les ports, les services et les changements.'}</p><div class="wgscan-empty-steps"><span><b>01</b> Préparer le relevé</span><span><b>02</b> Importer le fichier</span><span><b>03</b> Examiner les résultats</span></div></section>`;}
   function filtered(view){
     const query=view.query.toLocaleLowerCase('fr');
-    return (view.report?.rows||[]).filter(row=>(view.filter==='all'||row.status===view.filter)&&(!query||Object.values(row).join(' ').toLocaleLowerCase('fr').includes(query))).sort((a,b)=>view.sort==='port'?(a.port??-1)-(b.port??-1):view.sort==='status'?a.status.localeCompare(b.status):a.address.localeCompare(b.address,'en',{numeric:true})||(a.port??-1)-(b.port??-1));
+    return (view.report?.rows||[]).filter(row=>(view.filter==='all'||row.status===view.filter)&&(!query||Object.values(row).join(' ').toLocaleLowerCase('fr').includes(query))).sort((a,b)=>view.sort==='port'?(a.port??-1)-(b.port??-1):view.sort==='status'?a.status.localeCompare(b.status):compareAddresses(a.address,b.address)||(a.port??-1)-(b.port??-1));
   }
   function badge(row){return '<span class="wgscan-badge" data-status="'+esc(row.status)+'">'+esc(labels[row.status]||row.status)+'</span>';}
   function endpoint(address,port){return address?(address.includes(':')?'['+address+']':address)+(port===null?'':':'+port):'—';}
-  function drawRows(view,passive){
-    const rows=filtered(view),pageCount=Math.max(1,Math.ceil(rows.length/75));view.page=Math.min(view.page,pageCount-1);
+  function drawRows(view,passive,rows){
+    const pageCount=Math.max(1,Math.ceil(rows.length/75));view.page=Math.min(view.page,pageCount-1);
     const shown=rows.slice(view.page*75,(view.page+1)*75);
     $('#wgScanRows').innerHTML=`<div class="wgscan-table-controls"><label class="wgscan-search">${PROTOCOL_ICONS.search}<input id="wgScanSearch" type="search" placeholder="Adresse, port, service, processus…" aria-label="Rechercher dans le relevé" value="${esc(view.query)}"></label><select id="wgScanFilter" aria-label="Filtrer par état"><option value="all">Tous les états</option>${[...new Set((view.report?.rows||[]).map(r=>r.status))].map(status=>'<option value="'+esc(status)+'" '+(view.filter===status?'selected':'')+'>'+esc(labels[status]||status)+'</option>').join('')}</select><select id="wgScanSort" aria-label="Trier les résultats">${[['address','Par adresse'],['port','Par port'],['status','Par état']].map(([value,label])=>'<option value="'+value+'" '+(view.sort===value?'selected':'')+'>'+label+'</option>').join('')}</select><span>${rows.length.toLocaleString('fr-FR')} résultat(s)</span></div><div class="wgscan-table-wrap"><table><thead><tr><th>Adresse</th><th>${passive?'Port local':'Port'}</th><th>État</th><th>${passive?'Processus / pair distant':'Service / version'}</th><th>${passive?'Interface / MAC':'Nom d’hôte'}</th><th><span class="wgscan-sr">Détail</span></th></tr></thead><tbody>${shown.map((row,index)=>`<tr><td><code>${esc(row.address)}</code></td><td><code>${row.port??'—'}</code> <small>${esc(row.transport)}</small></td><td>${badge(row)}</td><td><strong>${esc(passive?(row.processName||(row.pid!==null?'PID '+row.pid:'')):(row.service||'—'))}</strong><small>${esc(passive?endpoint(row.remoteAddress,row.remotePort):[row.product,row.version].filter(Boolean).join(' '))}</small></td><td>${esc(passive?(row.interfaceName||row.macAddress||'—'):(row.hostname||'—'))}</td><td><button type="button" class="wgscan-row-detail" data-wg-row="${index}" aria-label="Détail ${esc(endpoint(row.address,row.port))}">↗</button></td></tr>`).join('')}</tbody></table>${!shown.length?'<p class="wgscan-table-empty">'+(view.report?'Aucune observation ne correspond aux filtres.':'Importe un relevé pour afficher les observations.')+'</p>':''}</div><footer class="wgscan-table-footer"><span>Page ${view.page+1} sur ${pageCount} · 75 lignes par page</span><div><button type="button" id="wgScanPrev" ${view.page===0?'disabled':''}>← Précédente</button><button type="button" id="wgScanNext" ${view.page+1>=pageCount?'disabled':''}>Suivante →</button></div></footer>`;
     $('#wgScanSearch').oninput=event=>{const start=event.target.selectionStart;view.query=event.target.value;view.page=0;draw(view,passive);const input=$('#wgScanSearch');input.focus();if(input.type==='text')input.setSelectionRange(start,start);};
@@ -68,7 +72,8 @@ const webScanWorkspace = (() => {
   }
   function draw(view,passive){
     if(!$('#wgScanMetrics'))return;
-    summary(view,passive);drawRows(view,passive);changes(view);
+    const visibleRows=filtered(view);
+    summary(view,passive);drawRows(view,passive,visibleRows);changes(view);
     if(view.kind==='map'){
       $('#wgScanOverview').innerHTML=scanInsights.mapping(view.report);
       scanInsights.bindMapping($('#wgScanOverview'),address=>{view.query=address;view.filter='all';view.tab='rows';view.page=0;draw(view,passive);});
@@ -81,7 +86,7 @@ const webScanWorkspace = (() => {
       const rows=view.report?.rows||[],metrics=[[rows.filter(r=>r.status==='issue').length,'Risques détectés'],[rows.filter(r=>r.status==='passed').length,'Contrôles réussis'],[rows.filter(r=>r.status==='notchecked').length,'Non vérifiés'],[rows.filter(r=>r.status==='issue'&&['critical','high'].includes(r.severity)).length,'Risques élevés / critiques']];
       $('#wgScanMetrics').innerHTML=metrics.map(([n,label])=>'<article><strong>'+(view.report?n:'—')+'</strong><span>'+label+'</span></article>').join('');
       $('#wgScanRows thead').innerHTML='<tr><th>Contrôle</th><th>État</th><th>Gravité</th><th>Observation</th><th>Suite proposée</th><th>Détail</th></tr>';
-      const shown=filtered(view).slice(view.page*75,(view.page+1)*75);
+      const shown=visibleRows.slice(view.page*75,(view.page+1)*75);
       $('#wgScanRows tbody').innerHTML=shown.map((row,index)=>'<tr><td>'+esc(row.title)+'</td><td>'+badge(row)+'</td><td>'+esc(row.status==='issue'?(scanInsights.severity[row.severity]||'À examiner'):'—')+'</td><td>'+esc(row.detail)+'</td><td>'+esc(row.recommendation)+'</td><td><button type="button" class="wgscan-row-detail" data-wg-audit="'+index+'">↗</button></td></tr>').join('');
       for(const button of $('#wgScanRows').querySelectorAll('[data-wg-audit]'))button.onclick=()=>detail(shown[Number(button.dataset.wgAudit)],true);
     }

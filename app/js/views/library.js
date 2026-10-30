@@ -110,7 +110,7 @@ async function renderLibraryCatalog() {
     folder: names.get(item.folderId) || '',
     search: workspaceCatalogText([item.title, libraryText(item), item.context, item.example, item.vendor, item.platform, ...(item.tags || []), names.get(item.folderId)].join(' '))
   }));
-  let previous = JSON.stringify([view.query, view.kind, view.sort]);
+  let previous = JSON.stringify([view.query, view.kind, view.sort]), sortedBy, orderedEntries;
   const update = () => {
     view.query = $('#workspaceLocalSearch').value;
     view.sort = $('#workspaceCatalogSort').value;
@@ -119,9 +119,12 @@ async function renderLibraryCatalog() {
       view.page = 0;
       previous = filter
     }
+    if (sortedBy !== view.sort) {
+      sortedBy = view.sort;
+      orderedEntries = entries.slice().sort((a, b) => (view.sort === 'recent' ? timestamp(b.item.updatedAt) - timestamp(a.item.updatedAt) : 0) || (a.item.title || '').localeCompare(b.item.title || '', 'fr'));
+    }
     const terms = collectionSearchTerms(view.query),
-      filtered = entries.filter(entry => collectionSearchMatches(entry.search, terms));
-    filtered.sort((a, b) => (view.sort === 'recent' ? timestamp(b.item.updatedAt) - timestamp(a.item.updatedAt) : 0) || (a.item.title || '').localeCompare(b.item.title || '', 'fr'));
+      filtered = orderedEntries.filter(entry => collectionSearchMatches(entry.search, terms));
     const nodes = collectionPageSlice(filtered, view).map(entry => {
       const {
         item

@@ -6,7 +6,7 @@ const webWorkspace = (() => {
   let cryptography, storage, cloud, tabSessions, tabSession, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
-  let sessionClock = null, rotating = false, cloudHeartbeat = null;
+  let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
   const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
   function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
@@ -74,11 +74,16 @@ const webWorkspace = (() => {
     if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
   }
   function armSessionTimer() {
-    clearTimeout(autoLockTimer);autoLockTimer=null;
-    if (!session || !sessionClock) return;
+    if (!session || !sessionClock) { clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0; return; }
     const wall=Date.now(),mono=performance.now(),clock=sessionClock;
     const remaining=Math.min(IDLE_MS-(wall-clock.active),IDLE_MS-(mono-clock.monotonicActive),SESSION_MS-(wall-clock.started),SESSION_MS-(mono-clock.monotonicStart));
-    autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
+    const delay=Math.max(1,remaining),due=mono+delay;
+    // An earlier pending check is safe to keep: it rechecks the exact deadlines
+    // and rearms itself if needed. Activity still updates both clocks on every
+    // trusted event, without recreating a timer on every pointer movement.
+    if(autoLockTimer!==null && sessionTimerDue>0 && sessionTimerDue<=due)return;
+    clearTimeout(autoLockTimer);sessionTimerDue=due;
+    autoLockTimer=setTimeout(()=>{autoLockTimer=null;sessionTimerDue=0;if(sessionExpired())lock();else armSessionTimer();},delay);
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;

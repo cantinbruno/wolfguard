@@ -42,6 +42,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification du rendu initial echouee. Aucune publication.' }
     & python tests/session_resume_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification de la reprise apres rafraichissement echouee. Aucune publication.' }
+    & python tests/optimization_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des optimisations echouee. Aucune publication.' }
     & python tests/agent_window_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification de la fenetre native de l agent echouee. Aucune publication.' }
     & python tests/procedure_organization_test.py

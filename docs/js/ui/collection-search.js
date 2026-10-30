@@ -60,12 +60,11 @@ function initWorkspaceTreeSearch(folders) {
     folder: node.dataset.treeFolderId,
     text: node.dataset.treeFilter + ' ' + folderText(node.dataset.treeFolderId)
   }));
-  const folderRows = [...document.querySelectorAll('#unifiedTree .tree-children')].map(children => ({
-    children,
-    node: children.previousElementSibling,
-    id: children.dataset.folderId,
-    text: folderText(children.dataset.folderId)
-  }));
+  const folderRows = [...document.querySelectorAll('#unifiedTree .tree-children')].map(children => {
+    const node = children.previousElementSibling;
+    return {children, node, id: children.dataset.folderId, text: folderText(children.dataset.folderId),
+      caret: node.querySelector('.tree-caret'), label: node.querySelector('.tree-label'), icon: node.querySelector('.tree-icon'), iconReady: false};
+  });
   input.value = view.navigationQuery || '';
   bindCollectionSearch(input, $('#clearTreeFilter'), () => {
     view.navigationQuery = input.value;
@@ -85,11 +84,14 @@ function initWorkspaceTreeSearch(folders) {
       else row.node.style.setProperty('display', 'none', 'important');
       const expanded = terms.length ? visibleFolders.has(row.id) && row.children.children.length > 0 : expandedFolders.has(row.id);
       row.children.classList.toggle('collapsed', !expanded);
-      const caret = row.node.querySelector('.tree-caret');
+      const caret = row.caret, updateIcon = !row.iconReady || caret.getAttribute('aria-expanded') !== String(expanded);
       caret.title = expanded ? 'Replier' : 'D\u00e9plier';
       caret.setAttribute('aria-expanded', String(expanded));
-      caret.setAttribute('aria-label', caret.title + ' ' + row.node.querySelector('.tree-label').textContent);
-      row.node.querySelector('.tree-icon').innerHTML = expanded ? workspaceNavigationIcon('folder-open') : PROTOCOL_ICONS.folder;
+      caret.setAttribute('aria-label', caret.title + ' ' + row.label.textContent);
+      if (updateIcon) {
+        row.icon.innerHTML = expanded ? workspaceNavigationIcon('folder-open') : PROTOCOL_ICONS.folder;
+        row.iconReady = true;
+      }
     }
     const empty = $('#workspaceTreeEmpty');
     empty.hidden = !terms.length || itemRows.some(row => row.node.style.display !== 'none') || visibleFolders.size > 0;
