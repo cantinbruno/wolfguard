@@ -66,7 +66,7 @@ Chaque espace propose une synthèse, les adresses observées, une table avec rec
 
 Le bouton Enregistrer conserve jusqu’à trois relevés par section (collection limitée à 2 Mo), avec le chiffrement et la synchronisation de l’espace existant. Un remplacement ou une suppression demande une confirmation ; un import ou une sauvegarde en échec conserve le relevé courant. Les relevés enregistrés peuvent être chargés sur un autre appareil. Les imports non enregistrés et la référence sont effacés au verrouillage. L’export CSV suit les filtres ; le JSON exporte le relevé complet. Ces fichiers exportés sont lisibles en clair. Pour une copie chiffrée de l’ensemble, utiliser la sauvegarde dans Paramètres → Données.
 
-## Sources et publication automatique
+## Sources et publication manuelle
 
 - `myapp/` est directement le dépôt Git `cantinbruno/wolfguard`, avec la même arborescence et le même historique que GitHub.
 - `app/` : sources de l’interface d’origine, désormais modifiées directement dans ce dépôt.
@@ -75,27 +75,17 @@ Le bouton Enregistrer conserve jusqu’à trois relevés par section (collection
 - `server/` : source complète du serveur Sites, schéma D1 et migrations ; les secrets restent configurés uniquement chez l’hébergeur.
 - `docs/` : résultat de `scripts/build-web.mjs`, publié par GitHub Pages. `CNAME` conserve le domaine personnalisé.
 
-La surveillance locale `scripts/watch-myapp.ps1` détecte les modifications de `app/`, `browser/`, `server/`, `scripts/`, `tests/` et des fichiers de configuration du dépôt, attend la fin des écritures, prépare `docs/`, exécute les tests puis crée un commit et pousse sur GitHub. Les mises à jour distantes sont récupérées quand le dossier local est propre. GitHub Pages publie chaque push sur `main`. Le serveur Sites utilise un déploiement distinct ; pousser son code sur GitHub ne redéploie pas son API. Voir `server/README.md`.
+La surveillance et les pushes automatiques du dossier sont désactivés. La tâche Windows **WolfGuard-Web-AutoPublish** est arrêtée et désactivée, y compris à l’ouverture de session. Ne pas relancer `scripts/watch-myapp.ps1` ni réactiver cette tâche sans demande explicite de l’utilisateur.
 
-Elle fonctionne pendant que ce PC est allumé, avec la session utilisateur ouverte, Internet et l’accès GitHub disponibles. Elle démarre avec la tâche Windows **WolfGuard-Web-AutoPublish** à l’ouverture de session. Une erreur de test, un conflit distant, une préparation Git en cours ou un fichier hors des sources autorisées suspendent le push ; aucun historique n’est forcé et les modifications sont conservées. Le journal est `.cache/auto-publication.log`, exclu de Git. Les échecs de connexion sont réessayés.
-
-Lancer une synchronisation manuellement depuis ce dépôt :
+Après chaque changement terminé, effectuer les vérifications adaptées, créer un commit puis pousser explicitement avec Git. Pour une modification de l’application, préparer également `docs/` avec `node scripts/build-web.mjs` avant les vérifications. La consigne de publication pour les agents de développement est conservée dans `AGENTS.md`.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync-myapp.ps1
+git add -- <fichiers-modifies>
+git commit -m "Description du changement"
+git push origin main
 ```
 
-Pour arrêter ou reprendre la surveillance :
-
-```powershell
-Stop-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
-Disable-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
-# Pour reprendre :
-Enable-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
-Start-ScheduledTask -TaskName WolfGuard-Web-AutoPublish
-```
-
-Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de copie intermédiaire `github-wolfguard/`. Pour publier manuellement, lancer `node scripts/build-web.mjs`, vérifier puis pousser, ou utiliser `scripts/sync-myapp.ps1`.
+Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de copie intermédiaire `github-wolfguard/`. GitHub Pages publie chaque push sur `main`. Le serveur Sites utilise un déploiement distinct ; pousser son code sur GitHub ne redéploie pas son API. Voir `server/README.md`.
 
 Sur ce PC, l’ancienne application Windows complète et ses bases sont conservées dans `.local-archive/windows-original/` ; l’ancienne version web séparée est dans `.local-archive/previous-web/`. L’intégralité de `.local-archive/` est exclue de Git et de la publication. Les empreintes des fichiers de données ont été vérifiées après leur déplacement. L’ancienne application peut être lancée avec `.local-archive/windows-original/WolfGuard.exe`.
 
