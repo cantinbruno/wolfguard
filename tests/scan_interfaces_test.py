@@ -29,6 +29,7 @@ def run():
             # Empty views and inputs describe the actual operation; agent setup stays in settings.
             for kind in ['passive','active','map','vulnerability']:
                 navigate(page,kind)
+                expect(page.locator('.wgscan')).to_have_attribute('data-layout',{'passive':'monitor','active':'probe','map':'atlas','vulnerability':'review'}[kind])
                 expect(page.locator('[data-empty-kind]')).to_have_attribute('data-empty-kind',kind)
                 expect(page.locator('#wgScanAgentHost #wgAgentLaunch')).to_have_count(1)
                 expect(page.locator('#wgAgentPair,#wgAgentSelect,#wgAgentDownload')).to_have_count(0)
@@ -37,6 +38,12 @@ def run():
                 expect(page.locator('#wgPassiveScope')).to_have_count(1 if kind=='passive' else 0)
                 expect(page.locator('#wgScanCommand')).to_have_count(0 if kind=='vulnerability' else 1)
                 expect(page.locator('#wgAgentTimeout')).to_have_count(1 if kind in ['active','map'] else 0)
+                # Check actual placement, not just different names or colors.
+                placement=page.evaluate('''()=>{const box=s=>document.querySelector(s).getBoundingClientRect();
+                  const overview=box('#wgScanOverview'),agent=box('#wgScanAgentHost'),metrics=box('#wgScanMetrics'),page=box('.wgscan');
+                  return {right:agent.left>=overview.right,above:agent.bottom<=overview.top,wide:overview.width>page.width*.85,left:metrics.right<=overview.left};}''')
+                assert placement[{'passive':'right','active':'above','map':'wide','vulnerability':'left'}[kind]],(kind,placement)
+                page.screenshot(path=str(ROOT/f'.cache/scan-layout-{kind}-empty.png'),animations='disabled')
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
             navigate(page,'passive'); page.locator('#wgPassiveScope').select_option('listeners')
@@ -91,6 +98,10 @@ def run():
             page.locator('#wgAuditSeverity').select_option('all');page.locator('#wgAuditSearch').fill('correctifs')
             expect(page.locator('.wgscan-audit-item')).to_have_count(1)
             page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            page.locator('.wgscan-row-detail').click()
+            expect(page.locator('#wgScanDetailTitle')).to_have_text('Correctifs')
+            expect(page.locator('#wgScanDetailBody')).to_contain_text('Preuve du contrôle')
+            page.locator('#wgScanDetail [data-wg-close]').click()
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgAuditSearch').fill('')
             expect(page.locator('.wgscan-audit-overview script,.wgscan-audit-overview img,.wgscan-audit-overview svg')).to_have_count(0)
             print('PASS: audit prioritizes risks, filters severity and proof, copies recommendations and escapes imported content')
