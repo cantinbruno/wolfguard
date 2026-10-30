@@ -106,22 +106,23 @@ def run():
             page.evaluate("window.testClipboard='Nouvelle copie a conserver'")
             page.clock.fast_forward(30100)
             assert page.evaluate('window.testClipboard')=='Nouvelle copie a conserver'
+            page.clock.fast_forward(15*60000)
             closed(page)
             print('PASS: presse-papiers nettoye si autorise, nouvelle copie preservee, verrouillage impose malgre ancien reglage desactive')
 
             unlock(page)
-            page.clock.fast_forward(55000)
+            page.clock.fast_forward(15*60000-5000)
             page.evaluate("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Shift',bubbles:true}))")
             page.clock.fast_forward(6000);closed(page)
             unlock(page)
-            for _ in range(16):
-                page.clock.fast_forward(55000)
+            for _ in range(48):
+                page.clock.fast_forward(10*60000-1000)
                 page.keyboard.press('Shift')
-            page.clock.fast_forward(20100);closed(page)
-            print('PASS: activite artificielle sans effet et session maximale de 15 minutes meme avec activite reelle')
+            page.clock.fast_forward(60100);closed(page)
+            print('PASS: activite artificielle sans effet, inactivite de 15 minutes et session maximale de 8 heures meme avec activite reelle')
 
             unlock(page)
-            page.clock.set_system_time(page.evaluate('Date.now()+61000'))
+            page.clock.set_system_time(page.evaluate('Date.now()+15*60000+1000'))
             assert page.evaluate("async()=>{try{await all('items');return false}catch{return true}}")
             closed(page)
             print('PASS: acces refuse si le delai expire avant le declenchement du minuteur')
@@ -149,7 +150,7 @@ def run():
             def corrupt(route):
                 response=route.fetch()
                 route.fulfill(response=response,body=response.body()+b'\n// altered asset')
-            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js']:
+            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js','tab-session.bundle.js']:
                 tampered=browser.new_context();blocked=tampered.new_page()
                 blocked.route('**/browser/'+asset+'?*',corrupt)
                 blocked.goto(url)

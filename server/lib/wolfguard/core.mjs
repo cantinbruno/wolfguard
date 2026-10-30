@@ -3,7 +3,7 @@ import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
-const SESSION_MS = 15 * 60000, IDLE_MS = 60000;
+const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 15 * 60000;
 const hex = bytes => [...new Uint8Array(bytes)].map(x => x.toString(16).padStart(2,'0')).join('');
 const bytes = value => Uint8Array.from(value.match(/../g) || [], x => parseInt(x,16));
 const random = length => hex(crypto.getRandomValues(new Uint8Array(length)));

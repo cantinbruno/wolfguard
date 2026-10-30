@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {create,open,seal,validateEnvelope,WORKSPACE_VERSION} from '../browser/crypto.js';
+import {create,open,openWithKey,seal,validateEnvelope,WORKSPACE_VERSION} from '../browser/crypto.js';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
@@ -26,6 +26,8 @@ test('workspace encryption authenticates metadata and uses nonextractable keys a
   const next=await seal(payload,result.key,result.salt,2);
   assert.notEqual(next.iv,result.envelope.iv);
   assert.deepEqual((await open(next,'07942685')).payload,payload);
+  assert.deepEqual((await openWithKey(next,result.key,result.salt)).payload,payload);
+  await assert.rejects(openWithKey(next,result.key,new Uint8Array(16)),{code:'INVALID_ACCESS_CODE'});
   for(const changes of [{revision:2},{version:2},{iv:btoa(String.fromCharCode(...new Uint8Array(12)))},{salt:btoa(String.fromCharCode(...new Uint8Array(16)))}]){
     await assert.rejects(open({...result.envelope,...changes},'07942685'),{code:'INVALID_ACCESS_CODE'});
   }

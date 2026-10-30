@@ -16,7 +16,7 @@ class Bucket {
   async get(key){const data=this.objects.get(key);return data?{...data,body:new Response(data.value).body}:null;}
   async delete(key){this.objects.delete(key);}
 }
-const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:'http://127.0.0.1:4178'};
+const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
 let offset=0;
 const server=createServer(async(req,res)=>{

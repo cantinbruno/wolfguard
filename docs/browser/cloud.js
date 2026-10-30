@@ -1,4 +1,4 @@
-// Public API location, never a credential. Login sessions live in memory only.
+// Public API location, never a credential. Reload tickets are scoped to one tab.
 export const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 export const enabled = location.hostname==='wolfguard.wavetools.fr' || (local && new URLSearchParams(location.search).has('sync-test'));
@@ -12,6 +12,12 @@ export const isInitialized = () => initialized;
 export const canActivate = () => !!activation;
 export const hasSession = () => !!token;
 export const currentVersion = () => version;
+export function sessionState() { return token ? {token, version} : null; }
+export function restoreSession(value) {
+  if (!enabled || !/^[a-f0-9]{64}$/.test(value?.token || '') || !Number.isSafeInteger(value.version) || value.version < 1) throw new Error('Session de reprise invalide.');
+  token = value.token; version = value.version; initialized = true;
+}
+export function detach() { token = ''; version = 0; }
 async function request(path,{method='GET',body,headers={},anonymous=false}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
   let response;

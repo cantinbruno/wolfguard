@@ -108,7 +108,7 @@ def run():
                 for kind in ['active','map','vulnerability','passive']:
                     navigate(first,kind);expect(first.locator('#wgAgentName')).to_contain_text(name,timeout=15000)
                     expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage')).to_have_count(0)
-            first.reload();unlock(first);navigate(first,'active')
+            first.reload();expect(first.locator('#app')).to_be_visible(timeout=30000);navigate(first,'active')
             expect(first.locator('#wgAgentName')).to_contain_text('Poste macOS',timeout=15000)
             first.locator('#wgAgentSettings').click()
             first.locator('#wgAgentSelect').select_option(windows_id)

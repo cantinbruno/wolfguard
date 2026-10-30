@@ -1,4 +1,4 @@
-// Native Web Crypto only. No secret, verifier or extractable key is persisted.
+// Native Web Crypto only. PINs and extractable keys are never persisted.
 const FORMAT = 'wolfguard-web';
 export const ITERATIONS = 600000;
 export const WORKSPACE_VERSION = 3;
@@ -54,6 +54,13 @@ export async function open(envelope, password) {
   const value = validateEnvelope(envelope);
   const salt = unbase64(value.salt, 16);
   const key = await deriveKey(password, salt);
+  return openWithKey(value, key, salt);
+}
+export async function openWithKey(envelope, key, salt) {
+  const value = validateEnvelope(envelope);
+  if (!(salt instanceof Uint8Array) || salt.length !== 16 || base64(salt) !== value.salt || key.extractable !== false || key.algorithm?.name !== 'AES-GCM') {
+    const error = new Error('La session ne correspond plus à cet espace.'); error.code = 'INVALID_ACCESS_CODE'; throw error;
+  }
   let bytes;
   try {
     bytes = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unbase64(value.iv, 12), additionalData: aad(value), tagLength: 128}, key, unbase64(value.data, MAX_BYTES)));

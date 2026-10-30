@@ -3,11 +3,68 @@
 // The original UI, editors and tools stay unchanged. Only desktop storage and
 // the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
-  let cryptography, storage, cloud, session = null, envelope = null, pendingBackup = null;
+  let cryptography, storage, cloud, tabSessions, tabSession, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null;
-  const IDLE_MS = 60000, SESSION_MS = 15 * 60000;
+  const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
+  function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
+  function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
+  async function rememberSession() {
+    if (!session || !sessionClock) return;
+    try { await tabSession.remember({key: session.key, salt: session.salt, clock: sessionClock, cloud: cloud.sessionState(), scope: cloud.enabled ? 'shared' : 'local', view: sessionView()}); }
+    catch { await tabSession.forget().catch(() => {}); }
+  }
+  function activateSession(result, clock = {started: Date.now(), active: Date.now()}) {
+    session = result; envelope = result.envelope; pendingBackup = null; db = new BrowserDatabase();
+    const wall = Date.now(), mono = performance.now();
+    sessionClock = {...clock, monotonicStart: mono - (wall - clock.started), monotonicActive: mono - (wall - clock.active)};
+    armSessionTimer();
+    if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(() => { if (session && !sessionExpired()) cloud.touch().catch(() => lock()); }, 25000); }
+    resetSettingsCache(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
+    state.vaultKey = result.key; sessionAccessCode = '';
+  }
+  async function resumeAfterReload() {
+    let claimed = false;
+    try {
+      const saved = await tabSession.restore(cloud.enabled ? 'shared' : 'local');
+      if (!saved) return false;
+      const generation = epoch;
+      await claimTab(); claimed = true;
+      let latest = envelope;
+      if (cloud.enabled) {
+        cloud.restoreSession(saved.cloud);
+        latest = cryptography.validateEnvelope(await cloud.load());
+      }
+      const result = await cryptography.openWithKey(latest, saved.key, saved.salt);
+      result.payload = await upgrade(result);
+      if (generation !== epoch || !tabSessions.validClock(saved.clock)) throw new Error('Session expirée.');
+      if (cloud.enabled) {
+        if (envelope && envelope.iv !== latest.iv) await storage.preserve(envelope);
+        await storage.write(latest, envelope?.revision || 0);
+      }
+      activateSession(result, saved.clock);
+      // Scan renderers need an active workspace while their async data loads.
+      // Keep it invisible until the restored section has finished rendering.
+      $('#app').style.visibility = 'hidden'; $('#app').classList.remove('hidden');
+      const section = workspaceModules.allows(saved.view?.section) ? saved.view.section : workspaceModules.landingSection;
+      const item = safeId(saved.view?.item) ? await get('items', saved.view.item) : null;
+      const folder = safeId(saved.view?.folder) ? await get('folders', saved.view.folder) : null;
+      await openSection(section, null, {resume: {section, item: item && !item.deletedAt && workspaceModules.allowsItem(item) ? item.id : null, folder: folder && !folder.deletedAt ? folder.id : null, tool: saved.view?.tool}});
+      if (generation !== epoch || sessionExpired()) throw new Error('Session expirée.');
+      await rememberSession();
+      if (generation !== epoch || !session) return false;
+      $('#connectionGate').classList.add('hidden'); $('#lock').classList.add('hidden'); $('#app').classList.remove('hidden');
+      saveStatus(savedMessage());
+      return true;
+    } catch {
+      if (session) await lock();
+      else { await tabSession.forget({tabOnly: !claimed}).catch(() => {}); cloud.clear(); release(); }
+      return false;
+    } finally {
+      $('#app').style.removeProperty('visibility');
+    }
+  }
   function sessionExpired() {
     if (!session || !sessionClock) return false;
     const wall=Date.now(), mono=performance.now(), clock=sessionClock;
@@ -107,7 +164,7 @@ const webWorkspace = (() => {
       }
       await cacheSnapshot(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
-      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); }
+      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); updateReloadTicket(); }
       return result;
     });
     queue = work.catch(() => {});
@@ -302,14 +359,11 @@ const webWorkspace = (() => {
         envelope=result.envelope;
       }
       if (generation !== epoch || document.hidden) return;
-      session=result; envelope=result.envelope; pendingBackup=null; db=new BrowserDatabase();
-      sessionClock={started:Date.now(),active:Date.now(),monotonicStart:performance.now(),monotonicActive:performance.now()};
-      armSessionTimer();
-      if(cloud.enabled){clearInterval(cloudHeartbeat);cloudHeartbeat=setInterval(()=>{if(session && !sessionExpired())cloud.touch().catch(()=>lock());},25000);}
-      resetSettingsCache(result.payload.settings); connectedWorkspaceReady=true; portableFileName=cloud.enabled?'Espace partagé chiffré':'Espace local chiffré';
-      state.vaultKey=result.key; sessionAccessCode=''; retained=true;
+      activateSession(result); retained=true;
       $('#webPassword').value=''; $('#webConfirm').value='';
       await openSection(workspaceModules.landingSection);
+      if (generation !== epoch) return;
+      await rememberSession();
       if (generation !== epoch) return;
       await unlockTransition.play();
       await scheduleAutoLock(); saveStatus(savedMessage());
@@ -338,6 +392,7 @@ const webWorkspace = (() => {
   async function lock() {
     if (locking) return;
     locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
+    const forgotten = tabSession?.forget().catch(() => {});
     clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
@@ -348,7 +403,7 @@ const webWorkspace = (() => {
     document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
     pendingBackup=null; saveStatus('Espace verrouillé'); showGate();
     secretClipboard.clear();
-    try { await queue; envelope=await storage.read(); await loadAttempts(); }
+    try { await queue; await forgotten; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
   }
   function download(value) {
@@ -408,7 +463,7 @@ const webWorkspace = (() => {
         }
         await cacheSnapshot(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
-        if (session===current) { state.vaultKey=result.key; closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
+        if (session===current) { state.vaultKey=result.key; await rememberSession(); closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
       });
       queue=work.catch(() => {}); await work;
     } catch (error) { appNotify(error.message,{kind:'error'}); }
@@ -422,10 +477,10 @@ const webWorkspace = (() => {
   ensureSecuritySettings=async () => !!session;
   scheduleAutoLock=async () => armSessionTimer();
   registerActivityForAutoLock=() => {
-    for(const name of ['mousedown','keydown','touchstart','wheel'])document.addEventListener(name,event=>{
+    for(const name of ['mousedown','keydown','touchstart','wheel','pointermove'])document.addEventListener(name,event=>{
       if(!session)return;
       if(sessionExpired()){event.preventDefault();event.stopImmediatePropagation();lock();return;}
-      if(event.isTrusted){sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();armSessionTimer();}
+      if(event.isTrusted){sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();armSessionTimer();updateReloadTicket();}
     },{capture:true,passive:false});
   };
   // Older desktop listeners must not re-enable the keypad during a web timeout.
@@ -455,8 +510,8 @@ const webWorkspace = (() => {
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
-    idle.replaceChildren(new Option('1 minute','1',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 minute d’inactivité · Session limitée à 15 minutes · Verrouillage si l’onglet est masqué';
+    idle.replaceChildren(new Option('15 minutes','15',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='15 minutes d’inactivité · Rafraîchissement conservé dans cet onglet · Session limitée à 8 heures';
     const recovery=await storage.readRecovery().catch(()=>null);
     if(recovery && session && $('#settings-data')){
       const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
@@ -486,7 +541,8 @@ const webWorkspace = (() => {
   }
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
-    [cryptography,storage,cloud]=await Promise.all([import('./crypto.js'),import('./storage.js'),import('./cloud.js')]);
+    [cryptography,storage,cloud,tabSessions]=await Promise.all([import('./crypto.js'),import('./storage.js'),import('./cloud.js'),import('./tab-session.js')]);
+    tabSession = tabSessions.createTabSession(storage);
     window.addEventListener('hashchange',()=>{if(cloud.enabled && cloud.canActivate() && !session && !busy && !locking && !booting)showGate();});
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
     $('#pinDots').setAttribute('role','status');
@@ -544,22 +600,25 @@ const webWorkspace = (() => {
       if (html) { event.preventDefault(); event.stopImmediatePropagation(); document.execCommand('insertHTML',false,documentHTML(html)); }
     },true);
     document.addEventListener('visibilitychange',() => {
-      if(document.hidden){if(session)lock();else epoch++;}
+      if(session){if(sessionExpired())lock();else updateReloadTicket();if(document.hidden)secretClipboard.clear();}
+      else if(document.hidden)epoch++;
       else if(storage && !session)loadAttempts().then(renderKeypad);
     });
     if(attemptChannel)attemptChannel.onmessage=event=>{
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
-    window.addEventListener('pagehide',() => { epoch++; session=null; sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);cloud?.clear();state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    window.addEventListener('pagehide',() => { if(sessionExpired()){tabSession.forget().catch(()=>{});cloud.clear();}else{updateReloadTicket();cloud?.detach();}epoch++;session=null;sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
-    envelope=await storage.read();await loadAttempts();showGate();
-    if(cloud.enabled){
+    envelope=await storage.read();await loadAttempts();
+    const resumed = await resumeAfterReload();
+    if (!resumed) showGate();
+    if(cloud.enabled && !resumed){
       try{await cloud.status();showGate();if(!cloud.isInitialized()&&!cloud.canActivate())$('#lockError').textContent='Active le partage avec le lien privé sur ton appareil principal.';}
       catch(error){$('#lockError').textContent=error.message;}
     }
-    booting=false;renderKeypad();$('#lock').focus({preventScroll:true});
+    booting=false;renderKeypad();if(!resumed)$('#lock').focus({preventScroll:true});
   }
   return {start};
 })();

@@ -45,7 +45,7 @@ const sectionTransition = (() => {
     const canRender = () => !run.cancelled && !pending;
     const crossing = primarySectionFor(request.section) !== primarySectionFor(state.section);
     // Keep the original workspace slide on both the web and the desktop.
-    const motion = request.section !== state.section && !app.classList.contains('hidden') && !unlockTransition.active && !!Element.prototype.animate;
+    const motion = request.section !== state.section && !app.classList.contains('hidden') && app.style.visibility !== 'hidden' && !unlockTransition.active && !!Element.prototype.animate;
     const sections = availablePrimarySections();
     const from = sections.indexOf(primarySectionFor(state.section));
     const to = sections.indexOf(primarySectionFor(request.section));
