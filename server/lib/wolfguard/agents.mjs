@@ -24,7 +24,7 @@ export async function handleAgentAPI(request,env,now,h){
     if(path==='/api/agent/poll'&&request.method==='POST'){
       const info=await body();
       if(Array.isArray(info.capabilities)){
-        const capabilities=info.capabilities.includes('security-audit-v1')?['security-audit-v1']:[];
+        const capabilities=['security-audit-v1','network-scan-v2'].filter(value=>info.capabilities.includes(value));
         const metadata=await open(agent.name_cipher,agent.id+':name');
         if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities))await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities},agent.id+':name'),agent.id).run();
       }

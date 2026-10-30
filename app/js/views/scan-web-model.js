@@ -56,6 +56,8 @@ const webScanModel = (() => {
     for(const line of input.split(/\r?\n/)){
       const value=line.trim();if(!value)continue;
       const heading=/^Interface\s*:\s*(\S+)/i.exec(value);if(heading){iface=heading[1];continue;}
+      const bsd=/\(([\d.]+)\)\s+at\s+([\da-f]{1,2}(?::[\da-f]{1,2}){5})\s+on\s+(\S+)/i.exec(value)||/^([\da-f:]+(?:%[\w.-]+)?)\s+([\da-f]{1,2}(?::[\da-f]{1,2}){5})\s+(\S+)/i.exec(value);
+      if(bsd){rows.push({address:bsd[1],macAddress:bsd[2],interfaceName:bsd[3],status:'observed',transport:bsd[1].includes(':')?'NDP':'ARP',detail:'Entrée du cache voisin'});continue;}
       const neighbour=/^([\da-f:.%]+)\s+(?:dev\s+(\S+)\s+)?(?:lladdr\s+)?([\da-f]{2}(?:[:-][\da-f]{2}){5})\s*(.*)$/i.exec(value);
       if(neighbour){rows.push({address:neighbour[1],macAddress:neighbour[3],interfaceName:neighbour[2]||iface,status:'observed',detail:neighbour[4],transport:neighbour[1].includes(':')?'NDP':'ARP'});continue;}
       const parts=value.split(/\s+/),protocol=parts[0].toUpperCase().replace(/[46]$/,'');
@@ -118,16 +120,23 @@ const webScanModel = (() => {
     for(const [id,r] of next){const before=old.get(id);if(!before)changes.push({type:'added',row:r});else if(signature(before)!==signature(r))changes.push({type:'changed',row:r,before});}
     for(const [id,r] of old)if(!next.has(id))changes.push({type:'removed',row:r});return changes;
   }
+  const NETWORK_PORTS='22,53,80,135,139,443,445,3389,5985,8080';
+  function networkReport(report){
+    const neighbors=report.rows.filter(item=>item.status==='observed'&&['ARP','NDP'].includes(item.transport)&&ipaddr.isValid(item.address.replace(/^\[|\]$/g,'').split('%')[0]));
+    const excluded=report.rows.length-neighbors.length;
+    return {...report,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) hors du périmètre réseau ont été écartées.']:[])],rows:neighbors.map(item=>({address:item.address,transport:item.transport,status:'observed',hostname:item.hostname||'',macAddress:item.macAddress||'',interfaceName:item.interfaceName||'',detail:item.detail||'',source:item.source||'Import'}))};
+  }
   function command(values){
-    const target=text(values.target,253).trim();
-    if(!target||target.startsWith('-')||!/^[a-zA-Z0-9][a-zA-Z0-9.:-]*(?:\/\d{1,3})?$/.test(target))throw new Error('Indique une IP, un nom d’hôte ou un réseau CIDR, sans option ni caractère de commande.');
+    let target=text(values.target,253).trim(),range=false;
+    if(target.includes('-')){range=true;const ends=target.split('-').map(value=>value.trim());if(ends.length!==2||!ends.every(value=>ipaddr.IPv4.isValidFourPartDecimal(value)))throw new Error('Indique une plage IPv4 complète, sans option de commande.');const number=value=>ipaddr.parse(value).toByteArray().reduce((total,byte)=>total*256+byte,0),start=number(ends[0]),end=number(ends[1]);if(end<start||end-start>=256)throw new Error('Maximum 256 adresses par scan.');target=Array.from({length:end-start+1},(_,index)=>ipaddr.fromByteArray([24,16,8,0].map(shift=>Math.floor((start+index)/2**shift)%256)).toString()).join(' ');}
+    if(!target||target.startsWith('-')||!range&&!/^[a-zA-Z0-9][a-zA-Z0-9.:-]*(?:\/\d{1,3})?$/.test(target))throw new Error('Indique une IP, un nom d’hôte ou un réseau CIDR, sans option ni caractère de commande.');
     if(target.includes('/')){const [ip,prefix]=target.split('/');if(!ipaddr.isValid(ip)||Number(prefix)>(ip.includes(':')?128:32))throw new Error('Réseau CIDR invalide.');}
     else if(target.includes(':')&&!ipaddr.isValid(target))throw new Error('Adresse IPv6 invalide.');
-    else if(/^[\d.]+$/.test(target)&&!ipaddr.isValid(target))throw new Error('Adresse IPv4 invalide.');
-    const ports=values.profile==='web'?'80,443,8000,8080,8443':values.profile==='custom'?scanPortList(values.ports).join(','):SCAN_PORT_PRESETS.common;
+    else if(!range&&/^[\d.]+$/.test(target)&&!ipaddr.isValid(target))throw new Error('Adresse IPv4 invalide.');
+    const ports=values.profile==='web'?'80,443,8000,8080,8443':values.profile==='custom'?scanPortList(values.ports).join(','):NETWORK_PORTS;
     const args=values.profile==='discovery'?'-sn':('-sT '+(values.identify?'-sV --version-light ':'')+'-p '+ports);
     if(values.profile==='custom'&&!ports)throw new Error('Indique au moins un port.');
     return 'nmap -n '+args+' -oX wolfguard-actif.xml '+target;
   }
-  return {parse,compare,key,labels,command,MAX_BYTES,MAX_ROWS};
+  return {parse,compare,key,labels,command,MAX_BYTES,MAX_ROWS,NETWORK_PORTS,networkReport};
 })();

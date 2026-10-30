@@ -35,7 +35,7 @@ def run():
                 expect(page.locator('#wgAgentPair,#wgAgentSelect,#wgAgentDownload')).to_have_count(0)
                 expect(page.locator('#scanTarget')).to_have_count(1 if kind in ['active','map'] else 0)
                 expect(page.locator('#wgScanPorts,#wgScanIdentify')).to_have_count(2 if kind=='active' else 0)
-                expect(page.locator('#wgPassiveScope')).to_have_count(1 if kind=='passive' else 0)
+                expect(page.locator('#wgPassiveScope')).to_have_count(0)
                 expect(page.locator('#wgScanCommand')).to_have_count(0 if kind=='vulnerability' else 1)
                 expect(page.locator('#wgAgentTimeout')).to_have_count(1 if kind in ['active','map'] else 0)
                 # Check actual placement, not just different names or colors.
@@ -50,72 +50,42 @@ def run():
                     page.locator('#closeSettingsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
-            navigate(page,'passive'); page.locator('#wgPassiveScope').select_option('listeners')
-            paste(page,json.dumps(PASSIVE),'Tables locales')
-            expect(page.locator('.wgscan-local-socket')).to_have_count(2)
-            expect(page.locator('.wgscan-neighbor-row')).to_have_count(1)
-            page.locator('.wgscan-local-socket').first.click()
-            expect(page.locator('#wgScanDetailBody')).to_contain_text('PID')
+            navigate(page,'passive');paste(page,json.dumps(PASSIVE),'Réseau passif')
+            expect(page.locator('.passive-network-device')).to_have_count(1)
+            expect(page.locator('[data-passive-process],.wgscan-local-socket,.wgscan-connection-row,#wgPassiveBinding,#wgPassiveScope')).to_have_count(0)
+            page.locator('.passive-network-device').click()
+            expect(page.locator('#wgScanDetailBody')).to_contain_text('Interface réseau')
+            expect(page.locator('#wgScanDetailBody')).not_to_contain_text('PID')
             page.locator('#wgScanDetail [data-wg-close]').click()
-            local={'strategy':'passive','workspace':'passive','results':[
-                {'address':'0.0.0.0','port':22,'transport':'TCP','status':'listening','pid':42,'processName':'sshd'},
-                {'address':'::','port':5353,'transport':'UDP','status':'bound','pid':42,'processName':'sshd'},
-                {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'proxy-local'},
-                {'address':'0:0:0:0:0:0:0:1','port':631,'transport':'TCP','status':'listening','pid':0,'processName':'printd'},
-                {'address':'192.0.2.10','port':51000,'transport':'TCP','status':'connection','pid':88,'processName':'browser','remoteAddress':'2001:db8::20','remotePort':443},
-                {'address':'2001:db8::10','port':51001,'transport':'TCP','status':'connection','pid':88,'processName':'browser','remoteAddress':'2001:db8::20','remotePort':443},
+            network={'strategy':'passive','workspace':'passive','results':[
                 {'address':'192.0.2.1','transport':'ARP','status':'observed','macAddress':'00:11:22:33:44:55','interfaceName':'Ethernet'},
-                {'address':'2001:db8::1','transport':'NDP','status':'observed','macAddress':'00:11:22:33:44:66','interfaceName':'eth0'},
-                {'address':'127.0.0.1','transport':'TCP','status':'error','detail':'Permission denied'},
-                {'address':'192.0.2.10','port':9000,'transport':'TCP','status':'listening','pid':99,'processName':'<img src=x onerror=alert(1)>','detail':'<script>alert(1)</script>'}]}
-            paste(page,json.dumps(local),'Analyse locale')
-            expect(page.locator('.passive-explorer-count')).to_contain_text('10 / 10 observations')
-            expect(page.locator('.passive-explorer-count')).not_to_contain_text('Processus non fourni')
-            expect(page.locator('.passive-binding-notice strong')).to_contain_text('2 écoute')
-            expect(page.locator('.passive-other-row')).to_have_count(1)
-            page.locator('[data-passive-broad]').click()
-            expect(page.locator('.wgscan-local-socket')).to_have_count(2)
-            page.locator('[data-wg-tab=rows]').click()
-            expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
-            expect(page.locator('.passive-table-context')).to_be_visible()
+                {'address':'2001:db8::1','transport':'NDP','status':'observed','macAddress':'00:11:22:33:44:66','interfaceName':'Ethernet'},
+                {'address':'192.0.2.2','transport':'ARP','status':'observed','macAddress':'00:11:22:33:44:77','interfaceName':'Wi-Fi','hostname':'<img src=x onerror=alert(1)>'},
+                {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'host-only-secret'}]}
+            paste(page,json.dumps(network),'Caches réseau')
+            expect(page.locator('.passive-network-device')).to_have_count(3)
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['3','2','1','2']
+            page.locator('[data-passive-category=NDP]').click();expect(page.locator('.passive-network-device')).to_have_count(1)
+            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
             csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig')
-            assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==2
+            assert '2001:db8::1' in csv and 'host-only-secret' not in csv and 'processName' not in csv and 'pid' not in csv
             page.locator('[data-wg-tab=overview]').click();page.locator('[data-passive-reset]').first.click()
-            page.locator('#wgPassiveBinding').select_option('loopback')
-            expect(page.locator('.wgscan-local-socket')).to_have_count(2)
-            page.locator('[data-passive-process="pid:0"]').click()
-            expect(page.locator('.wgscan-local-socket')).to_have_count(1)
-            expect(page.locator('.wgscan-local-socket')).to_contain_text('printd')
-            page.locator('[data-passive-reset]').first.click();page.locator('#wgPassiveTransport').select_option('UDP')
-            expect(page.locator('.wgscan-local-socket')).to_have_count(1)
-            page.locator('[data-passive-reset]').first.click();page.locator('[data-passive-category=connections]').click()
-            expect(page.locator('.wgscan-connection-row')).to_have_count(2)
-            expect(page.locator('.passive-connections')).to_contain_text('[2001:db8::10]:51001')
-            expect(page.locator('.passive-connections')).to_contain_text('[2001:db8::20]:443')
-            page.locator('#wgPassiveSearch').fill('browser');expect(page.locator('.wgscan-connection-row')).to_have_count(2)
-            page.locator('#wgPassiveSearch').evaluate('el=>el.setSelectionRange(0,0)');page.keyboard.type('x')
-            assert page.locator('#wgPassiveSearch').evaluate('el=>el.selectionStart')==1
-            page.keyboard.press('Backspace');expect(page.locator('.wgscan-connection-row')).to_have_count(2)
-            page.locator('[data-passive-process="pid:88"]').click()
-            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
-            page.locator('#wgPassiveTableReset').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(10)
-            page.locator('[data-wg-tab=overview]').click();page.locator('[data-passive-category=neighbours]').click()
-            expect(page.locator('.wgscan-neighbor-row')).to_have_count(2)
-            page.locator('#wgPassiveSearch').fill('not-in-report');expect(page.locator('.passive-no-results')).to_be_visible()
+            page.locator('#wgPassiveInterface').select_option('iface:Wi-Fi');expect(page.locator('.passive-network-device')).to_have_count(1)
+            page.locator('#wgPassiveSearch').fill('not-in-cache');expect(page.locator('.passive-no-results')).to_be_visible()
             page.locator('[data-passive-reset]').first.click()
-            expect(page.locator('.passive-observation-board img,.passive-observation-board script')).to_have_count(0)
-            many={'strategy':'passive','workspace':'passive','results':[{'address':'127.0.0.1','port':port,'transport':'TCP','status':'listening','pid':77,'processName':'local-test'} for port in range(1,121)]}
-            paste(page,json.dumps(many),'Relevé étendu')
-            expect(page.locator('.wgscan-local-socket')).to_have_count(10)
-            page.locator('.passive-listeners [data-passive-table]').click()
-            expect(page.locator('#wgScanRows tbody tr')).to_have_count(75)
+            expect(page.locator('.passive-network-inventory img,.passive-network-inventory script')).to_have_count(0)
+            with page.expect_download() as downloaded:page.locator('#wgScanExportJson').click()
+            raw=Path(downloaded.value.path()).read_text(encoding='utf-8')
+            assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
+            many={'strategy':'passive','workspace':'passive','results':[{'address':'192.0.2.'+str(index),'transport':'ARP','status':'observed','interfaceName':'eth0','macAddress':'00:11:22:33:44:55'} for index in range(1,121)]}
+            paste(page,json.dumps(many),'Voisins nombreux');expect(page.locator('.passive-network-device')).to_have_count(12)
+            page.locator('[data-passive-interface-table]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(75)
             page.locator('#wgScanNext').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(45)
             with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
-            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig')
-            assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==120
-            paste(page,json.dumps(local),'Analyse locale')
-            print('PASS: passive categories, protocol/binding/process filters, PID zero, IPv6 endpoints and complete filtered exports')
+            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig');assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==120
+            paste(page,json.dumps(network),'Caches réseau')
+            print('PASS: passive is ARP/NDP only, filters by protocol/interface, keeps complete exports and strips host data')
             navigate(page,'active');paste(page,XML,'Services')
             expect(page.locator('.wgscan-service-card')).to_have_count(1)
             page.locator('.wgscan-service-card').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH')
@@ -138,7 +108,7 @@ def run():
             page.locator('[data-map-observations]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgMapSearch').fill('')
             expect(page.locator('.wgscan-map-explorer img,.wgscan-map-explorer script')).to_have_count(0)
-            print('PASS: local sockets and services open evidence; map supports keyboard, host selection, zoom and search')
+            print('PASS: network neighbors and services open evidence; map supports keyboard, host selection, zoom and search')
 
             navigate(page,'vulnerability')
             audit={'strategy':'passive','workspace':'vulnerability','results':[

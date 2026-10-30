@@ -96,7 +96,7 @@ def run(backend=None):
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
 
             first.evaluate("openSection('scan-passive')");first.wait_for_function('()=>!sectionTransition.active')
-            first.locator('#wgScanPaste').click();first.locator('#wgScanPasteText').fill('[{"address":"192.0.2.77","port":22,"transport":"TCP","status":"listening"}]')
+            first.locator('#wgScanPaste').click();first.locator('#wgScanPasteText').fill('[{"address":"192.0.2.77","transport":"ARP","status":"observed","macAddress":"00:11:22:33:44:55","interfaceName":"Ethernet"}]')
             first.locator('#wgScanPasteName').fill('Releve partage de test');first.locator('#wgScanAnalyze').click()
             first.locator('#wgScanSave').click();first.locator('.app-dialog-submit').click()
             expect(first.locator('#wgScanStatus')).to_contain_text('Relevé enregistré dans',timeout=15000)

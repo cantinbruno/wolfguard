@@ -12,8 +12,11 @@ import {PassThrough} from 'node:stream';
 import {desktopAgent,runAgent} from '../agent/agent.mjs';
 import {evaluateSecurity} from '../agent/security-rules.mjs';
 
-test('four workspaces enforce machine versus network scope and evaluate only available Windows evidence',async()=>{
-  assert.throws(()=>scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'80'}));
+test('four workspaces keep network scans separate from host security audits and evaluate only available Windows evidence',async()=>{
+  assert.equal(scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'22,80,443'}).addresses.length,254);
+  assert.throws(()=>scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'1-17'}));
+  assert.throws(()=>scanSpec({workspace:'passive',strategy:'passive',passiveScope:'listeners'}));
+  assert.equal(scanSpec({workspace:'passive',strategy:'passive',passiveScope:'all'}).passiveScope,'neighbours');
   assert.equal(scanSpec({workspace:'map',strategy:'active',mode:'discovery',target:'192.168.1.0/24'}).addresses.length,254);
   assert.throws(()=>scanSpec({workspace:'map',strategy:'active',mode:'tcp',target:'127.0.0.1',ports:'80'}));
   assert.throws(()=>scanSpec({workspace:'vulnerability',strategy:'passive',passiveScope:'all'}));
@@ -120,10 +123,12 @@ test('the actual network engine connects to a loopback service and cancels pendi
   const server=createServer(socket=>{socket.on('data',()=>{});socket.on('error',()=>{});});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const port=server.address().port;try{
     const result=await runNetworkScan({strategy:'active',target:'127.0.0.1',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:1});assert.equal(result.results[0].status,'open');assert.equal(result.completed,1);
+    const network=await runNetworkScan({workspace:'active',strategy:'active',target:'127.0.0.1-127.0.0.2',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:2});
+    assert.equal(network.completed,2);assert.deepEqual(network.results.map(row=>row.address).sort(),['127.0.0.1','127.0.0.2']);assert.ok(network.results.some(row=>row.address==='127.0.0.1'&&row.status==='open'));
     const cancel=new AbortController();setTimeout(()=>cancel.abort(),100);
     const interrupted=await runNetworkScan({strategy:'active',target:'127.0.0.1',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:1,identifyServices:true},{signal:cancel.signal});assert.equal(interrupted.cancelled,true);assert.equal(interrupted.completed,0);
   }finally{await new Promise(resolve=>server.close(resolve));}
-  const passive=await runNetworkScan({strategy:'passive',passiveScope:'listeners'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,status:'listening'},{address:'192.168.1.1',status:'observed'}]})});assert.equal(passive.results.length,1);
+  const passive=await runNetworkScan({workspace:'passive',strategy:'passive',passiveScope:'neighbours'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening',pid:42},{address:'192.168.1.1',transport:'ARP',status:'observed',pid:42}]})});assert.equal(passive.results.length,1);assert.equal(passive.results[0].address,'192.168.1.1');assert.equal(passive.results[0].pid,undefined);
 });
 test('Windows protects the agent credential for the current user using real DPAPI',{skip:process.platform!=='win32'},async()=>{
   const script=fileURLToPath(new URL('../agent/protect.ps1',import.meta.url));
@@ -149,7 +154,7 @@ test('the desktop protocol pairs, reports real scans, stops and re-pairs without
   const s=await setup(),input=new PassThrough(),events=[];let credential=null;
   const client={origin:'https://test.invalid',token:'',async post(route,body){const response=await s.api('agent/'+route,body,this.token?'Agent '+this.token:undefined);const value=await response.json();if(!response.ok){const error=new Error(value.error);error.status=response.status;throw error;}return value;}};
   const store={async load(){return null;},async save(value){credential=value;}};
-  const work=desktopAgent({client,store,input,emit:event=>events.push(event),name:'Fenêtre de test',pollMs:20,passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening'}],warnings:[]})});
+  const work=desktopAgent({client,store,input,emit:event=>events.push(event),name:'Fenêtre de test',pollMs:20,passiveCollector:async()=>({results:[{address:'192.168.1.1',port:null,transport:'ARP',status:'observed'}],warnings:[]})});
   const send=value=>input.write(JSON.stringify(value)+'\n');
   try{
     await until(()=>events.at(-1)?.state==='pairing');
@@ -163,7 +168,7 @@ test('the desktop protocol pairs, reports real scans, stops and re-pairs without
     await until(()=>events.some(event=>event.state==='completed'));
     assert.ok(events.some(event=>event.state==='scanning'));
     const report=await (await s.api('scans/result?id='+job.id,undefined,s.user)).json();
-    assert.equal(report.status,'completed');assert.equal(report.report.results[0].port,22);
+    assert.equal(report.status,'completed');assert.equal(report.report.results[0].address,'192.168.1.1');assert.equal(report.report.results[0].transport,'ARP');
     send({type:'stop'});await until(()=>events.at(-1)?.state==='stopped');
     const last=events.length;await new Promise(resolve=>setTimeout(resolve,80));assert.equal(events.length,last);
     send({type:'start'});await until(()=>events.at(-1)?.state==='connected');

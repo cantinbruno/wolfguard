@@ -84,12 +84,12 @@ def run():
             capture('library-mobile', '.library-catalog')
             page.set_viewport_size({'width':1440,'height':1000})
             navigate(page, 'passive')
-            rows = [{'address':f'192.168.{i//250}.{i%250+1}','port':22+i%100,'transport':'TCP','status':'listening' if i%2 else 'connection','pid':i%20,'detail':'Observation '+str(i)} for i in range(1000)]
+            rows = [{'address':f'192.168.{i//250}.{i%250+1}' if i%2 else 'fd00::'+format(i+1,'x'),'transport':'ARP' if i%2 else 'NDP','status':'observed','interfaceName':'eth'+str(i%3),'macAddress':'00:11:22:33:44:55','detail':'Entrée du cache '+str(i)} for i in range(1000)]
             paste(page, json.dumps({'strategy':'passive','results':rows}), 'Relevé de performance')
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Relevé de performance')
             capture('scan-passive', '.wgscan')
+            page.locator('[data-passive-category=ARP]').click()
             page.locator('[data-wg-tab=rows]').click()
-            page.locator('#wgScanFilter').select_option('listening')
             capture('scan-filtered', '.wgscan')
             with page.expect_download() as download:
                 page.locator('#wgScanExport').click()

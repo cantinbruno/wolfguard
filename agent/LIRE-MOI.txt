@@ -39,3 +39,7 @@ Sources : https://github.com/cantinbruno/wolfguard/tree/main/agent
 Sections : Scan passif (tables locales), Scan actif (ports d’une seule IP), Cartographie (découverte réseau), Vulnérabilités (audit Windows).
 L’audit lit les configurations et le cache Windows Update, sans installer de correctif. Une lecture refusée ou indisponible reste non vérifiée. Le cache peut être ancien ou incomplet.
 Pour mettre à jour : ferme l’ancien agent puis lance la nouvelle version téléchargée depuis le site ; l’association du poste est conservée.
+
+Scans reseau : le passif lit uniquement les caches voisins ARP/NDP, sans sonde.
+L actif analyse les services TCP d un reseau ou d une plage privee (256 adresses
+et 4096 tests maximum). Les controles du poste restent dans Vulnerabilites.

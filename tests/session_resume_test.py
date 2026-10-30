@@ -119,10 +119,10 @@ def run():
             second = b.new_page(); second.goto(url+'?sync-test'); ready(second); second.keyboard.type(CODE); unlocked(second)
             second.evaluate("async()=>{const note=await get('items','resume-note');await put('items',{...note,title:'Modifie sur un autre appareil'});}")
             first.evaluate("switchPrimaryWorkspace('scan-active')")
-            expect(first.locator('#scanTitle')).to_have_text('Scan actif d’une machine')
+            expect(first.locator('#scanTitle')).to_have_text('Scan actif du réseau')
             before = len(calls)
             first.reload(); unlocked(first)
-            expect(first.locator('#scanTitle')).to_have_text('Scan actif d’une machine')
+            expect(first.locator('#scanTitle')).to_have_text('Scan actif du réseau')
             assert first.evaluate("async()=>(await get('items','resume-note')).title") == 'Modifie sur un autre appareil'
             assert '/api/login' not in calls[before:] and '/api/logout' not in calls[before:], calls[before:]
             # The server remains authoritative even when the local ticket is fresh.

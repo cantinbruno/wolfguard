@@ -30,3 +30,7 @@ pare-feu et cache de mises à jour sous Linux ; SIP, Gatekeeper, FileVault,
 pare-feu et cache de mises à jour sous macOS.
 Un contrôle inaccessible reste Non vérifié ; aucun correctif n’est appliqué.
 Certains processus, pare-feu ou caches exigent des droits supplémentaires.
+
+Scans reseau : le passif lit uniquement les caches voisins ARP/NDP, sans sonde.
+L actif analyse les services TCP d un reseau ou d une plage privee (256 adresses
+et 4096 tests maximum). Les controles du poste restent dans Vulnerabilites.

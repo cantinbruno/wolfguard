@@ -48,7 +48,8 @@ export function scanSpec(raw){
   if(workspace!==undefined&&!['passive','active','map','vulnerability'].includes(workspace))throw new Error('Section de scan invalide.');
   const extra=workspace?{workspace}:{};
   if(raw.strategy==='passive'){
-    const passiveScope=raw.passiveScope||'all';if(!['all','neighbours','listeners','connections','security'].includes(passiveScope))throw new Error('Source passive invalide.');
+    if(raw.passiveScope&&!['all','neighbours','security'].includes(raw.passiveScope))throw new Error('Le scan passif réseau lit uniquement les voisins ARP/NDP.');
+    const passiveScope=raw.passiveScope==='security'?'security':'neighbours';
     if(workspace&&workspace!==(passiveScope==='security'?'vulnerability':'passive'))throw new Error('Source incompatible avec cette section.');
     return {strategy:'passive',passiveScope,...extra};
   }
@@ -56,7 +57,6 @@ export function scanSpec(raw){
   const mode=raw.mode||'tcp';if(!['tcp','discovery','icmp'].includes(mode))throw new Error('Mode de scan invalide.');
   const supplied=Array.isArray(raw.ports)&&raw.ports.every(Number.isInteger)?raw.ports.join(','):raw.ports;
   const addresses=targets(raw.target),selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
-  if(workspace==='active'&&addresses.length!==1)throw new Error('Le scan actif machine attend une seule adresse IP. Utilise Cartographie pour un réseau.');
   if(workspace==='map'&&mode!=='discovery')throw new Error('La cartographie utilise la découverte réseau.');
   if(mode==='discovery'&&selected.length>8)throw new Error('Maximum huit ports de découverte.');
   if(addresses.length*Math.max(1,selected.length)>4096)throw new Error('Maximum 4096 tests : réduis la plage ou les ports.');

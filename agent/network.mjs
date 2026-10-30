@@ -53,10 +53,10 @@ async function ping(address,timeout,signal){
 }
 export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity}={}){
   const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false;
-  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
+  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||(spec.passiveScope==='security'?'Poste de l’agent':'Voisins du réseau de l’agent'),startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
   if(spec.strategy==='passive'){
-    const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);for(const row of snapshot.results){if(signal?.aborted)break;const keep=['all','security'].includes(spec.passiveScope)||spec.passiveScope==='neighbours'&&row.status==='observed'||spec.passiveScope==='listeners'&&['listening','bound'].includes(row.status)||spec.passiveScope==='connections'&&row.status==='connection';if(keep)add(row);}
+    const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);for(const row of snapshot.results){if(signal?.aborted)break;if(spec.passiveScope==='security')add(row);else if(row.status==='observed'&&['ARP','NDP'].includes(row.transport))add({address:row.address,port:null,transport:row.transport,status:'observed',macAddress:row.macAddress||'',interfaceName:row.interfaceName||'',detail:row.detail||'',source:row.source||'agent-neighbor'});}
     warnings.push(...(snapshot.warnings||[]).slice(0,10));completed=total=rows.length;onProgress(report());return report();
   }
   total=spec.mode==='tcp'?spec.addresses.length*spec.ports.length:spec.addresses.length;let next=0;

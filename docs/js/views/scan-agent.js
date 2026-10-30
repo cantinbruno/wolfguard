@@ -12,14 +12,14 @@ const webScanAgent = (() => {
     root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div><button type="button" id="wgAgentSettings" title="Gérer l’agent commun">Paramètres → Agents</button></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Résultats conservés 7 jours · Enregistrer pour les garder dans ton espace</small></details>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
-    let agent = null, jobs = [], busy = false, lastResult = '', current = null, running = null, selected = '', refreshing = false;
+    let agent = null, jobs = [], busy = false, lastResult = '', current = null, running = null, selected = '', refreshing = false, compatibilityIssue = false;
     const request = (path, value) => WolfGuardCloud.agentRequest(path, value);
     const status = (text, error = false) => { if (live()) { find('#wgAgentStatus').textContent = text; find('#wgAgentStatus').classList.toggle('is-error', error); } };
     function render() {
       if (!live()) return;
-      const compatible = kind !== 'vulnerability' || agent?.capabilities?.includes('security-audit-v1');
+      const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):['active','passive'].includes(kind)?agent?.capabilities?.includes('network-scan-v2'):true;
       find('#wgAgentName').textContent = agent ? agent.name + ' · ' + workspaceAgents.platformName(agent.platform) : 'Aucun agent sélectionné';
-      if (agent && !compatible) status('Mets à jour l’agent depuis Paramètres → Agents pour lancer l’audit.');
+      if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis Paramètres → Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
       running = jobs.find(job => ['queued', 'running'].includes(job.status));
       const matching = jobs.filter(job => (job.workspace || job.strategy) === kind);
       current = matching.find(job => job.id === jobIds[kind]) || matching[0] || null;
@@ -71,7 +71,7 @@ const webScanAgent = (() => {
         const v = values(), chosen = (await workspaceAgents.snapshot()).selected;
         if (!live()) return;
         if (!chosen || chosen.id !== selected) throw new Error('L’agent commun a changé. Vérifie le poste affiché avant de relancer.');
-        const data = {agentId: selected, strategy, workspace: kind, ...(strategy === 'active' ? {target: v.target, mode: v.profile === 'discovery' ? 'discovery' : 'tcp', ports: v.profile === 'discovery' ? '22,80,443,445,3389' : v.profile === 'web' ? '80,443,8000,8080,8443' : v.profile === 'custom' ? v.ports : SCAN_PORT_PRESETS.common, identifyServices: v.identify, timeoutMs: v.agentTimeoutMs ?? 1500, concurrency: v.agentConcurrency ?? 16} : {passiveScope: kind === 'vulnerability' ? 'security' : v.passiveScope || 'all'})};
+        const data = {agentId: selected, strategy, workspace: kind, ...(strategy === 'active' ? {target: v.target, mode: v.profile === 'discovery' ? 'discovery' : 'tcp', ports: v.profile === 'discovery' ? '22,80,443,445,3389' : v.profile === 'web' ? '80,443,8000,8080,8443' : v.profile === 'custom' ? v.ports : webScanModel.NETWORK_PORTS, identifyServices: v.identify, timeoutMs: v.agentTimeoutMs ?? 1500, concurrency: v.agentConcurrency ?? 16} : {passiveScope: kind === 'vulnerability' ? 'security' : 'neighbours'})};
         const job = await request('scans', data); if (!live()) return;
         jobIds[kind] = job.id; lastResult = ''; status('Demande transmise à l’agent commun.');
       } catch (error) { status(error.message, true); }

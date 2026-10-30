@@ -51,20 +51,20 @@ def run():
             paste(page,json.dumps(PASSIVE),'Agence passive')
             expect(page.locator('#wgScanImportDialog')).not_to_be_visible()
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence passive')
-            assert page.locator('#wgScanMetrics strong').all_text_contents()==['3','1','1','2']
-            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(4)
-            page.locator('#wgScanFilter').select_option('listening');expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
-            page.locator('#wgScanFilter').select_option('all');page.locator('#wgScanSearch').fill('198.51.100.20');expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
-            page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('198.51.100.20:443')
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
+            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            page.locator('#wgScanSearch').fill('192.0.2.1');expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('00-11-22-33-44-55')
+            expect(page.locator('#wgScanDetailBody')).not_to_contain_text('PID')
             page.locator('#wgScanDetail [data-wg-close]').click();save(page,'Agence passive enregistrée')
             stored=page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value")
-            assert len(stored['reports'])==1 and len(stored['reports'][0]['rows'])==4
+            assert len(stored['reports'])==1 and len(stored['reports'][0]['rows'])==1
             encrypted=page.evaluate("async()=>await (await import('./browser/storage.js')).read()")
             assert 'Agence passive' not in json.dumps(encrypted) and '198.51.100.20' not in json.dumps(encrypted)
             page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
             changed=json.loads(json.dumps(PASSIVE));changed['neighbors'][0]['LinkLayerAddress']='AA-BB-CC-DD-EE-FF';changed['connections'].pop();changed['connections'].append({'LocalAddress':'127.0.0.1','LocalPort':8080,'State':'Listen','OwningProcess':77})
             paste(page,json.dumps(changed),'Agence après modification');page.locator('[data-wg-tab=changes]').click()
-            assert page.locator('.wgscan-change-counts b').all_text_contents()==['1','1','1']
+            assert page.locator('.wgscan-change-counts b').all_text_contents()==['0','0','1']
             paste(page,'{"broken":','Import invalide');expect(page.locator('#wgScanImportError')).to_contain_text('JSON')
             page.locator('#wgScanImportDialog header [data-wg-close]').click();expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence après modification')
             print('PASS: observations reelles, filtres, detail, sauvegarde chiffree et comparaison sans perte sur import invalide')
@@ -81,7 +81,14 @@ def run():
               return {arp:arp[0].macAddress,neigh:neigh[0].address,net:net.map(r=>r.status),ss:ss[0].pid,csv:csv[0].processName,rejected};
             }''')
             assert parsed=={'arp':'00-11-22-33-44-55','neigh':'2001:db8::1','net':['listening','bound'],'ss':88,'csv':'name; with "quotes"','rejected':2},parsed
-            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.50')
+            navigate(page,'active');page.locator('#scanTarget').fill('192.168.1.0/24')
+            expect(page.locator('#wgScanCommand')).to_contain_text('192.168.1.0/24')
+            expect(page.locator('#wgScanCopyCommand')).to_be_enabled()
+            page.locator('#scanTarget').fill('192.168.1.1-192.168.1.3')
+            expect(page.locator('#wgScanCommand')).to_contain_text('192.168.1.1 192.168.1.2 192.168.1.3')
+            page.locator('#scanTarget').fill('192.168.1.1-192.168.1.3; curl invalid')
+            expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
+            page.locator('#scanTarget').fill('192.0.2.50')
             page.locator('[data-wg-profile=web]').click();expect(page.locator('#wgScanCommand')).to_contain_text('-p 80,443,8000,8080,8443')
             expect(page.locator('#wgScanCommand')).to_contain_text('-oX wolfguard-actif.xml 192.0.2.50')
             page.locator('#scanTarget').fill('192.0.2.1; curl invalid');expect(page.locator('#wgScanCopyCommand')).to_be_disabled()

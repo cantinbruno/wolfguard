@@ -97,24 +97,13 @@ export async function collectPosixPassive(signal, {platform = process.platform, 
       catch { warnings.push('Lecture des voisins indisponible.'); }
       warnings.push('NDP indisponible sans la commande ip ; seul le cache IPv4 a été recherché.');
     }
-    const sockets = await observe(run, 'ss', ['-H', '-t', '-u', '-n', '-a', '-p'], signal);
-    if (sockets.available) results.push(...parseSS(sockets.output));
-    else {
-      for (const [name, transport, ipv6] of [['tcp', 'TCP', false], ['tcp6', 'TCP', true], ['udp', 'UDP', false], ['udp6', 'UDP', true]]) {
-        try { results.push(...parseProcNet(await read('/proc/net/' + name), transport, ipv6)); }
-        catch { warnings.push('Table ' + name + ' indisponible.'); }
-      }
-      warnings.push('Collecte /proc sans identification des processus propriétaires.');
-    }
   } else if (platform === 'darwin') {
     for (const [file, args] of [['/usr/sbin/arp', ['-an']], ['/usr/sbin/ndp', ['-an']]]) {
       const data = await observe(run, file, args, signal);
       if (data.available) results.push(...parseNeighbors(data.output)); else warnings.push('Lecture ' + file.split('/').at(-1) + ' indisponible.');
     }
-    const sockets = await observe(run, '/usr/sbin/lsof', ['-nP', '-iTCP', '-iUDP', '-FpcfPnT'], signal, [0, 1]);
-    if (sockets.available) results.push(...parseLsof(sockets.output)); else warnings.push('Lecture des sockets par lsof indisponible.');
   } else throw new Error('Système non pris en charge.');
-  warnings.push('Instantané local sans sonde. Selon les droits du compte, certains sockets et processus peuvent être masqués.');
+  warnings.push('Cache ARP/NDP uniquement, sans sonde. Une entrée ne confirme pas la présence actuelle du voisin.');
   return {results, warnings};
 }
 

@@ -34,14 +34,14 @@ test('ARP and NDP retain cache uncertainty and skip unresolved neighbors',()=>{
   assert.ok(rows.every(row=>row.status==='observed'&&row.detail.includes('non confirmée')));
 });
 
-test('POSIX passive collectors use local read-only commands and Linux falls back without iproute2',async()=>{
+test('POSIX passive network collectors read only ARP/NDP and fall back without iproute2',async()=>{
   const calls=[];
   const run=async(file,args)=>{calls.push([file,args]);if(file==='/usr/sbin/lsof')return lsof;if(file==='/usr/sbin/arp')return '? (192.168.1.1) at 00:11:22:33:44:55 on en0';if(file==='/usr/sbin/ndp')return '';missing();};
-  const mac=await collectPosixPassive(undefined,{platform:'darwin',run});assert.equal(mac.results.length,4);
-  assert.equal(calls.length,3);assert.ok(calls.every(([file])=>!file.includes('ping')));
+  const mac=await collectPosixPassive(undefined,{platform:'darwin',run});assert.equal(mac.results.length,1);
+  assert.equal(calls.length,2);assert.ok(calls.every(([file])=>!/lsof|ss|netstat/.test(file)));assert.ok(calls.every(([file])=>!file.includes('ping')));
   const files={'/proc/net/arp':'192.168.1.1 0x1 0x2 00:11:22:33:44:55 * eth0','/proc/net/tcp':proc4,'/proc/net/tcp6':proc6,'/proc/net/udp':'','/proc/net/udp6':''};
   const linux=await collectPosixPassive(undefined,{platform:'linux',run:missing,read:async name=>files[name]??missing()});
-  assert.equal(linux.results.length,3);assert.ok(linux.warnings.some(text=>text.includes('sans identification')));
+  assert.equal(linux.results.length,1);assert.ok(linux.results.every(row=>row.status==='observed'));assert.ok(linux.warnings.some(text=>text.includes('ARP/NDP')));
   const cancel=new AbortController();cancel.abort();await assert.rejects(collectPosixPassive(cancel.signal,{platform:'linux',run:missing}));
 });
 
