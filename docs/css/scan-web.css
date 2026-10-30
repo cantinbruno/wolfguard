@@ -123,9 +123,6 @@
   .wgscan-agent-installer .wgscan-agent-download { width: 100%; box-sizing: border-box; }
   .wgscan-agent-dialog .wgscan-agent-instructions li { padding-left: 36px; }
 }
-#wgAgentPairCode { margin: 20px 0; padding: 17px; border: 1px solid var(--ws-border); border-radius: 8px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-#wgAgentPairCode code { font-size: 14px; color: var(--ws-accent); overflow-wrap: anywhere; }
-#wgAgentPairCode small { flex-basis: 100%; color: var(--ws-muted); }
 .wgscan-manual { margin-top: 20px; border-top: 1px solid var(--ws-border); padding-top: 15px; }
 .wgscan-manual summary { color: #a5bacd; font-size: 11px; cursor: pointer; }
 .wgscan-manual > .wgscan-field { margin-top: 15px; }
@@ -150,7 +147,6 @@
   .wgscan-agent-history select { width: 100%; max-width: none; }
   #wgAgentProgress { align-items: start; flex-direction: column; gap: 6px; }
   #wgAgentProgress progress { width: 100%; }
-  #wgAgentPairCode code { font-size: 11px; }
 }
 .wgscan-drop { display: flex; align-items: center; gap: 14px; border: 1px dashed #3b526b; border-radius: 11px; padding: 18px 20px; background: #14223680; }
 .wgscan-drop.is-dragging { border-color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 14%, var(--ws-bg)); }
