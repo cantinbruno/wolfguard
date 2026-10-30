@@ -366,8 +366,8 @@
 
 .library-catalog .workspace-catalog-items.is-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 3px 3px 20px;
+  gap: 16px;
+  padding: 5px 3px 20px;
 }
 
 .library-catalog .workspace-catalog-scroll {
@@ -381,17 +381,17 @@
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 32px;
-  grid-template-rows: minmax(0, 1fr) 18px;
+  grid-template-rows: minmax(52px, 1fr) auto;
   grid-template-areas: "title actions" "footer footer";
   align-items: center;
-  gap: 14px 12px;
-  height: 124px;
-  padding: 20px 18px 14px;
+  gap: 16px 12px;
+  min-height: 144px;
+  padding: 18px 18px 14px;
   border: 1px solid var(--ui-border);
-  border-radius: 8px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--workspace-library) 5%, var(--ui-surface)), var(--ui-surface) 72%);
-  box-shadow: 0 2px 6px #050e1b20;
-  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tile-accent) 4%, var(--ui-surface)), var(--ui-surface) 65%);
+  box-shadow: 0 2px 4px #050e1b14, inset 0 1px 0 #ffffff04;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .library-catalog .is-grid .library-card::before {
@@ -399,18 +399,24 @@
   position: absolute;
   top: -1px;
   left: 18px;
-  width: 36px;
+  width: 52px;
   height: 2px;
   border-radius: 0 0 2px 2px;
-  background: var(--tile-accent);
+  background: linear-gradient(90deg, var(--tile-accent), color-mix(in srgb, var(--tile-accent) 20%, transparent));
   pointer-events: none;
 }
 
 .library-catalog .is-grid .library-card:hover,
 .library-catalog .is-grid .library-card:focus-within {
-  border-color: color-mix(in srgb, var(--workspace-library) 55%, var(--ui-border));
-  background: color-mix(in srgb, var(--workspace-library) 7%, var(--ui-surface));
-  box-shadow: 0 4px 12px #050e1b30;
+  border-color: color-mix(in srgb, var(--tile-accent) 55%, var(--ui-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tile-accent) 7%, var(--ui-surface)), var(--ui-surface) 80%);
+  box-shadow: 0 6px 16px #050e1b30;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .library-catalog .is-grid .library-card:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .library-catalog .is-grid .workspace-item-heading {
@@ -421,11 +427,11 @@
 
 .library-catalog .is-grid .library-card-icon {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 1px solid color-mix(in srgb, var(--workspace-library) 24%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--workspace-library) 12%, var(--ui-surface));
+  border-radius: 11px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--workspace-library) 15%, var(--ui-surface)), color-mix(in srgb, var(--workspace-library) 6%, var(--ui-surface)));
   color: var(--workspace-library);
   box-shadow: none;
 }
@@ -446,28 +452,61 @@
   letter-spacing: -.1px;
 }
 
-.library-catalog .is-grid .catalog-folder {
+.library-card-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.library-catalog .is-grid .library-card-command-count {
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.library-catalog .is-grid .library-card-command-count svg,
+.library-catalog .is-grid .library-count-empty {
   display: none;
+}
+
+.library-catalog .is-grid .library-count-label {
+  display: inline;
+}
+
+.library-catalog .is-grid .catalog-folder {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.library-catalog .is-grid .catalog-folder svg {
+  width: 13px;
+  height: 13px;
 }
 
 .library-catalog .is-grid .library-card-footer {
   grid-area: footer;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   align-self: end;
   min-height: 18px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-border) 65%, transparent);
 }
 
 .library-catalog .is-grid .library-card-updated .catalog-date {
-  color: var(--ui-muted);
+  color: var(--ui-subtle);
   font-size: 11px;
 }
 
 .library-catalog .is-grid .workspace-item-actions {
   align-self: start;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .library-catalog .is-grid .library-item-menu {
@@ -478,6 +517,13 @@
   border-color: transparent;
   background: transparent;
   color: var(--ui-muted);
+}
+
+.library-catalog .is-grid .library-item-menu:hover,
+.library-catalog .is-grid .library-item-menu:focus-visible {
+  border-color: var(--ui-border);
+  background: var(--ui-raised);
+  color: var(--ui-text);
 }
 
 @container workspace-pane (max-width:1350px) {

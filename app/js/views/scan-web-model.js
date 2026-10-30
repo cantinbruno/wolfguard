@@ -109,7 +109,7 @@ const webScanModel = (() => {
     else throw new Error('Importe un XML Nmap, un JSON WolfGuard ou un CSV avec en-têtes.');
     if(parsed.rows.length>MAX_ROWS)throw new Error('Maximum 5 000 observations par relevé.');
     if(!parsed.rows.length)throw new Error('Aucune observation reconnue. Le relevé précédent reste conservé.');
-    if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit Windows de l’agent, avec ses contrôles et leurs preuves.');
+    if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit de l’agent Windows, Linux ou macOS, avec ses contrôles et leurs preuves.');
     const unique=new Map();for(const raw of parsed.rows){const record=row(raw,kind,parsed.source);unique.set(key(record),record);}
     return {format:'wolfguard-scan',version:1,strategy:kind,workspace,name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
   }

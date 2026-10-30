@@ -4,18 +4,19 @@ import {execFile} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {scanSpec,localAddress} from '../server/lib/wolfguard/scan-spec.mjs';
 import {evaluateSecurity} from './security-rules.mjs';
+import {collectPosixPassive,collectPosixSecurity} from './posix.mjs';
 
 const SERVICES={21:'FTP',22:'SSH',23:'Telnet',25:'SMTP',53:'DNS',80:'HTTP',110:'POP3',135:'RPC',139:'NetBIOS',143:'IMAP',389:'LDAP',443:'HTTPS',445:'SMB',636:'LDAPS',993:'IMAPS',995:'POP3S',1433:'SQL Server',3306:'MySQL',3389:'RDP',5432:'PostgreSQL',5900:'VNC',5985:'WinRM',5986:'WinRM TLS',6379:'Redis',8080:'HTTP',8443:'HTTPS'};
 export function fixedProcess(file,args,{input='',signal,timeout=20000,maxBytes=3*1024*1024}={}){
-  return new Promise((resolve,reject)=>{const child=execFile(file,args,{windowsHide:true,encoding:'utf8',timeout,maxBuffer:maxBytes,signal},(error,stdout)=>error?reject(error):resolve(stdout));child.stdin.on('error',()=>{});child.stdin.end(input);});
+  return new Promise((resolve,reject)=>{const child=execFile(file,args,{windowsHide:true,encoding:'utf8',timeout,maxBuffer:maxBytes,signal,env:{...process.env,LC_ALL:'C',LANG:'C'}},(error,stdout,stderr)=>{if(error){error.stdout=stdout;error.stderr=stderr;reject(error);}else resolve(stdout);});child.stdin.on('error',()=>{});child.stdin.end(input);});
 }
 export async function collectPassive(signal){
-  if(process.platform!=='win32')throw new Error('Cet agent est prévu pour Windows.');
+  if(process.platform!=='win32')return collectPosixPassive(signal,{run:fixedProcess});
   const result=await fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./collect.ps1',import.meta.url))],{signal,timeout:30000});
   const data=JSON.parse(result.replace(/^\uFEFF/,''));if(!Array.isArray(data.results))throw new Error('Relevé Windows illisible.');return data;
 }
 export async function collectSecurity(signal){
-  if(process.platform!=='win32')throw new Error('Cet audit nécessite Windows.');
+  if(process.platform!=='win32')return collectPosixSecurity(signal,{run:fixedProcess});
   const output=await fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./security.ps1',import.meta.url))],{signal,timeout:90000});
   return evaluateSecurity(JSON.parse(output.replace(/^\uFEFF/,'')));
 }
@@ -45,11 +46,14 @@ function probe(address,port,timeout,signal,identify){
 }
 async function ping(address,timeout,signal){
   localAddress(address);const started=performance.now();
-  try{const output=await fixedProcess('ping.exe',['-n','1','-w',String(timeout),address],{signal,timeout:timeout+1500,maxBytes:16000});const replied=/(?:Reply from|R.ponse de)[^\r\n]*(?:TTL=|temps[=<]|time[=<])/i.test(output);return {address,port:null,transport:'ICMP',status:replied?'reachable':'no-response',latencyMs:Math.round(performance.now()-started),detail:replied?'Réponse ICMP reçue.':'Aucune réponse ICMP identifiable.',source:'agent-icmp'};}catch{return {address,port:null,transport:'ICMP',status:'no-response',detail:'Aucune réponse ICMP ; cela ne prouve pas l’absence de la machine.',source:'agent-icmp'};}
+  const windows=process.platform==='win32',mac=process.platform==='darwin';
+  const file=windows?'ping.exe':mac&&address.includes(':')?'/sbin/ping6':'ping';
+  const args=windows?['-n','1','-w',String(timeout),address]:mac?['-n','-c','1','-W',String(timeout),address]:['-n',...(address.includes(':')?['-6']:[]),'-c','1','-W',String(Math.max(1,Math.ceil(timeout/1000))),address];
+  try{const output=await fixedProcess(file,args,{signal,timeout:timeout+1500,maxBytes:16000});const replied=windows?/(?:Reply from|R.ponse de)[^\r\n]*(?:TTL=|temps[=<]|time[=<])/i.test(output):/\bbytes from\b/i.test(output);return {address,port:null,transport:'ICMP',status:replied?'reachable':'no-response',latencyMs:Math.round(performance.now()-started),detail:replied?'Réponse ICMP reçue.':'Aucune réponse ICMP identifiable.',source:'agent-icmp'};}catch{return {address,port:null,transport:'ICMP',status:'no-response',detail:'Aucune réponse ICMP ; cela ne prouve pas l’absence de la machine.',source:'agent-icmp'};}
 }
 export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity}={}){
   const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false;
-  const report=()=>({strategy:spec.strategy,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
+  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
   if(spec.strategy==='passive'){
     const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);for(const row of snapshot.results){if(signal?.aborted)break;const keep=['all','security'].includes(spec.passiveScope)||spec.passiveScope==='neighbours'&&row.status==='observed'||spec.passiveScope==='listeners'&&['listening','bound'].includes(row.status)||spec.passiveScope==='connections'&&row.status==='connection';if(keep)add(row);}

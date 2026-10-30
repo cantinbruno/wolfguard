@@ -14,6 +14,7 @@ FILES={
     'LIRE-MOI.txt':'agent/LIRE-MOI.txt',
     'agent/agent.mjs':'agent/agent.mjs',
     'agent/network.mjs':'agent/network.mjs',
+    'agent/posix.mjs':'agent/posix.mjs',
     'agent/collect.ps1':'agent/collect.ps1',
     'agent/security.ps1':'agent/security.ps1',
     'agent/security-rules.mjs':'agent/security-rules.mjs',
@@ -23,17 +24,19 @@ FILES={
 
 EXE=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
 MANIFEST=ROOT/'agent/windows-build.json'
+POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mjs','agent/network.mjs','agent/posix.mjs','agent/security-rules.mjs','server/lib/wolfguard/scan-spec.mjs']}
+POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})
 
-def source_archive():
+def source_archive(files=FILES):
     buffer=io.BytesIO()
     with ZipFile(buffer,'w',compression=ZIP_DEFLATED,compresslevel=9) as archive:
-        for target,source in sorted(FILES.items()):
+        for target,source in sorted(files.items()):
             path=ROOT/source
             if path.is_symlink():raise ValueError('Agent source must not be a symlink')
             data=path.read_text(encoding='utf-8').replace('\r\n','\n')
             encoding='utf-8-sig' if target.endswith('.ps1') else 'utf-8'
             if target.endswith(('.cmd','.ps1','.txt')):data=data.replace('\n','\r\n')
-            info=ZipInfo(target,date_time=(2026,1,1,0,0,0));info.compress_type=ZIP_DEFLATED;info.external_attr=0o644<<16
+            info=ZipInfo(target,date_time=(2026,1,1,0,0,0));info.compress_type=ZIP_DEFLATED;info.create_system=3;info.external_attr=(0o755 if target.endswith(('.sh','.command')) else 0o644)<<16
             archive.writestr(info,data.encode(encoding))
     return buffer.getvalue()
 
@@ -80,14 +83,17 @@ def package():
         info=ZipInfo('WolfGuard-Agent.exe',date_time=(2026,1,1,0,0,0));info.compress_type=ZIP_DEFLATED;info.external_attr=0o644<<16
         archive.writestr(info,binary)
     data=buffer.getvalue()
+    packages={'WolfGuard-Agent-Windows.zip':data,'WolfGuard-Agent-Linux.zip':source_archive(POSIX_FILES),'WolfGuard-Agent-macOS.zip':source_archive(POSIX_FILES)}
     if '--check' in sys.argv:
         for name in ['app','docs']:
-            archive=ROOT/name/'downloads/WolfGuard-Agent-Windows.zip'
-            if archive.exists() and archive.read_bytes()!=data:raise ValueError('Archive agent differente des seules sources autorisees : '+name)
+            for filename,payload in packages.items():
+                archive=ROOT/name/'downloads'/filename
+                if not archive.exists() or archive.read_bytes()!=payload:raise ValueError('Archive agent differente des seules sources autorisees : '+name+'/'+filename)
         return
-    output=ROOT/'app/downloads/WolfGuard-Agent-Windows.zip'
-    output.parent.mkdir(parents=True,exist_ok=True)
-    if not output.exists() or output.read_bytes()!=data:output.write_bytes(data)
-    print('Agent Windows prepare depuis les seuls fichiers source autorises.')
+    for filename,payload in packages.items():
+        output=ROOT/'app/downloads'/filename
+        output.parent.mkdir(parents=True,exist_ok=True)
+        if not output.exists() or output.read_bytes()!=payload:output.write_bytes(payload)
+    print('Agent Windows, Linux et macOS prepare depuis les seuls fichiers source autorises.')
 
 if __name__=='__main__':package()

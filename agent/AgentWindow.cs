@@ -74,7 +74,7 @@ namespace WolfGuard {
   </Border>
   <StackPanel x:Name='Pairing' Margin='0,20,0,0' Visibility='Collapsed'>
    <TextBlock Text='Code temporaire d’association' FontSize='13' FontWeight='SemiBold'/>
-   <TextBlock Text='Sur le site : Scan → Connecter un poste → Générer un code.' FontSize='12' Foreground='#9aadc3' TextWrapping='Wrap' Margin='0,5,0,10'/>
+   <TextBlock Text='Sur le site : Paramètres → Agents → Générer un code.' FontSize='12' Foreground='#9aadc3' TextWrapping='Wrap' Margin='0,5,0,10'/>
    <TextBox x:Name='PairCode' MaxLength='32' FontFamily='Consolas' FontSize='17' Padding='11' Foreground='#edf2f7' Background='#0b1420' BorderBrush='#405b77' SelectionBrush='#936037' AutomationProperties.Name='Code temporaire d’association'/>
    <Button x:Name='PairButton' Content='Associer ce poste' Background='#f6aa5d' Foreground='#132033' FontWeight='SemiBold' HorizontalAlignment='Left' Margin='0,10,0,0'/>
   </StackPanel>

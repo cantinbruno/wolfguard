@@ -2,6 +2,7 @@
 
 /* MODAL */
 function modal(title, body) {
+  if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
   $('#modalRoot').innerHTML = `<div class="modal-wrap"><div class="modal"><h2>${esc(title)}</h2>${body}</div></div>`;
   $('#modalRoot').querySelector('.modal-wrap').onclick = e => {
     if (e.target.classList.contains('modal-wrap')) closeModal()
@@ -9,6 +10,7 @@ function modal(title, body) {
 }
 
 function closeModal() {
+  if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
   $('#modalRoot').innerHTML = ''
 }
 

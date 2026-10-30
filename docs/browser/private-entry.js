@@ -31,12 +31,24 @@
     const key = await crypto.subtle.importKey('raw', material, 'AES-GCM', false, ['decrypt']);
     const plain = await crypto.subtle.decrypt({name: 'AES-GCM', iv: decode(envelope.iv), additionalData: new TextEncoder().encode('WolfGuard private entry v1')}, key, decode(envelope.data));
     const html = new TextDecoder('utf-8', {fatal: true}).decode(plain);
+    // document.write can paint this new document before its stylesheets load.
+    // Keep a dark canvas until every stylesheet, including the access overrides,
+    // is ready; the delay depends on actual loading rather than a fixed timer.
+    const styledHTML = html.replace('<head>', '<head><style id="entry-styles-pending">html{background:#070b12!important}body{visibility:hidden!important}</style>');
     // Let the HTML parser load the original integrity-checked scripts in order.
     document.open();
-    document.write(html);
+    document.write(styledHTML);
     document.close();
     // document.open clears the original window event listeners.
     window.addEventListener('hashchange', () => location.reload());
+    await Promise.all([...document.querySelectorAll('link[rel="stylesheet"]')].map(link => {
+      if (link.sheet) return;
+      return new Promise((resolve, reject) => {
+        link.addEventListener('load', resolve, {once: true});
+        link.addEventListener('error', reject, {once: true});
+      });
+    }));
+    document.getElementById('entry-styles-pending').remove();
   } catch {
     missing();
   } finally {

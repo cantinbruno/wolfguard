@@ -131,14 +131,17 @@ async function renderLibraryCatalog() {
       node.draggable = true;
       node.innerHTML = '<div class="workspace-item-heading"><span class="library-card-icon" aria-hidden="true">' + workspaceSectionIcon('library') + '</span><button type="button" class="workspace-item-title" title="' + esc(item.title || 'Sans titre') + '">' + esc(item.title || 'Sans titre') + '</button></div><span class="catalog-folder" title="' + esc(entry.folder || 'Mes fiches') + '">' + PROTOCOL_ICONS.folder + '<span>' + esc(entry.folder || 'Mes fiches') + '</span></span><span class="library-card-command-count' + (entry.commands.length ? ' has-commands' : '') + '" aria-label="' + entry.commands.length + ' commande' + (entry.commands.length > 1 ? 's' : '') + '">' + (entry.commands.length ? workspaceSectionIcon('command') + '<span>' + entry.commands.length + '<span class="library-command-unit"> commande' + (entry.commands.length > 1 ? 's' : '') + '</span></span>' : '—') + '</span><div class="library-card-updated">' + workspaceCatalogDateHTML(item) + '</div><div class="workspace-item-actions"><button type="button" class="secondary workspace-icon library-item-menu" aria-haspopup="menu" title="Actions de la fiche" aria-label="Actions pour ' + esc(item.title || 'Sans titre') + '">' + workspaceNavigationIcon('ellipsis') + '</button></div>';
       if (!entry.commands.length) node.querySelector('.library-card-command-count').innerHTML = '<span class="library-count-empty">—</span><span class="library-count-label">Fiche mémo</span>';
-      if (view.layout === 'cards') {
-        node.querySelector('.catalog-folder').remove();
-        node.querySelector('.library-card-icon').innerHTML = workspaceSectionIcon(entry.commands.length ? 'command' : 'library');
-      }
       const footer = document.createElement('div');
       footer.className = 'library-card-footer';
-      footer.append(node.querySelector('.library-card-command-count'), node.querySelector('.library-card-updated'));
-      if (view.layout === 'cards') footer.querySelector('.library-card-command-count').remove();
+      if (view.layout === 'cards') {
+        const copy = document.createElement('div'), count = node.querySelector('.library-card-command-count');
+        copy.className = 'library-card-copy';
+        if (!entry.commands.length) count.setAttribute('aria-label', 'Fiche mémo');
+        copy.append(node.querySelector('.workspace-item-title'), count);
+        node.querySelector('.workspace-item-heading').append(copy);
+        node.querySelector('.library-card-icon').innerHTML = workspaceSectionIcon(entry.commands.length ? 'command' : 'library');
+        footer.append(node.querySelector('.catalog-folder'), node.querySelector('.library-card-updated'));
+      } else footer.append(node.querySelector('.library-card-command-count'), node.querySelector('.library-card-updated'));
       node.append(footer);
       const open = () => {
         if (itemActionSessionValid(key)) {

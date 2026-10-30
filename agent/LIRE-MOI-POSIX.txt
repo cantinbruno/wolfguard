@@ -1,0 +1,32 @@
+WolfGuard Agent — Linux et macOS
+
+Le même agent exécute Scan passif, Scan actif, Cartographie et Vulnérabilités.
+
+1. Extraire l’archive dans un dossier personnel.
+2. Linux : ouvrir un terminal dans ce dossier et exécuter sh Start-Agent.sh
+   macOS : ouvrir Start-Agent.command (ou exécuter sh Start-Agent.sh).
+3. Dans WolfGuard, ouvrir Paramètres > Agents et générer un code temporaire.
+4. Coller ce code dans le terminal. Garder le terminal ouvert pendant les scans.
+5. Choisir ce poste dans Paramètres > Agents : toutes les sections l’utilisent.
+
+Node.js 22+ est utilisé s’il est installé. Sinon, le lanceur prépare un moteur
+officiel vérifié par SHA-256 dans le dossier personnel, sans installation système.
+Architectures prévues : x64 et ARM64 ; Linux avec glibc, macOS Intel et Apple Silicon.
+Sur une autre distribution, installer un Node.js 22+ compatible au préalable.
+
+Ctrl+C arrête l’agent. Pour l’associer de nouveau : sh Start-Agent.sh --pair
+Pour retirer son accès : Paramètres > Agents > Révoquer.
+L’agent ne demande jamais le code d’accès WolfGuard.
+
+L’association est conservée en dehors de l’archive :
+Linux : ${XDG_CONFIG_HOME:-~/.config}/WolfGuardAgent/credential.json
+macOS : ~/Library/Application Support/WolfGuardAgent/credential.json
+Dossier 0700, fichier 0600, réservés au compte utilisateur (sans chiffrement OS).
+Ne pas copier ce fichier pour distribuer ou partager l’agent.
+
+Les collectes sont en lecture seule. Les sondes actives partent de cette machine.
+Les contrôles d’audit s’adaptent au système : protections noyau, accès SSH,
+pare-feu et cache de mises à jour sous Linux ; SIP, Gatekeeper, FileVault,
+pare-feu et cache de mises à jour sous macOS.
+Un contrôle inaccessible reste Non vérifié ; aucun correctif n’est appliqué.
+Certains processus, pare-feu ou caches exigent des droits supplémentaires.

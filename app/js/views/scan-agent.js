@@ -1,74 +1,82 @@
 'use strict';
 
-const webScanAgent=(()=>{
-  let timer=0,generation=0,selected='',jobIds={passive:'',active:'',map:'',vulnerability:''};
-  const labels={queued:'En attente de l’agent',running:'Scan en cours',completed:'Scan terminé',cancelled:'Scan arrêté',failed:'Collecte en échec',expired:'Agent non disponible à temps',lost:'Connexion à l’agent perdue'};
-  const cloud=()=>typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud;
-  function reset(clear=true){clearTimeout(timer);timer=0;generation++;if(clear){selected='';jobIds={passive:'',active:'',map:'',vulnerability:''};}}
-  function mount(kind,values,onReport){
-    reset(false);const definition=scanInsights.definitions[kind],strategy=definition.strategy;const token=generation,root=document.createElement('section');root.className='wgscan-agent';root.setAttribute('aria-label','Exécution par un agent');
+const webScanAgent = (() => {
+  let timer = 0, generation = 0, jobIds = {passive: '', active: '', map: '', vulnerability: ''};
+  const labels = {queued: 'En attente de l’agent', running: 'Scan en cours', completed: 'Scan terminé', cancelled: 'Scan arrêté', failed: 'Collecte en échec', expired: 'Agent non disponible à temps', lost: 'Connexion à l’agent perdue'};
+  function reset(clear = true) { clearTimeout(timer); timer = 0; generation++; if (clear) jobIds = {passive: '', active: '', map: '', vulnerability: ''}; }
+  function mount(kind, values, onReport) {
+    reset(false);
+    const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
+    root.className = 'wgscan-agent'; root.setAttribute('aria-label', 'Exécution par l’agent commun');
     $('.wgscan-environment').after(root);
-    root.innerHTML=`<div class="wgscan-agent-top"><div><span class="wgscan-kicker">EXÉCUTION DISTANTE · AGENT WINDOWS</span><h2>Scanner depuis ton poste</h2><p>Choisis un agent connecté. Ses résultats remontent ici automatiquement.</p></div><button type="button" id="wgAgentSetup">Connecter un poste</button></div><div class="wgscan-agent-controls"><label class="wgscan-field">Poste d’exécution<select id="wgAgentSelect"><option value="">Chargement des agents…</option></select></label><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>${workspaceSectionIcon('scan')}Lancer : ${definition.short}</button><button type="button" id="wgAgentStop" disabled>Arrêter</button><span id="wgAgentPresence"></span></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><div class="wgscan-agent-history"><label>Derniers scans<select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Résultats conservés 7 jours · Enregistrer pour les garder dans ton espace</small></div><dialog id="wgAgentSetupDialog" class="wgscan-dialog wgscan-agent-dialog" aria-labelledby="wgAgentSetupTitle">
-<header><div><span class="wgscan-kicker">WOLFGUARD AGENT</span><h2 id="wgAgentSetupTitle">Connecter ton poste</h2></div><button type="button" id="wgAgentCloseSetup" aria-label="Fermer">✕</button></header>
-<div class="wgscan-agent-installer"><img src="images/logo-loup.svg" width="84" height="84" alt=""><div><h3>WolfGuard Agent pour Windows</h3><p>Une fenêtre avec le loup, l’état de la connexion et la progression de tes scans.</p><a href="downloads/WolfGuard-Agent-Windows.exe" download class="wgscan-agent-download">Télécharger l’agent Windows ↓</a><small>Windows 10 / 11 · 64 bits · Sans droits administrateur</small></div></div>
-<ol class="wgscan-agent-instructions"><li><strong>Ouvre le fichier téléchargé.</strong><p>La fenêtre WolfGuard Agent s’ouvre et prépare automatiquement ce dont elle a besoin au premier lancement.</p></li><li><strong>Génère ton code d’association.</strong><p>Valable cinq minutes, pour une seule utilisation.</p><button type="button" id="wgAgentPair">Générer le code d’association</button><div id="wgAgentPairCode" hidden><code></code><button type="button" id="wgAgentCopyPair">Copier le code</button><small></small></div></li><li><strong>Colle ce code dans la fenêtre de l’agent.</strong><p>Clique sur « Associer ce poste ». Quand l’état indique « Connecté », tu peux lancer tes scans depuis ce site.</p></li></ol>
-<p id="wgAgentSetupError" role="alert"></p><p id="wgAgentSetupStatus" role="status" aria-live="polite"></p>
-<h3>Postes associés</h3><div id="wgAgentManage"></div>
-<details class="wgscan-agent-alternative"><summary>Autre téléchargement</summary><a href="downloads/WolfGuard-Agent-Windows.zip" download>Archive ZIP de l’agent</a><p>Extrais l’archive puis ouvre WolfGuard-Agent.exe.</p></details>
-<p class="wgscan-note">Le démarrage avec Windows se règle dans la fenêtre de l’agent. Pour quitter l’ancienne version, ferme sa console avant d’ouvrir celle-ci.</p></dialog>`;
-    const live=()=>token===generation&&root.isConnected&&!$('#app').classList.contains('hidden');
-    let agents=[],jobs=[],busy=false,lastResult='',current=null,running=null;
-    const status=(text,error=false)=>{if(!live())return;$('#wgAgentStatus').textContent=text;$('#wgAgentStatus').classList.toggle('is-error',error);};
-    async function request(path,value){return cloud().agentRequest(path,value);}
-    function render(){
-      if(!live())return;
-      const picker=$('#wgAgentSelect');picker.innerHTML=agents.length?agents.map(agent=>'<option value="'+esc(agent.id)+'" '+(agent.id===selected?'selected':'')+'>'+esc(agent.name)+(agent.online?' · Connecté':' · Hors ligne')+'</option>').join(''):'<option value="">Aucun agent associé</option>';
-      const agent=agents.find(item=>item.id===selected);if(kind==='vulnerability'&&agent&&!agent.capabilities?.includes('security-audit-v1'))status('Mets à jour l’agent Windows depuis « Connecter un poste » pour lancer l’audit.');running=jobs.find(job=>['queued','running'].includes(job.status));
-      const matching=jobs.filter(job=>(job.workspace||job.strategy)===kind);current=matching.find(job=>job.id===jobIds[kind])||matching[0]||null;if(current)jobIds[kind]=current.id;
-      $('#wgAgentPresence').textContent=agent?(agent.online?'● Connecté':'○ Hors ligne'):'Aucun poste connecté';$('#wgAgentPresence').dataset.online=String(!!agent?.online);
-      $('#wgAgentLaunch').disabled=busy||!agent?.online||!!running||(kind==='vulnerability'&&!agent?.capabilities?.includes('security-audit-v1'));$('#wgAgentStop').disabled=busy||!running;
-      $('#wgAgentStop').textContent=running&&(running.workspace||running.strategy)!==kind?'Arrêter le scan '+(running.strategy==='passive'?'passif':'actif'):'Arrêter';
-      $('#wgAgentHistory').innerHTML=matching.length?matching.map(job=>'<option value="'+job.id+'" '+(current?.id===job.id?'selected':'')+'>'+new Date(job.createdAt).toLocaleString('fr-FR')+' · '+(labels[job.status]||job.status)+'</option>').join(''):'<option value="">Aucun rapport : '+definition.short+'</option>';
-      const progress=$('#wgAgentProgress');progress.hidden=!current;
-      if(current){const bar=progress.querySelector('progress');bar.max=Math.max(1,current.total);if(current.status==='running'&&!current.total)bar.removeAttribute('value');else bar.value=current.completed;progress.querySelector('span').textContent=(labels[current.status]||current.status)+(current.total?' · '+current.completed+' / '+current.total+(kind==='vulnerability'?' contrôles':kind==='map'?' adresses':' tests'):'');}
-      const manage=$('#wgAgentManage');manage.innerHTML=agents.map(agent=>'<article class="wgscan-saved-item"><div><strong>'+esc(agent.name)+'</strong><small>'+(agent.online?'Connecté':'Dernière connexion : '+new Date(agent.lastSeen).toLocaleString('fr-FR'))+'</small></div><button type="button" data-agent-revoke="'+agent.id+'">Révoquer</button></article>').join('')||'<p class="wgscan-note">Aucun agent associé pour le moment.</p>';
-      for(const button of manage.querySelectorAll('[data-agent-revoke]'))button.onclick=async()=>{if(!await appConfirm('Retirer l’accès de ce poste et arrêter ses scans en cours ?'))return;if(!live())return;try{await request('agents/revoke',{id:button.dataset.agentRevoke});if(live()){status('Accès du poste retiré.');await refresh();}}catch(error){if(live())$('#wgAgentSetupError').textContent=error.message;}};
+    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">AGENT COMMUN · WINDOWS, LINUX ET MACOS</span><h2>Scanner depuis ton poste</h2><p>Le même agent exécute tous tes scans. Son choix se fait dans les paramètres.</p></div><button type="button" id="wgAgentSettings">Paramètres → Agents</button></div><div class="wgscan-agent-controls"><div class="wgscan-agent-machine"><span>Poste d’exécution commun</span><strong id="wgAgentName">Chargement…</strong></div><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan') + 'Lancer : ' + definition.short + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button><span id="wgAgentPresence"></span></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><div class="wgscan-agent-history"><label>Derniers scans<select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Résultats conservés 7 jours · Enregistrer pour les garder dans ton espace</small></div>';
+    const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
+    const find = selector => root.querySelector(selector);
+    let agent = null, jobs = [], busy = false, lastResult = '', current = null, running = null, selected = '', refreshing = false;
+    const request = (path, value) => WolfGuardCloud.agentRequest(path, value);
+    const status = (text, error = false) => { if (live()) { find('#wgAgentStatus').textContent = text; find('#wgAgentStatus').classList.toggle('is-error', error); } };
+    function render() {
+      if (!live()) return;
+      const compatible = kind !== 'vulnerability' || agent?.capabilities?.includes('security-audit-v1');
+      find('#wgAgentName').textContent = agent ? agent.name + ' · ' + workspaceAgents.platformName(agent.platform) : 'Aucun agent sélectionné';
+      if (agent && !compatible) status('Mets à jour l’agent depuis Paramètres → Agents pour lancer l’audit.');
+      running = jobs.find(job => ['queued', 'running'].includes(job.status));
+      const matching = jobs.filter(job => (job.workspace || job.strategy) === kind);
+      current = matching.find(job => job.id === jobIds[kind]) || matching[0] || null;
+      if (current) jobIds[kind] = current.id;
+      find('#wgAgentPresence').textContent = agent ? agent.online ? '● Connecté' : '○ Hors ligne' : 'À configurer dans les paramètres';
+      find('#wgAgentPresence').dataset.online = String(!!agent?.online);
+      find('#wgAgentLaunch').disabled = busy || !agent?.online || !!running || !compatible;
+      find('#wgAgentStop').disabled = busy || !running;
+      find('#wgAgentStop').textContent = running && (running.workspace || running.strategy) !== kind ? 'Arrêter : ' + (scanInsights.definitions[running.workspace || running.strategy]?.short || 'scan en cours') : 'Arrêter';
+      find('#wgAgentHistory').innerHTML = matching.length ? matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('') : '<option value="">Aucun rapport : ' + definition.short + '</option>';
+      const progress = find('#wgAgentProgress'); progress.hidden = !current;
+      if (current) { const bar = progress.querySelector('progress'); bar.max = Math.max(1, current.total); if (current.status === 'running' && !current.total) bar.removeAttribute('value'); else bar.value = current.completed; progress.querySelector('span').textContent = (labels[current.status] || current.status) + (current.total ? ' · ' + current.completed + ' / ' + current.total + (kind === 'vulnerability' ? ' contrôles' : kind === 'map' ? ' adresses' : ' tests') : ''); }
     }
-    async function result(){
-      if(!current||lastResult===current.id+':'+current.revision)return;
-      const id=current.id,revision=current.revision,data=await request('scans/result?id='+id);if(!live()||current?.id!==id)return;
-      if(data.report){const name=definition.short+' · '+(agents.find(a=>a.id===selected)?.name||'Agent');
-        const report=data.report.results?.length?webScanModel.parse(JSON.stringify(data.report),strategy,name,kind):{format:'wolfguard-scan',version:1,strategy,workspace:kind,name,importedAt:new Date().toISOString(),source:'Agent',warnings:(data.report.warnings||[]).map(value=>String(value).slice(0,500)),rows:[]};
-        report.source='Agent Windows';report.importedAt=new Date(data.createdAt).toISOString();report.capturedAt=data.report.startedAt||'';
-        onReport(report,data);lastResult=id+':'+revision;
-        if(data.report.error)status(data.report.error,true);else if(['completed','cancelled'].includes(data.status))status(labels[data.status]+' : '+report.rows.length+' observation(s) reçue(s).');
-      }else if(data.status==='running')onReport({format:'wolfguard-scan',version:1,strategy,workspace:kind,name:'Collecte en cours',importedAt:new Date().toISOString(),source:'Agent Windows',warnings:[],rows:[]},data);
+    async function result() {
+      if (!current || lastResult === current.id + ':' + current.revision) return;
+      const id = current.id, revision = current.revision, data = await request('scans/result?id=' + id);
+      if (!live() || current?.id !== id) return;
+      const source = 'Agent · ' + workspaceAgents.platformName(data.report?.platform || agent?.platform);
+      if (data.report) {
+        const name = definition.short + ' · ' + (agent?.name || 'Agent');
+        const report = data.report.results?.length ? webScanModel.parse(JSON.stringify(data.report), strategy, name, kind) : {format: 'wolfguard-scan', version: 1, strategy, workspace: kind, name, warnings: (data.report.warnings || []).map(value => String(value).slice(0, 500)), rows: []};
+        report.source = source; report.importedAt = new Date(data.createdAt).toISOString(); report.capturedAt = data.report.startedAt || '';
+        onReport(report, data); lastResult = id + ':' + revision;
+        if (data.report.error) status(data.report.error, true); else if (['completed', 'cancelled'].includes(data.status)) status(labels[data.status] + ' : ' + report.rows.length + ' observation(s) reçue(s).');
+      } else if (data.status === 'running') onReport({format: 'wolfguard-scan', version: 1, strategy, workspace: kind, name: 'Collecte en cours', importedAt: new Date().toISOString(), source, warnings: [], rows: []}, data);
     }
-    async function refresh(){
-      if(!live()||busy)return;
-      try{
-        const response=await request('agents');if(!live())return;agents=response.agents;
-        if(!agents.some(agent=>agent.id===selected))selected=agents.find(a=>a.online)?.id||agents[0]?.id||'';
-        const id=selected;
-        if(id){const response=await request('scans?agentId='+id);if(!live()||selected!==id)return;jobs=response.jobs;}else jobs=[];
-        render();await result();
-      }catch(error){if(live())status(error.message,true);}
+    async function refresh() {
+      if (!live() || busy || refreshing) return;
+      refreshing = true;
+      try {
+        const snapshot = await workspaceAgents.snapshot(); if (!live()) return;
+        agent = snapshot.selected;
+        if (selected !== (agent?.id || '')) { selected = agent?.id || ''; lastResult = ''; jobs = []; jobIds[kind] = ''; }
+        const id = selected;
+        if (id) { const response = await request('scans?agentId=' + id); if (!live() || selected !== id) return; jobs = response.jobs; } else jobs = [];
+        render(); await result();
+      } catch (error) { if (live()) { agent = null; jobs = []; render(); status(error.message, true); } }
+      finally { refreshing = false; }
     }
-    async function poll(){await refresh();if(live())timer=setTimeout(poll,3000);}
-    $('#wgAgentSelect').onchange=async event=>{selected=event.target.value;lastResult='';jobIds[kind]='';jobs=[];await refresh();};
-    $('#wgAgentHistory').onchange=async event=>{jobIds[kind]=event.target.value;lastResult='';render();try{await result();}catch(error){status(error.message,true);}};
-    $('#wgAgentLaunch').onclick=async()=>{
-      if(busy||!selected||!live())return;busy=true;render();
-      try{const v=values();const data={agentId:selected,strategy,workspace:kind,...(strategy==='active'?{target:v.target,mode:v.profile==='discovery'?'discovery':'tcp',ports:v.profile==='discovery'?'22,80,443,445,3389':v.profile==='web'?'80,443,8000,8080,8443':v.profile==='custom'?v.ports:SCAN_PORT_PRESETS.common,identifyServices:v.identify,timeoutMs:v.agentTimeoutMs??1500,concurrency:v.agentConcurrency??16}:{passiveScope:kind==='vulnerability'?'security':'all'})};
-        const job=await request('scans',data);if(!live())return;jobIds[kind]=job.id;lastResult='';status('Demande transmise à l’agent.');
-      }catch(error){status(error.message,true);}finally{busy=false;if(live())await refresh();}
+    async function poll() { await refresh(); if (live()) timer = setTimeout(poll, 3000); }
+    find('#wgAgentSettings').onclick = () => openSettings('agents');
+    find('#wgAgentHistory').onchange = async event => { jobIds[kind] = event.target.value; lastResult = ''; render(); try { await result(); } catch (error) { status(error.message, true); } };
+    find('#wgAgentLaunch').onclick = async () => {
+      if (busy || !selected || !live()) return;
+      busy = true; render();
+      try {
+        const v = values(), chosen = (await workspaceAgents.snapshot()).selected;
+        if (!live()) return;
+        if (!chosen || chosen.id !== selected) throw new Error('L’agent commun a changé. Vérifie le poste affiché avant de relancer.');
+        const data = {agentId: selected, strategy, workspace: kind, ...(strategy === 'active' ? {target: v.target, mode: v.profile === 'discovery' ? 'discovery' : 'tcp', ports: v.profile === 'discovery' ? '22,80,443,445,3389' : v.profile === 'web' ? '80,443,8000,8080,8443' : v.profile === 'custom' ? v.ports : SCAN_PORT_PRESETS.common, identifyServices: v.identify, timeoutMs: v.agentTimeoutMs ?? 1500, concurrency: v.agentConcurrency ?? 16} : {passiveScope: kind === 'vulnerability' ? 'security' : 'all'})};
+        const job = await request('scans', data); if (!live()) return;
+        jobIds[kind] = job.id; lastResult = ''; status('Demande transmise à l’agent commun.');
+      } catch (error) { status(error.message, true); }
+      finally { busy = false; if (live()) await refresh(); }
     };
-    $('#wgAgentStop').onclick=async()=>{if(busy||!running)return;busy=true;render();try{await request('scans/cancel',{id:running.id});status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.');}catch(error){status(error.message,true);}finally{busy=false;if(live())await refresh();}};
-    $('#wgAgentSetup').onclick=()=>$('#wgAgentSetupDialog').showModal();$('#wgAgentCloseSetup').onclick=()=>$('#wgAgentSetupDialog').close();
-    $('#wgAgentPair').onclick=async()=>{const button=$('#wgAgentPair');button.disabled=true;$('#wgAgentSetupError').textContent='';try{const pairing=await request('agents/pair',{});if(!live())return;const area=$('#wgAgentPairCode');area.hidden=false;area.querySelector('code').textContent=pairing.code;area.querySelector('small').textContent='Expire à '+new Date(pairing.expiresAt).toLocaleTimeString('fr-FR');}catch(error){if(live())$('#wgAgentSetupError').textContent=error.message;}finally{if(button.isConnected)button.disabled=false;}};
-    $('#wgAgentCopyPair').onclick=async()=>{const copied=await copyText($('#wgAgentPairCode code').textContent);if(live()){$('#wgAgentSetupError').textContent=copied?'':'Copie impossible. Sélectionne le code pour le copier.';$('#wgAgentSetupStatus').textContent=copied?'Code copié. Colle-le dans la fenêtre WolfGuard Agent.':'';}};
-    if(cloud()?.enabled&&cloud().hasSession())poll();
-    else{$('#wgAgentSelect').innerHTML='<option>Ouvrir le site pour connecter un agent</option>';$('#wgAgentPair').disabled=true;status('Les agents sont disponibles sur wolfguard.wavetools.fr après saisie de ton code.');render();}
+    find('#wgAgentStop').onclick = async () => { if (busy || !running) return; busy = true; render(); try { await request('scans/cancel', {id: running.id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
+    if (workspaceAgents.available()) poll(); else { render(); status('Configure l’agent dans Paramètres → Agents sur le site après saisie de ton code.'); }
   }
-  return {mount,reset};
+  return {mount, reset};
 })();

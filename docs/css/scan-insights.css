@@ -35,3 +35,7 @@
  .topbar .section-navigation .workspace-section-button{flex:0 0 auto!important;min-width:max-content;padding:0 12px!important;font-size:12px!important}
 }
 @media(max-width:650px){.wgscan-special-empty,.wgscan-map-overview,.wgscan-audit-overview{padding:16px}.wgscan-audit-item{padding:14px}}
+.wgscan-agent-machine { display: grid; gap: 7px; min-width: 0; flex: 1; }
+.wgscan-agent-machine > span { font-size: 11px; color: var(--ui-muted); }
+.wgscan-agent-machine strong { font-size: 13px; overflow-wrap: anywhere; }
+@media(max-width:520px){.wgscan-agent-machine{flex-basis:100%}}

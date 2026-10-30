@@ -18,6 +18,10 @@ test-results/
 *.zip
 !app/downloads/WolfGuard-Agent-Windows.zip
 !docs/downloads/WolfGuard-Agent-Windows.zip
+!app/downloads/WolfGuard-Agent-Linux.zip
+!docs/downloads/WolfGuard-Agent-Linux.zip
+!app/downloads/WolfGuard-Agent-macOS.zip
+!docs/downloads/WolfGuard-Agent-macOS.zip
 *.tar
 *.bak
 donnees/

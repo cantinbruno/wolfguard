@@ -4,10 +4,11 @@ Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
 La fenetre affiche le grand logo, la connexion et la progression des scans.
 Aucune extraction d archive ni console n est necessaire.
 
-1. Ouvrir WolfGuard, saisir le code habituel puis Scan > Connecter un poste.
+1. Ouvrir WolfGuard, saisir le code habituel puis Parametres > Agents.
 2. Generer et copier le code temporaire d association.
 3. Le coller dans la fenetre de l agent et cliquer sur Associer ce poste.
-4. Attendre l etat Connecte puis choisir ce poste et lancer le scan sur le site.
+4. Attendre l etat Connecte puis choisir ce poste dans Parametres > Agents.
+   Le meme choix s applique aux quatre sections de scan.
 
 Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
 Fermer la console de l ancien agent avant d ouvrir cette version graphique.

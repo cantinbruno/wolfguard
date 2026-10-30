@@ -21,7 +21,7 @@ function verify(directory) {
     if (entry.isDirectory()) verify(filename);
     else {
       if (!allowed.has(path.extname(entry.name).toLowerCase())) throw new Error('Fichier non publiable : ' + path.relative(source, filename));
-      if(path.extname(entry.name).toLowerCase()==='.zip'&&filename!==path.join(source,'downloads','WolfGuard-Agent-Windows.zip'))throw new Error('Archive non autorisée dans le site.');
+      if(path.extname(entry.name).toLowerCase()==='.zip'&&!['Windows','Linux','macOS'].some(platform=>filename===path.join(source,'downloads','WolfGuard-Agent-'+platform+'.zip')))throw new Error('Archive non autorisée dans le site.');
       if(path.extname(entry.name).toLowerCase()==='.exe'&&filename!==path.join(source,'downloads','WolfGuard-Agent-Windows.exe'))throw new Error('Exécutable non autorisé dans le site.');
       digest.update(path.relative(root,filename)); digest.update(readFileSync(filename));
     }
@@ -51,7 +51,7 @@ const settingsFile=path.join(output,'js/views/settings.js');
 let settings=readFileSync(settingsFile,'utf8');
 settings=settings.replace(/<button\b[^>]*data-settings-tab="modules"[^>]*>[\s\S]*?<\/button>/g,'');
 settings=settings.replace(/<section\b[^>]*id="settings-modules"[^>]*>[\s\S]*?<\/section>/g,'');
-settings=settings.replace("['security', 'data', 'interface', 'modules']","['security', 'data', 'interface']");
+settings=settings.replace("['security', 'data', 'interface', 'modules', 'agents']","['security', 'data', 'interface', 'agents']");
 if (/data-settings-tab="modules"|id="settings-modules"|\$\{moduleManagerHTML\(\)\}/.test(settings)) throw new Error('L’import des sections Windows doit être absent des paramètres web.');
 writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');

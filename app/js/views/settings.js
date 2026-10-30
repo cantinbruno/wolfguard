@@ -55,6 +55,7 @@ function changeWorkspaceFromSettings() {
 
 /* SETTINGS */
 const SETTINGS_ICON_PATHS = {
+  "monitor": '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/>',
   "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /><path d=\"m9 12 2 2 4-4\" />",
   "database": "<ellipse cx=\"12\" cy=\"5\" rx=\"9\" ry=\"3\" /><path d=\"M3 5V19A9 3 0 0 0 21 19V5\" /><path d=\"M3 12A9 3 0 0 0 21 12\" />",
   "sliders-horizontal": "<path d=\"M10 5H3\" /><path d=\"M12 19H3\" /><path d=\"M14 3v4\" /><path d=\"M16 17v4\" /><path d=\"M21 12h-9\" /><path d=\"M21 19h-5\" /><path d=\"M21 5h-7\" /><path d=\"M8 10v4\" /><path d=\"M8 12H3\" />",
@@ -87,6 +88,8 @@ function setSettingsTab(name, focus = false) {
   });
   dialog.querySelectorAll('[data-settings-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.settingsPanel !== name));
   dialog.querySelector('.settings-main').scrollTop = 0;
+  workspaceAgents.unmount();
+  if (name === 'agents') workspaceAgents.mount(dialog.querySelector('#settings-agents'));
   if (focus) button.focus();
 }
 async function openSettings(initialTab = 'security') {
@@ -108,7 +111,7 @@ async function openSettings(initialTab = 'security') {
   const databaseFiles = db?.native ? db.storageFiles() : [];
   const multipleDatabases = databaseFiles.length > 1;
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
-  const tabName = ['security', 'data', 'interface', 'modules'].includes(initialTab) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface', 'modules', 'agents'].includes(initialTab) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -119,6 +122,7 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-agents" data-settings-tab="agents" role="tab" aria-controls="settings-agents" aria-selected="false" tabindex="-1">${settingsIcon('monitor')}<span>Agents</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
         </nav>
         <div class="settings-workspace">
@@ -128,6 +132,7 @@ async function openSettings(initialTab = 'security') {
         </div>
       </aside>
       <div class="settings-main">
+        <section class="settings-panel hidden" id="settings-agents" data-settings-panel="agents" role="tabpanel" aria-labelledby="settings-tab-agents"></section>
         <section class="settings-panel hidden" id="settings-modules" data-settings-panel="modules" role="tabpanel" aria-labelledby="settings-tab-modules">${moduleManagerHTML()}</section>
         <section class="settings-panel hidden" id="settings-security" data-settings-panel="security" role="tabpanel" aria-labelledby="settings-tab-security">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Sécurité</h3></div><span class="settings-status">Session active</span></header>

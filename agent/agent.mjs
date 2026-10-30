@@ -1,8 +1,9 @@
 import {setTimeout as delay} from 'node:timers/promises';
-import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,rename,lstat,chmod} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {hostname} from 'node:os';
+import {hostname,homedir} from 'node:os';
+import {randomBytes} from 'node:crypto';
 import {createInterface} from 'node:readline/promises';
 import {runNetworkScan,fixedProcess} from './network.mjs';
 
@@ -13,7 +14,7 @@ export class AgentClient {
 }
 export async function executeJob(client,job,{signal,onStatus=()=>{},passiveCollector,securityCollector}={}){
   const cancel=new AbortController(),deadline=setTimeout(()=>cancel.abort(),180000),externalAbort=()=>cancel.abort();signal?.addEventListener('abort',externalAbort,{once:true});if(signal?.aborted)cancel.abort();
-  const label=({map:'Cartographie',vulnerability:'Audit Windows'})[job.spec.workspace]||('Scan '+(job.spec.strategy==='passive'?'passif':'actif'));
+  const label=({map:'Cartographie',vulnerability:'Audit de sécurité'})[job.spec.workspace]||('Scan '+(job.spec.strategy==='passive'?'passif':'actif'));
   let latest={strategy:job.spec.strategy,results:[],warnings:[],completed:0,total:0},revision=job.revision,lastAck=Date.now(),finished=false,remoteStopped=false;
   const heartbeat=async status=>{
     const result=await client.post('update',{id:job.id,lease:job.lease,revision:++revision,status,completed:latest.completed,total:latest.total,report:latest});
@@ -40,7 +41,20 @@ export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,s
   }
 }
 async function protectedData(value,mode){return fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./protect.ps1',import.meta.url)),'-Mode',mode],{input:value,timeout:10000,maxBytes:16000});}
-export function diskCredentialStore(directory){
+export function agentDirectory(platform=process.platform,env=process.env,home=homedir()){
+  if(platform==='win32')return path.join(env.LOCALAPPDATA||path.join(home,'AppData','Local'),'WolfGuardAgent');
+  if(platform==='darwin')return path.join(home,'Library','Application Support','WolfGuardAgent');
+  return path.join(env.XDG_CONFIG_HOME&&path.isAbsolute(env.XDG_CONFIG_HOME)?env.XDG_CONFIG_HOME:path.join(home,'.config'),'WolfGuardAgent');
+}
+export function diskCredentialStore(directory=agentDirectory(),{platform=process.platform}={}){
+  if(platform!=='win32'){
+    const filename=path.join(directory,'credential.json');
+    async function prepare(){await mkdir(directory,{recursive:true,mode:0o700});if(!(await lstat(directory)).isDirectory())throw new Error('Dossier d’association invalide.');await chmod(directory,0o700);}
+    return {
+      async load(){try{await prepare();const info=await lstat(filename);if(!info.isFile()||info.isSymbolicLink())throw new Error();await chmod(filename,0o600);return JSON.parse(await readFile(filename,'utf8'));}catch(error){if(error.code==='ENOENT')return null;throw new Error('Association locale illisible. Relance l’agent avec --pair.');}},
+      async save(credential){await prepare();const temporary=filename+'.'+randomBytes(12).toString('hex')+'.tmp';await writeFile(temporary,JSON.stringify(credential),{mode:0o600,flag:'wx'});await rename(temporary,filename);}
+    };
+  }
   const filename=path.join(directory,'credential.dpapi');
   return {
     async load(){try{return JSON.parse(await protectedData(await readFile(filename,'utf8'),'unprotect'));}catch(error){if(error.code==='ENOENT')return null;throw new Error('L’association enregistrée est illisible. Génère un nouveau code sur le site.');}},
@@ -50,7 +64,7 @@ export function diskCredentialStore(directory){
 
 // The native window sends only pairing/control commands over stdin. Status
 // events on stdout contain no credential, pairing code, target or scan report.
-export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(path.join(process.env.LOCALAPPDATA||'','WolfGuardAgent')),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector}={}){
+export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector}={}){
   let controller=null,work=null,closing=false;
   const state=(message,detail={})=>emit({type:'state',state:detail.state||'error',message,...detail});
   async function stop(){if(controller)controller.abort();if(work)await work;controller=null;work=null;}
@@ -76,7 +90,7 @@ export async function desktopAgent({client=new AgentClient(),store=diskCredentia
         const code=String(command.code||'').trim().toLowerCase();
         if(!/^[a-f0-9]{32}$/.test(code)){state('Le code temporaire doit contenir 32 caractères. Copie-le depuis le site.',{state:'pairing'});return;}
         await stop();state('Association du poste…',{state:'enrolling'});
-        try{const enrolled=await client.post('enroll',{code,name:String(name).slice(0,100),platform:'win32'});const next={api:client.origin,...enrolled};await store.save(next);credential=next;connect(next);}
+        try{const enrolled=await client.post('enroll',{code,name:String(name).slice(0,100),platform:process.platform});const next={api:client.origin,...enrolled};await store.save(next);credential=next;connect(next);}
         catch(error){state(error.status===403?'Ce code a expiré ou a déjà été utilisé. Génère un nouveau code.':'Association impossible. Vérifie ta connexion puis réessaie.',{state:'pairing'});}
       }
     }).catch(()=>state('L’action n’a pas pu se terminer. Réessaie.',{state:'error'}));
@@ -84,19 +98,18 @@ export async function desktopAgent({client=new AgentClient(),store=diskCredentia
   await new Promise(resolve=>lines.once('close',resolve));closing=true;await queue;await stop();
 }
 async function main(){
-  if(process.platform!=='win32')throw new Error('Utilise cet agent sur Windows.');
+  if(!['win32','linux','darwin'].includes(process.platform))throw new Error('Cet agent prend en charge Windows, Linux et macOS.');
   if(process.argv.includes('--gui'))return desktopAgent();
-  const directory=path.join(process.env.LOCALAPPDATA,'WolfGuardAgent'),filename=path.join(directory,'credential.dpapi');
-  await mkdir(directory,{recursive:true});
+  const store=diskCredentialStore();
   let credential=null;
-  try{const cipher=await readFile(filename,'utf8');credential=JSON.parse(await protectedData(cipher,'unprotect'));if(credential.api!==API||!/^[a-f0-9]{64}$/.test(credential.token))throw new Error('Association invalide.');}catch(error){if(error.code!=='ENOENT'&&!process.argv.includes('--pair'))throw new Error('Association locale illisible. Relance avec Associer-agent.cmd.');}
+  try{credential=await store.load();if(credential&&(credential.api!==API||!/^[a-f0-9]{64}$/.test(credential.token)))throw new Error('Association invalide.');}catch(error){if(!process.argv.includes('--pair'))throw error;}
   const client=new AgentClient();
   if(!credential||process.argv.includes('--pair')){
-    console.log('Ouvre WolfGuard > Scan > Associer un agent, puis génère un code temporaire.');
+    console.log('Ouvre WolfGuard > Paramètres > Agents, puis génère un code temporaire.');
     const prompt=createInterface({input:process.stdin,output:process.stdout});let code;try{code=(await prompt.question('Colle le code d’association : ')).trim();}finally{prompt.close();}
     if(!/^[a-f0-9]{32}$/.test(code))throw new Error('Code d’association invalide.');
-    credential={api:API,...await client.post('enroll',{code,name:hostname().slice(0,100),platform:'win32'})};
-    await writeFile(filename+'.tmp',await protectedData(JSON.stringify(credential),'protect'),{mode:0o600});await rename(filename+'.tmp',filename);
+    credential={api:API,...await client.post('enroll',{code,name:hostname().slice(0,100),platform:process.platform})};
+    await store.save(credential);
     console.log('Poste associé. Aucun code WolfGuard ni compte GitHub n’est enregistré dans l’agent.');
   }
   client.token=credential.token;

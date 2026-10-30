@@ -43,7 +43,7 @@ async function setup(){
   // Activation header is intentionally supplied only through this local fixture.
   const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation},body:JSON.stringify({code:'07942685'})}),env,()=>now);
   const user='Bearer '+(await response.json()).token;
-  async function pair(name='Agent de test'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform:'win32'});assert.equal(result.status,200);const agent=await result.json();return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
+  async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
   return {api,user,pair,env,advance:ms=>{now+=ms;}};
 }
 test('strict scan plans reject Internet targets, injection, huge ranges and unsafe options',()=>{
@@ -51,6 +51,30 @@ test('strict scan plans reject Internet targets, injection, huge ranges and unsa
   for(const value of ['8.8.8.8','169.254.1.2;echo hi','example.com','0.0.0.0','::ffff:8.8.8.8','2001:db8::1','192.168.0.0/16','10.0.0.1-10.0.2.1'])assert.throws(()=>targets(value),value);
   const input={strategy:'active',target:'127.0.0.1',ports:'22,80,443',mode:'tcp',timeoutMs:200,concurrency:2};assert.deepEqual(scanSpec(scanSpec(input)),scanSpec(input));
   for(const change of [{ports:'1-65535'},{concurrency:99},{timeoutMs:9999},{target:'192.168.0.0/24',ports:'1-100'},{mode:'shell'},{ports:'22;curl invalid'}])assert.throws(()=>scanSpec({...input,...change}));
+});
+
+test('one enrollment on each supported OS can execute all four scoped workspaces',async()=>{
+  const s=await setup();
+  try{
+    const ticket=await (await s.api('agents/pair',{},s.user)).json();
+    assert.equal((await s.api('agent/enroll',{code:ticket.code,name:'Unsupported',platform:'freebsd'})).status,400);
+    for(const platform of ['win32','linux','darwin']){
+      const agent=await s.pair('Poste '+platform,platform);
+      await s.api('agent/poll',{capabilities:['security-audit-v1']},agent.auth);
+      const list=await (await s.api('agents',undefined,s.user)).json();
+      assert.equal(list.agents.find(item=>item.id===agent.id).platform,platform);
+      for(const workspace of ['passive','active','map','vulnerability']){
+        const spec={agentId:agent.id,workspace,strategy:['active','map'].includes(workspace)?'active':'passive',...(workspace==='active'?{target:'127.0.0.1',ports:'22',mode:'tcp'}:workspace==='map'?{target:'127.0.0.1',mode:'discovery'}:{passiveScope:workspace==='vulnerability'?'security':'all'})};
+        const created=await s.api('scans',spec,s.user);assert.equal(created.status,201);
+        const job=(await (await s.api('agent/poll',{},agent.auth)).json()).job;
+        assert.equal(job.spec.workspace,workspace);
+        const update=await s.api('agent/update',{id:job.id,lease:job.lease,revision:job.revision+1,status:'completed',completed:0,total:0,report:{strategy:spec.strategy,workspace,platform,results:[],warnings:[]}},agent.auth);
+        assert.equal(update.status,200);
+        const result=await (await s.api('scans/result?id='+job.id,undefined,s.user)).json();
+        assert.equal(result.report.platform,platform);assert.equal(result.workspace,workspace);
+      }
+    }
+  }finally{s.env.DB.db.close();}
 });
 test('agent pairing is one-use, scoped, encrypted, revocable and separate from vault sessions',async()=>{
   const s=await setup();assert.equal((await s.api('agents')).status,401);
