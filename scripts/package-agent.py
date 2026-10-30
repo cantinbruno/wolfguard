@@ -15,6 +15,8 @@ FILES={
     'agent/agent.mjs':'agent/agent.mjs',
     'agent/network.mjs':'agent/network.mjs',
     'agent/collect.ps1':'agent/collect.ps1',
+    'agent/security.ps1':'agent/security.ps1',
+    'agent/security-rules.mjs':'agent/security-rules.mjs',
     'agent/protect.ps1':'agent/protect.ps1',
     'server/lib/wolfguard/scan-spec.mjs':'server/lib/wolfguard/scan-spec.mjs',
 }

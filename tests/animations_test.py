@@ -89,7 +89,7 @@ def run():
             page.keyboard.press('Alt+3')
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.workspace-section-button[data-section=scan-active]')).to_have_attribute('aria-pressed','true')
-            page.keyboard.press('Alt+4')
+            page.keyboard.press('Alt+6')
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.workspace-section-button[data-section=tools]')).to_have_attribute('aria-pressed','true')
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)

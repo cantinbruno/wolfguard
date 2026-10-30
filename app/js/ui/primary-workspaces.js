@@ -140,7 +140,7 @@ async function switchPrimaryWorkspace(section) {
 }
 document.addEventListener('input', () => syncMemoDraftIndicator());
 document.addEventListener('keydown', event => {
-  const digit=/^[1-4]$/.test(event.key)?event.key:/^Digit([1-4])$/.exec(event.code||'')?.[1];
+  const digit=/^[1-6]$/.test(event.key)?event.key:/^Digit([1-6])$/.exec(event.code||'')?.[1];
   if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !digit || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
   const destination=availablePrimarySections()[Number(digit)-1];
   if(!destination)return;

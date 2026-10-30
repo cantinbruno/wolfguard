@@ -6,7 +6,7 @@ const webScanModel = (() => {
   const text=(value,max=500)=>String(value??'').slice(0,max);
   const number=value=>value===''||value==null?null:Number(value);
   const states={listen:'listening',listening:'listening',established:'connection',bound:'bound',up:'reachable',down:'unreachable'};
-  const labels={observed:'En cache',listening:'En écoute',connection:'Connexion',bound:'Socket UDP',open:'Ouvert',closed:'Fermé',filtered:'Filtré',unfiltered:'Non filtré','open|filtered':'Ouvert ou filtré','closed|filtered':'Fermé ou filtré',reachable:'Répond',unreachable:'Sans réponse','no-response':'Sans réponse',error:'Erreur',unknown:'Non renseigné'};
+  const labels={issue:'À corriger',passed:'Conforme',notchecked:'Non vérifié',info:'Information',observed:'En cache',listening:'En écoute',connection:'Connexion',bound:'Socket UDP',open:'Ouvert',closed:'Fermé',filtered:'Filtré',unfiltered:'Non filtré','open|filtered':'Ouvert ou filtré','closed|filtered':'Fermé ou filtré',reachable:'Répond',unreachable:'Sans réponse','no-response':'Sans réponse',error:'Erreur',unknown:'Non renseigné'};
   function row(raw,kind,source='Import'){
     if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Une observation doit être un objet avec une adresse.');
     const address=text(raw.address??raw.LocalAddress??raw.IPAddress??'',253).trim();
@@ -25,9 +25,9 @@ const webScanModel = (() => {
       macAddress:text(raw.macAddress??raw.LinkLayerAddress,80),interfaceName:text(raw.interfaceName??raw.InterfaceAlias??raw.InterfaceIndex,100),
       processName:text(raw.processName),pid:Number.isInteger(pid)&&pid>=0?pid:null,
       remoteAddress:text(raw.remoteAddress??raw.RemoteAddress,253),remotePort:Number.isInteger(remotePort)&&remotePort>=0&&remotePort<=65535?remotePort:null,
-      detail:text(raw.detail??raw.observationState??raw.State,2000)};
+      checkId:text(raw.checkId,100),title:text(raw.title,500),severity:text(raw.severity,20),recommendation:text(raw.recommendation,2000),reference:text(raw.reference,1000),detail:text(raw.detail??raw.observationState??raw.State,4000)};
   }
-  function key(r){return JSON.stringify([r.address,r.port,r.transport,r.remoteAddress,r.remotePort,r.pid,r.interfaceName]);}
+  function key(r){return JSON.stringify([r.address,r.port,r.transport,r.remoteAddress,r.remotePort,r.pid,r.interfaceName,r.checkId||'']);}
   function signature(r){return JSON.stringify([r.status,r.macAddress,r.service,r.product,r.version,r.processName,r.detail]);}
   function csv(input){
     const content=input.replace(/^#TYPE[^\n]*\n/i,'');
@@ -88,7 +88,7 @@ const webScanModel = (() => {
     }
     return {rows,source:'Nmap XML',capturedAt:doc.documentElement.getAttribute('startstr')||'',warnings:summarized?[summarized.toLocaleString('fr-FR')+' ports regroupés par Nmap ne sont pas détaillés dans la table.']:[]};
   }
-  function parse(input,kind,name='Relevé collé'){
+  function parse(input,kind,name='Relevé collé',workspace=kind){
     if(!['passive','active'].includes(kind))throw new Error('Type de relevé invalide.');
     if(new TextEncoder().encode(input).length>MAX_BYTES)throw new Error('Le fichier dépasse 2 Mo.');
     const value=input.replace(/^\uFEFF/,'').trim();if(!value)throw new Error('Ajoute un fichier ou colle un relevé à analyser.');
@@ -109,8 +109,9 @@ const webScanModel = (() => {
     else throw new Error('Importe un XML Nmap, un JSON WolfGuard ou un CSV avec en-têtes.');
     if(parsed.rows.length>MAX_ROWS)throw new Error('Maximum 5 000 observations par relevé.');
     if(!parsed.rows.length)throw new Error('Aucune observation reconnue. Le relevé précédent reste conservé.');
+    if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit Windows de l’agent, avec ses contrôles et leurs preuves.');
     const unique=new Map();for(const raw of parsed.rows){const record=row(raw,kind,parsed.source);unique.set(key(record),record);}
-    return {format:'wolfguard-scan',version:1,strategy:kind,name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
+    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
   }
   function compare(current,baseline){
     const old=new Map(baseline.rows.map(r=>[key(r),r])),next=new Map(current.rows.map(r=>[key(r),r])),changes=[];

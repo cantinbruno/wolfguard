@@ -211,6 +211,8 @@ function sectionName() {
     vault: 'Coffre-fort',
     protocol: 'Ports & services',
     'scan-active': 'Scan actif',
+    'scan-map': 'Cartographie du réseau',
+    'scan-vulnerability': 'Scan de vulnérabilités',
     'scan-passive': 'Scan passif'
   } [state.section] || ''
 }

@@ -34,3 +34,7 @@ et trois minutes maximum. Les resultats restent sur le relais sept jours.
 Enregistrer le rapport dans WolfGuard pour le conserver durablement.
 
 Sources : https://github.com/cantinbruno/wolfguard/tree/main/agent
+
+Sections : Scan passif (tables locales), Scan actif (ports d’une seule IP), Cartographie (découverte réseau), Vulnérabilités (audit Windows).
+L’audit lit les configurations et le cache Windows Update, sans installer de correctif. Une lecture refusée ou indisponible reste non vérifiée. Le cache peut être ancien ou incomplet.
+Pour mettre à jour : ferme l’ancien agent puis lance la nouvelle version téléchargée depuis le site ; l’association du poste est conservée.

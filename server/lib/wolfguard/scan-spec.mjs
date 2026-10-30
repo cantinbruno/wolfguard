@@ -44,16 +44,23 @@ export function ports(input){
 }
 export function scanSpec(raw){
   if(!raw||typeof raw!=='object'||!['active','passive'].includes(raw.strategy))throw new Error('Type de scan invalide.');
+  const workspace=raw.workspace;
+  if(workspace!==undefined&&!['passive','active','map','vulnerability'].includes(workspace))throw new Error('Section de scan invalide.');
+  const extra=workspace?{workspace}:{};
   if(raw.strategy==='passive'){
-    const passiveScope=raw.passiveScope||'all';if(!['all','neighbours','listeners','connections'].includes(passiveScope))throw new Error('Source passive invalide.');
-    return {strategy:'passive',passiveScope};
+    const passiveScope=raw.passiveScope||'all';if(!['all','neighbours','listeners','connections','security'].includes(passiveScope))throw new Error('Source passive invalide.');
+    if(workspace&&workspace!==(passiveScope==='security'?'vulnerability':'passive'))throw new Error('Source incompatible avec cette section.');
+    return {strategy:'passive',passiveScope,...extra};
   }
+  if(workspace&& !['active','map'].includes(workspace))throw new Error('Section incompatible avec un scan actif.');
   const mode=raw.mode||'tcp';if(!['tcp','discovery','icmp'].includes(mode))throw new Error('Mode de scan invalide.');
   const supplied=Array.isArray(raw.ports)&&raw.ports.every(Number.isInteger)?raw.ports.join(','):raw.ports;
   const addresses=targets(raw.target),selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
+  if(workspace==='active'&&addresses.length!==1)throw new Error('Le scan actif machine attend une seule adresse IP. Utilise Cartographie pour un réseau.');
+  if(workspace==='map'&&mode!=='discovery')throw new Error('La cartographie utilise la découverte réseau.');
   if(mode==='discovery'&&selected.length>8)throw new Error('Maximum huit ports de découverte.');
   if(addresses.length*Math.max(1,selected.length)>4096)throw new Error('Maximum 4096 tests : réduis la plage ou les ports.');
   const timeoutMs=raw.timeoutMs??1500,concurrency=raw.concurrency??16;
   if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>3000||!Number.isInteger(concurrency)||concurrency<1||concurrency>32)throw new Error('Délai de 100 à 3000 ms ; 1 à 32 tests simultanés.');
-  return {strategy:'active',target:raw.target.trim(),mode,addresses,ports:selected,timeoutMs,concurrency,identifyServices:raw.identifyServices===true};
+  return {strategy:'active',target:raw.target.trim(),mode,addresses,ports:selected,timeoutMs,concurrency,identifyServices:raw.identifyServices===true,...extra};
 }

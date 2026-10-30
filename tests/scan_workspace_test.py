@@ -81,9 +81,9 @@ def run():
               return {arp:arp[0].macAddress,neigh:neigh[0].address,net:net.map(r=>r.status),ss:ss[0].pid,csv:csv[0].processName,rejected};
             }''')
             assert parsed=={'arp':'00-11-22-33-44-55','neigh':'2001:db8::1','net':['listening','bound'],'ss':88,'csv':'name; with "quotes"','rejected':2},parsed
-            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.0/24')
+            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.50')
             page.locator('[data-wg-profile=web]').click();expect(page.locator('#wgScanCommand')).to_contain_text('-p 80,443,8000,8080,8443')
-            expect(page.locator('#wgScanCommand')).to_contain_text('-oX wolfguard-actif.xml 192.0.2.0/24')
+            expect(page.locator('#wgScanCommand')).to_contain_text('-oX wolfguard-actif.xml 192.0.2.50')
             page.locator('#scanTarget').fill('192.0.2.1; curl invalid');expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
             page.locator('#scanTarget').fill('-iL secret');expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
             page.locator('#scanTarget').fill('192.0.2.50')
@@ -106,9 +106,33 @@ def run():
             page.screenshot(path=str(ROOT/'.cache/scan-active-report.png'),full_page=True)
             print('PASS: XML Nmap complet, etats ambigus conserves, detail sans XSS, exports filtres et commandes validees')
 
+            navigate(page,'map');paste(page,XML,'Carte du laboratoire')
+            expect(page.locator('[data-map-address]')).to_have_count(1)
+            page.locator('[data-map-address]').click();expect(page.locator('#wgScanSearch')).to_have_value('192.0.2.50')
+            save(page,'Carte sauvegardee')
+            navigate(page,'vulnerability')
+            audit={'strategy':'passive','workspace':'vulnerability','results':[
+                {'address':'127.0.0.1','transport':'AUDIT','checkId':'smb1','title':'SMBv1 serveur','status':'issue','severity':'high','detail':'EnableSMB1Protocol = true','recommendation':'Desactiver SMBv1'},
+                {'address':'127.0.0.1','transport':'AUDIT','checkId':'updates-cache','title':'Correctifs Windows','status':'notchecked','severity':'info','detail':'Cache absent'},
+                {'address':'127.0.0.1','transport':'AUDIT','checkId':'uac','title':'UAC','status':'passed','severity':'high','detail':'EnableLUA = 1'}]}
+            paste(page,json.dumps(audit),'Audit du laboratoire')
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','1','1']
+            expect(page.locator('.wgscan-audit-item')).to_have_count(3)
+            page.locator('[data-wg-tab=rows]').click();page.locator('#wgScanFilter').select_option('issue')
+            expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            expect(page.locator('#wgScanRows tbody')).to_contain_text('Desactiver SMBv1')
+            with page.expect_download() as download:page.locator('#wgScanExport').click()
+            csv=Path(download.value.path()).read_text(encoding='utf-8-sig')
+            assert 'smb1' in csv and 'Desactiver SMBv1' in csv
+            save(page,'Audit sauvegarde')
+            page.locator('[data-wg-tab=overview]').click();page.screenshot(path=str(ROOT/'.cache/scan-audit-report.png'),full_page=True)
+            navigate(page,'map');expect(page.locator('#wgScanReportStamp')).to_contain_text('Carte sauvegardee')
+            page.locator('[data-wg-tab=overview]').click();page.screenshot(path=str(ROOT/'.cache/scan-map-report.png'),full_page=True)
+            print('PASS: carte interactive, controles Windows uniques, gravite, preuves, filtres, export et historiques separes')
+
             for width,height in [(1440,1000),(900,900),(390,844)]:
                 page.set_viewport_size({'width':width,'height':height})
-                for kind in ['passive','active']:
+                for kind in ['passive','active','map','vulnerability']:
                     navigate(page,kind)
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     assert page.locator('#wgScanImport').is_visible()

@@ -60,7 +60,7 @@ def run():
             assert counts['sources']==740, counts
             assert counts['visible']==counts['guides'] and 0<counts['guides']<counts['sources'], counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
-            assert page.locator('.workspace-section-button').count()==4
+            assert page.locator('.workspace-section-button').count()==6
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')
@@ -89,7 +89,7 @@ def run():
             page.locator('#richEditor').fill('Brouillon a conserver pendant les scans')
             page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
-            expect(page.locator('#scanTitle')).to_have_text('Scan passif')
+            expect(page.locator('#scanTitle')).to_have_text('Scan passif d’une machine')
             expect(page.locator('#toolboxShell,.scan-mode-navigation')).to_have_count(0)
             page.locator('.workspace-section-button[data-section=scan-active]').click()
             page.wait_for_function('()=>!sectionTransition.active')
@@ -126,7 +126,7 @@ def run():
             expect(page.locator('.protocol-content')).to_be_visible(timeout=15000)
             page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
-            expect(page.locator('#scanTitle')).to_have_text('Scan passif')
+            expect(page.locator('#scanTitle')).to_have_text('Scan passif d’une machine')
             expect(page.locator('#scanStart')).to_have_count(0)
             expect(page.locator('#wgScanImport')).to_be_enabled()
             page.locator('.workspace-section-button[data-section=scan-active]').click()

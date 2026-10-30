@@ -26,6 +26,8 @@ function workspaceNavigationIcon(name) {
 }
 
 function workspaceSectionIcon(section) {
+  if (section === 'scan-map') return protocolFamilyIcon('network');
+  if (section === 'scan-vulnerability') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg>';
   if (section === 'home') return workspaceNavigationIcon('house');
   if (section === 'scan-passive') return networkToolIcon('activity');
   if (section === 'scan-active') return networkToolIcon('radar');

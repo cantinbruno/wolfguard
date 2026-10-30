@@ -6,6 +6,8 @@ const topNavigation = (() => {
     library: 'Mémo',
     'scan-passive': 'Scan passif',
     'scan-active': 'Scan actif',
+    'scan-map': 'Cartographie',
+    'scan-vulnerability': 'Vulnérabilités',
     tools: 'Outils'
   };
 
@@ -32,6 +34,7 @@ const topNavigation = (() => {
       button.setAttribute('aria-pressed', String(selected));
     }
     positionIndicator();
+    navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
     syncMemoDraftIndicator();
   }
 

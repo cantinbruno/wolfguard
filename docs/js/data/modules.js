@@ -14,11 +14,10 @@ function libraryFacets() {
   return Object.keys(LIBRARY_FACETS);
 }
 
-function isScanSection(section) {
-  return ['scan-passive', 'scan-active'].includes(section);
-}
+const SCAN_WORKSPACE_KINDS={'scan-passive':'passive','scan-active':'active','scan-map':'map','scan-vulnerability':'vulnerability'};
+function isScanSection(section) { return Object.hasOwn(SCAN_WORKSPACE_KINDS,section); }
 
-const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 'tools'];
+const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'tools'];
 
 const workspaceModules = (() => {
   const installed = new Set((window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools']).filter(id => id !== 'vault'));

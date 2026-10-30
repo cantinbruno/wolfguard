@@ -254,7 +254,7 @@ desktopBridge.on('scan.progress', update => {
 });
 
 async function renderScanWorkspace() {
-  if (!desktopBridge.available) return webScanWorkspace.render(state.section === 'scan-active' ? 'active' : 'passive');
+  if (!desktopBridge.available || ['scan-map','scan-vulnerability'].includes(state.section)) return webScanWorkspace.render(SCAN_WORKSPACE_KINDS[state.section]);
   scanView = scanViews[state.section === 'scan-active' ? 'active' : 'passive'];
   const view = scanView,
     passive = view.values.strategy === 'passive';

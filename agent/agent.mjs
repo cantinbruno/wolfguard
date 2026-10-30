@@ -11,8 +11,9 @@ export class AgentClient {
   constructor(origin=API,{allowLoopback=false}={}){const url=new URL(origin);if(origin!==API&&!(allowLoopback&&url.protocol==='http:'&&url.hostname==='127.0.0.1'))throw new Error('Relais non autorisé.');this.origin=origin;this.token='';}
   async post(route,body,{signal}={}){const response=await fetch(this.origin+'/api/agent/'+route,{method:'POST',headers:{'Content-Type':'application/json','User-Agent':'WolfGuard-Agent/2.0',...(this.token?{Authorization:'Agent '+this.token}:{})},body:JSON.stringify(body),redirect:'error',credentials:'omit',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});const result=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(result.error||'Relais indisponible.');error.status=result.error?response.status:503;throw error;}return result;}
 }
-export async function executeJob(client,job,{signal,onStatus=()=>{},passiveCollector}={}){
+export async function executeJob(client,job,{signal,onStatus=()=>{},passiveCollector,securityCollector}={}){
   const cancel=new AbortController(),deadline=setTimeout(()=>cancel.abort(),180000),externalAbort=()=>cancel.abort();signal?.addEventListener('abort',externalAbort,{once:true});if(signal?.aborted)cancel.abort();
+  const label=({map:'Cartographie',vulnerability:'Audit Windows'})[job.spec.workspace]||('Scan '+(job.spec.strategy==='passive'?'passif':'actif'));
   let latest={strategy:job.spec.strategy,results:[],warnings:[],completed:0,total:0},revision=job.revision,lastAck=Date.now(),finished=false,remoteStopped=false;
   const heartbeat=async status=>{
     const result=await client.post('update',{id:job.id,lease:job.lease,revision:++revision,status,completed:latest.completed,total:latest.total,report:latest});
@@ -21,19 +22,19 @@ export async function executeJob(client,job,{signal,onStatus=()=>{},passiveColle
   };
 const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(2000).catch(()=>{});if(finished)break;try{await heartbeat('running');}catch(error){if(error.status===401||error.status===403||Date.now()-lastAck>=20000){cancel.abort();onStatus('Connexion au relais perdue : scan arrêté.',{state:'offline'});}}}})();
   try{
-    onStatus('Scan '+(job.spec.strategy==='passive'?'passif':'actif')+' en cours.',{state:'scanning',strategy:job.spec.strategy,completed:0,total:0});
+    onStatus(label+' en cours.',{state:'scanning',strategy:job.spec.strategy,completed:0,total:0});
     let lastProgress=0;
-    latest=await runNetworkScan(job.spec,{signal:cancel.signal,onProgress:report=>{latest=report;if(Date.now()-lastProgress>=250||report.completed===report.total){lastProgress=Date.now();onStatus('Scan '+(job.spec.strategy==='passive'?'passif':'actif')+' en cours.',{state:'scanning',strategy:job.spec.strategy,completed:report.completed,total:report.total});}},passiveCollector});
+    latest=await runNetworkScan(job.spec,{signal:cancel.signal,onProgress:report=>{latest=report;if(Date.now()-lastProgress>=250||report.completed===report.total){lastProgress=Date.now();onStatus(label+' en cours.',{state:'scanning',strategy:job.spec.strategy,completed:report.completed,total:report.total});}},passiveCollector,securityCollector});
   }catch(error){if(cancel.signal.aborted)latest={...latest,cancelled:true};else latest={...latest,warnings:[...latest.warnings,String(error.message||'Collecte impossible.').slice(0,500)],error:String(error.message||'Collecte impossible.').slice(0,500)};}
   finally{finished=true;clearTimeout(deadline);await monitor;signal?.removeEventListener('abort',externalAbort);}
   if(!remoteStopped){const status=latest.error?'failed':cancel.signal.aborted?'cancelled':'completed';for(let attempt=0;attempt<3;attempt++){try{await heartbeat(status);break;}catch(error){if(error.status===401||error.status===403)throw error;if(attempt===2)throw new Error('Résultat non confirmé par le relais.');await delay(1500);}}}
   const outcome=latest.error?'failed':cancel.signal.aborted||remoteStopped?'cancelled':'completed';
   onStatus(outcome==='failed'?'Le scan a échoué. Consulte le rapport sur le site.':outcome==='cancelled'?'Scan arrêté.':'Scan terminé. Les résultats sont disponibles sur le site.',{state:outcome,completed:latest.completed,total:latest.total});return latest;
 }
-export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,pollMs=4000}={}){
+export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000}={}){
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
   while(!signal?.aborted){
-    try{const {job}=await client.post('poll',{}, {signal});if(signal?.aborted)break;if(job)await executeJob(client,job,{signal,onStatus,passiveCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
+    try{const {job}=await client.post('poll',{capabilities:['security-audit-v1']}, {signal});if(signal?.aborted)break;if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
     catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
     try{await delay(pollMs,undefined,{signal});}catch{break;}
   }
@@ -49,13 +50,13 @@ export function diskCredentialStore(directory){
 
 // The native window sends only pairing/control commands over stdin. Status
 // events on stdout contain no credential, pairing code, target or scan report.
-export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(path.join(process.env.LOCALAPPDATA||'','WolfGuardAgent')),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector}={}){
+export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(path.join(process.env.LOCALAPPDATA||'','WolfGuardAgent')),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector}={}){
   let controller=null,work=null,closing=false;
   const state=(message,detail={})=>emit({type:'state',state:detail.state||'error',message,...detail});
   async function stop(){if(controller)controller.abort();if(work)await work;controller=null;work=null;}
   function connect(credential){
     client.token=credential.token;controller=new AbortController();
-    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,onStatus:state}).catch(error=>state(error.status===401||error.status===403?'Ce poste doit être associé de nouveau. Génère un code sur le site.':'La connexion n’a pas pu démarrer.',{state:error.status===401||error.status===403?'revoked':'error'}));
+    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,onStatus:state}).catch(error=>state(error.status===401||error.status===403?'Ce poste doit être associé de nouveau. Génère un code sur le site.':'La connexion n’a pas pu démarrer.',{state:error.status===401||error.status===403?'revoked':'error'}));
   }
   let credential=null;
   const lines=createInterface({input,crlfDelay:Infinity,terminal:false});

@@ -10,6 +10,25 @@ import {runNetworkScan,fixedProcess} from '../agent/network.mjs';
 import {fileURLToPath} from 'node:url';
 import {PassThrough} from 'node:stream';
 import {desktopAgent,runAgent} from '../agent/agent.mjs';
+import {evaluateSecurity} from '../agent/security-rules.mjs';
+
+test('four workspaces enforce machine versus network scope and evaluate only available Windows evidence',async()=>{
+  assert.throws(()=>scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'80'}));
+  assert.equal(scanSpec({workspace:'map',strategy:'active',mode:'discovery',target:'192.168.1.0/24'}).addresses.length,254);
+  assert.throws(()=>scanSpec({workspace:'map',strategy:'active',mode:'tcp',target:'127.0.0.1',ports:'80'}));
+  assert.throws(()=>scanSpec({workspace:'vulnerability',strategy:'passive',passiveScope:'all'}));
+  const missing=evaluateSecurity({});assert.ok(missing.results.every(row=>row.status==='notchecked'));
+  const now=Date.parse('2026-10-30T12:00:00Z');
+  const snapshot={firewall:{available:true,profiles:[{name:'Domain',enabled:null}]},smb:{available:true,enabled:true},installer:{available:true,machine:1,user:0},defender:{available:true,mode:'Passive',realtime:false,signatureAge:0},updates:{available:true,lastSearch:'2025-01-01',pending:[]}};
+  const checked=evaluateSecurity(snapshot,now),find=id=>checked.results.find(row=>row.checkId===id);
+  assert.equal(find('smb1').status,'issue');assert.equal(find('installer-elevation').status,'issue');assert.equal(find('firewall-Domain').status,'notchecked');
+  assert.equal(find('updates-cache').status,'notchecked');assert.equal(find('defender-realtime').status,'notchecked');assert.equal(find('defender-signatures').status,'notchecked');
+  snapshot.updates={available:true,lastSearch:new Date(now).toISOString(),pending:[{title:'Security KB123',ids:['123'],severity:'Critical'}]};
+  const securityCollector=async()=>evaluateSecurity(snapshot,now);
+  const report=await runNetworkScan({workspace:'vulnerability',strategy:'passive',passiveScope:'security'},{securityCollector,passiveCollector:()=>{throw new Error('Wrong collector');}});
+  assert.equal(report.workspace,'vulnerability');assert.ok(report.results.some(row=>row.title==='Security KB123'&&row.severity==='critical'&&row.status==='issue'));
+  assert.equal(new Set(report.results.map(row=>row.checkId)).size,report.results.length);
+});
 
 async function until(predicate,timeout=6000){const end=Date.now()+timeout;while(!predicate()){if(Date.now()>end)throw new Error('Agent state timeout');await new Promise(resolve=>setTimeout(resolve,15));}}
 class D1{
@@ -38,6 +57,13 @@ test('agent pairing is one-use, scoped, encrypted, revocable and separate from v
   const a=await s.pair('Poste confidentiel');assert.equal((await s.api('agent/enroll',{code:a.code,name:'Replay',platform:'win32'})).status,403);
   assert.equal((await s.api('agent/poll',{},s.user)).status,401);assert.equal((await s.api('vault',undefined,a.auth)).status,401);
   const list=await (await s.api('agents',undefined,s.user)).json();assert.equal(list.agents[0].name,'Poste confidentiel');assert.equal(list.agents[0].online,true);
+  const audit={agentId:a.id,workspace:'vulnerability',strategy:'passive',passiveScope:'security'};
+  assert.equal((await s.api('scans',audit,s.user)).status,409);
+  await s.api('agent/poll',{capabilities:['security-audit-v1']},a.auth);
+  assert.deepEqual((await (await s.api('agents',undefined,s.user)).json()).agents[0].capabilities,['security-audit-v1']);
+  const job=await (await s.api('scans',audit,s.user)).json();assert.ok(job.id);
+  assert.equal((await (await s.api('scans?agentId='+a.id,undefined,s.user)).json()).jobs[0].workspace,'vulnerability');
+  await s.api('scans/cancel',{id:job.id},s.user);
   const stored=s.env.DB.db.prepare('SELECT * FROM scan_agents').get();assert.ok(!JSON.stringify(stored).includes(a.token));assert.ok(!JSON.stringify(stored).includes('Poste confidentiel'));
   assert.equal((await s.api('agents',undefined,s.user,'GET','https://evil.invalid')).status,403);
   assert.equal((await s.api('agents/revoke',{id:a.id},s.user)).status,200);assert.equal((await s.api('agent/poll',{},a.auth)).status,401);

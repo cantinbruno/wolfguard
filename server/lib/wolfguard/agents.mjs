@@ -12,7 +12,7 @@ export async function handleAgentAPI(request,env,now,h){
   const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
   const changed=result=>Number(result?.meta?.changes||0)>0;
   async function expire(){await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();await env.DB.prepare("DELETE FROM scan_jobs WHERE id IN (SELECT id FROM scan_jobs WHERE updated_at<? AND status NOT IN ('queued','running') LIMIT 50)").bind(now-7*86400000).run();}
-  async function publicJob(row,includeResult=false){return {id:row.id,agentId:row.agent_id,strategy:row.strategy,status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,completed:row.completed,total:row.total,...(includeResult?{report:await open(row.result_cipher,row.id+':result'),spec:await open(row.spec_cipher,row.id+':spec')}:{})};}
+  async function publicJob(row,includeResult=false){const spec=await open(row.spec_cipher,row.id+':spec');return {id:row.id,agentId:row.agent_id,strategy:row.strategy,workspace:spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,completed:row.completed,total:row.total,...(includeResult?{report:await open(row.result_cipher,row.id+':result'),spec}:{})};}
   if(path==='/api/agent/enroll'&&request.method==='POST'){
     const {code,name,platform}=await body();if(typeof code!=='string'||!/^[a-f0-9]{32}$/.test(code)||typeof name!=='string'||!name.trim()||name.length>100||platform!=='win32')fail(400,'Association invalide.');
     const ticket=await env.DB.prepare('DELETE FROM scan_pairings WHERE token_hash=? AND expires_at>? AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(await digest(code),now).first();if(!ticket)fail(403,'Code d’association expiré ou déjà utilisé.');
@@ -22,6 +22,12 @@ export async function handleAgentAPI(request,env,now,h){
   if(path.startsWith('/api/agent/')){
     const agent=await agentAuth();await expire();
     if(path==='/api/agent/poll'&&request.method==='POST'){
+      const info=await body();
+      if(Array.isArray(info.capabilities)){
+        const capabilities=info.capabilities.includes('security-audit-v1')?['security-audit-v1']:[];
+        const metadata=await open(agent.name_cipher,agent.id+':name');
+        if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities))await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities},agent.id+':name'),agent.id).run();
+      }
       const old=await env.DB.prepare("SELECT id FROM scan_jobs WHERE agent_id=? AND status='running'").bind(agent.id).first();if(old)return json({job:null});
       const candidate=await env.DB.prepare("SELECT id FROM scan_jobs WHERE agent_id=? AND generation=? AND status='queued' AND expires_at>? ORDER BY created_at LIMIT 1").bind(agent.id,agent.generation,now).first();if(!candidate)return json({job:null});
       const lease=random(32),row=await env.DB.prepare("UPDATE scan_jobs SET status='running',lease_hash=?,lease_until=?,expires_at=?,updated_at=?,revision=revision+1 WHERE id=? AND status='queued' RETURNING *").bind(await digest(lease),now+LEASE_MS,now+10*60000,now,candidate.id).first();
@@ -57,8 +63,9 @@ export async function handleAgentAPI(request,env,now,h){
     await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE agent_id=? AND status IN ('queued','running')").bind(now,id).run();return json({ok:true});
   }
   if(path==='/api/scans'&&request.method==='POST'){
-    const data=await body();const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
+    const data=await body();const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
     let spec;try{spec=h.scanSpec(data);}catch(error){fail(400,error.message);}
+    if(spec.passiveScope==='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('security-audit-v1'))fail(409,'Mets à jour l’agent Windows pour lancer l’audit de sécurité.');
     const id=random(16),cipher=await seal(spec,id+':spec');
     const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until) VALUES (?,?,?,?,'queued',?,?,?,?,0,0,0,0) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
   }
