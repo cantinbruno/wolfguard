@@ -15,6 +15,14 @@ export function localAddress(value) {
 }
 const integer=ip=>ip.split('.').reduce((n,p)=>n*256+Number(p),0);
 const address=n=>[24,16,8,0].map(shift=>Math.floor(n/2**shift)%256).join('.');
+export function singleTarget(value){
+  if(typeof value!=='string'||!value.trim()||value.length>253)throw new Error('Indique une seule adresse IP ou un FQDN.');
+  const target=value.trim().toLowerCase().replace(/\.$/,'');
+  if(target==='localhost'||target.includes(':')||/^[\d.]+$/.test(target))return localAddress(target);
+  const labels=target.split('.');
+  if(labels.length<2||labels.some(label=>!label.length||label.length>63||!(/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(label)))||/^\d+$/.test(labels.at(-1)))throw new Error('Indique une seule IP ou un FQDN, sans plage, CIDR, URL ni port.');
+  return target;
+}
 export function targets(input){
   if(typeof input!=='string'||input.length>253)throw new Error('Cible invalide.');
   input=input.trim();
@@ -51,16 +59,17 @@ export function scanSpec(raw){
     if(raw.passiveScope&&!['all','neighbours','security'].includes(raw.passiveScope))throw new Error('Le scan passif réseau lit uniquement les voisins ARP/NDP.');
     const passiveScope=raw.passiveScope==='security'?'security':'neighbours';
     if(workspace&&workspace!==(passiveScope==='security'?'vulnerability':'passive'))throw new Error('Source incompatible avec cette section.');
-    return {strategy:'passive',passiveScope,...extra};
+    return {strategy:'passive',passiveScope,...(passiveScope==='neighbours'?{target:singleTarget(raw.target)}:{}),...extra};
   }
   if(workspace&& !['active','map'].includes(workspace))throw new Error('Section incompatible avec un scan actif.');
   const mode=raw.mode||'tcp';if(!['tcp','discovery','icmp'].includes(mode))throw new Error('Mode de scan invalide.');
   const supplied=Array.isArray(raw.ports)&&raw.ports.every(Number.isInteger)?raw.ports.join(','):raw.ports;
-  const addresses=targets(raw.target),selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
+  const target=workspace==='map'?raw.target.trim():singleTarget(raw.target);
+  const addresses=workspace==='map'?targets(target):target.includes(':')||/^[\d.]+$/.test(target)?[localAddress(target)]:[],selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
   if(workspace==='map'&&mode!=='discovery')throw new Error('La cartographie utilise la découverte réseau.');
   if(mode==='discovery'&&selected.length>8)throw new Error('Maximum huit ports de découverte.');
   if(addresses.length*Math.max(1,selected.length)>4096)throw new Error('Maximum 4096 tests : réduis la plage ou les ports.');
   const timeoutMs=raw.timeoutMs??1500,concurrency=raw.concurrency??16;
   if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>3000||!Number.isInteger(concurrency)||concurrency<1||concurrency>32)throw new Error('Délai de 100 à 3000 ms ; 1 à 32 tests simultanés.');
-  return {strategy:'active',target:raw.target.trim(),mode,addresses,ports:selected,timeoutMs,concurrency,identifyServices:raw.identifyServices===true,...extra};
+  return {strategy:'active',target,mode,addresses,ports:selected,timeoutMs,concurrency,identifyServices:raw.identifyServices===true,...extra};
 }

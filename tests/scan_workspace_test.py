@@ -48,7 +48,7 @@ def run():
             navigate(page,'passive');expect(page.locator('#scanStart')).to_have_count(0)
             expect(page.locator('#wgScanMetrics strong').first).to_have_text('—')
             page.screenshot(path=str(ROOT/'.cache/scan-passive-empty.png'),full_page=True)
-            paste(page,json.dumps(PASSIVE),'Agence passive')
+            page.locator('#scanTarget').fill('192.0.2.1');paste(page,json.dumps(PASSIVE),'Agence passive')
             expect(page.locator('#wgScanImportDialog')).not_to_be_visible()
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence passive')
             assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
@@ -82,10 +82,12 @@ def run():
             }''')
             assert parsed=={'arp':'00-11-22-33-44-55','neigh':'2001:db8::1','net':['listening','bound'],'ss':88,'csv':'name; with "quotes"','rejected':2},parsed
             navigate(page,'active');page.locator('#scanTarget').fill('192.168.1.0/24')
-            expect(page.locator('#wgScanCommand')).to_contain_text('192.168.1.0/24')
-            expect(page.locator('#wgScanCopyCommand')).to_be_enabled()
+            expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
             page.locator('#scanTarget').fill('192.168.1.1-192.168.1.3')
-            expect(page.locator('#wgScanCommand')).to_contain_text('192.168.1.1 192.168.1.2 192.168.1.3')
+            expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
+            page.locator('#scanTarget').fill('serveur-test.example.local')
+            expect(page.locator('#wgScanCommand')).to_contain_text('serveur-test.example.local')
+            expect(page.locator('#wgScanCopyCommand')).to_be_enabled()
             page.locator('#scanTarget').fill('192.168.1.1-192.168.1.3; curl invalid')
             expect(page.locator('#wgScanCopyCommand')).to_be_disabled()
             page.locator('#scanTarget').fill('192.0.2.50')
@@ -96,8 +98,8 @@ def run():
             page.locator('#scanTarget').fill('192.0.2.50')
             page.locator('#wgScanFile').set_input_files({'name':'rapport-nmap.xml','mimeType':'application/xml','buffer':XML.encode()})
             expect(page.locator('#wgScanReportStamp')).to_contain_text('rapport-nmap.xml')
-            assert page.locator('#wgScanMetrics strong').all_text_contents()==['2','1','1','3']
-            expect(page.locator('.wgscan-warning')).to_contain_text('997')
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','1','3']
+            expect(page.locator('.wgscan-warning').first).to_contain_text('997')
             page.locator('[data-wg-tab=rows]').click();page.locator('#wgScanFilter').select_option('open')
             expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH 9.9')

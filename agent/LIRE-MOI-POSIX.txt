@@ -32,5 +32,7 @@ Un contrôle inaccessible reste Non vérifié ; aucun correctif n’est appliqu�
 Certains processus, pare-feu ou caches exigent des droits supplémentaires.
 
 Scans reseau : le passif lit uniquement les caches voisins ARP/NDP, sans sonde.
-L actif analyse les services TCP d un reseau ou d une plage privee (256 adresses
-et 4096 tests maximum). Les controles du poste restent dans Vulnerabilites.
+L actif analyse les services TCP de la seule cible IP ou FQDN indiquee
+(4096 tests maximum). Les controles du poste restent dans Vulnerabilites.
+
+Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résout pas les noms sur le réseau : fichier hosts ou cache DNS Windows uniquement. Si aucune association locale n’existe, le rapport explique l’absence de résultat. Les réseaux et plages restent réservés à la cartographie.

@@ -5,18 +5,18 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {randomBytes,createHash} from 'node:crypto';
 import {createServer} from 'node:net';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
-import {scanSpec,targets} from '../server/lib/wolfguard/scan-spec.mjs';
-import {runNetworkScan,fixedProcess} from '../agent/network.mjs';
+import {scanSpec,targets,singleTarget} from '../server/lib/wolfguard/scan-spec.mjs';
+import {runNetworkScan,fixedProcess,cachedTargetAddresses,activeTargetAddress} from '../agent/network.mjs';
 import {fileURLToPath} from 'node:url';
 import {PassThrough} from 'node:stream';
 import {desktopAgent,runAgent} from '../agent/agent.mjs';
 import {evaluateSecurity} from '../agent/security-rules.mjs';
 
 test('four workspaces keep network scans separate from host security audits and evaluate only available Windows evidence',async()=>{
-  assert.equal(scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'22,80,443'}).addresses.length,254);
+  assert.throws(()=>scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'22,80,443'}));
   assert.throws(()=>scanSpec({workspace:'active',strategy:'active',target:'192.168.1.0/24',ports:'1-17'}));
   assert.throws(()=>scanSpec({workspace:'passive',strategy:'passive',passiveScope:'listeners'}));
-  assert.equal(scanSpec({workspace:'passive',strategy:'passive',passiveScope:'all'}).passiveScope,'neighbours');
+  assert.equal(scanSpec({workspace:'passive',strategy:'passive',target:'192.168.1.1',passiveScope:'all'}).passiveScope,'neighbours');
   assert.equal(scanSpec({workspace:'map',strategy:'active',mode:'discovery',target:'192.168.1.0/24'}).addresses.length,254);
   assert.throws(()=>scanSpec({workspace:'map',strategy:'active',mode:'tcp',target:'127.0.0.1',ports:'80'}));
   assert.throws(()=>scanSpec({workspace:'vulnerability',strategy:'passive',passiveScope:'all'}));
@@ -46,7 +46,7 @@ async function setup(){
   // Activation header is intentionally supplied only through this local fixture.
   const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation},body:JSON.stringify({code:'07942685'})}),env,()=>now);
   const user='Bearer '+(await response.json()).token;
-  async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
+  async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();await api('agent/poll',{capabilities:['network-target-v1']},'Agent '+agent.token);return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
   return {api,user,pair,env,advance:ms=>{now+=ms;}};
 }
 test('strict scan plans reject Internet targets, injection, huge ranges and unsafe options',()=>{
@@ -56,6 +56,33 @@ test('strict scan plans reject Internet targets, injection, huge ranges and unsa
   for(const change of [{ports:'1-65535'},{concurrency:99},{timeoutMs:9999},{target:'192.168.0.0/24',ports:'1-100'},{mode:'shell'},{ports:'22;curl invalid'}])assert.throws(()=>scanSpec({...input,...change}));
 });
 
+test('active and passive require one IP/FQDN and discard caller-supplied address lists',async()=>{
+  for(const target of ['',null,'10.0.0.0/24','10.0.0.1-10.0.0.2','10.0.0.1 10.0.0.2','http://host.example','host.example:443','*.example','-a.example','bad..example','8.8.8.8','::ffff:8.8.8.8']){
+    for(const strategy of ['active','passive'])assert.throws(()=>scanSpec({strategy,workspace:strategy,target,ports:'443'}),String(target));
+  }
+  assert.equal(singleTarget(' Serveur-test.Exemple.Local. '),'serveur-test.exemple.local');
+  assert.deepEqual(scanSpec({strategy:'active',target:'10.0.0.1',ports:'443',addresses:['10.0.0.2']}).addresses,['10.0.0.1']);
+  for(const answers of [[{address:'8.8.8.8'}],[{address:'10.0.0.1'},{address:'8.8.8.8'}],[]])await assert.rejects(activeTargetAddress('host.example',{lookup:async()=>answers}));
+  const s=await setup();try{
+    const agent=await s.pair();await s.api('agent/poll',{capabilities:['network-scan-v2']},agent.auth);
+    for(const strategy of ['active','passive'])assert.equal((await s.api('scans',{agentId:agent.id,strategy,target:'10.0.0.1',ports:'443'},s.user)).status,409);
+  }finally{s.env.DB.db.close();}
+});
+
+test('passive FQDN reads only cached associations, returns only its address and never calls DNS',async()=>{
+  const rows=[{address:'192.168.1.1',transport:'ARP',status:'observed'},{address:'192.168.1.2',transport:'ARP',status:'observed'}];
+  for(const platform of ['linux','darwin','win32']){
+    let reads=0,commands=0;
+    const cacheOptions={platform,read:async()=>{reads++;return '192.168.1.1 serveur-test.example.local alias.example.local # note\n192.168.1.2 other.example.local';},run:async(file,args,options)=>{commands++;assert.equal(platform,'win32');assert.equal(file,'powershell.exe');assert.match(args.at(-1),/Get-DnsClientCache/);assert.doesNotMatch(args.at(-1),/Resolve-DnsName|ping|nslookup/);assert.equal(options.input,'serveur-test.example.local');return '[]';}};
+    const report=await runNetworkScan({strategy:'passive',target:'serveur-test.example.local'},{passiveCollector:async()=>({results:rows}),cacheOptions,lookup:()=>{throw new Error('DNS forbidden');}});
+    assert.equal(reads,1);assert.equal(commands,platform==='win32'?1:0);assert.deepEqual(report.results.map(row=>row.address),['192.168.1.1']);assert.equal(report.target,'serveur-test.example.local');
+  }
+  const cached=await cachedTargetAddresses('host.example',[],{platform:'win32',read:async()=>'',run:async()=>JSON.stringify(['192.168.1.2','8.8.8.8'])});assert.deepEqual(cached,['192.168.1.2']);
+  const missing=await runNetworkScan({strategy:'passive',target:'unknown.example'},{passiveCollector:async()=>({results:rows}),cacheOptions:{platform:'linux',read:async()=>''},lookup:()=>{throw new Error('DNS forbidden');}});
+  assert.equal(missing.results.length,0);assert.ok(missing.warnings.some(value=>value.includes('Aucune association locale')));
+  const ipv6=await runNetworkScan({strategy:'passive',target:'fd00::1'},{passiveCollector:async()=>({results:[{address:'fd00:0000:0000:0000:0000:0000:0000:0001',transport:'NDP',status:'observed'},{address:'fd00::2',transport:'NDP',status:'observed'}]})});assert.deepEqual(ipv6.results.map(row=>row.address),['fd00::1']);
+});
+
 test('one enrollment on each supported OS can execute all four scoped workspaces',async()=>{
   const s=await setup();
   try{
@@ -63,11 +90,11 @@ test('one enrollment on each supported OS can execute all four scoped workspaces
     assert.equal((await s.api('agent/enroll',{code:ticket.code,name:'Unsupported',platform:'freebsd'})).status,400);
     for(const platform of ['win32','linux','darwin']){
       const agent=await s.pair('Poste '+platform,platform);
-      await s.api('agent/poll',{capabilities:['security-audit-v1']},agent.auth);
+      await s.api('agent/poll',{capabilities:['security-audit-v1','network-target-v1']},agent.auth);
       const list=await (await s.api('agents',undefined,s.user)).json();
       assert.equal(list.agents.find(item=>item.id===agent.id).platform,platform);
       for(const workspace of ['passive','active','map','vulnerability']){
-        const spec={agentId:agent.id,workspace,strategy:['active','map'].includes(workspace)?'active':'passive',...(workspace==='active'?{target:'127.0.0.1',ports:'22',mode:'tcp'}:workspace==='map'?{target:'127.0.0.1',mode:'discovery'}:{passiveScope:workspace==='vulnerability'?'security':'all'})};
+        const spec={agentId:agent.id,workspace,strategy:['active','map'].includes(workspace)?'active':'passive',...(workspace==='active'?{target:'127.0.0.1',ports:'22',mode:'tcp'}:workspace==='map'?{target:'127.0.0.1',mode:'discovery'}:{target:'127.0.0.1',passiveScope:workspace==='vulnerability'?'security':'all'})};
         const created=await s.api('scans',spec,s.user);assert.equal(created.status,201);
         const job=(await (await s.api('agent/poll',{},agent.auth)).json()).job;
         assert.equal(job.spec.workspace,workspace);
@@ -100,7 +127,7 @@ test('jobs have one lease, ordered snapshots, cancellation and no shell or vault
   const s=await setup(),a=await s.pair(),b=await s.pair('Autre poste');
   assert.equal((await s.api('scans',{agentId:a.id,strategy:'active',target:'8.8.8.8',ports:'443'},s.user)).status,400);
   const job=await (await s.api('scans',{agentId:a.id,strategy:'active',target:'127.0.0.1',ports:'22,443'},s.user)).json();
-  assert.equal((await s.api('scans',{agentId:a.id,strategy:'passive'},s.user)).status,409);
+  assert.equal((await s.api('scans',{agentId:a.id,strategy:'passive',target:'127.0.0.1'},s.user)).status,409);
   const claims=await Promise.all([s.api('agent/poll',{},a.auth),s.api('agent/poll',{},a.auth)]);const claimed=(await Promise.all(claims.map(r=>r.json()))).map(data=>data.job).filter(Boolean);assert.equal(claimed.length,1);const lease=claimed[0];
   const update={id:job.id,lease:lease.lease,revision:lease.revision+1,status:'running',completed:1,total:2,report:{strategy:'active',results:[{address:'127.0.0.1',port:22,status:'open',detail:'Sensitive banner'}],warnings:[]}};
   assert.equal((await s.api('agent/update',update,b.auth)).status,403);
@@ -113,7 +140,7 @@ test('jobs have one lease, ordered snapshots, cancellation and no shell or vault
   s.env.DB.db.close();
 });
 test('lost agents do not repeat a scan, sessions expire, and code rotation invalidates agent credentials',async()=>{
-  const s=await setup(),a=await s.pair();const created=await (await s.api('scans',{agentId:a.id,strategy:'passive'},s.user)).json();const claim=await (await s.api('agent/poll',{},a.auth)).json();assert.equal(claim.job.id,created.id);
+  const s=await setup(),a=await s.pair();const created=await (await s.api('scans',{agentId:a.id,strategy:'passive',target:'127.0.0.1'},s.user)).json();const claim=await (await s.api('agent/poll',{},a.auth)).json();assert.equal(claim.job.id,created.id);
   s.advance(31000);assert.equal((await (await s.api('agent/poll',{},a.auth)).json()).job,null);
   const job=await (await s.api('scans/result?id='+created.id,undefined,s.user)).json();assert.equal(job.status,'lost');
   s.env.DB.db.exec('UPDATE vault SET generation=generation+1 WHERE id=1');assert.equal((await s.api('agent/poll',{},a.auth)).status,401);assert.equal((await s.api('agents',undefined,s.user)).status,401);
@@ -123,12 +150,13 @@ test('the actual network engine connects to a loopback service and cancels pendi
   const server=createServer(socket=>{socket.on('data',()=>{});socket.on('error',()=>{});});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const port=server.address().port;try{
     const result=await runNetworkScan({strategy:'active',target:'127.0.0.1',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:1});assert.equal(result.results[0].status,'open');assert.equal(result.completed,1);
-    const network=await runNetworkScan({workspace:'active',strategy:'active',target:'127.0.0.1-127.0.0.2',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:2});
-    assert.equal(network.completed,2);assert.deepEqual(network.results.map(row=>row.address).sort(),['127.0.0.1','127.0.0.2']);assert.ok(network.results.some(row=>row.address==='127.0.0.1'&&row.status==='open'));
+    let lookups=0;
+    const network=await runNetworkScan({workspace:'active',strategy:'active',target:'serveur-test.example.local',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:2},{lookup:async()=>{lookups++;return [{address:'127.0.0.1'},{address:'127.0.0.2'}];}});
+    assert.equal(network.completed,1);assert.deepEqual(network.results.map(row=>row.address),['127.0.0.1']);assert.equal(network.results[0].status,'open');assert.equal(lookups,1);
     const cancel=new AbortController();setTimeout(()=>cancel.abort(),100);
     const interrupted=await runNetworkScan({strategy:'active',target:'127.0.0.1',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:1,identifyServices:true},{signal:cancel.signal});assert.equal(interrupted.cancelled,true);assert.equal(interrupted.completed,0);
   }finally{await new Promise(resolve=>server.close(resolve));}
-  const passive=await runNetworkScan({workspace:'passive',strategy:'passive',passiveScope:'neighbours'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening',pid:42},{address:'192.168.1.1',transport:'ARP',status:'observed',pid:42}]})});assert.equal(passive.results.length,1);assert.equal(passive.results[0].address,'192.168.1.1');assert.equal(passive.results[0].pid,undefined);
+  const passive=await runNetworkScan({workspace:'passive',strategy:'passive',target:'192.168.1.1',passiveScope:'neighbours'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening',pid:42},{address:'192.168.1.1',transport:'ARP',status:'observed',pid:42}]})});assert.equal(passive.results.length,1);assert.equal(passive.results[0].address,'192.168.1.1');assert.equal(passive.results[0].pid,undefined);
 });
 test('Windows protects the agent credential for the current user using real DPAPI',{skip:process.platform!=='win32'},async()=>{
   const script=fileURLToPath(new URL('../agent/protect.ps1',import.meta.url));
@@ -164,7 +192,7 @@ test('the desktop protocol pairs, reports real scans, stops and re-pairs without
     const ticket=await (await s.api('agents/pair',{},s.user)).json();send({type:'pair',code:ticket.code});
     await until(()=>events.at(-1)?.state==='connected');
     assert.ok(credential&&/^[a-f0-9]{64}$/.test(credential.token));
-    const job=await (await s.api('scans',{agentId:credential.id,strategy:'passive'},s.user)).json();
+    const job=await (await s.api('scans',{agentId:credential.id,strategy:'passive',target:'192.168.1.1'},s.user)).json();
     await until(()=>events.some(event=>event.state==='completed'));
     assert.ok(events.some(event=>event.state==='scanning'));
     const report=await (await s.api('scans/result?id='+job.id,undefined,s.user)).json();

@@ -100,7 +100,7 @@ const webScanModel = (() => {
       let data;try{data=JSON.parse(value);}catch{throw new Error('Le JSON est incomplet ou invalide.');}
       if(!data||typeof data!=='object')throw new Error('JSON attendu : une liste d’observations ou un rapport WolfGuard.');
       if(data?.strategy&&data.strategy!==kind)throw new Error('Ce relevé appartient au scan '+(data.strategy==='active'?'actif':'passif')+'.');
-      parsed.source='JSON';parsed.capturedAt=text(data.capturedAt||data.startedAt);parsed.warnings=Array.isArray(data.warnings)?data.warnings.slice(0,20).map(w=>text(w,500)):[];
+      parsed.source='JSON';parsed.target=text(data.target,253);parsed.capturedAt=text(data.capturedAt||data.startedAt);parsed.warnings=Array.isArray(data.warnings)?data.warnings.slice(0,20).map(w=>text(w,500)):[];
       if(Array.isArray(data))parsed.rows=data;
       else if(Array.isArray(data.rows)||Array.isArray(data.results))parsed.rows=data.rows||data.results;
       else if(kind==='passive'&&(data.neighbors||data.connections||data.udp))parsed.rows=[...(Array.isArray(data.neighbors)?data.neighbors:[]).map(r=>({...r,status:'observed',transport:String(r.IPAddress).includes(':')?'NDP':'ARP'})),...(Array.isArray(data.connections)?data.connections:[]),...(Array.isArray(data.udp)?data.udp:[]).map(r=>({...r,status:'bound',transport:'UDP'}))];
@@ -113,7 +113,7 @@ const webScanModel = (() => {
     if(!parsed.rows.length)throw new Error('Aucune observation reconnue. Le relevé précédent reste conservé.');
     if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit de l’agent Windows, Linux ou macOS, avec ses contrôles et leurs preuves.');
     const unique=new Map();for(const raw of parsed.rows){const record=row(raw,kind,parsed.source);unique.set(key(record),record);}
-    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
+    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,target:parsed.target||'',name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
   }
   function compare(current,baseline){
     const old=new Map(baseline.rows.map(r=>[key(r),r])),next=new Map(current.rows.map(r=>[key(r),r])),changes=[];
@@ -121,14 +121,33 @@ const webScanModel = (() => {
     for(const [id,r] of old)if(!next.has(id))changes.push({type:'removed',row:r});return changes;
   }
   const NETWORK_PORTS='22,53,80,135,139,443,445,3389,5985,8080';
+  function singleTarget(value){
+    if(typeof value!=='string'||!value.trim()||value.length>253)throw new Error('Indique une seule adresse IP ou un FQDN.');
+    const target=value.trim().toLowerCase().replace(/\.$/,'');
+    if(target==='localhost')return '127.0.0.1';
+    if(target.includes(':')||/^[\d.]+$/.test(target)){
+      if(target.includes(':')?(!ipaddr.IPv6.isValid(target)||target.includes('%')):!ipaddr.IPv4.isValidFourPartDecimal(target))throw new Error('Adresse IP invalide.');
+      return ipaddr.parse(target).toString();
+    }
+    const labels=target.split('.');
+    if(labels.length<2||labels.some(label=>!label.length||label.length>63||!(/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(label)))||/^\d+$/.test(labels.at(-1)))throw new Error('Indique une seule IP ou un FQDN, sans plage, CIDR, URL ni port.');
+    return target;
+  }
+  function targetReport(report,value){
+    const target=singleTarget(value),numeric=ipaddr.isValid(target),same=address=>{try{return singleTarget(address)===target;}catch{return false;}};
+    const selected=report.rows.filter(row=>numeric?same(row.address):row.hostname?.toLowerCase().replace(/\.$/,'')===target||report.target===target);
+    const address=selected[0]?.address,rows=selected.filter(row=>row.address===address),excluded=report.rows.length-rows.length;
+    return {...report,target,rows,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) ne correspondant pas à la cible unique ont été écartées.']:[])]};
+  }
   function networkReport(report){
     const neighbors=report.rows.filter(item=>item.status==='observed'&&['ARP','NDP'].includes(item.transport)&&ipaddr.isValid(item.address.replace(/^\[|\]$/g,'').split('%')[0]));
     const excluded=report.rows.length-neighbors.length;
     return {...report,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) hors du périmètre réseau ont été écartées.']:[])],rows:neighbors.map(item=>({address:item.address,transport:item.transport,status:'observed',hostname:item.hostname||'',macAddress:item.macAddress||'',interfaceName:item.interfaceName||'',detail:item.detail||'',source:item.source||'Import'}))};
   }
   function command(values){
+    if(values.kind!=='map')values={...values,target:singleTarget(values.target)};
     let target=text(values.target,253).trim(),range=false;
-    if(target.includes('-')){range=true;const ends=target.split('-').map(value=>value.trim());if(ends.length!==2||!ends.every(value=>ipaddr.IPv4.isValidFourPartDecimal(value)))throw new Error('Indique une plage IPv4 complète, sans option de commande.');const number=value=>ipaddr.parse(value).toByteArray().reduce((total,byte)=>total*256+byte,0),start=number(ends[0]),end=number(ends[1]);if(end<start||end-start>=256)throw new Error('Maximum 256 adresses par scan.');target=Array.from({length:end-start+1},(_,index)=>ipaddr.fromByteArray([24,16,8,0].map(shift=>Math.floor((start+index)/2**shift)%256)).toString()).join(' ');}
+    if(values.kind==='map'&&target.includes('-')){range=true;const ends=target.split('-').map(value=>value.trim());if(ends.length!==2||!ends.every(value=>ipaddr.IPv4.isValidFourPartDecimal(value)))throw new Error('Indique une plage IPv4 complète, sans option de commande.');const number=value=>ipaddr.parse(value).toByteArray().reduce((total,byte)=>total*256+byte,0),start=number(ends[0]),end=number(ends[1]);if(end<start||end-start>=256)throw new Error('Maximum 256 adresses par scan.');target=Array.from({length:end-start+1},(_,index)=>ipaddr.fromByteArray([24,16,8,0].map(shift=>Math.floor((start+index)/2**shift)%256)).toString()).join(' ');}
     if(!target||target.startsWith('-')||!range&&!/^[a-zA-Z0-9][a-zA-Z0-9.:-]*(?:\/\d{1,3})?$/.test(target))throw new Error('Indique une IP, un nom d’hôte ou un réseau CIDR, sans option ni caractère de commande.');
     if(target.includes('/')){const [ip,prefix]=target.split('/');if(!ipaddr.isValid(ip)||Number(prefix)>(ip.includes(':')?128:32))throw new Error('Réseau CIDR invalide.');}
     else if(target.includes(':')&&!ipaddr.isValid(target))throw new Error('Adresse IPv6 invalide.');
@@ -138,5 +157,5 @@ const webScanModel = (() => {
     if(values.profile==='custom'&&!ports)throw new Error('Indique au moins un port.');
     return 'nmap -n '+args+' -oX wolfguard-actif.xml '+target;
   }
-  return {parse,compare,key,labels,command,MAX_BYTES,MAX_ROWS,NETWORK_PORTS,networkReport};
+  return {parse,compare,key,labels,command,MAX_BYTES,MAX_ROWS,NETWORK_PORTS,networkReport,singleTarget,targetReport};
 })();

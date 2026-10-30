@@ -35,7 +35,7 @@ const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(20
 export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000}={}){
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
   while(!signal?.aborted){
-    try{const {job}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2']}, {signal});if(signal?.aborted)break;if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
+    try{const {job}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2','network-target-v1']}, {signal});if(signal?.aborted)break;if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
     catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
     try{await delay(pollMs,undefined,{signal});}catch{break;}
   }

@@ -33,7 +33,7 @@ def run():
                 expect(page.locator('[data-empty-kind]')).to_have_attribute('data-empty-kind',kind)
                 expect(page.locator('#wgScanAgentHost #wgAgentLaunch')).to_have_count(1)
                 expect(page.locator('#wgAgentPair,#wgAgentSelect,#wgAgentDownload')).to_have_count(0)
-                expect(page.locator('#scanTarget')).to_have_count(1 if kind in ['active','map'] else 0)
+                expect(page.locator('#scanTarget')).to_have_count(1 if kind in ['passive','active','map'] else 0)
                 expect(page.locator('#wgScanPorts,#wgScanIdentify')).to_have_count(2 if kind=='active' else 0)
                 expect(page.locator('#wgPassiveScope')).to_have_count(0)
                 expect(page.locator('#wgScanCommand')).to_have_count(0 if kind=='vulnerability' else 1)
@@ -50,7 +50,7 @@ def run():
                     page.locator('#closeSettingsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
-            navigate(page,'passive');paste(page,json.dumps(PASSIVE),'Réseau passif')
+            navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');paste(page,json.dumps(PASSIVE),'Réseau passif')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('[data-passive-process],.wgscan-local-socket,.wgscan-connection-row,#wgPassiveBinding,#wgPassiveScope')).to_have_count(0)
             page.locator('.passive-network-device').click()
@@ -63,30 +63,21 @@ def run():
                 {'address':'192.0.2.2','transport':'ARP','status':'observed','macAddress':'00:11:22:33:44:77','interfaceName':'Wi-Fi','hostname':'<img src=x onerror=alert(1)>'},
                 {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'host-only-secret'}]}
             paste(page,json.dumps(network),'Caches réseau')
-            expect(page.locator('.passive-network-device')).to_have_count(3)
-            assert page.locator('#wgScanMetrics strong').all_text_contents()==['3','2','1','2']
-            page.locator('[data-passive-category=NDP]').click();expect(page.locator('.passive-network-device')).to_have_count(1)
-            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
-            with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
-            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig')
-            assert '2001:db8::1' in csv and 'host-only-secret' not in csv and 'processName' not in csv and 'pid' not in csv
-            page.locator('[data-wg-tab=overview]').click();page.locator('[data-passive-reset]').first.click()
-            page.locator('#wgPassiveInterface').select_option('iface:Wi-Fi');expect(page.locator('.passive-network-device')).to_have_count(1)
-            page.locator('#wgPassiveSearch').fill('not-in-cache');expect(page.locator('.passive-no-results')).to_be_visible()
-            page.locator('[data-passive-reset]').first.click()
-            expect(page.locator('.passive-network-inventory img,.passive-network-inventory script')).to_have_count(0)
+            expect(page.locator('.passive-network-device')).to_have_count(1)
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
             with page.expect_download() as downloaded:page.locator('#wgScanExportJson').click()
             raw=Path(downloaded.value.path()).read_text(encoding='utf-8')
             assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
-            many={'strategy':'passive','workspace':'passive','results':[{'address':'192.0.2.'+str(index),'transport':'ARP','status':'observed','interfaceName':'eth0','macAddress':'00:11:22:33:44:55'} for index in range(1,121)]}
-            paste(page,json.dumps(many),'Voisins nombreux');expect(page.locator('.passive-network-device')).to_have_count(12)
-            page.locator('[data-passive-interface-table]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(75)
-            page.locator('#wgScanNext').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(45)
-            with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
-            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig');assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==120
-            paste(page,json.dumps(network),'Caches réseau')
-            print('PASS: passive is ARP/NDP only, filters by protocol/interface, keeps complete exports and strips host data')
-            navigate(page,'active');paste(page,XML,'Services')
+            exported=json.loads(raw);assert [row['address'] for row in exported['rows']]==['192.0.2.1']
+            page.locator('#scanTarget').fill('2001:db8::1');paste(page,json.dumps(network),'Cible IPv6')
+            expect(page.locator('.passive-network-device')).to_have_count(1)
+            expect(page.locator('.passive-network-device')).to_contain_text('2001:db8::1')
+            page.locator('#scanTarget').fill('inconnu.example.local');paste(page,json.dumps(network),'Cible inconnue')
+            expect(page.locator('#wgScanImportError')).to_contain_text('Aucune observation')
+            page.locator('#wgScanImportDialog header [data-wg-close]').click()
+            expect(page.locator('#wgScanReportStamp')).to_contain_text('Cible IPv6')
+            print('PASS: passive requires one IP/FQDN, excludes unrelated neighbors and keeps previous report when absent')
+            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.50');paste(page,XML,'Services')
             expect(page.locator('.wgscan-service-card')).to_have_count(1)
             page.locator('.wgscan-service-card').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH')
             page.locator('#wgScanDetail [data-wg-close]').click()

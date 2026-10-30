@@ -1,7 +1,7 @@
 {
   "format": "wolfguard-agent-build",
   "version": 2,
-  "sourceSha256": "de2ad7cff22ef70df3ab57dc60c0f93d557c09f43cc813d13df7d6f79825107a",
-  "exeSha256": "ed0fd8076821fc0dba3f1b9b57441594e35d74736bacce9cf471f2be0f999caf",
-  "payloadSha256": "709903146ec9b4a591749e2f64d9c26a5940be89cd9ba9d2ad07c32c68ec676f"
+  "sourceSha256": "cb57fb406f8413f86d4a074fe81699ccacae14076a54de1c83493d38294adad9",
+  "exeSha256": "f2330934b29f3cced52dbe9f55043c2edf318b4621f3db74794a681e8f24a7da",
+  "payloadSha256": "f812cbb8a713b4c19d793a989feb13b717834355b792561b8c23743005365020"
 }

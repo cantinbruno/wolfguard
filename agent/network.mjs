@@ -2,7 +2,10 @@ import net from 'node:net';
 import tls from 'node:tls';
 import {execFile} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {scanSpec,localAddress} from '../server/lib/wolfguard/scan-spec.mjs';
+import {lookup as dnsLookup} from 'node:dns/promises';
+import {readFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {scanSpec,localAddress,singleTarget} from '../server/lib/wolfguard/scan-spec.mjs';
 import {evaluateSecurity} from './security-rules.mjs';
 import {collectPosixPassive,collectPosixSecurity} from './posix.mjs';
 
@@ -20,11 +23,38 @@ export async function collectSecurity(signal){
   const output=await fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./security.ps1',import.meta.url))],{signal,timeout:90000});
   return evaluateSecurity(JSON.parse(output.replace(/^\uFEFF/,'')));
 }
-function probe(address,port,timeout,signal,identify){
+// Cache-only resolution never calls DNS, ping, getent or another network resolver.
+export async function cachedTargetAddresses(name,rows=[],{platform=process.platform,read=path=>readFile(path,'utf8'),run=fixedProcess,signal}={}){
+  const found=rows.filter(row=>row.hostname?.toLowerCase().replace(/\.$/,'')===name).map(row=>row.address);
+  try{
+    const hosts=await read(platform==='win32'?join(process.env.SystemRoot||'C:\\Windows','System32','drivers','etc','hosts'):'/etc/hosts');
+    for(const line of hosts.split(/\r?\n/)){const [address,...names]=line.split('#',1)[0].trim().split(/\s+/);if(names.some(value=>value.toLowerCase().replace(/\.$/,'')===name))found.push(address);}
+  }catch{}
+  if(platform==='win32'){
+    const script="$name=[Console]::In.ReadToEnd().Trim(); @((Get-DnsClientCache -ErrorAction SilentlyContinue | Where-Object { $_.Entry.TrimEnd('.') -ieq $name -and $_.Type -in 1,28 }) | ForEach-Object { $_.Data }) | ConvertTo-Json -Compress";
+    try{const value=JSON.parse((await run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-Command',script],{input:name,signal,timeout:8000})).replace(/^\uFEFF/,''));found.push(...(Array.isArray(value)?value:typeof value==='string'?[value]:[]));}catch(error){if(signal?.aborted)throw error;}
+  }
+  return [...new Set(found.map(value=>{try{return localAddress(value);}catch{return '';}}).filter(Boolean))];
+}
+export async function activeTargetAddress(target,{lookup=dnsLookup,signal}={}){
+  signal?.throwIfAborted();
+  const name=singleTarget(target);if(name.includes(':')||/^[\d.]+$/.test(name))return name;
+  const stop=new AbortController();let timeout;
+  const abort=()=>stop.abort(signal?.reason||new Error('Scan arrêté.'));
+  signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+  const cancelled=new Promise((_,reject)=>{stop.signal.addEventListener('abort',()=>reject(stop.signal.reason),{once:true});if(stop.signal.aborted)reject(stop.signal.reason);timeout=setTimeout(()=>stop.abort(new Error('Résolution DNS trop longue.')),5000);});
+  try{
+    const records=await Promise.race([lookup(name,{all:true,verbatim:true}),cancelled]);
+    if(!records.length||records.length>64)throw new Error('Aucune adresse utilisable pour ce FQDN.');
+    // Validate every answer, then pin one numeric address for all probes (no second lookup).
+    return records.map(record=>localAddress(record.address))[0];
+  }finally{clearTimeout(timeout);signal?.removeEventListener('abort',abort);}
+}
+function probe(address,port,timeout,signal,identify,hostname=address){
   localAddress(address);
   return new Promise(resolve=>{
     const started=performance.now(),socket=new net.Socket();let done=false,timer;
-    const row={address,port,transport:'TCP',source:'agent-tcp'};
+    const row={address,port,transport:'TCP',source:'agent-tcp',...(hostname!==address?{hostname}:{})};
     function finish(status,detail,extra={}){if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);socket.destroy();resolve({...row,status,latencyMs:Math.round(performance.now()-started),detail,...extra});}
     const abort=()=>finish('error','Test arrêté.');if(signal?.aborted){abort();return;}signal?.addEventListener('abort',abort,{once:true});
     timer=setTimeout(()=>finish('no-response','Aucune réponse avant le délai.'),timeout);
@@ -34,11 +64,11 @@ function probe(address,port,timeout,signal,identify){
       if(!identify){finish('open','Connexion TCP établie. Le nom du service est une association de port, non une identification.',{service:SERVICES[port]?SERVICES[port]+' (port usuel)':''});return;}
       let stream=socket,content='';
       if([443,465,636,853,993,995,5986,8443].includes(port)){
-        stream=tls.connect({socket,host:address,rejectUnauthorized:true},()=>{const cert=stream.getPeerCertificate();finish('open','Négociation TLS validée. Certificat : '+String(cert.subject?.CN||'')+' ; expiration : '+String(cert.valid_to||''),{service:stream.getProtocol()||'TLS'});stream.destroy();});
+        stream=tls.connect({socket,host:hostname,...(hostname!==address?{servername:hostname}:{}),rejectUnauthorized:true},()=>{const cert=stream.getPeerCertificate();finish('open','Négociation TLS validée. Certificat : '+String(cert.subject?.CN||'')+' ; expiration : '+String(cert.valid_to||''),{service:stream.getProtocol()||'TLS'});stream.destroy();});
         stream.once('error',error=>{finish('open','Port ouvert ; validation TLS non aboutie : '+String(error.code||'erreur'));stream.destroy();});
       }else{
         stream.on('data',chunk=>{content+=chunk.toString('utf8');if(content.length>=4096||content.includes('\n')){const line=content.split(/\r?\n/,1)[0].slice(0,400);finish('open','Bannière reçue : '+line,{service:line.startsWith('SSH-')?'SSH':line.startsWith('HTTP/')?'HTTP':SERVICES[port]||'',product:line});}});
-        if([80,8000,8080,8081,9090].includes(port))stream.write('HEAD / HTTP/1.0\r\nHost: '+(address.includes(':')?'['+address+']':address)+'\r\nConnection: close\r\n\r\n');
+        if([80,8000,8080,8081,9090].includes(port))stream.write('HEAD / HTTP/1.0\r\nHost: '+(hostname.includes(':')?'['+hostname+']':hostname)+'\r\nConnection: close\r\n\r\n');
         stream.once('end',()=>finish('open',content?'Bannière reçue : '+content.slice(0,400):'Port ouvert ; aucune bannière reçue.'));
       }
     });
@@ -51,13 +81,25 @@ async function ping(address,timeout,signal){
   const args=windows?['-n','1','-w',String(timeout),address]:mac?['-n','-c','1','-W',String(timeout),address]:['-n',...(address.includes(':')?['-6']:[]),'-c','1','-W',String(Math.max(1,Math.ceil(timeout/1000))),address];
   try{const output=await fixedProcess(file,args,{signal,timeout:timeout+1500,maxBytes:16000});const replied=windows?/(?:Reply from|R.ponse de)[^\r\n]*(?:TTL=|temps[=<]|time[=<])/i.test(output):/\bbytes from\b/i.test(output);return {address,port:null,transport:'ICMP',status:replied?'reachable':'no-response',latencyMs:Math.round(performance.now()-started),detail:replied?'Réponse ICMP reçue.':'Aucune réponse ICMP identifiable.',source:'agent-icmp'};}catch{return {address,port:null,transport:'ICMP',status:'no-response',detail:'Aucune réponse ICMP ; cela ne prouve pas l’absence de la machine.',source:'agent-icmp'};}
 }
-export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity}={}){
+export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity,lookup=dnsLookup,cacheOptions={}}={}){
   const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false;
-  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||(spec.passiveScope==='security'?'Poste de l’agent':'Voisins du réseau de l’agent'),startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
+  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
   if(spec.strategy==='passive'){
-    const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);for(const row of snapshot.results){if(signal?.aborted)break;if(spec.passiveScope==='security')add(row);else if(row.status==='observed'&&['ARP','NDP'].includes(row.transport))add({address:row.address,port:null,transport:row.transport,status:'observed',macAddress:row.macAddress||'',interfaceName:row.interfaceName||'',detail:row.detail||'',source:row.source||'agent-neighbor'});}
+    const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);
+    let matches=null;
+    if(spec.passiveScope!=='security'){
+      const addresses=spec.target.includes(':')||/^[\d.]+$/.test(spec.target)?[spec.target]:await cachedTargetAddresses(spec.target,snapshot.results,{...cacheOptions,signal});
+      const known=addresses.find(address=>snapshot.results.some(row=>{try{return localAddress(String(row.address).split('%')[0])===address;}catch{return false;}}));
+      matches=new Set(addresses.length?[known||addresses[0]]:[]);
+    }
+    for(const row of snapshot.results){if(signal?.aborted)break;if(spec.passiveScope==='security')add(row);else {let address;try{address=localAddress(String(row.address).split('%')[0]);}catch{continue;}if(matches.has(address)&&row.status==='observed'&&['ARP','NDP'].includes(row.transport))add({address,port:null,transport:row.transport,status:'observed',hostname:spec.target.includes(':')||/^[\d.]+$/.test(spec.target)?'':spec.target,macAddress:row.macAddress||'',interfaceName:row.interfaceName||'',detail:row.detail||'',source:row.source||'agent-neighbor'});}}
+    if(matches&&!rows.length)warnings.push(matches.size?'Aucune entrée ARP/NDP connue pour '+spec.target+'. Aucune sonde envoyée.':'Aucune association locale connue pour ce FQDN (fichier hosts ou cache DNS Windows). Aucune requête DNS ni sonde envoyée.');
     warnings.push(...(snapshot.warnings||[]).slice(0,10));completed=total=rows.length;onProgress(report());return report();
+  }
+  if(spec.workspace!=='map'){
+    const address=await activeTargetAddress(spec.target,{lookup,signal});spec.addresses=[address];
+    if(address!==spec.target)warnings.push('Cible '+spec.target+' : une seule adresse retenue pour tous les tests, '+address+'.');
   }
   total=spec.mode==='tcp'?spec.addresses.length*spec.ports.length:spec.addresses.length;let next=0;
   async function worker(){while(!signal?.aborted){const index=next++;if(index>=total)return;let row;
@@ -66,7 +108,7 @@ export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollec
       const address=spec.addresses[index];let evidence=null;
       for(const port of spec.ports){if(signal?.aborted)break;const result=await probe(address,port,spec.timeoutMs,signal,false);if(['open','closed'].includes(result.status)){evidence=result;break;}}
       row={address,port:null,transport:'HOST',source:'agent-discovery',status:evidence?'reachable':'no-response',detail:evidence?'Réponse TCP sur '+evidence.port+' : '+(evidence.status==='open'?'connexion établie.':'connexion refusée.'):'Aucune réponse aux ports de découverte ; la machine peut filtrer les sondes.'};
-    }else {const address=spec.addresses[Math.floor(index/spec.ports.length)],port=spec.ports[index%spec.ports.length];row=await probe(address,port,spec.timeoutMs,signal,spec.identifyServices&&identifications++<128);}
+    }else {const address=spec.addresses[Math.floor(index/spec.ports.length)],port=spec.ports[index%spec.ports.length];row=await probe(address,port,spec.timeoutMs,signal,spec.identifyServices&&identifications++<128,spec.workspace==='map'?address:spec.target);}
     if(signal?.aborted)break;add(row);completed++;onProgress(report());
   }}
   onProgress(report());await Promise.all(Array.from({length:Math.min(spec.concurrency,total)},worker));

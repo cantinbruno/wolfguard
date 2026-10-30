@@ -24,7 +24,7 @@ export async function handleAgentAPI(request,env,now,h){
     if(path==='/api/agent/poll'&&request.method==='POST'){
       const info=await body();
       if(Array.isArray(info.capabilities)){
-        const capabilities=['security-audit-v1','network-scan-v2'].filter(value=>info.capabilities.includes(value));
+        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1'].filter(value=>info.capabilities.includes(value));
         const metadata=await open(agent.name_cipher,agent.id+':name');
         if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities))await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities},agent.id+':name'),agent.id).run();
       }
@@ -66,6 +66,7 @@ export async function handleAgentAPI(request,env,now,h){
     const data=await body();const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
     let spec;try{spec=h.scanSpec(data);}catch(error){fail(400,error.message);}
     if(spec.passiveScope==='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('security-audit-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour lancer l’audit de sécurité.');
+    if(spec.workspace!=='map'&&spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-target-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour scanner uniquement la cible IP ou FQDN indiquée.');
     const id=random(16),cipher=await seal(spec,id+':spec');
     const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until) VALUES (?,?,?,?,'queued',?,?,?,?,0,0,0,0) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
   }

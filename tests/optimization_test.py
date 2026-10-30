@@ -83,8 +83,8 @@ def run():
             page.set_viewport_size({'width':390,'height':844})
             capture('library-mobile', '.library-catalog')
             page.set_viewport_size({'width':1440,'height':1000})
-            navigate(page, 'passive')
-            rows = [{'address':f'192.168.{i//250}.{i%250+1}' if i%2 else 'fd00::'+format(i+1,'x'),'transport':'ARP' if i%2 else 'NDP','status':'observed','interfaceName':'eth'+str(i%3),'macAddress':'00:11:22:33:44:55','detail':'Entrée du cache '+str(i)} for i in range(1000)]
+            navigate(page, 'passive');page.locator('#scanTarget').fill('192.168.1.1')
+            rows = [{'address':'192.168.1.1','transport':'ARP' if i%2 else 'NDP','status':'observed','interfaceName':'eth'+str(i),'macAddress':'00:11:22:33:44:55','detail':'Entrée du cache '+str(i)} for i in range(1000)]
             paste(page, json.dumps({'strategy':'passive','results':rows}), 'Relevé de performance')
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Relevé de performance')
             capture('scan-passive', '.wgscan')
