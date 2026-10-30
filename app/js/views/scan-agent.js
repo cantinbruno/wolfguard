@@ -27,6 +27,7 @@ const webScanAgent = (() => {
       find('#wgAgentPresence').textContent = agent ? agent.online ? '● Connecté' : '○ Hors ligne' : 'À configurer dans les paramètres';
       find('#wgAgentPresence').dataset.online = String(!!agent?.online);
       find('#wgAgentLaunch').disabled = busy || !agent?.online || !!running || !compatible;
+      const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.disabled=find('#wgAgentLaunch').disabled;
       find('#wgAgentStop').disabled = busy || !running;
       find('#wgAgentStop').textContent = running && (running.workspace || running.strategy) !== kind ? 'Arrêter : ' + (scanInsights.definitions[running.workspace || running.strategy]?.short || 'scan en cours') : 'Arrêter';
       find('#wgAgentHistory').innerHTML = matching.length ? matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('') : '<option value="">Aucun rapport : ' + definition.short + '</option>';
@@ -61,6 +62,7 @@ const webScanAgent = (() => {
     }
     async function poll() { await refresh(); if (live()) timer = setTimeout(poll, 3000); }
     find('#wgAgentSettings').onclick = () => openSettings('agents');
+    const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.onclick=()=>find('#wgAgentLaunch').click();
     find('#wgAgentHistory').onchange = async event => { jobIds[kind] = event.target.value; lastResult = ''; render(); try { await result(); } catch (error) { status(error.message, true); } };
     find('#wgAgentLaunch').onclick = async () => {
       if (busy || !selected || !live()) return;

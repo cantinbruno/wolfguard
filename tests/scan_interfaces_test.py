@@ -44,6 +44,10 @@ def run():
                   return {right:agent.left>=overview.right,above:agent.bottom<=overview.top,wide:overview.width>page.width*.85,left:metrics.right<=overview.left};}''')
                 assert placement[{'passive':'right','active':'above','map':'wide','vulnerability':'left'}[kind]],(kind,placement)
                 page.screenshot(path=str(ROOT/f'.cache/scan-layout-{kind}-empty.png'),animations='disabled')
+                if kind=='passive':
+                    page.locator('[data-passive-settings]').click()
+                    expect(page.locator('#settings-tab-agents')).to_have_attribute('aria-selected','true')
+                    page.locator('#closeSettingsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
             navigate(page,'passive'); page.locator('#wgPassiveScope').select_option('listeners')
@@ -53,6 +57,65 @@ def run():
             page.locator('.wgscan-local-socket').first.click()
             expect(page.locator('#wgScanDetailBody')).to_contain_text('PID')
             page.locator('#wgScanDetail [data-wg-close]').click()
+            local={'strategy':'passive','workspace':'passive','results':[
+                {'address':'0.0.0.0','port':22,'transport':'TCP','status':'listening','pid':42,'processName':'sshd'},
+                {'address':'::','port':5353,'transport':'UDP','status':'bound','pid':42,'processName':'sshd'},
+                {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'proxy-local'},
+                {'address':'0:0:0:0:0:0:0:1','port':631,'transport':'TCP','status':'listening','pid':0,'processName':'printd'},
+                {'address':'192.0.2.10','port':51000,'transport':'TCP','status':'connection','pid':88,'processName':'browser','remoteAddress':'2001:db8::20','remotePort':443},
+                {'address':'2001:db8::10','port':51001,'transport':'TCP','status':'connection','pid':88,'processName':'browser','remoteAddress':'2001:db8::20','remotePort':443},
+                {'address':'192.0.2.1','transport':'ARP','status':'observed','macAddress':'00:11:22:33:44:55','interfaceName':'Ethernet'},
+                {'address':'2001:db8::1','transport':'NDP','status':'observed','macAddress':'00:11:22:33:44:66','interfaceName':'eth0'},
+                {'address':'127.0.0.1','transport':'TCP','status':'error','detail':'Permission denied'},
+                {'address':'192.0.2.10','port':9000,'transport':'TCP','status':'listening','pid':99,'processName':'<img src=x onerror=alert(1)>','detail':'<script>alert(1)</script>'}]}
+            paste(page,json.dumps(local),'Analyse locale')
+            expect(page.locator('.passive-explorer-count')).to_contain_text('10 / 10 observations')
+            expect(page.locator('.passive-explorer-count')).not_to_contain_text('Processus non fourni')
+            expect(page.locator('.passive-binding-notice strong')).to_contain_text('2 écoute')
+            expect(page.locator('.passive-other-row')).to_have_count(1)
+            page.locator('[data-passive-broad]').click()
+            expect(page.locator('.wgscan-local-socket')).to_have_count(2)
+            page.locator('[data-wg-tab=rows]').click()
+            expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
+            expect(page.locator('.passive-table-context')).to_be_visible()
+            with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
+            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig')
+            assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==2
+            page.locator('[data-wg-tab=overview]').click();page.locator('[data-passive-reset]').first.click()
+            page.locator('#wgPassiveBinding').select_option('loopback')
+            expect(page.locator('.wgscan-local-socket')).to_have_count(2)
+            page.locator('[data-passive-process="pid:0"]').click()
+            expect(page.locator('.wgscan-local-socket')).to_have_count(1)
+            expect(page.locator('.wgscan-local-socket')).to_contain_text('printd')
+            page.locator('[data-passive-reset]').first.click();page.locator('#wgPassiveTransport').select_option('UDP')
+            expect(page.locator('.wgscan-local-socket')).to_have_count(1)
+            page.locator('[data-passive-reset]').first.click();page.locator('[data-passive-category=connections]').click()
+            expect(page.locator('.wgscan-connection-row')).to_have_count(2)
+            expect(page.locator('.passive-connections')).to_contain_text('[2001:db8::10]:51001')
+            expect(page.locator('.passive-connections')).to_contain_text('[2001:db8::20]:443')
+            page.locator('#wgPassiveSearch').fill('browser');expect(page.locator('.wgscan-connection-row')).to_have_count(2)
+            page.locator('#wgPassiveSearch').evaluate('el=>el.setSelectionRange(0,0)');page.keyboard.type('x')
+            assert page.locator('#wgPassiveSearch').evaluate('el=>el.selectionStart')==1
+            page.keyboard.press('Backspace');expect(page.locator('.wgscan-connection-row')).to_have_count(2)
+            page.locator('[data-passive-process="pid:88"]').click()
+            page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
+            page.locator('#wgPassiveTableReset').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(10)
+            page.locator('[data-wg-tab=overview]').click();page.locator('[data-passive-category=neighbours]').click()
+            expect(page.locator('.wgscan-neighbor-row')).to_have_count(2)
+            page.locator('#wgPassiveSearch').fill('not-in-report');expect(page.locator('.passive-no-results')).to_be_visible()
+            page.locator('[data-passive-reset]').first.click()
+            expect(page.locator('.passive-observation-board img,.passive-observation-board script')).to_have_count(0)
+            many={'strategy':'passive','workspace':'passive','results':[{'address':'127.0.0.1','port':port,'transport':'TCP','status':'listening','pid':77,'processName':'local-test'} for port in range(1,121)]}
+            paste(page,json.dumps(many),'Relevé étendu')
+            expect(page.locator('.wgscan-local-socket')).to_have_count(10)
+            page.locator('.passive-listeners [data-passive-table]').click()
+            expect(page.locator('#wgScanRows tbody tr')).to_have_count(75)
+            page.locator('#wgScanNext').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(45)
+            with page.expect_download() as downloaded:page.locator('#wgScanExport').click()
+            csv=Path(downloaded.value.path()).read_text(encoding='utf-8-sig')
+            assert page.evaluate("value=>webScanModel.parse(value,'passive').rows.length",csv)==120
+            paste(page,json.dumps(local),'Analyse locale')
+            print('PASS: passive categories, protocol/binding/process filters, PID zero, IPv6 endpoints and complete filtered exports')
             navigate(page,'active');paste(page,XML,'Services')
             expect(page.locator('.wgscan-service-card')).to_have_count(1)
             page.locator('.wgscan-service-card').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH')
@@ -112,6 +175,9 @@ def run():
                     navigate(page,kind)
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,kind)
+                    if kind=='passive' and width<=768:
+                        assert page.locator('#wgScanOverview').bounding_box()['y']<page.locator('.scan-monitor-controls').bounding_box()['y']
+                        expect(page.locator('#wgPassiveQuickCollect')).to_be_visible()
                     page.locator('#wgScanTab-overview').focus();page.keyboard.press('ArrowRight')
                     expect(page.locator('#wgScanTab-rows')).to_be_focused()
                     page.keyboard.press('Home');expect(page.locator('#wgScanTab-overview')).to_be_focused()
