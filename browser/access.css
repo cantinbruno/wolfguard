@@ -17,8 +17,17 @@
 /* A quiet access screen; feedback starts only when the user interacts. */
 #lock.access-screen {
   outline: none;
+  isolation: isolate;
   background: radial-gradient(ellipse at 50% 38%,#1a2b3f 0%,#111d2c 48%,#0d1724 100%) !important;
   padding: 28px 20px !important;
+}
+#lock.access-screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: url('../images/lock-wolf-field.svg') center / max(1100px, 100vw) auto no-repeat;
 }
 #lock .access-panel {
   width: min(424px,100%) !important;
@@ -53,6 +62,7 @@
 #lock.is-blocked .web-key-hint {color:#cf9ba8}
 @media(max-width:420px) {
   #lock.access-screen {padding:20px 16px !important}
+  #lock.access-screen::before {background-size:900px auto}
   #lock .access-panel {padding:26px 22px 18px !important;border-radius:18px !important}
   #lock .lock-logo {--brand-mark-size:116px;width:116px;height:116px;min-width:116px}
   #lock .pin-dots {gap:5px}
