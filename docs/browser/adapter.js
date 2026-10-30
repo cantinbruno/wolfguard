@@ -253,7 +253,7 @@ const webWorkspace = (() => {
     $('#lock').classList.toggle('is-checking',busy && !locking);
     $('#lock').classList.toggle('is-blocked',blocked);
     const hint=$('#webKeyHint');
-    if(hint)hint.textContent=booting?'Chargement de ton espace…':busy?'Vérification du code…':blocked?'Accès temporairement suspendu':'Saisie au clavier ou à l’écran';
+    if(hint)hint.textContent=booting?'Chargement de ton espace…':busy?'Vérification du code…':blocked?'Accès temporairement suspendu':'';
     $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking || booting || blocked;});
     $('#webUnlock').disabled=busy || locking || booting || blocked;
     $('#webCancelRestore').disabled=busy || locking || booting;
@@ -553,7 +553,7 @@ const webWorkspace = (() => {
     $('#pinDots').setAttribute('role','status');
     $('#keypad').setAttribute('aria-label','Clavier du code à huit chiffres');
     const brandName=document.createElement('span');brandName.className='web-access-brandname';brandName.textContent='WolfGuard';$('#lock .access-brand').append(brandName);
-    const keyHint=document.createElement('p');keyHint.id='webKeyHint';keyHint.className='web-key-hint';keyHint.textContent='Saisie au clavier ou à l’écran';$('#keypad').after(keyHint);
+    const keyHint=document.createElement('p');keyHint.id='webKeyHint';keyHint.className='web-key-hint';$('#keypad').after(keyHint);
     $('#keypad').setAttribute('aria-describedby','webKeyHint');
     $('#keypad').innerHTML=['1','2','3','4','5','6','7','8','9','Backspace','0','C'].map(key=>'<button type="button" class="key" data-key="'+key+'"'+(key==='Backspace'?' aria-label="Effacer le dernier chiffre"':key==='C'?' aria-label="Effacer le code"':'')+'>'+(key==='Backspace'?'⌫':key==='C'?settingsIcon('rotate-ccw'):key)+'</button>').join('');
     $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};

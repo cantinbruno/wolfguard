@@ -55,6 +55,7 @@
 #lock .key[data-key=C],#lock .key[data-key=Backspace] {background:#101e2e;border-color:#2c3e54;color:#90a4bc}
 #lock .key:disabled {opacity:.4}
 #lock .web-key-hint {min-height:18px;margin:18px 0 0;font-size:11px;line-height:18px;text-align:center;color:#8398b0}
+#lock .web-key-hint:empty {display:none}
 #lock .lock-error {min-height:22px;margin-top:9px;line-height:1.5;font-size:12px;color:#f1b4bf}
 #lock .lock-error:not(:empty) {margin-top:14px;padding:10px 12px;background:#d75a7610;border:1px solid #d9819630;border-radius:9px}
 #lock.is-checking .dot.on {background:#29435b;border-color:#aacbed}
