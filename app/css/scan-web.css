@@ -1,6 +1,7 @@
 /* Browser workspaces: the actions available here analyze actual imported data. */
 .wgscan {
   --ws-accent: #78cdbb;
+  --ws-text: #e6edf6;
   --ws-bg: #101b2b;
   --ws-panel: #142235;
   --ws-border: #2a3c51;

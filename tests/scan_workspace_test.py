@@ -108,7 +108,9 @@ def run():
 
             navigate(page,'map');paste(page,XML,'Carte du laboratoire')
             expect(page.locator('[data-map-address]')).to_have_count(1)
-            page.locator('[data-map-address]').click();expect(page.locator('#wgScanSearch')).to_have_value('192.0.2.50')
+            page.locator('[data-map-address]').click()
+            expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.50')
+            page.locator('[data-map-observations]').click();expect(page.locator('#wgScanSearch')).to_have_value('192.0.2.50')
             save(page,'Carte sauvegardee')
             navigate(page,'vulnerability')
             audit={'strategy':'passive','workspace':'vulnerability','results':[

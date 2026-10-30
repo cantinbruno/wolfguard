@@ -68,6 +68,18 @@ def run():
             first.locator('[data-wg-tab=rows]').click();expect(first.locator('#wgScanRows tbody tr')).to_have_count(2)
             expect(first.locator('#wgScanRows tbody')).to_contain_text('192.168.10.1')
             print('PASS: association unique depuis le web, vrai agent independant, collecte automatique et resultat sans import')
+            first.locator('#wgPassiveScope').select_option('listeners')
+            with first.expect_request(lambda request:request.method=='POST' and request.url.endswith('/scans')) as requested:
+                first.locator('#wgAgentLaunch').click()
+            assert requested.value.post_data_json['passiveScope']=='listeners'
+            expect(first.locator('#wgScanRows tbody tr')).to_have_count(1,timeout=30000)
+            expect(first.locator('#wgScanRows tbody')).to_contain_text('127.0.0.1')
+            expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan terminé',timeout=30000)
+            first.locator('#wgPassiveScope').select_option('all')
+            first.locator('#wgAgentLaunch').click()
+            expect(first.locator('#wgScanRows tbody tr')).to_have_count(2,timeout=30000)
+            expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan terminé',timeout=30000)
+            print('PASS: passive scope reaches the real agent, listeners exclude neighbors and all restores the complete result')
             navigate(first,'active');first.locator('#scanTarget').fill('127.0.0.1');first.locator('[data-wg-profile=custom]').click();first.locator('#wgScanPorts').fill('4178')
             expect(first.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000);first.locator('#wgAgentLaunch').click()
             expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan terminé',timeout=30000)

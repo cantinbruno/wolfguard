@@ -60,6 +60,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Verification des commandes en lecture echouee. Aucune publication.' }
     & python tests/scan_workspace_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des espaces scan echouee. Aucune publication.' }
+    & python tests/scan_interfaces_test.py
+    if ($LASTEXITCODE -ne 0) { throw 'Verification des interfaces de scan echouee. Aucune publication.' }
     & python tests/timeout_test.py
     if ($LASTEXITCODE -ne 0) { throw 'Verification des delais de securite echouee. Aucune publication.' }
     & python tests/security_test.py
