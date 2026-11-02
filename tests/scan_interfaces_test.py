@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Thread
 import json
 from playwright.sync_api import sync_playwright, expect
-from scan_workspace_test import Quiet, navigate, paste, PASSIVE, XML
+from scan_workspace_test import Quiet, navigate, feed_report, PASSIVE, XML
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,7 +36,7 @@ def run():
                 expect(page.locator('#scanTarget')).to_have_count(1 if kind in ['passive','active','map'] else 0)
                 expect(page.locator('#wgScanPorts,#wgScanIdentify')).to_have_count(2 if kind=='active' else 0)
                 expect(page.locator('#wgPassiveScope')).to_have_count(0)
-                expect(page.locator('#wgScanCommand')).to_have_count(0 if kind=='vulnerability' else 1)
+                expect(page.locator('#wgScanCommand,#wgScanImport,#wgScanFile,#wgScanPaste,#wgScanDrop,#wgScanImportDialog,.wgscan-manual')).to_have_count(0)
                 expect(page.locator('#wgAgentTimeout')).to_have_count(1 if kind in ['active','map'] else 0)
                 # Check actual placement, not just different names or colors.
                 placement=page.evaluate('''()=>{const box=s=>document.querySelector(s).getBoundingClientRect();
@@ -50,7 +50,7 @@ def run():
                     page.locator('#closeSettingsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
-            navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');paste(page,json.dumps(PASSIVE),'Réseau passif')
+            navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');feed_report(page,json.dumps(PASSIVE),'Réseau passif')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('[data-passive-process],.wgscan-local-socket,.wgscan-connection-row,#wgPassiveBinding,#wgPassiveScope')).to_have_count(0)
             page.locator('.passive-network-device').click()
@@ -62,27 +62,26 @@ def run():
                 {'address':'2001:db8::1','transport':'NDP','status':'observed','macAddress':'00:11:22:33:44:66','interfaceName':'Ethernet'},
                 {'address':'192.0.2.2','transport':'ARP','status':'observed','macAddress':'00:11:22:33:44:77','interfaceName':'Wi-Fi','hostname':'<img src=x onerror=alert(1)>'},
                 {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'host-only-secret'}]}
-            paste(page,json.dumps(network),'Caches réseau')
+            feed_report(page,json.dumps(network),'Caches réseau')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
             with page.expect_download() as downloaded:page.locator('#wgScanExportJson').click()
             raw=Path(downloaded.value.path()).read_text(encoding='utf-8')
             assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
             exported=json.loads(raw);assert [row['address'] for row in exported['rows']]==['192.0.2.1']
-            page.locator('#scanTarget').fill('2001:db8::1');paste(page,json.dumps(network),'Cible IPv6')
+            page.locator('#scanTarget').fill('2001:db8::1');feed_report(page,json.dumps(network),'Cible IPv6')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('.passive-network-device')).to_contain_text('2001:db8::1')
-            page.locator('#scanTarget').fill('inconnu.example.local');paste(page,json.dumps(network),'Cible inconnue')
-            expect(page.locator('#wgScanImportError')).to_contain_text('Aucune observation')
-            page.locator('#wgScanImportDialog header [data-wg-close]').click()
-            expect(page.locator('#wgScanReportStamp')).to_contain_text('Cible IPv6')
-            print('PASS: passive requires one IP/FQDN, excludes unrelated neighbors and keeps previous report when absent')
-            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.50');paste(page,XML,'Services')
+            page.locator('#scanTarget').fill('inconnu.example.local');feed_report(page,json.dumps(network),'Cible inconnue')
+            expect(page.locator('.passive-network-device')).to_have_count(0)
+            expect(page.locator('#wgScanReportStamp')).to_contain_text('Cible inconnue')
+            print('PASS: passive requires one IP/FQDN, excludes unrelated neighbors and shows empty reports for unknown targets')
+            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.50');feed_report(page,XML,'Services')
             expect(page.locator('.wgscan-service-card')).to_have_count(1)
             page.locator('.wgscan-service-card').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH')
             page.locator('#wgScanDetail [data-wg-close]').click()
 
-            navigate(page,'map');paste(page,XML,'Réseau')
+            navigate(page,'map');feed_report(page,XML,'Réseau')
             page.locator('[data-map-select="192.0.2.51"]').click()
             expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.51')
             expect(page.locator('.wgscan-map-selection')).to_contain_text('Non confirmée')
@@ -108,7 +107,7 @@ def run():
                 {'address':'127.0.0.1','transport':'AUDIT','checkId':'cache','title':'Cache local','status':'notchecked','severity':'info','detail':'Cache absent'},
                 {'address':'127.0.0.1','transport':'AUDIT','checkId':'disk','title':'Chiffrement','status':'passed','severity':'high','detail':'Actif'},
                 {'address':'127.0.0.1','transport':'AUDIT','checkId':'xss','title':'<img src=x onerror=alert(1)>','status':'issue','severity':'low','detail':'<script>alert(1)</script>','recommendation':'<svg onload=alert(1)>'}]}
-            paste(page,json.dumps(audit),'Audit multi-système')
+            feed_report(page,json.dumps(audit),'Audit multi-système')
             expect(page.locator('.wgscan-audit-item')).to_have_count(5)
             assert page.locator('.wgscan-audit-item[data-audit-status=issue]').first.get_attribute('data-severity')=='critical'
             assert not page.locator('.wgscan-audit-passed').evaluate('el=>el.open')
@@ -128,7 +127,7 @@ def run():
             page.locator('#wgScanDetail [data-wg-close]').click()
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgAuditSearch').fill('')
             expect(page.locator('.wgscan-audit-overview script,.wgscan-audit-overview img,.wgscan-audit-overview svg')).to_have_count(0)
-            print('PASS: audit prioritizes risks, filters severity and proof, copies recommendations and escapes imported content')
+            print('PASS: audit prioritizes risks, filters severity and proof, copies recommendations and escapes report content')
 
             for width,height in [(1440,1000),(900,900),(768,900),(390,844),(320,720)]:
                 page.set_viewport_size({'width':width,'height':height})

@@ -1,4 +1,4 @@
-/* Browser workspaces: the actions available here analyze actual imported data. */
+/* Browser workspaces: agent reports, saved observations and comparisons. */
 .wgscan {
   --ws-accent: #78cdbb;
   --ws-text: #e6edf6;
@@ -148,14 +148,6 @@
   #wgAgentProgress { align-items: start; flex-direction: column; gap: 6px; }
   #wgAgentProgress progress { width: 100%; }
 }
-.wgscan-drop { display: flex; align-items: center; gap: 14px; border: 1px dashed #3b526b; border-radius: 11px; padding: 18px 20px; background: #14223680; }
-.wgscan-drop.is-dragging { border-color: var(--ws-accent); background: color-mix(in srgb, var(--ws-accent) 14%, var(--ws-bg)); }
-.wgscan-drop-icon { display: grid; place-items: center; color: var(--ws-accent); background: #1a2d40; border-radius: 9px; width: 40px; height: 42px; flex-shrink: 0; }
-.wgscan-drop-icon svg { width: 20px; height: 20px; }
-.wgscan-drop > div { flex: 1; min-width: 0; }
-.wgscan-drop strong { display: block; font-weight: 550; }
-.wgscan-drop div > span { color: var(--ws-muted); display: block; font-size: 10px; margin-top: 3px; }
-.wgscan-drop button { font-size: 11px; }
 .wgscan-status { color: #9ecbbb; min-height: 27px; padding: 5px 0 0; font-size: 11px; }
 .wgscan-status.is-error { color: #ffc09b; }
 .wgscan-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 27px; }
@@ -263,7 +255,6 @@
 .wgscan-dialog .wgscan-field + .wgscan-field { margin-top: 17px; }
 .wgscan-dialog textarea { resize: vertical; font: 11px/1.8 Consolas, monospace; }
 .wgscan-dialog footer { justify-content: flex-end; margin-top: 18px; }
-.wgscan-dialog #wgScanImportError { color: #ffc09e; margin-top: 10px; font-size: 12px; }
 .wgscan-dialog dl { margin: 0; }
 .wgscan-dialog dl > div { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid #2c4055; font-size: 12px; }
 .wgscan-dialog dt { color: #92a9bf; }
@@ -278,8 +269,6 @@
 @media (max-width: 1150px) {
   .wgscan-layout { grid-template-columns: 255px minmax(0, 1fr); gap: 20px; }
   .wgscan-preparation { padding: 18px; }
-  .wgscan-drop { flex-wrap: wrap; padding: 15px; }
-  .wgscan-drop button { margin-left: 54px; }
   .wgscan-overview-grid { grid-template-columns: 1fr; }
   .wgscan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wgscan-environment > span:last-child { margin-left: 0; }
@@ -311,8 +300,6 @@
   .wgscan-heading > button { width: 100%; }
   .wgscan-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
   .wgscan-metrics article { padding: 12px 14px; }
-  .wgscan-drop > div { min-width: 180px; }
-  .wgscan-drop button { width: 100%; margin-left: 0; }
   .wgscan-empty { padding: 26px 16px; }
   .wgscan-empty h2 { font-size: 20px; }
   .wgscan-empty-steps { flex-direction: column; gap: 8px; margin-top: 22px; }
