@@ -11,7 +11,7 @@ import json
 import sys
 from playwright.sync_api import sync_playwright, expect
 from site_fixture import WolfGuardTestHandler
-from scan_workspace_test import navigate, paste
+from scan_workspace_test import navigate, feed_report
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,7 +85,7 @@ def run():
             page.set_viewport_size({'width':1440,'height':1000})
             navigate(page, 'passive');page.locator('#scanTarget').fill('192.168.1.1')
             rows = [{'address':'192.168.1.1','transport':'ARP' if i%2 else 'NDP','status':'observed','interfaceName':'eth'+str(i),'macAddress':'00:11:22:33:44:55','detail':'Entrée du cache '+str(i)} for i in range(1000)]
-            paste(page, json.dumps({'strategy':'passive','results':rows}), 'Relevé de performance')
+            feed_report(page, json.dumps({'strategy':'passive','results':rows}), 'Relevé de performance')
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Relevé de performance')
             capture('scan-passive', '.wgscan')
             page.locator('[data-passive-category=ARP]').click()
@@ -93,11 +93,11 @@ def run():
             capture('scan-filtered', '.wgscan')
             with page.expect_download() as download:
                 page.locator('#wgScanExport').click()
-            snapshots['filtered-csv'] = Path(download.value.path()).read_text(encoding='utf-8-sig')
-            assert len(snapshots['filtered-csv'].splitlines()) == 501
+            snapshots['complete-scan-report'] = Path(download.value.path()).read_text(encoding='utf-8-sig')
+            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",snapshots['complete-scan-report']) == 1000
             navigate(page, 'vulnerability')
             audit=[{'address':'127.0.0.1','transport':'AUDIT','checkId':'control-'+str(i),'title':'Contrôle '+str(i),'status':'issue' if i%2 else 'passed','severity':'high','detail':'Observation '+str(i),'recommendation':'Vérifier le réglage'} for i in range(150)]
-            paste(page,json.dumps({'strategy':'passive','workspace':'vulnerability','results':audit}),'Audit de performance')
+            feed_report(page,json.dumps({'strategy':'passive','workspace':'vulnerability','results':audit}),'Audit de performance')
             capture('scan-audit', '.wgscan')
             page.set_viewport_size({'width':390,'height':844})
             capture('scan-audit-mobile', '.wgscan')

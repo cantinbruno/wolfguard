@@ -95,17 +95,14 @@ def run(backend=None):
             print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
 
-            first.evaluate("openSection('scan-passive')");first.wait_for_function('()=>!sectionTransition.active')
-            first.locator('#scanTarget').fill('192.0.2.77');first.locator('#wgScanPaste').click();first.locator('#wgScanPasteText').fill('[{"address":"192.0.2.77","transport":"ARP","status":"observed","macAddress":"00:11:22:33:44:55","interfaceName":"Ethernet"}]')
-            first.locator('#wgScanPasteName').fill('Releve partage de test');first.locator('#wgScanAnalyze').click()
-            first.locator('#wgScanSave').click();first.locator('.app-dialog-submit').click()
-            expect(first.locator('#wgScanStatus')).to_contain_text('Relevé enregistré dans',timeout=15000)
+            # Existing encrypted archives are retained when the scan UI only offers export.
+            archive={'version':1,'reports':[{'name':'Releve partage de test','rows':[{'address':'192.0.2.77','transport':'ARP','status':'observed'}]}]}
+            first.evaluate("async value=>put('settings',{key:'scan-web-passive-reports-v1',value})",archive)
             second.evaluate('lockApplication()');unlock(second)
+            assert second.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value")==archive
             second.evaluate("openSection('scan-passive')");second.wait_for_function('()=>!sectionTransition.active')
-            second.locator('#wgScanSaved').select_option('0')
-            expect(second.locator('#wgScanReportStamp')).to_contain_text('Releve partage de test')
-            second.locator('[data-wg-tab=rows]').click();expect(second.locator('#wgScanRows tbody')).to_contain_text('192.0.2.77')
-            print('PASS: rapport de scan enregistre chiffre et recupere sur un second appareil avec le meme code')
+            expect(second.locator('#wgScanSave,#wgScanSaved')).to_have_count(0)
+            print('PASS: anciennes archives de scans conservees dans les donnees chiffrees et synchronisees')
 
             first.evaluate("async()=>{const item=await get('items','memo-test');item.title='Modification du premier appareil';await put('items',item)}")
             # A stale editor must not overwrite the newly committed remote data.

@@ -1,4 +1,4 @@
-/* Browser workspaces: agent reports, saved observations and comparisons. */
+/* Browser workspaces: agent reports, exports and comparisons. */
 .wgscan {
   --ws-accent: #78cdbb;
   --ws-text: #e6edf6;
@@ -240,11 +240,6 @@
 .wgscan-change-list article[data-change=removed] > :first-child { color: #ea9b92; }
 .wgscan-change-list code { overflow-wrap: anywhere; }
 .wgscan-change-list small { color: var(--ws-muted); }
-.wgscan-saved { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; border-top: 1px solid var(--ws-border); padding-top: 23px; margin-top: 28px; }
-.wgscan-saved p { font-size: 10px; color: var(--ws-muted); max-width: 330px; margin-top: 7px; }
-.wgscan-saved > div:last-child { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
-.wgscan-saved select { width: 210px; font-size: 10px; }
-.wgscan-saved button { font-size: 10px; }
 .wgscan-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .wgscan-dialog { color: #e6edf6; background: #142235; border: 1px solid #395068; border-radius: 14px; padding: 24px; width: min(680px, calc(100vw - 28px)); max-height: 90dvh; overflow: auto; box-shadow: 0 24px 90px #0008; }
 .wgscan-dialog::backdrop { background: #07101dcc; backdrop-filter: blur(4px); }
@@ -261,10 +256,6 @@
 .wgscan-dialog dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .wgscan-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #0d1928; border-radius: 7px; padding: 15px; font-size: 11px; }
 .wgscan-dialog h3 { font-size: 13px; margin: 20px 0 8px; }
-.wgscan-saved-item { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 15px 0; border-bottom: 1px solid #2c4055; }
-.wgscan-saved-item strong, .wgscan-saved-item small { display: block; overflow-wrap: anywhere; }
-.wgscan-saved-item small { color: var(--ws-muted); font-size: 10px; margin-top: 4px; }
-.wgscan-saved-item button { font-size: 11px; }
 @media (min-width: 1600px) { .wgscan-layout { grid-template-columns: 310px minmax(0, 1fr); gap: 34px; } }
 @media (max-width: 1150px) {
   .wgscan-layout { grid-template-columns: 255px minmax(0, 1fr); gap: 20px; }
@@ -316,6 +307,4 @@
   .wgscan-change-counts b { font-size: 17px; }
   .wgscan-dialog { padding: 19px; }
   .wgscan-dialog dl > div { grid-template-columns: 105px 1fr; }
-  .wgscan-saved { gap: 14px; }
-  .wgscan-saved select { width: 100%; }
 }

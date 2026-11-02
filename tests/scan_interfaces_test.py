@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Thread
 import json
 from playwright.sync_api import sync_playwright, expect
-from scan_workspace_test import Quiet, navigate, feed_report, PASSIVE, XML
+from scan_workspace_test import Quiet, navigate, feed_report, export_report, PASSIVE, XML
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,10 +65,9 @@ def run():
             feed_report(page,json.dumps(network),'Caches réseau')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
-            with page.expect_download() as downloaded:page.locator('#wgScanExportJson').click()
-            raw=Path(downloaded.value.path()).read_text(encoding='utf-8')
+            raw=export_report(page)
             assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
-            exported=json.loads(raw);assert [row['address'] for row in exported['rows']]==['192.0.2.1']
+            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",raw)==1
             page.locator('#scanTarget').fill('2001:db8::1');feed_report(page,json.dumps(network),'Cible IPv6')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('.passive-network-device')).to_contain_text('2001:db8::1')

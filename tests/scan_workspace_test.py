@@ -1,4 +1,4 @@
-"""Real scan reports: parsing, comparison, encrypted persistence and browser layout."""
+"""Real scan reports: parsing, comparison, complete report exports and browser layout."""
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,14 +38,16 @@ def feed_report(page,content,name):
       let report=webScanModel.parse(content,definition.strategy,name,kind);
       if(kind==='passive')report=webScanModel.networkReport(report);
       if(['active','passive'].includes(kind))report=webScanModel.targetReport(report,view.target);
-      fixture.onReport(report);
+      report.jobStatus='completed';fixture.onReport(report);
     }''',{'content':content,'name':name})
     page.locator('[data-wg-tab=overview]').click()
 
-def save(page,name):
-    page.locator('#wgScanSave').click();page.locator('.app-dialog-input').fill(name)
-    page.locator('.app-dialog-submit').click()
-    expect(page.locator('#wgScanStatus')).to_contain_text('Relevé enregistré dans',timeout=20000)
+def export_report(page):
+    with page.expect_download() as downloaded:
+        page.locator('#wgScanExport').click()
+    assert downloaded.value.suggested_filename.endswith('.html')
+    return Path(downloaded.value.path()).read_text(encoding='utf-8')
+
 
 def run():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
@@ -70,17 +72,16 @@ def run():
             page.locator('#wgScanSearch').fill('192.0.2.1');expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('00-11-22-33-44-55')
             expect(page.locator('#wgScanDetailBody')).not_to_contain_text('PID')
-            page.locator('#wgScanDetail [data-wg-close]').click();save(page,'Agence passive enregistrée')
-            stored=page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value")
-            assert len(stored['reports'])==1 and len(stored['reports'][0]['rows'])==1
-            encrypted=page.evaluate("async()=>await (await import('./browser/storage.js')).read()")
-            assert 'Agence passive' not in json.dumps(encrypted) and '198.51.100.20' not in json.dumps(encrypted)
+            page.locator('#wgScanDetail [data-wg-close]').click()
+            raw=export_report(page)
+            assert 'Agence passive' in raw and '00-11-22-33-44-55' in raw
+            assert '198.51.100.20' not in raw and 'processName' not in raw
             page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
             changed=json.loads(json.dumps(PASSIVE));changed['neighbors'][0]['LinkLayerAddress']='AA-BB-CC-DD-EE-FF';changed['connections'].pop();changed['connections'].append({'LocalAddress':'127.0.0.1','LocalPort':8080,'State':'Listen','OwningProcess':77})
             feed_report(page,json.dumps(changed),'Agence après modification');page.locator('[data-wg-tab=changes]').click()
             assert page.locator('.wgscan-change-counts b').all_text_contents()==['0','0','1']
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence après modification')
-            print('PASS: rapports agent, filtres, detail, sauvegarde chiffree et comparaison')
+            print('PASS: rapports agent, filtres, detail, rapport autonome et comparaison')
 
             # Additional parser fixtures cover platform formats, delimiters and limits.
             parsed=page.evaluate(r'''()=>{
@@ -111,22 +112,22 @@ def run():
             page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH 9.9')
             expect(page.locator('#wgScanDetailBody script,#wgScanDetailBody img')).to_have_count(0)
             page.locator('#wgScanDetail [data-wg-close]').click()
-            with page.expect_download() as download:page.locator('#wgScanExport').click()
-            csv=Path(download.value.path()).read_text(encoding='utf-8-sig')
-            assert '192.0.2.50' in csv and 'OpenSSH' in csv and '192.0.2.51' not in csv
-            assert page.evaluate("csv=>webScanModel.parse(csv,'active').rows.length",csv)==1
+            raw=export_report(page)
+            assert '192.0.2.50' in raw and 'OpenSSH' in raw and '192.0.2.51' not in raw
+            # The complete scan is exported even when the screen only shows open ports.
+            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",raw)==3
             rejected=page.evaluate('''()=>{let count=0;for(const xml of ['<!DOCTYPE nmaprun [<!ENTITY x SYSTEM "https://example.invalid/xxe">]><nmaprun/>','<nmaprun><host>','<html/>'])try{webScanModel.parse(xml,'active')}catch{count++;}return count;}''')
             assert rejected==3
-            save(page,'Rapport actif enregistré');page.locator('[data-wg-tab=overview]').click()
+            page.locator('[data-wg-tab=overview]').click()
             page.screenshot(path=str(ROOT/'.cache/scan-active-report.png'),full_page=True)
-            print('PASS: XML Nmap complet, etats ambigus conserves, detail sans XSS, exports filtres et profils de ports')
+            print('PASS: XML Nmap complet, etats ambigus conserves, detail sans XSS, export complet et profils de ports')
 
             navigate(page,'map');feed_report(page,XML,'Carte du laboratoire')
             expect(page.locator('[data-map-address]')).to_have_count(1)
             page.locator('[data-map-address]').click()
             expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.50')
             page.locator('[data-map-observations]').click();expect(page.locator('#wgScanSearch')).to_have_value('192.0.2.50')
-            save(page,'Carte sauvegardee')
+            assert 'Carte du périmètre' in export_report(page)
             navigate(page,'vulnerability')
             audit={'strategy':'passive','workspace':'vulnerability','results':[
                 {'address':'127.0.0.1','transport':'AUDIT','checkId':'smb1','title':'SMBv1 serveur','status':'issue','severity':'high','detail':'EnableSMB1Protocol = true','recommendation':'Desactiver SMBv1'},
@@ -138,12 +139,10 @@ def run():
             page.locator('[data-wg-tab=rows]').click();page.locator('#wgScanFilter').select_option('issue')
             expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             expect(page.locator('#wgScanRows tbody')).to_contain_text('Desactiver SMBv1')
-            with page.expect_download() as download:page.locator('#wgScanExport').click()
-            csv=Path(download.value.path()).read_text(encoding='utf-8-sig')
-            assert 'smb1' in csv and 'Desactiver SMBv1' in csv
-            save(page,'Audit sauvegarde')
+            raw=export_report(page)
+            assert 'smb1' in raw and 'Desactiver SMBv1' in raw and 'Cache absent' in raw
             page.locator('[data-wg-tab=overview]').click();page.screenshot(path=str(ROOT/'.cache/scan-audit-report.png'),full_page=True)
-            navigate(page,'map');expect(page.locator('#wgScanReportStamp')).to_contain_text('Carte sauvegardee')
+            navigate(page,'map');expect(page.locator('#wgScanReportStamp')).to_contain_text('Carte du laboratoire')
             page.locator('[data-wg-tab=overview]').click();page.screenshot(path=str(ROOT/'.cache/scan-map-report.png'),full_page=True)
             print('PASS: carte interactive, controles Windows uniques, gravite, preuves, filtres, export et historiques separes')
 
@@ -154,18 +153,19 @@ def run():
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     expect(page.locator('#wgScanImport,#wgScanFile,#wgScanPaste,#wgScanDrop,#wgScanImportDialog,.wgscan-manual')).to_have_count(0)
                     assert 'import' not in page.locator('.wgscan').inner_text().lower()
+                    expect(page.locator('.wgscan-report-actions button')).to_have_count(1)
+                    expect(page.locator('#wgScanSave,#wgScanClear,#wgScanSaved,#wgScanExportJson,.scan-report-library')).to_have_count(0)
                     if width==390:page.screenshot(path=str(ROOT/f'.cache/scan-{kind}-mobile.png'),full_page=True)
             page.evaluate('lockApplication()');expect(page.locator('#lock')).to_be_visible()
             assert page.evaluate("document.querySelectorAll('.wgscan').length")==0
             expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000);page.keyboard.type(CODE)
             expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            navigate(page,'active');page.locator('#wgScanSaved').select_option('0')
-            expect(page.locator('#wgScanReportStamp')).to_contain_text('Rapport actif enregistré')
-            navigate(page,'passive');page.locator('#wgScanSaved').select_option('0')
-            expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence passive enregistrée')
+            navigate(page,'active');expect(page.locator('#wgScanMetrics strong').first).to_have_text('—')
+            navigate(page,'passive');expect(page.locator('#wgScanMetrics strong').first).to_have_text('—')
+            expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Aucune référence')
             assert not errors,errors
             assert not any('192.0.2.' in request or '198.51.100.' in request or 'example.invalid' in request for request in requests),requests
-            print('PASS: deux espaces independants, bureau et mobile sans debordement, purge au verrouillage et restauration chiffree')
+            print('PASS: deux espaces independants, bureau et mobile sans debordement, purge des resultats et references au verrouillage')
             browser.close()
     finally:server.shutdown();server.server_close()
 
