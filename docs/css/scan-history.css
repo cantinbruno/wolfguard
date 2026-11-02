@@ -1,0 +1,41 @@
+/* Shared scan history in Settings: metadata stays compact; reports are exported on demand. */
+#settings-history [hidden]{display:none!important}
+.scan-history-heading{flex-wrap:wrap;gap:14px}
+.scan-history-intro{font-size:12px;line-height:1.8;color:var(--ui-muted);margin:0 0 22px}
+.scan-history-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:19px}
+.scan-history-search{position:relative;display:flex;align-items:center;min-width:0;flex:1}
+.scan-history-search>svg{position:absolute;left:11px;width:15px;height:15px;color:var(--ui-muted);pointer-events:none}
+.scan-history-search input{width:100%;min-width:0;height:37px;padding:8px 10px 8px 34px;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-sidebar);color:var(--ui-text);font:11px 'Segoe UI',sans-serif}
+.scan-history-toolbar .settings-btn{font-size:11px;min-height:37px;white-space:nowrap}
+.scan-history-toolbar .settings-btn>span{opacity:.7;font-size:10px}
+.scan-history-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:17px}
+.scan-history-filters button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ui-border);border-radius:6px;background:transparent;padding:7px 9px;min-height:33px;color:var(--ui-muted);font:10px 'Segoe UI',sans-serif;cursor:pointer}
+.scan-history-filters button[aria-pressed=true]{background:var(--ui-highlight-soft);border-color:#a8c8e86b;color:var(--ui-text)}
+.scan-history-filters button>span{font-size:9px;opacity:.65}
+.scan-history-status{font-size:10px;color:var(--ui-muted);line-height:1.7;margin:0 0 12px;min-height:17px;overflow-wrap:anywhere}
+.scan-history-status.is-error{color:#e6b39c}
+.scan-history-list{border-top:1px solid var(--ui-border)}
+.scan-history-item{display:grid;grid-template-columns:32px minmax(0,1fr) 110px auto;align-items:center;gap:12px;padding:17px 0;border-bottom:1px solid var(--ui-border);min-width:0}
+.scan-history-icon{display:grid;place-items:center;align-self:start;width:32px;height:36px;border:1px solid var(--ui-border);background:var(--ui-sidebar);border-radius:8px;color:#9fc4db}
+.scan-history-icon svg{width:19px;height:19px}
+.scan-history-item[data-kind=passive] .scan-history-icon,.scan-history-item[data-kind=map] .scan-history-icon{color:#78cdbb}
+.scan-history-item[data-kind=active] .scan-history-icon,.scan-history-item[data-kind=vulnerability] .scan-history-icon{color:#e8ad82}
+.scan-history-copy{min-width:0}.scan-history-copy>div{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.scan-history-copy strong{font-size:12px;font-weight:600;color:var(--ui-text)}
+.scan-history-copy p{font:11px/1.7 Consolas,monospace;color:#c7d7e6;margin:5px 0 3px;overflow-wrap:anywhere}
+.scan-history-copy small{display:block;font-size:9px;color:var(--ui-muted);overflow-wrap:anywhere}
+.scan-history-state{color:var(--ui-muted);font-size:8px;padding:2px 5px;border-radius:4px;background:var(--ui-raised)}
+.scan-history-state[data-status=completed]{color:#9bd1bd;background:#78cdbb0d}.scan-history-state[data-status=running]{color:#f1c28f}.scan-history-state[data-status=failed],.scan-history-state[data-status=lost]{color:#e2b0a1}
+.scan-history-item time{font-size:9px;color:var(--ui-muted);line-height:1.8}
+.scan-history-item .settings-btn{font-size:10px;min-height:32px;padding:6px 9px;white-space:nowrap}
+.scan-history-item .settings-btn svg{width:13px;height:13px}
+.scan-history-empty{padding:35px 12px;text-align:center;color:var(--ui-muted)}
+.scan-history-empty>svg{width:31px;height:31px;margin-bottom:10px;color:#91a8bd}
+.scan-history-empty h4{font-size:15px;color:var(--ui-text);font-weight:500;margin:0 0 9px}
+.scan-history-empty p{font-size:11px;line-height:1.8;max-width:410px;margin:0 auto}
+.scan-history-pages{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding-top:15px;color:var(--ui-muted);font-size:10px}
+.scan-history-pages>div{display:flex;gap:6px}.scan-history-pages .settings-btn{font-size:10px;min-height:30px}
+#settings-history button:focus-visible,#settings-history input:focus-visible{outline:2px solid #a8c8e8;outline-offset:3px}
+@media(min-width:1100px){.settings-modal:has(#settings-tab-history[aria-selected=true]){width:min(1140px,100%);height:min(790px,calc(100dvh - 48px))}}
+@media(max-width:850px){.scan-history-item{grid-template-columns:30px minmax(0,1fr) auto;gap:10px}.scan-history-item time{grid-column:2;grid-row:2}.scan-history-item>[data-history-export]{grid-column:3;grid-row:1/3}.scan-history-copy>div{gap:5px}.scan-history-copy strong{font-size:11px}}
+@media(max-width:640px){.settings-tabs{overflow-x:auto;padding-bottom:4px}.settings-tab{flex:0 0 auto;width:auto!important;padding:0 10px!important}.scan-history-heading h3{font-size:21px}.scan-history-intro{font-size:11px}.scan-history-search{flex-basis:calc(100% - 50px)}.scan-history-toolbar>#wgHistoryExportAll{flex-basis:100%;justify-content:center}.scan-history-filters{gap:5px}.scan-history-filters button{font-size:9px;padding:6px 7px}.scan-history-copy p{font-size:10px}.scan-history-item .settings-btn{font-size:9px;padding:6px}.scan-history-item{column-gap:8px;grid-template-columns:28px minmax(0,1fr) auto}.scan-history-icon{width:28px;height:32px}.scan-history-empty{padding-inline:0}.scan-history-pages{font-size:9px}}

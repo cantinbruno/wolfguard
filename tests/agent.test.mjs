@@ -146,6 +146,43 @@ test('lost agents do not repeat a scan, sessions expire, and code rotation inval
   s.env.DB.db.exec('UPDATE vault SET generation=generation+1 WHERE id=1');assert.equal((await s.api('agent/poll',{},a.auth)).status,401);assert.equal((await s.api('agents',undefined,s.user)).status,401);
   s.env.DB.db.close();
 });
+
+test('global history paginates all scan kinds across agents and retains encrypted results after seven days and PIN rotation',async()=>{
+  const s=await setup();
+  try{
+    const a=await s.pair('Poste principal'),b=await s.pair('Ancien poste','linux');
+    for(const agent of [a,b])await s.api('agent/poll',{capabilities:['network-target-v1','security-audit-v1']},agent.auth);
+    const ids=[];
+    for(let index=0;index<64;index++){
+      const workspace=['passive','active','map','vulnerability'][index%4],agent=index%2?a:b;
+      const spec={agentId:agent.id,workspace,strategy:['active','map'].includes(workspace)?'active':'passive',target:'127.0.0.1',...(workspace==='map'?{mode:'discovery'}:{}),...(workspace==='active'?{mode:'tcp',ports:'443'}:{}),...(workspace==='vulnerability'?{passiveScope:'security'}:{})};
+      const created=await s.api('scans',spec,s.user);assert.equal(created.status,201);const {id}=await created.json();ids.push(id);
+      const {job}=await (await s.api('agent/poll',{},agent.auth)).json();
+      const report={strategy:spec.strategy,workspace,target:spec.target,results:[{address:'127.0.0.1',transport:workspace==='vulnerability'?'AUDIT':'ARP',checkId:workspace==='vulnerability'?'firewall':undefined,status:workspace==='vulnerability'?'passed':'observed'}],warnings:[]};
+      const updated=await s.api('agent/update',{id,lease:job.lease,revision:job.revision+1,status:'completed',completed:1,total:1,report},agent.auth);assert.equal(updated.status,200);
+    }
+    await s.api('agents/revoke',{id:b.id},s.user);
+    assert.equal((await s.api('scans?history=1')).status,401);
+    assert.equal((await s.api('scans?history=1',undefined,a.auth)).status,401);
+    for(const query of ['beforeAt=1','beforeId='+ids[0],'beforeAt=1x&beforeId='+ids[0],'beforeAt=100&beforeId=wrong'])assert.equal((await s.api('scans?history=1&'+query,undefined,s.user)).status,400);
+    const first=await (await s.api('scans?history=1',undefined,s.user)).json();assert.equal(first.jobs.length,50);assert.ok(first.next);
+    const second=await (await s.api('scans?history=1&beforeAt='+first.next.beforeAt+'&beforeId='+first.next.beforeId,undefined,s.user)).json();assert.equal(second.jobs.length,14);assert.equal(second.next,null);
+    const all=[...first.jobs,...second.jobs];assert.equal(new Set(all.map(job=>job.id)).size,64);assert.deepEqual(new Set(all.map(job=>job.workspace)),new Set(['passive','active','map','vulnerability']));
+    assert.ok(all.some(job=>job.agentName==='Ancien poste'));assert.ok(all.every(job=>job.hasReport&&job.target===(job.workspace==='vulnerability'?'':'127.0.0.1')));
+    assert.ok(all.every(job=>!('report' in job)&&!('spec' in job)&&!('lease_hash' in job)));
+    assert.ok(!JSON.stringify(s.env.DB.db.prepare('SELECT spec_cipher,result_cipher FROM scan_jobs').all()).includes('firewall'));
+    s.advance(9*86400000);
+    const login=await (await s.api('login',{code:'07942685'})).json(),fresh='Bearer '+login.token;
+    assert.equal((await (await s.api('scans?history=1',undefined,fresh)).json()).jobs.length,50);
+    s.env.DB.db.exec('UPDATE vault SET generation=generation+1 WHERE id=1');
+    assert.equal((await s.api('scans?history=1',undefined,fresh)).status,401);
+    const rotated='Bearer '+(await (await s.api('login',{code:'07942685'})).json()).token;
+    assert.equal((await (await s.api('scans?history=1',undefined,rotated)).json()).jobs.length,50);
+    assert.equal((await s.api('scans/result?id='+ids[0],undefined,rotated)).status,200);
+    s.env.DB.db.prepare('UPDATE scan_jobs SET generation=100 WHERE id=?').run(ids[0]);
+    assert.equal((await s.api('scans/result?id='+ids[0],undefined,rotated)).status,404);
+  }finally{s.env.DB.db.close();}
+});
 test('the actual network engine connects to a loopback service and cancels pending probes',async()=>{
   const server=createServer(socket=>{socket.on('data',()=>{});socket.on('error',()=>{});});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const port=server.address().port;try{

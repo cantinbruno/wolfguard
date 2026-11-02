@@ -3,13 +3,25 @@
 const webScanAgent = (() => {
   let timer = 0, generation = 0, jobIds = {passive: '', active: '', map: '', vulnerability: ''};
   const labels = {queued: 'En attente de l’agent', running: 'Scan en cours', completed: 'Scan terminé', cancelled: 'Scan arrêté', failed: 'Collecte en échec', expired: 'Agent non disponible à temps', lost: 'Connexion à l’agent perdue'};
+  function fromJob(data,agent={}) {
+    const kind=data.workspace||data.spec?.workspace||data.strategy,definition=scanInsights.definitions[kind];
+    if(!definition)throw new Error('Type de scan inconnu.');
+    const raw=data.report,name=definition.short+' · '+(agent.name||data.agentName||'Agent');
+    let report=raw?.results?.length?webScanModel.parse(JSON.stringify(raw),definition.strategy,name,kind):{format:'wolfguard-scan',version:1,strategy:definition.strategy,workspace:kind,name,warnings:(raw?.warnings||[]).map(value=>String(value).slice(0,500)),rows:[]};
+    report.target=report.target||raw?.target||data.spec?.target||data.target||'';
+    report.source='Agent · '+workspaceAgents.platformName(raw?.platform||agent.platform||data.platform);
+    report.importedAt=new Date(data.createdAt).toISOString();report.capturedAt=raw?.startedAt||'';
+    report.jobStatus=data.status;report.error=raw?.error||'';
+    if(kind==='passive')report=webScanModel.networkReport(report);
+    return report;
+  }
   function reset(clear = true) { clearTimeout(timer); timer = 0; generation++; if (clear) jobIds = {passive: '', active: '', map: '', vulnerability: ''}; }
   function mount(kind, values, onReport) {
     reset(false);
     const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
     root.className = 'wgscan-agent'; root.setAttribute('aria-label', 'Exécution par l’agent commun');
     $('#wgScanAgentHost').append(root);
-    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div><button type="button" id="wgAgentSettings" title="Gérer l’agent commun">Paramètres → Agents</button></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Résultats conservés 7 jours · Exporter pour conserver le rapport</small></details>';
+    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div><button type="button" id="wgAgentSettings" title="Gérer l’agent commun">Paramètres → Agents</button></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
     let agent = null, jobs = [], busy = false, lastResult = '', current = null, running = null, selected = '', refreshing = false, compatibilityIssue = false;
@@ -39,15 +51,11 @@ const webScanAgent = (() => {
       if (!current || lastResult === current.id + ':' + current.revision) return;
       const id = current.id, revision = current.revision, data = await request('scans/result?id=' + id);
       if (!live() || current?.id !== id) return;
-      const source = 'Agent · ' + workspaceAgents.platformName(data.report?.platform || agent?.platform);
       if (data.report) {
-        const name = definition.short + ' · ' + (agent?.name || 'Agent');
-        const report = data.report.results?.length ? webScanModel.parse(JSON.stringify(data.report), strategy, name, kind) : {format: 'wolfguard-scan', version: 1, strategy, workspace: kind, target:data.report.target||'', name, warnings: (data.report.warnings || []).map(value => String(value).slice(0, 500)), rows: []};
-        report.source = source; report.importedAt = new Date(data.createdAt).toISOString(); report.capturedAt = data.report.startedAt || '';
-        report.jobStatus = data.status; report.error = data.report.error || '';
+        const report=fromJob(data,agent||{});
         onReport(report, data); lastResult = id + ':' + revision;
         if (data.report.error) status(data.report.error, true); else if (['completed', 'cancelled'].includes(data.status)) status(labels[data.status] + ' : ' + report.rows.length + ' observation(s) reçue(s).');
-      } else if (data.status === 'running') onReport({format: 'wolfguard-scan', version: 1, strategy, workspace: kind, name: 'Collecte en cours', jobStatus: 'running', importedAt: new Date().toISOString(), source, warnings: [], rows: []}, data);
+      } else if (data.status === 'running') onReport({...fromJob(data,agent||{}),name:'Collecte en cours'},data);
     }
     async function refresh() {
       if (!live() || busy || refreshing) return;
@@ -83,5 +91,5 @@ const webScanAgent = (() => {
     find('#wgAgentStop').onclick = async () => { if (busy || !running) return; busy = true; render(); try { await request('scans/cancel', {id: running.id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
     if (workspaceAgents.available()) poll(); else { render(); status('Configure l’agent dans Paramètres → Agents sur le site après saisie de ton code.'); }
   }
-  return {mount, reset};
+  return {mount, reset, fromJob};
 })();

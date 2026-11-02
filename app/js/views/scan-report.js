@@ -92,12 +92,45 @@ const webScanReport = (() => {
     const css=styles+'\n:root{--accent:'+themes[kind]+'}';
     return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; img-src data:; style-src &#39;unsafe-inline&#39;; script-src &#39;sha256-u/x0+tMysSnSYvHTqYDF9B0ZUB0Afx7nZ8WUJxbpk5I=&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;"><title>WolfGuard · '+escape(definition.short)+' · '+escape(report.target||report.name)+'</title><style>'+css+'</style></head><body><nav class="toolbar" aria-label="Actions du rapport"><span>Rapport autonome · Ouvre ce fichier pour le consulter ou l’enregistrer en PDF.</span><button type="button" id="print-report">Imprimer / Enregistrer en PDF</button></nav><main class="document"><header class="cover"><div class="cover-top"><div class="brand">'+(logo?'<img src="'+escape(logo)+'" alt="">':'')+'<div>WolfGuard<small>Observation &amp; sécurité réseau</small></div></div><span class="edition">Rapport de scan<br>'+escape(date(generated))+'</span></div><p class="eyebrow">'+escape(definition.kicker)+'</p><h1>'+escape(definition.title)+'</h1><p class="subtitle">'+escape(report.name)+'</p><div class="scope"><div><span>Cible / périmètre</span><strong>'+escape(target)+'</strong></div><div><span>Date du relevé</span><strong>'+escape(date(report.capturedAt||report.importedAt))+'</strong></div><div><span>Source</span><strong>'+escape(report.source||'Non fournie')+'</strong></div></div></header><div class="body"><div class="status-line"><span>État : <strong>'+escape(jobLabels[report.jobStatus]||'Non fourni')+'</strong></span><span>'+number(rows.length)+' observation(s)</span></div><div class="metrics">'+metrics(kind,rows).map(([value,label])=>'<article class="metric"><b>'+number(value)+'</b><span>'+escape(label)+'</span></article>').join('')+'</div>'+section('01','Synthèse','<p class="lead">'+escape(synthesis(kind,rows))+'</p><p class="note">'+escape(limits[kind])+'</p>'+warnings.map(warning=>'<p class="note warning">'+escape(warning)+'</p>').join(''))+(kind==='map'?section('02','Carte du périmètre',mapDiagram(rows)):'')+section(kind==='map'?'03':'02',kind==='vulnerability'?'Preuves & recommandations':kind==='passive'?'Voisins réseau observés':kind==='map'?'Hôtes & preuves':'Services & réponses',observations(kind,rows),'Relevé complet · '+number(rows.length)+' observation(s)')+comparison(kind,safeReport,reference)+'</div><footer class="footer"><span><strong>WOLFGUARD</strong><br>Rapport généré le '+escape(date(generated))+'</span><span>Relevé complet, indépendant des filtres de l’écran.<br>Les conclusions restent limitées aux informations reçues.</span></footer></main><script>'+printScript+'</script></body></html>';
   }
-  async function download(kind,report,reference,isCurrent=()=>true){
+  let logoPromise;
+  async function file(kind,report,reference){
     // Only the trusted, same-origin brand asset is embedded; the document stays usable offline.
-    let logo='';try{const response=await fetch('images/logo-loup.svg');if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());logo='data:image/svg+xml;base64,'+btoa(String.fromCharCode(...bytes));}}catch{}
-    if(!isCurrent())return;
-    const content=html(kind,report,reference,logo),url=URL.createObjectURL(new Blob([content],{type:'text/html;charset=utf-8'}));
-    const link=document.createElement('a');link.href=url;link.download='WolfGuard-'+kind+'-'+new Date().toISOString().slice(0,10)+'.html';link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    logoPromise||=(async()=>{try{const response=await fetch('images/logo-loup.svg');if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());return 'data:image/svg+xml;base64,'+btoa(String.fromCharCode(...bytes));}}catch{}return '';})();
+    const logo=await logoPromise,stamp=new Date(report.capturedAt||report.importedAt),day=Number.isNaN(stamp.getTime())?new Date().toISOString().slice(0,10):stamp.toISOString().slice(0,10);
+    return {name:'WolfGuard-'+kind+'-'+day+'.html',content:html(kind,report,reference,logo)};
   }
-  return {html,download};
+  function save(content,type,name){
+    const url=URL.createObjectURL(new Blob([content],{type})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+  async function download(kind,report,reference,isCurrent=()=>true){
+    const output=await file(kind,report,reference);
+    if(!isCurrent())return;
+    save(output.content,'text/html;charset=utf-8',output.name);
+  }
+  const crcTable=Uint32Array.from({length:256},(_,i)=>{let crc=i;for(let bit=0;bit<8;bit++)crc=crc&1?(crc>>>1)^0xedb88320:crc>>>1;return crc>>>0;});
+  function archive(files){
+    if(!files.length||files.length>65535)throw new Error('Nombre de rapports invalide.');
+    const encoder=new TextEncoder(),locals=[],directory=[];let offset=0,size=0;
+    const stamp=new Date(),dosDate=((Math.min(2107,Math.max(1980,stamp.getFullYear()))-1980)<<9)|((stamp.getMonth()+1)<<5)|stamp.getDate(),dosTime=(stamp.getHours()<<11)|(stamp.getMinutes()<<5)|Math.floor(stamp.getSeconds()/2);
+    for(const [index,file] of files.entries()){
+      if(typeof file.name!=='string'||/[\\/\u0000]/.test(file.name)||typeof file.content!=='string')throw new Error('Nom de rapport invalide.');
+      const name=encoder.encode(String(index+1).padStart(4,'0')+'-'+file.name),data=encoder.encode(file.content);size+=data.length;
+      if(name.length>255)throw new Error('Nom de rapport trop long.');
+      if(size>128*1024*1024)throw new Error('L’ensemble dépasse 128 Mo. Filtre l’historique par type ou par cible, puis réessaie.');
+      let crc=0xffffffff;for(const byte of data)crc=crcTable[(crc^byte)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
+      const local=new Uint8Array(30+name.length),l=new DataView(local.buffer);
+      l.setUint32(0,0x04034b50,true);l.setUint16(4,20,true);l.setUint16(6,0x0800,true);l.setUint16(12,0x21,true);l.setUint32(14,crc,true);l.setUint32(18,data.length,true);l.setUint32(22,data.length,true);l.setUint16(26,name.length,true);local.set(name,30);
+      l.setUint16(10,dosTime,true);l.setUint16(12,dosDate,true);
+      const central=new Uint8Array(46+name.length),c=new DataView(central.buffer);
+      c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(14,0x21,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,offset,true);central.set(name,46);
+      c.setUint16(12,dosTime,true);c.setUint16(14,dosDate,true);
+      locals.push(local,data);directory.push(central);offset+=local.length+data.length;
+    }
+    const directorySize=directory.reduce((sum,part)=>sum+part.length,0),end=new Uint8Array(22),e=new DataView(end.buffer);
+    e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,directorySize,true);e.setUint32(16,offset,true);
+    return new Blob([...locals,...directory,end],{type:'application/zip'});
+  }
+  function downloadArchive(files){save(archive(files),'application/zip','WolfGuard-Historique-'+new Date().toISOString().slice(0,10)+'.zip');}
+  function downloadFile(output){save(output.content,'text/html;charset=utf-8',output.name);}
+  return {html,file,download,archive,downloadArchive,downloadFile};
 })();

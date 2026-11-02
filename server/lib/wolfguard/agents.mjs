@@ -11,8 +11,8 @@ export async function handleAgentAPI(request,env,now,h){
   async function agentAuth(){const token=/^Agent ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];if(!token)fail(401,'Agent non associé.');const row=await env.DB.prepare('UPDATE scan_agents SET last_seen=? WHERE token_hash=? AND revoked_at IS NULL AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(now,await digest(token)).first();if(!row)fail(401,'Association expirée ou agent révoqué.');return row;}
   const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
   const changed=result=>Number(result?.meta?.changes||0)>0;
-  async function expire(){await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();await env.DB.prepare("DELETE FROM scan_jobs WHERE id IN (SELECT id FROM scan_jobs WHERE updated_at<? AND status NOT IN ('queued','running') LIMIT 50)").bind(now-7*86400000).run();}
-  async function publicJob(row,includeResult=false){const spec=await open(row.spec_cipher,row.id+':spec');return {id:row.id,agentId:row.agent_id,strategy:row.strategy,workspace:spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,completed:row.completed,total:row.total,...(includeResult?{report:await open(row.result_cipher,row.id+':result'),spec}:{})};}
+  async function expire(){await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();}
+  async function publicJob(row,includeResult=false,history=false){const spec=await open(row.spec_cipher,row.id+':spec');return {id:row.id,agentId:row.agent_id,strategy:row.strategy,workspace:spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,completed:row.completed,total:row.total,...(history?{target:spec.target||''}:{}),...(includeResult?{report:await open(row.result_cipher,row.id+':result'),spec}:{})};}
   if(path==='/api/agent/enroll'&&request.method==='POST'){
     const {code,name,platform}=await body();if(typeof code!=='string'||!/^[a-f0-9]{32}$/.test(code)||typeof name!=='string'||!name.trim()||name.length>100||!['win32','linux','darwin'].includes(platform))fail(400,'Association invalide.');
     const ticket=await env.DB.prepare('DELETE FROM scan_pairings WHERE token_hash=? AND expires_at>? AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(await digest(code),now).first();if(!ticket)fail(403,'Code d’association expiré ou déjà utilisé.');
@@ -71,11 +71,24 @@ export async function handleAgentAPI(request,env,now,h){
     const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until) VALUES (?,?,?,?,'queued',?,?,?,?,0,0,0,0) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
   }
   if(path==='/api/scans'&&request.method==='GET'){
-    const agentId=new URL(request.url).searchParams.get('agentId');if(!validId(agentId))fail(400,'Agent invalide.');
+    const params=new URL(request.url).searchParams;
+    if(params.get('history')==='1'){
+      const beforeAt=params.get('beforeAt'),beforeId=params.get('beforeId');
+      if((beforeAt!==null||beforeId!==null)&&(!/^[0-9]{1,16}$/.test(beforeAt||'')||!Number.isSafeInteger(Number(beforeAt))||!validId(beforeId)))fail(400,'Position d’historique invalide.');
+      const cursor=beforeAt===null?'':' AND (j.created_at<? OR (j.created_at=? AND j.id<?))';
+      const values=beforeAt===null?[session.generation]:[session.generation,Number(beforeAt),Number(beforeAt),beforeId];
+      // The singleton workspace keeps its history across PIN rotations and revoked agents.
+      // Target and agent metadata remain encrypted at rest and are read only after authorization.
+      const rows=await env.DB.prepare('SELECT j.*,a.name_cipher AS agent_name_cipher FROM scan_jobs j LEFT JOIN scan_agents a ON a.id=j.agent_id WHERE j.generation<=?'+cursor+' ORDER BY j.created_at DESC,j.id DESC LIMIT 51').bind(...values).all();
+      const selected=rows.results.slice(0,50),jobs=[];
+      for(const row of selected){const job=await publicJob(row,false,true),agent=row.agent_name_cipher?await open(row.agent_name_cipher,row.agent_id+':name'):{};jobs.push({...job,agentName:agent.name||'Ancien agent',platform:agent.platform||'',hasReport:!!row.result_cipher});}
+      const last=selected.at(-1);return json({jobs,next:rows.results.length>50?{beforeAt:last.created_at,beforeId:last.id}:null});
+    }
+    const agentId=params.get('agentId');if(!validId(agentId))fail(400,'Agent invalide.');
     const rows=await env.DB.prepare('SELECT * FROM scan_jobs WHERE agent_id=? AND generation=? ORDER BY created_at DESC LIMIT 12').bind(agentId,session.generation).all();const jobs=[];for(const row of rows.results)jobs.push(await publicJob(row));return json({jobs});
   }
   if(path==='/api/scans/result'&&request.method==='GET'){
-    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json(await publicJob(row,true));
+    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json(await publicJob(row,true));
   }
   if(path==='/api/scans/cancel'&&request.method==='POST'){
     const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND generation=? AND status IN ('queued','running') RETURNING id").bind(now,id,session.generation).first();if(!row)fail(409,'Ce scan est déjà terminé.');return json({ok:true});

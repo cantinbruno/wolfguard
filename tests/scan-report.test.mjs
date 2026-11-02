@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import vm from 'node:vm';
 
-const context=vm.createContext({TextEncoder});
+const context=vm.createContext({TextEncoder,Blob});
 vm.runInContext(readFileSync(new URL('../app/vendor/ipaddr-2.5.0.js',import.meta.url),'utf8'),context);
 for(const file of ['scan-web-model','scan-insights','scan-report'])vm.runInContext(readFileSync(new URL('../app/js/views/'+file+'.js',import.meta.url),'utf8'),context);
 const render=(kind,report,reference=null)=>vm.runInContext('webScanReport.html',context)(kind,report,reference);
@@ -61,4 +61,18 @@ test('empty and partial reports state the limit without inventing results',()=>{
   assert.ok(output.includes('Aucune observation disponible'));
   assert.equal(output.includes('192.0.2.1'),false);
   assert.equal(output.includes('<tbody>'),false);
+});
+
+test('history ZIP keeps UTF-8 reports complete with unique filenames and rejects path traversal',async()=>{
+  const archive=vm.runInContext('webScanReport.archive',context),files=[{name:'rapport-é.html',content:'<!doctype html>Été & réseau'},{name:'rapport-é.html',content:'Deuxième relevé'}];
+  const data=new Uint8Array(await archive(files).arrayBuffer()),view=new DataView(data.buffer),decode=new TextDecoder();
+  let offset=0;
+  for(const [index,file] of files.entries()){
+    assert.equal(view.getUint32(offset,true),0x04034b50);assert.equal(view.getUint16(offset+6,true),0x0800);
+    const size=view.getUint32(offset+18,true),length=view.getUint16(offset+26,true),start=offset+30;
+    assert.equal(decode.decode(data.subarray(start,start+length)),String(index+1).padStart(4,'0')+'-'+file.name);
+    assert.equal(decode.decode(data.subarray(start+length,start+length+size)),file.content);offset=start+length+size;
+  }
+  assert.equal(view.getUint32(offset,true),0x02014b50);assert.equal(view.getUint32(data.length-22,true),0x06054b50);assert.equal(view.getUint16(data.length-12,true),2);
+  assert.throws(()=>archive([{name:'../../evil.html',content:'x'}]));assert.throws(()=>archive([]));
 });

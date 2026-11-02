@@ -4,7 +4,7 @@ from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlsplit
-import json,os,subprocess
+import json,os,subprocess,zipfile
 from playwright.sync_api import sync_playwright,expect
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -110,6 +110,20 @@ def run():
             navigate(first,'passive');expect(first.locator('#wgScanReportStamp')).to_contain_text('Agent · Windows',timeout=20000)
             first.locator('[data-wg-tab=rows]').click();expect(first.locator('#wgScanRows tbody tr')).to_have_count(1)
             print('PASS: four independent agent histories, loopback map and injected Windows audit on two browsers')
+            first.locator('#settingsBtn').click();first.locator('#settings-tab-history').click()
+            expect(first.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
+            assert first.locator('.scan-history-item').count()>=5
+            for kind in ['passive','active','map','vulnerability']:
+                assert first.locator('[data-history-kind='+kind+'] span').inner_text()!='0'
+            with first.expect_download() as downloaded:first.locator('#wgHistoryExportAll').click()
+            with zipfile.ZipFile(downloaded.value.path()) as bundle:
+                assert len(bundle.namelist())>=5 and bundle.testzip() is None
+                reports=[bundle.read(name).decode('utf-8') for name in bundle.namelist()]
+                assert all('Agent integration' in report and 'Agent · Windows' in report for report in reports)
+                assert any('Cartographie du réseau' in report for report in reports)
+                assert any('Scan de vulnérabilités' in report for report in reports)
+            first.locator('#closeSettingsBtn').click()
+            print('PASS: Settings history exports actual agent results from all four scan workspaces as one valid ZIP')
             # The same encrypted selection is reused by every section and reload.
             extra=[]
             for platform,name in [('linux','Poste Linux'),('darwin','Poste macOS')]:
