@@ -4,6 +4,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 import json
+from io import BytesIO
+from pypdf import PdfReader
 from playwright.sync_api import sync_playwright, expect
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -42,11 +44,21 @@ def feed_report(page,content,name):
     }''',{'content':content,'name':name})
     page.locator('[data-wg-tab=overview]').click()
 
-def export_report(page):
+def pdf_text(data):
+    assert data.startswith(b'%PDF-')
+    reader=PdfReader(BytesIO(data))
+    return ' '.join('\n'.join(page.extract_text() or '' for page in reader.pages).split())
+
+def download_report(page):
     with page.expect_download() as downloaded:
         page.locator('#wgScanExport').click()
-    assert downloaded.value.suggested_filename.endswith('.html')
-    return Path(downloaded.value.path()).read_text(encoding='utf-8')
+    assert downloaded.value.suggested_filename.endswith('.pdf')
+    data=Path(downloaded.value.path()).read_bytes()
+    assert data.startswith(b'%PDF-')
+    return data
+
+def export_report(page):
+    return pdf_text(download_report(page))
 
 
 def run():
@@ -115,7 +127,7 @@ def run():
             raw=export_report(page)
             assert '192.0.2.50' in raw and 'OpenSSH' in raw and '192.0.2.51' not in raw
             # The complete scan is exported even when the screen only shows open ports.
-            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",raw)==3
+            assert all(label in raw for label in ['Ouvert','Fermé','Ouvert ou filtré'])
             rejected=page.evaluate('''()=>{let count=0;for(const xml of ['<!DOCTYPE nmaprun [<!ENTITY x SYSTEM "https://example.invalid/xxe">]><nmaprun/>','<nmaprun><host>','<html/>'])try{webScanModel.parse(xml,'active')}catch{count++;}return count;}''')
             assert rejected==3
             page.locator('[data-wg-tab=overview]').click()

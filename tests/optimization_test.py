@@ -11,7 +11,7 @@ import json
 import sys
 from playwright.sync_api import sync_playwright, expect
 from site_fixture import WolfGuardTestHandler
-from scan_workspace_test import navigate, feed_report
+from scan_workspace_test import navigate, feed_report, pdf_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -93,8 +93,8 @@ def run():
             capture('scan-filtered', '.wgscan')
             with page.expect_download() as download:
                 page.locator('#wgScanExport').click()
-            snapshots['complete-scan-report'] = Path(download.value.path()).read_text(encoding='utf-8-sig')
-            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",snapshots['complete-scan-report']) == 1000
+            snapshots['complete-scan-report'] = pdf_text(Path(download.value.path()).read_bytes())
+            assert snapshots['complete-scan-report'].count('Entrée du cache ')==1000
             navigate(page, 'vulnerability')
             audit=[{'address':'127.0.0.1','transport':'AUDIT','checkId':'control-'+str(i),'title':'Contrôle '+str(i),'status':'issue' if i%2 else 'passed','severity':'high','detail':'Observation '+str(i),'recommendation':'Vérifier le réglage'} for i in range(150)]
             feed_report(page,json.dumps({'strategy':'passive','workspace':'vulnerability','results':audit}),'Audit de performance')

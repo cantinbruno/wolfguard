@@ -1,48 +1,12 @@
 'use strict';
 
-// A self-contained document: no remote assets, workspace data or executable scan content.
+// Report data, direct PDF downloads and ZIP archives; no external PDF service.
 const webScanReport = (() => {
-  const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const number=value=>Number(value||0).toLocaleString('fr-FR');
   const date=value=>{if(!value)return 'Non fournie';const parsed=new Date(value);return Number.isNaN(parsed.getTime())?String(value):parsed.toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'});};
   const themes={passive:'#78cdbb',active:'#f1b16b',map:'#73c7ba',vulnerability:'#e8ad82'};
   const jobLabels={queued:'En attente · relevé partiel',running:'En cours · relevé partiel',completed:'Terminé',cancelled:'Arrêté · relevé partiel',failed:'Échec · relevé partiel',expired:'Agent indisponible',lost:'Connexion perdue · relevé partiel'};
-  const severityOrder=['critical','high','medium','low','info'];
-  const printScript="document.getElementById('print-report').addEventListener('click',function(){window.print();});";
-  const styles=`
-    :root{color-scheme:light;--ink:#152638;--muted:#5c6c7c;--line:#dce3e9;--paper:#fff;--navy:#101e2e}
-    *{box-sizing:border-box}body{margin:0;background:#e9edf1;color:var(--ink);font:14px/1.6 'Segoe UI',Arial,sans-serif}
-    .toolbar{max-width:1080px;margin:20px auto;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 12px;color:#435568;font-size:12px}
-    button{border:0;border-radius:7px;background:var(--navy);color:white;font:600 12px 'Segoe UI',Arial,sans-serif;padding:12px 18px;cursor:pointer;flex-shrink:0}
-    button:focus-visible{outline:3px solid #7aa0ff;outline-offset:3px}.document{max-width:1080px;margin:0 auto 40px;background:var(--paper);box-shadow:0 12px 50px #16263812}
-    .cover{position:relative;overflow:hidden;padding:40px 46px 35px;background:var(--navy);color:#fff;border-top:5px solid var(--accent)}
-    .cover:after{content:'';position:absolute;width:340px;height:340px;border:1px solid #ffffff12;transform:rotate(30deg);right:-110px;top:40px;border-radius:52px;pointer-events:none}
-    .brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:21px;letter-spacing:-.6px}.brand img{width:43px;height:43px}.brand small{display:block;color:#99aabe;font-size:9px;font-weight:500;letter-spacing:2.1px;text-transform:uppercase}
-    .cover-top{display:flex;align-items:center;justify-content:space-between;gap:20px}.edition{color:#b7c5d4;text-align:right;font-size:10px;letter-spacing:1px;text-transform:uppercase}
-    .eyebrow{font-size:10px;letter-spacing:1.7px;text-transform:uppercase;font-weight:700;color:var(--muted)}.cover .eyebrow{color:var(--accent);margin:38px 0 8px}
-    h1{font-size:38px;line-height:1.16;letter-spacing:-1.3px;margin:0 0 14px;max-width:740px}h2{font-size:22px;line-height:1.3;letter-spacing:-.5px;margin:0}h3{font-size:15px;line-height:1.4;margin:0}
-    .subtitle{max-width:760px;color:#b9c7d7;font-size:13px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.scope{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:22px;border-top:1px solid #ffffff24;margin-top:28px;padding-top:20px;position:relative;z-index:1}
-    .scope span{display:block;color:#8fa3b9;font-size:9px;text-transform:uppercase;letter-spacing:1.4px;margin-bottom:6px}.scope strong{font-size:12px;font-weight:600;overflow-wrap:anywhere}
-    .body{padding:34px 46px}.status-line{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;color:var(--muted);font-size:11px}.status-line strong{color:var(--ink)}
-    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:23px}.metric{padding:18px 16px;background:#f4f7fa;border:1px solid #e5eaf0;border-radius:7px}.metric b{font-size:32px;line-height:1.2;display:block;letter-spacing:-1px}.metric span{font-size:11px;color:var(--muted);display:block;margin-top:8px}
-    .lead{font-size:15px;line-height:1.8;margin:0}.note{padding:14px 17px;border-left:3px solid var(--accent);background:#f5f8fa;color:#526477;font-size:12px;margin:18px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
-    .warning{border-color:#c17c2f;background:#fff8ee;color:#785327}.section{margin-top:34px}.section-head{display:flex;align-items:baseline;gap:12px;margin-bottom:17px;border-bottom:1px solid var(--line);padding-bottom:12px}.section-head>span{font:12px Consolas,monospace;color:#8797a6}.section-head>small{margin-left:auto;color:var(--muted);font-size:10px}
-    .table-wrap{max-width:100%;overflow:auto}table{border-collapse:collapse;table-layout:fixed;width:100%;font-size:11px;text-align:left}th{font-weight:600;color:#617386;font-size:9px;letter-spacing:.4px;text-transform:uppercase;background:#f1f5f8}th,td{padding:12px 9px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}tr:nth-child(even) td{background:#fafbfd}thead{display:table-header-group}td small{display:block;color:var(--muted);margin-top:4px}code{font:11px/1.6 Consolas,monospace;overflow-wrap:anywhere}.evidence{white-space:pre-wrap;overflow-wrap:anywhere}
-    .badge{display:inline-block;padding:3px 7px;border-radius:4px;font-size:9px;font-weight:600;background:#edf1f6;color:#526477}.badge[data-tone=good]{background:#e4f3ee;color:#24715a}.badge[data-tone=bad]{background:#fbe8e6;color:#a9453e}.badge[data-tone=warn]{background:#fff0d9;color:#8b631e}
-    .finding{border:1px solid var(--line);border-left:3px solid #7d95a9;border-radius:6px;margin-bottom:14px;padding:19px 21px}.finding[data-status=issue]{border-left-color:#d5914f}.finding[data-status=passed]{border-left-color:#69a58d}.finding-top{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}.finding-top>div:first-child{min-width:0}.finding-id{font:10px Consolas,monospace;color:var(--muted);margin:5px 0 0;overflow-wrap:anywhere}.finding-labels{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;max-width:42%}.finding h4{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#667a8b;margin:17px 0 6px}.finding p{margin:0;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}.recommendation{background:#f5f8fa;padding:12px 14px;border-radius:4px}.reference{color:var(--muted);font-size:10px!important;margin-top:14px!important}
-    .map{padding:12px;background:#f4f7fa;border:1px solid var(--line);border-radius:7px}.map svg{display:block;width:100%;height:auto}.map line{stroke:#b5c7d5;stroke-width:1.5}.map .origin{fill:var(--navy)}.map .node{fill:white;stroke:#6eafc5;stroke-width:1.5}.map text{font-family:'Segoe UI',Arial,sans-serif;fill:#223a4c;font-size:12px}.map .origin-label{fill:#fff;font-size:11px;letter-spacing:2px}.map .node-number{font-size:10px;fill:#648496}
-    .empty{padding:24px;border:1px dashed #cbd5de;border-radius:6px;color:var(--muted);font-size:12px}.footer{border-top:1px solid var(--line);padding:20px 46px;display:flex;justify-content:space-between;gap:20px;color:#708193;font-size:10px}.footer strong{color:#324b61;font-size:11px;letter-spacing:.6px}.footer span:last-child{text-align:right}p{overflow-wrap:anywhere}
-    @media(max-width:650px){.toolbar{align-items:start;font-size:10px}.toolbar button{font-size:11px;padding:10px}.document{margin-bottom:0}.cover{padding:25px 20px}.cover-top{align-items:start}.brand{font-size:18px}.brand small{font-size:7px}.brand img{width:35px;height:35px}.edition{font-size:8px;max-width:95px}h1{font-size:29px}.cover .eyebrow{margin-top:28px}.scope{grid-template-columns:1fr;gap:14px}.body{padding:25px 20px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric b{font-size:27px}.lead{font-size:13px}.section-head{flex-wrap:wrap}.section-head h2{font-size:19px}.section-head>small{margin-left:25px}.table-wrap table{min-width:660px}.map{overflow:auto}.map svg{min-width:680px}.finding{padding:15px}.finding-top{display:block}.finding-labels{justify-content:start;max-width:100%;margin-top:10px}.footer{padding:20px;flex-direction:column;gap:8px}.footer span:last-child{text-align:left}}
-    @page{size:A4;margin:14mm 12mm} @media print{body{background:white;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.toolbar{display:none}.document{max-width:none;margin:0;box-shadow:none}.cover{padding:23px 25px}.cover:after{display:none}h1{font-size:29px}.cover .eyebrow{margin-top:25px}.scope{gap:15px}.body{padding:24px 0}.metric{padding:12px}.metric b{font-size:25px}.section-head{break-after:avoid}.metrics,.scope,.note,.map,.finding-top{break-inside:avoid}.finding{break-inside:avoid}.finding p{orphans:3;widows:3}tr{break-inside:avoid}.table-wrap{overflow:visible}.map{overflow:visible}.map svg{min-width:0}.table-wrap table{min-width:0;font-size:9px}th,td{padding:8px 6px}code{font-size:9px}.footer{padding:16px 0}.section{margin-top:25px}}
-  `;
-  function badge(status){
-    const tone=['passed','open','reachable'].includes(status)?'good':['issue','error'].includes(status)?'bad':['notchecked','filtered','open|filtered','closed|filtered','unreachable','no-response'].includes(status)?'warn':'neutral';
-    return '<span class="badge" data-tone="'+tone+'">'+escape(webScanModel.labels[status]||status||'Non renseigné')+'</span>';
-  }
-  function table(headers,rows){
-    return '<div class="table-wrap" tabindex="0" role="region" aria-label="Résultats détaillés"><table><thead><tr>'+headers.map(label=>'<th scope="col">'+escape(label)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(cells=>'<tr>'+cells.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
-  }
-  const section=(index,title,content,detail='')=>'<section class="section"><header class="section-head"><span>'+index+'</span><h2>'+escape(title)+'</h2>'+(detail?'<small>'+escape(detail)+'</small>':'')+'</header>'+content+'</section>';
+  const limits={passive:'Une entrée de cache ne confirme pas la présence actuelle du voisin. Aucune sonde ni capture de paquets n’a été effectuée.',active:'Les états filtrés ou ambigus sont conservés. Un service nommé peut être une correspondance de port ; seules les preuves reçues permettent de préciser son identification.',map:'Une absence de réponse peut correspondre à un filtrage ou à un poste indisponible. Cette découverte ne décrit pas la topologie physique du réseau.',vulnerability:'Audit de configuration en lecture seule, adapté au système de l’agent. Les contrôles non vérifiés ne sont pas conformes par défaut. Il ne s’agit pas d’un inventaire exhaustif des CVE.'};
   const answered=row=>['reachable','open','closed'].includes(row.status);
   function metrics(kind,rows){
     const count=status=>rows.filter(row=>row.status===status).length,hosts=select=>new Set(rows.filter(select).map(row=>row.address)).size;
@@ -58,46 +22,15 @@ const webScanReport = (() => {
     if(kind==='vulnerability')return number(rows.filter(row=>row.status==='issue').length)+' contrôle(s) signalent une configuration à examiner. Les risques sont classés par gravité, puis accompagnés de leurs preuves et de leurs recommandations. Les contrôles indisponibles restent non vérifiés.';
     return number(rows.filter(row=>row.status==='open').length)+' port(s) ont été observés ouverts. Les états, services et éléments d’identification sont détaillés pour la cible examinée. Un port ouvert ne constitue pas, à lui seul, une vulnérabilité.';
   }
-  function findings(rows){
-    const rank=row=>({issue:0,notchecked:1,info:2,passed:3}[row.status]??4),severity=row=>{const i=severityOrder.indexOf(row.severity);return i<0?5:i;};
-    return [...rows].sort((a,b)=>rank(a)-rank(b)||severity(a)-severity(b)).map(row=>'<article class="finding" data-status="'+escape(row.status)+'"><header class="finding-top"><div><h3>'+escape(row.title||row.checkId)+'</h3><p class="finding-id">'+escape(row.checkId)+' · '+escape(row.address)+'</p></div><div class="finding-labels">'+badge(row.status)+(row.status==='issue'?'<span class="badge" data-tone="warn">'+escape(scanInsights.severity[row.severity]||'Gravité non fournie')+'</span>':'')+'</div></header><h4>Preuve / observation</h4><p>'+escape(row.detail||'Aucune preuve fournie.')+'</p>'+(row.recommendation?'<h4>Action recommandée</h4><p class="recommendation">'+escape(row.recommendation)+'</p>':'')+(row.reference?'<p class="reference">Référence : '+escape(row.reference)+'</p>':'')+'</article>').join('');
-  }
-  function observations(kind,rows){
-    if(!rows.length)return '<p class="empty">Aucune observation à détailler.</p>';
-    if(kind==='vulnerability')return findings(rows);
-    const text=value=>escape(value||'—'),code=value=>'<code>'+text(value)+'</code>';
-    if(kind==='passive')return table(['Adresse IP','Adresse MAC','Interface','Cache','État du cache','Nom fourni'],rows.map(row=>[code(row.address),code(row.macAddress),text(row.interfaceName),text(row.transport),text(row.detail),text(row.hostname)]));
-    if(kind==='map')return table(['Adresse IP','État observé','Nom fourni','Port / transport','MAC','Preuve'],rows.map(row=>[code(row.address),badge(row.status),text(row.hostname),code(row.port??'—')+'<small>'+text(row.transport)+'</small>',code(row.macAddress),'<span class="evidence">'+text(row.detail)+'</span>']));
-    return table(['Adresse / port','État','Service / version','Nom d’hôte','Preuve'],rows.map(row=>[code((row.address.includes(':')?'['+row.address+']':row.address)+(row.port==null?'':':'+row.port))+'<small>'+text(row.transport)+'</small>',badge(row.status),text([row.service,row.product,row.version].filter(Boolean).join(' ')),text(row.hostname),'<span class="evidence">'+text(row.detail)+'</span>']));
-  }
-  function mapDiagram(rows){
-    const hosts=[...new Set(rows.filter(answered).map(row=>row.address))],shown=hosts.slice(0,16);
-    if(!shown.length)return '<p class="empty">Aucune réponse confirmée à représenter. Une absence de réponse ne prouve pas l’absence d’une machine.</p>';
-    const height=110+Math.ceil(shown.length/4)*90,nodes=shown.map((address,i)=>({address,x:115+(i%4)*230,y:115+Math.floor(i/4)*90}));
-    return '<div class="map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 '+height+'" role="img" aria-label="Carte logique des adresses répondantes">'+nodes.map(node=>'<line x1="460" y1="40" x2="'+node.x+'" y2="'+node.y+'"/>').join('')+'<rect class="origin" x="385" y="18" width="150" height="42" rx="6"/><text class="origin-label" x="460" y="44" text-anchor="middle">AGENT</text>'+nodes.map((node,i)=>'<rect class="node" x="'+(node.x-102)+'" y="'+(node.y-20)+'" width="204" height="54" rx="6"/><text class="node-number" x="'+node.x+'" y="'+(node.y-3)+'" text-anchor="middle">'+String(i+1).padStart(2,'0')+'</text><text x="'+node.x+'" y="'+(node.y+17)+'" text-anchor="middle"'+(node.address.length>25?' textLength="184" lengthAdjust="spacingAndGlyphs"':'')+'>'+escape(node.address)+'</text>').join('')+'</svg></div><p class="note">Vue logique des réponses depuis l’agent, sans représentation du câblage physique.'+(hosts.length>shown.length?' '+shown.length+' adresses sur '+hosts.length+' représentées ; toutes les observations figurent dans le tableau.':'')+'</p>';
-  }
-  function comparison(kind,report,reference){
-    if(!reference)return '';
-    const changes=webScanModel.compare(report,reference),labels={added:'Nouvelle',removed:'Absente',changed:'Modifiée'};
-    const describe=row=>badge(row.status)+'<small class="evidence">'+escape([row.macAddress,row.service,row.product,row.version,row.detail].filter(Boolean).join(' · '))+'</small>';
-    return section(kind==='map'?'04':'03','Évolution du relevé','<p class="note">Référence : '+escape(reference.name)+' · '+escape(date(reference.capturedAt||reference.importedAt))+'. Comparer le même périmètre et les mêmes options. Une absence ne confirme pas une disparition réelle.</p>'+(changes.length?table(['Évolution','Adresse / contrôle','Avant','Actuellement'],changes.map(change=>[escape(labels[change.type]),escape(change.row.address)+(change.row.checkId?'<small>'+escape(change.row.checkId)+'</small>':'')+(change.row.port!=null?'<small>Port '+escape(change.row.port)+'</small>':''),change.before?describe(change.before):change.type==='removed'?describe(change.row):'—',change.type==='removed'?'—':describe(change.row)])):'<p class="empty">Aucun changement dans les observations détaillées.</p>'),number(changes.length)+' changement(s)');
-  }
-  function html(kind,report,reference=null,logo=''){
+  function pdfModel(kind,report,reference=null){
     const definition=scanInsights.definitions[kind];if(!definition||!report)throw new Error('Aucun relevé à exporter.');
-    const safeReport=kind==='passive'?webScanModel.networkReport(report):report,rows=safeReport.rows;
+    const safe=kind==='passive'?webScanModel.networkReport(report):report;
     if(kind==='passive'&&reference)reference=webScanModel.networkReport(reference);
-    const generated=new Date(),target=report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie');
-    const limits={passive:'Une entrée de cache ne confirme pas la présence actuelle du voisin. Aucune sonde ni capture de paquets n’a été effectuée.',active:'Les états filtrés ou ambigus sont conservés. Un service nommé peut être une correspondance de port ; seules les preuves reçues permettent de préciser son identification.',map:'Une absence de réponse peut correspondre à un filtrage ou à un poste indisponible. Cette découverte ne décrit pas la topologie physique du réseau.',vulnerability:'Audit de configuration en lecture seule, adapté au système de l’agent. Les contrôles non vérifiés ne sont pas conformes par défaut. Il ne s’agit pas d’un inventaire exhaustif des CVE.'};
-    const warnings=[...(safeReport.warnings||[]),...(report.error?[report.error]:[])];
-    const css=styles+'\n:root{--accent:'+themes[kind]+'}';
-    return '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; img-src data:; style-src &#39;unsafe-inline&#39;; script-src &#39;sha256-u/x0+tMysSnSYvHTqYDF9B0ZUB0Afx7nZ8WUJxbpk5I=&#39;; base-uri &#39;none&#39;; form-action &#39;none&#39;"><title>WolfGuard · '+escape(definition.short)+' · '+escape(report.target||report.name)+'</title><style>'+css+'</style></head><body><nav class="toolbar" aria-label="Actions du rapport"><span>Rapport autonome · Ouvre ce fichier pour le consulter ou l’enregistrer en PDF.</span><button type="button" id="print-report">Imprimer / Enregistrer en PDF</button></nav><main class="document"><header class="cover"><div class="cover-top"><div class="brand">'+(logo?'<img src="'+escape(logo)+'" alt="">':'')+'<div>WolfGuard<small>Observation &amp; sécurité réseau</small></div></div><span class="edition">Rapport de scan<br>'+escape(date(generated))+'</span></div><p class="eyebrow">'+escape(definition.kicker)+'</p><h1>'+escape(definition.title)+'</h1><p class="subtitle">'+escape(report.name)+'</p><div class="scope"><div><span>Cible / périmètre</span><strong>'+escape(target)+'</strong></div><div><span>Date du relevé</span><strong>'+escape(date(report.capturedAt||report.importedAt))+'</strong></div><div><span>Source</span><strong>'+escape(report.source||'Non fournie')+'</strong></div></div></header><div class="body"><div class="status-line"><span>État : <strong>'+escape(jobLabels[report.jobStatus]||'Non fourni')+'</strong></span><span>'+number(rows.length)+' observation(s)</span></div><div class="metrics">'+metrics(kind,rows).map(([value,label])=>'<article class="metric"><b>'+number(value)+'</b><span>'+escape(label)+'</span></article>').join('')+'</div>'+section('01','Synthèse','<p class="lead">'+escape(synthesis(kind,rows))+'</p><p class="note">'+escape(limits[kind])+'</p>'+warnings.map(warning=>'<p class="note warning">'+escape(warning)+'</p>').join(''))+(kind==='map'?section('02','Carte du périmètre',mapDiagram(rows)):'')+section(kind==='map'?'03':'02',kind==='vulnerability'?'Preuves & recommandations':kind==='passive'?'Voisins réseau observés':kind==='map'?'Hôtes & preuves':'Services & réponses',observations(kind,rows),'Relevé complet · '+number(rows.length)+' observation(s)')+comparison(kind,safeReport,reference)+'</div><footer class="footer"><span><strong>WOLFGUARD</strong><br>Rapport généré le '+escape(date(generated))+'</span><span>Relevé complet, indépendant des filtres de l’écran.<br>Les conclusions restent limitées aux informations reçues.</span></footer></main><script>'+printScript+'</script></body></html>';
+    return {kind,title:definition.title,short:definition.short,kicker:definition.kicker,name:String(report.name||definition.short),accent:themes[kind],target:report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie'),source:report.source||'Non fournie',captured:date(report.capturedAt||report.importedAt),generated:date(new Date()),status:jobLabels[report.jobStatus]||'Non fourni',rows:safe.rows,metrics:metrics(kind,safe.rows),summary:synthesis(kind,safe.rows),limit:limits[kind],warnings:[...(safe.warnings||[]),...(report.error?[report.error]:[])].map(String),reference:reference?{name:reference.name,date:date(reference.capturedAt||reference.importedAt),changes:webScanModel.compare(safe,reference)}:null};
   }
-  let logoPromise;
   async function file(kind,report,reference){
-    // Only the trusted, same-origin brand asset is embedded; the document stays usable offline.
-    logoPromise||=(async()=>{try{const response=await fetch('images/logo-loup.svg');if(response.ok){const bytes=new Uint8Array(await response.arrayBuffer());return 'data:image/svg+xml;base64,'+btoa(String.fromCharCode(...bytes));}}catch{}return '';})();
-    const logo=await logoPromise,stamp=new Date(report.capturedAt||report.importedAt),day=Number.isNaN(stamp.getTime())?new Date().toISOString().slice(0,10):stamp.toISOString().slice(0,10);
-    return {name:'WolfGuard-'+kind+'-'+day+'.html',content:html(kind,report,reference,logo)};
+    const stamp=new Date(report.capturedAt||report.importedAt),day=Number.isNaN(stamp.getTime())?new Date().toISOString().slice(0,10):stamp.toISOString().slice(0,10);
+    return {name:'WolfGuard-'+kind+'-'+day+'.pdf',content:await webScanPDF.create(pdfModel(kind,report,reference))};
   }
   function save(content,type,name){
     const url=URL.createObjectURL(new Blob([content],{type})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
@@ -105,7 +38,7 @@ const webScanReport = (() => {
   async function download(kind,report,reference,isCurrent=()=>true){
     const output=await file(kind,report,reference);
     if(!isCurrent())return;
-    save(output.content,'text/html;charset=utf-8',output.name);
+    save(output.content,'application/pdf',output.name);
   }
   const crcTable=Uint32Array.from({length:256},(_,i)=>{let crc=i;for(let bit=0;bit<8;bit++)crc=crc&1?(crc>>>1)^0xedb88320:crc>>>1;return crc>>>0;});
   function archive(files){
@@ -113,8 +46,8 @@ const webScanReport = (() => {
     const encoder=new TextEncoder(),locals=[],directory=[];let offset=0,size=0;
     const stamp=new Date(),dosDate=((Math.min(2107,Math.max(1980,stamp.getFullYear()))-1980)<<9)|((stamp.getMonth()+1)<<5)|stamp.getDate(),dosTime=(stamp.getHours()<<11)|(stamp.getMinutes()<<5)|Math.floor(stamp.getSeconds()/2);
     for(const [index,file] of files.entries()){
-      if(typeof file.name!=='string'||/[\\/\u0000]/.test(file.name)||typeof file.content!=='string')throw new Error('Nom de rapport invalide.');
-      const name=encoder.encode(String(index+1).padStart(4,'0')+'-'+file.name),data=encoder.encode(file.content);size+=data.length;
+      if(typeof file.name!=='string'||/[\\/\u0000]/.test(file.name)||(typeof file.content!=='string'&&!ArrayBuffer.isView(file.content)))throw new Error('Nom de rapport invalide.');
+      const name=encoder.encode(String(index+1).padStart(4,'0')+'-'+file.name),data=typeof file.content==='string'?encoder.encode(file.content):new Uint8Array(file.content.buffer,file.content.byteOffset,file.content.byteLength);size+=data.length;
       if(name.length>255)throw new Error('Nom de rapport trop long.');
       if(size>128*1024*1024)throw new Error('L’ensemble dépasse 128 Mo. Filtre l’historique par type ou par cible, puis réessaie.');
       let crc=0xffffffff;for(const byte of data)crc=crcTable[(crc^byte)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
@@ -131,6 +64,6 @@ const webScanReport = (() => {
     return new Blob([...locals,...directory,end],{type:'application/zip'});
   }
   function downloadArchive(files){save(archive(files),'application/zip','WolfGuard-Historique-'+new Date().toISOString().slice(0,10)+'.zip');}
-  function downloadFile(output){save(output.content,'text/html;charset=utf-8',output.name);}
-  return {html,file,download,archive,downloadArchive,downloadFile};
+  function downloadFile(output){save(output.content,'application/pdf',output.name);}
+  return {pdfModel,file,download,archive,downloadArchive,downloadFile};
 })();

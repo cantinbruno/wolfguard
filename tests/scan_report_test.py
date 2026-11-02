@@ -1,11 +1,14 @@
-"""Exported reports stay complete, safe, readable offline and printable as PDF."""
+"""Direct PDF exports, complete archives and settings dimensions across every tab."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 import json
+from io import BytesIO
+from pypdf import PdfReader
+import pypdfium2 as pdfium
 from playwright.sync_api import sync_playwright, expect
-from scan_workspace_test import Quiet, navigate, feed_report, export_report, PASSIVE
+from scan_workspace_test import Quiet, navigate, feed_report, download_report, pdf_text, PASSIVE
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -37,11 +40,8 @@ def run():
                     {'address':'127.0.0.1','transport':'AUDIT','checkId':'firewall','title':'Pare-feu du poste','status':'issue','severity':'high','detail':'Protection inactive','recommendation':'Activer le pare-feu'},
                     {'address':'127.0.0.1','transport':'AUDIT','checkId':'updates','title':'Correctifs disponibles','status':'notchecked','severity':'info','detail':'Cache indisponible'},
                     {'address':'127.0.0.1','transport':'AUDIT','checkId':'disk','title':'Chiffrement du disque','status':'passed','severity':'info','detail':'Protection active'}]}}
-            offline=browser.new_context(viewport={'width':1200,'height':1000},offline=True)
-            document=offline.new_page();requests=[];csp=[]
-            document.on('pageerror',lambda error:errors.append(str(error)))
-            document.on('request',lambda request:requests.append(request.url))
-            document.on('console',lambda message:csp.append(message.text) if message.type=='error' else None)
+            requests=[];page.on('request',lambda request:requests.append(request.url))
+            assert not any('pdfmake' in url for url in requests)
             for kind,payload in scenarios.items():
                 navigate(page,kind)
                 if kind in ['passive','active']:page.locator('#scanTarget').fill('192.0.2.1')
@@ -49,43 +49,58 @@ def run():
                 if kind=='active':
                     page.locator('[data-wg-tab=rows]').click();page.locator('#wgScanFilter').select_option('open')
                 expect(page.locator('.wgscan-report-actions button')).to_have_count(1)
-                expect(page.locator('#wgScanExport')).to_have_text('Exporter')
-                html=export_report(page)
-                path=ROOT/f'.cache/rapport-{kind}.html';path.write_text(html,encoding='utf-8')
-                document.goto(path.as_uri())
-                expect(document.locator('h1')).to_have_text({'passive':'Scan passif du réseau','active':'Scan actif du réseau','map':'Cartographie du réseau','vulnerability':'Scan de vulnérabilités'}[kind])
-                expect(document.locator('.brand img')).to_have_count(1)
-                assert document.locator('.brand img').evaluate('img=>img.complete&&img.naturalWidth>0')
-                expect(document.locator('script')).to_have_count(1)
-                expect(document.locator('img:not(.brand img),[onerror]')).to_have_count(0)
-                if kind=='active':expect(document.locator('tbody tr')).to_have_count(2)
-                if kind=='passive':
-                    expect(document.locator('tbody tr')).to_have_count(1)
-                    assert 'processName' not in html and '198.51.100.20' not in html
-                if kind=='map':
-                    expect(document.locator('.map .node')).to_have_count(16)
-                    expect(document.locator('tbody tr')).to_have_count(20)
-                if kind=='vulnerability':
-                    expect(document.locator('.finding')).to_have_count(3)
-                    expect(document.locator('.finding').first).to_contain_text('Activer le pare-feu')
-                document.evaluate('()=>{window.__prints=0;window.print=()=>{window.__prints++}}')
-                document.locator('#print-report').click();assert document.evaluate('window.__prints')==1
-                for width in [1200,390,320]:
-                    document.set_viewport_size({'width':width,'height':1000})
-                    assert document.evaluate('document.documentElement.scrollWidth<=innerWidth'),(kind,width)
-                    expect(document.locator('.body > .section')).to_have_count(3 if kind=='map' else 2)
-                    assert document.locator('.body > .section').first.bounding_box()['width']>=document.locator('.metrics').bounding_box()['width']*.98
-                    if width in [1200,390]:document.screenshot(path=str(ROOT/f'.cache/rapport-{kind}-{width}.png'),full_page=True)
-                document.set_viewport_size({'width':1200,'height':1000})
-                document.emulate_media(media='print')
-                expect(document.locator('.toolbar')).not_to_be_visible()
-                pdf=document.pdf(path=str(ROOT/f'.cache/rapport-{kind}.pdf'),print_background=True,prefer_css_page_size=True)
-                assert pdf.startswith(b'%PDF-') and len(pdf)>10000
-                document.emulate_media(media='screen')
+                expect(page.locator('#wgScanExport')).to_have_text('Exporter PDF')
+                data=download_report(page);reader=PdfReader(BytesIO(data));text=pdf_text(data)
+                (ROOT/f'.cache/rapport-{kind}.pdf').write_bytes(data)
+                assert len(reader.pages)>=1 and len(data)>10000
+                assert reader.metadata.title.startswith('WolfGuard')
+                for sheet in reader.pages:
+                    assert abs(float(sheet.mediabox.width)-595.28)<1
+                    assert abs(float(sheet.mediabox.height)-841.89)<1
+                    assert not sheet.get('/AA') and not sheet.get('/Annots')
+                assert not reader.root_object.get('/OpenAction')
+                assert not reader.root_object.get('/Names',{}).get('/JavaScript')
+                assert 'Agence · '+kind in text and 'Synthèse' in text
+                if kind=='active':assert all(value in text for value in ['OpenSSH','Connexion refusée','Fermé'])
+                if kind=='passive':assert '198.51.100.20' not in text and 'processName' not in text
+                if kind=='map':assert all('192.0.2.'+str(i+1) in text for i in range(20))
+                if kind=='vulnerability':assert all(value in text for value in ['Activer le pare-feu','Cache indisponible','Protection active'])
+                rendered=pdfium.PdfDocument(data)
+                try:
+                    rendered[0].render(scale=1.4).to_pil().save(ROOT/f'.cache/rapport-{kind}-page1.png')
+                    if len(rendered)>1:rendered[len(rendered)-1].render(scale=1.4).to_pil().save(ROOT/f'.cache/rapport-{kind}-last.png')
+                finally:rendered.close()
+            assert sum('/vendor/pdfmake-0.3.13.min.js' in url for url in requests)==1
+            assert sum('/vendor/pdfmake-roboto-3.014.js' in url for url in requests)==1
+            assert not any(url.startswith(('http:','https:')) and not url.startswith(f'http://127.0.0.1:{server.server_port}/') for url in requests),requests
+            # All rows, the final observation and repeated table headers survive pagination.
+            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.1')
+            many={'strategy':'active','results':[{'address':'192.0.2.1','port':i+1,'transport':'TCP','status':'open','service':'test','detail':'preuve-complete-'+str(i)} for i in range(180)]}
+            feed_report(page,json.dumps(many),'Rapport long')
+            data=download_report(page);reader=PdfReader(BytesIO(data));text=pdf_text(data)
+            assert len(reader.pages)>=4 and all('preuve-complete-'+str(i) in text for i in range(180))
+            assert text.count('Adresse / port')>=4
+            (ROOT/'.cache/rapport-pagination.pdf').write_bytes(data)
+            print('PASS: genuine A4 PDFs, selectable French text, embedded fonts, complete pagination, safe scan data and local-only generation')
+            # Every Settings tab must keep the same outer size for a given viewport.
+            for width,height in [(1440,1000),(1100,900),(900,900),(640,900),(390,844),(320,720)]:
+                page.set_viewport_size({'width':width,'height':height})
+                page.evaluate("openSettings('security')")
+                expect(page.locator('#settings-tab-security')).to_have_attribute('aria-selected','true')
+                page.locator('.settings-modal').evaluate('async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))}')
+                baseline=page.locator('.settings-modal').bounding_box()
+                for tab in ['security','data','interface','agents','history']:
+                    page.locator('#settings-tab-'+tab).click()
+                    expect(page.locator('#settings-tab-'+tab)).to_have_attribute('aria-selected','true')
+                    box=page.locator('.settings-modal').bounding_box()
+                    assert abs(box['width']-baseline['width'])<.5 and abs(box['height']-baseline['height'])<.5,(width,tab,baseline,box)
+                    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,tab)
+                    assert page.locator('.settings-main').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,tab)
+                    if width in [1440,390] and tab in ['security','agents','history']:
+                        page.screenshot(path=str(ROOT/f'.cache/settings-fixed-{tab}-{width}.png'),animations='disabled')
+                page.locator('#closeSettingsBtn').click()
             assert not errors,errors
-            assert not csp,csp
-            assert not any(url.startswith(('http:','https:')) for url in requests),requests
-            print('PASS: four complete reports, offline assets, escaped scan data, 320px layout and functional PDF printing')
+            print('PASS: all five Settings tabs keep identical dimensions from 320px mobile to 1440px desktop')
             browser.close()
     finally:
         server.shutdown();server.server_close()

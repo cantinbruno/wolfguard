@@ -6,7 +6,7 @@ from threading import Thread
 from urllib.parse import urlsplit, parse_qs
 import json, os, subprocess, time, zipfile
 from playwright.sync_api import sync_playwright, expect
-from scan_workspace_test import Quiet
+from scan_workspace_test import Quiet, pdf_text
 
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
@@ -66,7 +66,8 @@ def run():
             page.locator('#wgHistoryNext').click();expect(page.locator('#wgHistoryPages')).to_contain_text('Page 2 sur 3')
             page.locator('#wgHistorySearch').fill('192.168.20.55');expect(page.locator('.scan-history-item')).to_have_count(1)
             with page.expect_download() as downloaded:page.locator('[data-history-export]').click()
-            html=Path(downloaded.value.path()).read_text(encoding='utf-8');assert '192.168.20.55' in html and 'Observation historique' in html
+            assert downloaded.value.suggested_filename.endswith('.pdf')
+            html=pdf_text(Path(downloaded.value.path()).read_bytes());assert '192.168.20.55' in html and 'Observation historique' in html
             page.locator('#wgHistorySearch').fill('');page.locator('[data-history-kind=map]').click()
             expect(page.locator('#wgHistoryExportAll')).to_contain_text('(14)')
             page.locator('[data-history-kind=all]').click()
@@ -74,13 +75,14 @@ def run():
             assert downloaded.value.suggested_filename.endswith('.zip')
             with zipfile.ZipFile(downloaded.value.path()) as bundle:
                 assert len(bundle.namelist())==56 and bundle.testzip() is None
-                reports=[bundle.read(name).decode('utf-8') for name in bundle.namelist()]
-                assert all('<!doctype html>' in report and 'Imprimer / Enregistrer en PDF' in report for report in reports)
+                assert all(name.endswith('.pdf') for name in bundle.namelist())
+                reports=[pdf_text(bundle.read(name)) for name in bundle.namelist()]
+                assert all('WolfGuard' in report and 'Synthèse' in report for report in reports)
                 assert any('Relevé sauvegardé avant historique' in report for report in reports)
                 assert any('Agent indisponible' in report and 'Aucune observation' in report for report in reports)
                 assert any('Activer la protection' in report for report in reports)
-                assert not any('<img src=x' in report for report in reports)
-            print('PASS: all 56 scans load across server pages, all four kinds and legacy archives export as valid complete UTF-8 ZIP reports')
+                assert any('<img src=x' in report for report in reports)  # Literal report data, never executable markup.
+            print('PASS: all 56 scans load across server pages, all four kinds and legacy archives export as valid complete ZIP archives containing real PDF reports')
             assert page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value.reports[0]")==archive
             for width in [1440,900,640,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width>640 else 844})

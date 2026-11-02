@@ -67,7 +67,7 @@ def run():
             assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
             raw=export_report(page)
             assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
-            assert page.evaluate("html=>new DOMParser().parseFromString(html,'text/html').querySelectorAll('tbody tr').length",raw)==1
+            assert '192.0.2.1' in raw and '2001:db8::1' not in raw
             page.locator('#scanTarget').fill('2001:db8::1');feed_report(page,json.dumps(network),'Cible IPv6')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('.passive-network-device')).to_contain_text('2001:db8::1')

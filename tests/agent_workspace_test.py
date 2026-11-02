@@ -11,6 +11,7 @@ ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 CODE='07942685'
 from site_fixture import WolfGuardTestHandler
+from scan_workspace_test import pdf_text
 
 class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
@@ -118,7 +119,8 @@ def run():
             with first.expect_download() as downloaded:first.locator('#wgHistoryExportAll').click()
             with zipfile.ZipFile(downloaded.value.path()) as bundle:
                 assert len(bundle.namelist())>=5 and bundle.testzip() is None
-                reports=[bundle.read(name).decode('utf-8') for name in bundle.namelist()]
+                assert all(name.endswith('.pdf') for name in bundle.namelist())
+                reports=[pdf_text(bundle.read(name)) for name in bundle.namelist()]
                 assert all('Agent integration' in report and 'Agent · Windows' in report for report in reports)
                 assert any('Cartographie du réseau' in report for report in reports)
                 assert any('Scan de vulnérabilités' in report for report in reports)
