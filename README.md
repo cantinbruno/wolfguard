@@ -91,6 +91,8 @@ Modifier directement `app/` et `browser/` dans `myapp`. Il n’existe plus de co
 
 Sur ce PC, l’ancienne application Windows complète et ses bases sont conservées dans `.local-archive/windows-original/` ; l’ancienne version web séparée est dans `.local-archive/previous-web/`. L’intégralité de `.local-archive/` est exclue de Git et de la publication. Les empreintes des fichiers de données ont été vérifiées après leur déplacement. L’ancienne application peut être lancée avec `.local-archive/windows-original/WolfGuard.exe`.
 
+Pour alléger le dossier local, `powershell -NoProfile -File .\scripts\clean-myapp.ps1` affiche le nettoyage prévu sans supprimer de fichier. Ajouter `-Apply` supprime les caches, l’ancien environnement Python de développement, les captures de test et les anciennes compilations `WolfGuard*.exe` du seul dossier de sauvegardes Windows. Les sources, l’exécutable Windows actuel, les bases, les sauvegardes de données, les modules et les clés privées sont conservés. Les fichiers conservés de `.local-archive/` sont contrôlés par empreintes SHA-256 avant et après le nettoyage. Les liens de dossiers sont refusés. Un prochain `npm run build` recrée les fichiers de travail nécessaires aux tests dans `.cache/`.
+
 ## Données partagées et coffre
 
 Un code d’accès de **huit chiffres exactement**, de 0 à 9, remplace le mot de passe maître dans le même écran d’accès que l’application d’origine. Les zéros au début sont conservés ; lettres et espaces sont exclus. Le code est choisi et confirmé à la création, ou changé dans Paramètres → Sécurité. Les bases et sauvegardes existantes restent accessibles avec leur ancien mot de passe jusqu’à leur changement volontaire.
