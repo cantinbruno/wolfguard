@@ -27,3 +27,14 @@ test('publication refuses an altered agent executable even at its allowed downlo
     assert.match(result.stderr,/agent non conforme/);
   } finally { writeFileSync(filename,original); }
 });
+
+test('publication refuses private-link configuration copied into public files',()=>{
+  const probe=path.join(root,'docs','site-access.json');
+  assert.equal(existsSync(probe),false);
+  try{
+    writeFileSync(probe,JSON.stringify({key:'SYNTHETIC-PRIVATE-CONFIG'}));
+    const result=spawnSync(process.execPath,['scripts/check-publication.mjs'],{cwd:root,encoding:'utf8'});
+    assert.equal(result.status,1);assert.match(result.stderr,/site-access.json/);
+    assert.equal(result.stderr.includes('SYNTHETIC-PRIVATE-CONFIG'),false);
+  }finally{rmSync(probe,{force:true});}
+});

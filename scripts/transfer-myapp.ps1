@@ -2,7 +2,8 @@ param([string]$SourceRoot, [string]$Output)
 $ErrorActionPreference = 'Stop'
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $SourceRoot) {
-  $archivedDesktop = Join-Path $repository '.local-archive/windows-original'
+  $previousVersions = Join-Path ([IO.Path]::GetDirectoryName($repository)) ((Split-Path -Leaf $repository) + '-anciennes-versions/archives')
+  $archivedDesktop = Join-Path $previousVersions 'windows-original'
   if (Test-Path -LiteralPath (Join-Path $archivedDesktop 'general/donnees')) { $SourceRoot = $archivedDesktop }
   elseif (Test-Path -LiteralPath (Join-Path $repository 'general/donnees')) { $SourceRoot = $repository }
   else { $SourceRoot = [IO.Path]::GetDirectoryName($repository) }

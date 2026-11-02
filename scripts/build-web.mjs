@@ -3,14 +3,15 @@ import {cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmS
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash, createCipheriv, randomBytes} from 'node:crypto';
+import {siteAccessFile} from './private-paths.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md']);
 // A build must preserve the private URL. Never generate a replacement silently.
-const entryFile=path.join(root,'.local-archive','site-access.json');
-if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer .local-archive/site-access.json avant de publier.');
+const entryFile=siteAccessFile;
+if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer site-access.json dans la configuration privée de WolfGuard avant de publier.');
 const entryKey=JSON.parse(readFileSync(entryFile,'utf8')).key;
 if(!/^[a-f0-9]{64}$/.test(entryKey||''))throw new Error('Clé du lien privé invalide.');
 const digest=createHash('sha256');

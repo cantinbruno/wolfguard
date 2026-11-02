@@ -1,9 +1,19 @@
 import {execFileSync} from 'node:child_process';
-import {readFileSync,existsSync,lstatSync} from 'node:fs';
+import {readFileSync,existsSync,lstatSync,readdirSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const files=execFileSync('git',['ls-files','--cached','--others','--exclude-standard','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
+// The public trees must also be checked for ignored files accidentally copied there.
+function publicFiles(directory){
+  if(!existsSync(directory))return;
+  for(const entry of readdirSync(directory,{withFileTypes:true})){
+    const filename=path.join(directory,entry.name);
+    if(entry.isDirectory()&&!entry.isSymbolicLink())publicFiles(filename);
+    else files.push(path.relative(root,filename).split(path.sep).join('/'));
+  }
+}
+for(const folder of ['app','docs'])publicFiles(path.join(root,folder));
 const issues=new Set();
 const secrets=[/-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/,/\bgh[pousr]_[A-Za-z0-9]{36,}\b/,/\bgithub_pat_[A-Za-z0-9_]{60,}\b/,/\bAKIA[A-Z0-9]{16}\b/];
 for(const name of new Set(files)) {
@@ -13,6 +23,7 @@ for(const name of new Set(files)) {
   if(/\.zip$/i.test(name)&&!['app','docs'].some(folder=>['Windows','Linux','macOS'].some(platform=>name===folder+'/downloads/WolfGuard-Agent-'+platform+'.zip'))){issues.add(name);continue;}
   if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
   if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi)$/i.test(name)){issues.add(name);continue;}
+  if(/(?:^|\/)site-access(?:-before-[^/]*)?\.json$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
   const text=bytes.toString('utf8');

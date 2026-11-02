@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash, randomBytes, createDecipheriv} from 'node:crypto';
 import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
+import {siteAccessFile} from '../scripts/private-paths.mjs';
 
 test('private entry checks an independent key without accessing vault storage or creating a PIN session', async () => {
   const key=randomBytes(32).toString('hex');
@@ -31,7 +32,7 @@ test('private entry checks an independent key without accessing vault storage or
 
 test('the published entry is encrypted, authenticates edits and contains no private-link key', () => {
   const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
-  const {key}=JSON.parse(read('.local-archive/site-access.json'));
+  const {key}=JSON.parse(readFileSync(siteAccessFile,'utf8'));
   const envelope=JSON.parse(read('docs/browser/site-entry.json'));
   const encrypted=Buffer.from(envelope.data,'base64');
   const decrypt=(input,material=key)=>{

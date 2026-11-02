@@ -1,5 +1,6 @@
 # Only application source belongs in this repository.
 .local-archive/
+site-access*.json
 node_modules/
 __pycache__/
 test-results/

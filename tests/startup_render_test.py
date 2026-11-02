@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from threading import Thread
 from playwright.async_api import async_playwright, expect
+from site_fixture import PRIVATE_ACCESS_FILE
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -16,7 +17,7 @@ class Quiet(SimpleHTTPRequestHandler):
 
 
 async def check(url):
-    key = json.loads((ROOT / '.local-archive/site-access.json').read_text())['key']
+    key = json.loads(PRIVATE_ACCESS_FILE.read_text())['key']
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         context = await browser.new_context(reduced_motion='reduce')
