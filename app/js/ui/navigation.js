@@ -1,6 +1,8 @@
 'use strict';
 
 async function openSection(section, itemId = null, options = {}) {
+  const portReference = section === 'protocol';
+  if (portReference) section = 'library';
   if (LIBRARY_SECTIONS.includes(section)) section = 'library';
   if (section === 'home') section = 'library';
   if (!workspaceModules.allows(section)) return false;
@@ -10,6 +12,10 @@ async function openSection(section, itemId = null, options = {}) {
   if ($('#app').classList.contains('hidden') && !state.vaultKey) return false;
   return sectionTransition.navigate(section, async isCurrent => {
     if (section === 'library') await ensureUnifiedLibrary();
+    if (portReference) {
+      const reference = (await all('items')).find(item => item.referenceCatalogId === MEMO_PORT_REFERENCE && !item.deletedAt);
+      itemId = reference?.id || null;
+    }
     if (!desktopBridge.available && section === 'vault') await flattenRedundantSectionRoots();
 
     if (!isCurrent()) return false;

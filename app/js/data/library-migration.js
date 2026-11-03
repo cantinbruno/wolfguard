@@ -106,6 +106,7 @@ async function ensureUnifiedLibrary() {
   if (libraryMigration) return libraryMigration;
 
   libraryMigration = (async () => {
+    const migrationDatabase=db,migrationKey=state.vaultKey;
     const [items, folders, settings, activity] = await Promise.all([all('items'), all('folders'), all('settings'), all('activity')]);
     const source = {
       items,
@@ -141,7 +142,13 @@ async function ensureUnifiedLibrary() {
       if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
     }
     const consolidation=buildLibraryConsolidation(normalized);
-    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations];
+    for(const operation of consolidation.operations) {
+      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
+      if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
+    }
+    const references=normalized.settings.some(row=>row.key===MEMO_REFERENCES_SETTING&&Number(row.value)>=1)?{operations:[]}:buildMemoReferences(normalized,await loadProtocolReference());
+    if(db!==migrationDatabase||state.vaultKey!==migrationKey)throw new Error('Session modifiée pendant la préparation des référentiels.');
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);

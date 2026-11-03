@@ -119,11 +119,12 @@ def run():
             page.locator('.workspace-section-button[data-section=tools]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#toolboxShell')).to_be_visible()
-            assert page.locator('[data-toolbox-nav]').count()==4
+            assert page.locator('[data-toolbox-nav]').count()==3
             expect(page.locator('[data-toolbox-nav=active],[data-toolbox-nav=passive]')).to_have_count(0)
-            page.locator('[data-toolbox-nav=ports]').click()
+            expect(page.locator('[data-toolbox-nav=ports]')).to_have_count(0)
+            page.evaluate("openSection('protocol')")
             page.wait_for_function('()=>!sectionTransition.active')
-            expect(page.locator('.protocol-content')).to_be_visible(timeout=15000)
+            expect(page.locator('.reader-document-heading h1')).to_have_text('Ports et services')
             page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTitle')).to_have_text('Scan passif du réseau')
@@ -135,7 +136,7 @@ def run():
             expect(page.locator('#scanStart')).to_have_count(0)
             expect(page.locator('#wgScanImport')).to_be_enabled()
             assert 'Nmap' in page.locator('#content').inner_text()
-            print('PASS: quatre outils, deux sections scan distinctes, execution Windows explicitement indiquee')
+            print('PASS: trois outils, reference des ports dans Memo, deux sections scan distinctes, execution Windows explicitement indiquee')
 
             page.locator('#settingsBtn').click()
             expect(page.locator('.settings-modal')).to_be_visible()

@@ -8,13 +8,6 @@ const TOOLBOX_TOOLS = [{
   category: 'Réseau',
   icon: 'protocol'
 }, {
-  id: 'ports',
-  section: 'protocol',
-  title: 'Ports & services',
-  description: 'Ports, protocoles et usages',
-  category: 'Réseau',
-  icon: 'protocol'
-}, {
   id: 'hash',
   section: 'tools',
   title: 'Vérifier un fichier',

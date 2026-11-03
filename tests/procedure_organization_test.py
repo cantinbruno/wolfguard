@@ -89,7 +89,7 @@ def run():
             assert '<p>Texte original AD</p>' in ad_guide['content']
             assert eset_guide['title']=='ESET'
             assert 'consolidatedInto' not in items['personal']
-            assert page.evaluate('async()=>(await explorerData()).items.length')==4
+            assert page.evaluate('async()=>(await explorerData()).items.filter(item=>!item.referenceCatalogId).length')==4
             for original in before['payload']['items']:
                 restored={key:value for key,value in items[original['id']].items() if key!='consolidatedInto'}
                 assert {**restored,'folderId':original['folderId']}==original
