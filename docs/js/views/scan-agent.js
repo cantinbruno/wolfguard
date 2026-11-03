@@ -12,6 +12,10 @@ const webScanAgent = (() => {
     report.target=report.target||raw?.target||data.spec?.target||data.target||'';
     report.source='Agent · '+workspaceAgents.platformName(raw?.platform||agent.platform||data.platform);
     report.importedAt=new Date(data.createdAt).toISOString();report.capturedAt=raw?.startedAt||'';
+    report.startedAt=raw?.startedAt||'';report.finishedAt=raw?.finishedAt||'';
+    report.agentName=agent.name||data.agentName||'';report.platform=raw?.platform||agent.platform||data.platform||'';
+    report.completed=raw?.completed??data.completed;report.total=raw?.total??data.total;
+    const spec=data.spec||{};report.parameters={mode:spec.mode,ports:spec.ports,identifyServices:spec.identifyServices,timeoutMs:spec.timeoutMs,concurrency:spec.concurrency};
     report.jobStatus=data.status;report.error=raw?.error||'';
     if(kind==='passive')report=webScanModel.networkReport(report);
     return report;

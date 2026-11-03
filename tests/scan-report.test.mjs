@@ -12,6 +12,33 @@ const document=value=>vm.runInContext('webScanPDF.definition',context)(value);
 const row={address:'192.0.2.1',port:22,transport:'TCP',status:'open',service:'ssh',product:'OpenSSH',version:'9.9',detail:'Bannière reçue',hostname:'serveur',macAddress:'',interfaceName:'',checkId:'',title:'',severity:'',recommendation:'',reference:''};
 const report={name:'Agence · scan',target:'192.0.2.1',source:'Agent · Windows',capturedAt:'2026-11-02T09:00:00Z',jobStatus:'completed',warnings:[],rows:[row]};
 
+test('scan reading keeps measured timing and coverage distinct from requested ports and unknown facts',()=>{
+  const reading=vm.runInContext('webScanReport.reading',context);
+  const value=reading('active',{...report,startedAt:'2026-11-02T09:00:00Z',finishedAt:'2026-11-02T09:00:02.500Z',completed:2,total:3,
+    agentName:'Poste bureau',platform:'win32',parameters:{ports:[22,80,81,82,443],timeoutMs:1500,identifyServices:false},
+    rows:[{...row,latencyMs:12},{...row,port:443,status:'closed',latencyMs:20}]});
+  assert.equal(value.duration,'2,5 s');
+  const facts=new Map(value.facts);assert.equal(facts.get('Collecte'),'2 / 3 tests');assert.equal(facts.get('Ports TCP demandés'),'22, 80–82, 443');
+  assert.equal(facts.get('Temps de réponse médian'),'16 ms · 2 réponse(s) mesurée(s)');
+  assert.deepEqual(Array.from(value.breakdown,item=>[item.key,item.count]),[['open',1],['closed',1]]);
+  const unknown=reading('active',{...report,startedAt:'invalid',finishedAt:'2026-11-02',rows:[]});
+  assert.equal(unknown.duration,'Non fournie');assert.equal(new Map(unknown.facts).has('Ports TCP demandés'),false);
+  assert.equal(new Map(unknown.facts).has('Collecte'),false);
+});
+
+test('agent reports retain execution parameters and response times through PDF export',()=>{
+  vm.runInContext("var workspaceAgents={platformName:value=>value==='win32'?'Windows':value}",context);
+  vm.runInContext(readFileSync(new URL('../app/js/views/scan-agent.js',import.meta.url),'utf8'),context);
+  const fromJob=vm.runInContext('webScanAgent.fromJob',context);
+  const value=fromJob({id:'test',workspace:'active',status:'completed',createdAt:Date.parse('2026-11-02T09:00:00Z'),completed:2,total:2,
+    spec:{target:'192.0.2.1',mode:'tcp',ports:[22,443],timeoutMs:700,identifyServices:true},
+    report:{strategy:'active',workspace:'active',startedAt:'2026-11-02T09:00:00Z',finishedAt:'2026-11-02T09:00:01Z',results:[{...row,latencyMs:0},{...row,port:443,status:'closed',latencyMs:14}]}},
+    {name:'Poste bureau',platform:'win32'});
+  assert.equal(value.rows[0].latencyMs,0);assert.equal(value.parameters.timeoutMs,700);
+  const output=JSON.stringify(document(model('active',value)));
+  for(const field of ['Poste bureau','1 s','700 ms','22, 443','0 ms','14 ms','Identification des services'.toUpperCase(),'Demandée'])assert.ok(output.includes(field),field);
+});
+
 test('browser targets accept public unicast and normalize mapped IPv4 consistently with the agent',()=>{
   const target=vm.runInContext('webScanModel.singleTarget',context);
   assert.equal(target('8.8.8.8'),'8.8.8.8');assert.equal(target('::ffff:8.8.8.8'),'8.8.8.8');

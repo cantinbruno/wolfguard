@@ -6,7 +6,48 @@ const webScanReport = (() => {
   const date=value=>{if(!value)return 'Non fournie';const parsed=new Date(value);return Number.isNaN(parsed.getTime())?String(value):parsed.toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'});};
   const themes={passive:'#78cdbb',active:'#f1b16b',map:'#73c7ba',vulnerability:'#e8ad82'};
   const jobLabels={queued:'En attente · relevé partiel',running:'En cours · relevé partiel',completed:'Terminé',cancelled:'Arrêté · relevé partiel',failed:'Échec · relevé partiel',expired:'Agent indisponible',lost:'Connexion perdue · relevé partiel'};
-  const limits={passive:'Une entrée de cache ne confirme pas la présence actuelle du voisin. Aucune sonde ni capture de paquets n’a été effectuée.',active:'Les états filtrés ou ambigus sont conservés. Un service nommé peut être une correspondance de port ; seules les preuves reçues permettent de préciser son identification.',map:'Une absence de réponse peut correspondre à un filtrage ou à un poste indisponible. Cette découverte ne décrit pas la topologie physique du réseau.',vulnerability:'Audit de configuration en lecture seule, adapté au système de l’agent. Les contrôles non vérifiés ne sont pas conformes par défaut. Il ne s’agit pas d’un inventaire exhaustif des CVE.'};
+  const limits={passive:'Caches, connexions et sockets déjà présents sur le poste. Ces traces ne confirment pas la disponibilité actuelle de la cible. Aucune sonde ni capture de paquets.',active:'Un port fermé a répondu par un refus. Une absence de réponse peut correspondre à un filtrage. Un nom de service peut être une association de port ; consulte la preuve avant de conclure.',map:'Une absence de réponse peut correspondre à un filtrage ou à un poste indisponible. Cette découverte ne décrit pas la topologie physique du réseau.',vulnerability:'Audit de configuration en lecture seule, adapté au système de l’agent. Les contrôles non vérifiés ne sont pas conformes par défaut. Il ne s’agit pas d’un inventaire exhaustif des CVE.'};
+  const sourceLabels={'agent-neighbor':'Cache voisin','agent-dns-cache':'Cache DNS','agent-hosts':'Fichier hosts','agent-tcp-table':'Table TCP','agent-udp-table':'Sockets UDP','agent-ss':'Table des sockets','agent-lsof':'Table des sockets','agent-proc-net':'Table du noyau','agent-connection-table':'Connexions locales','agent-local-socket':'Socket locale','agent-local-cache':'Cache local','agent-tcp':'Sonde TCP','agent-discovery':'Découverte TCP','agent-icmp':'Sonde ICMP'};
+  const sourceLabel=value=>sourceLabels[value]||value||'Non fournie';
+  const endpoint=(address,port)=>address?(address.includes(':')?'['+address+']':address)+(port==null?'':':'+port):'—';
+  function portRanges(values){
+    const ports=[...new Set((Array.isArray(values)?values:[]).filter(value=>Number.isInteger(value)&&value>0&&value<=65535))].sort((a,b)=>a-b),ranges=[];
+    for(let index=0;index<ports.length;index++){const start=ports[index];let end=start;while(ports[index+1]===end+1)end=ports[++index];ranges.push(start===end?String(start):start+'–'+end);}
+    return ranges.join(', ');
+  }
+  function reading(kind,report){
+    const rows=report.rows||[],options=report.parameters||{},started=new Date(report.startedAt||report.capturedAt).getTime(),finished=new Date(report.finishedAt).getTime();
+    const elapsed=Number.isFinite(started)&&Number.isFinite(finished)&&finished>=started?finished-started:null;
+    const duration=elapsed===null?'Non fournie':elapsed<1000?elapsed+' ms':elapsed<60000?number(Math.round(elapsed/100)/10)+' s':Math.floor(elapsed/60000)+' min '+Math.floor(elapsed%60000/1000)+' s';
+    const methods={passive:'Observation des tables et caches locaux',active:options.mode==='icmp'?'Tests ICMP':'Connexions TCP',map:'Découverte par réponses TCP',vulnerability:'Contrôles locaux en lecture seule'};
+    const facts=[['Méthode',methods[kind]],['Durée',duration]];
+    if(report.agentName)facts.push(['Poste d’observation',report.agentName]);
+    if(report.platform)facts.push(['Système',({win32:'Windows',darwin:'macOS',linux:'Linux'})[report.platform]||report.platform]);
+    const validCount=value=>Number.isInteger(value)&&value>=0;
+    if(validCount(report.completed)&&validCount(report.total))facts.push(['Collecte',number(report.completed)+' / '+number(report.total)+(kind==='vulnerability'?' contrôles':kind==='map'?' adresses':kind==='passive'?' observations':' tests')]);
+    const requested=portRanges(options.ports);
+    if(requested)facts.push(['Ports TCP demandés',requested]);
+    else if(kind==='active'){const observed=portRanges(rows.filter(row=>row.transport==='TCP').map(row=>row.port));if(observed)facts.push(['Ports TCP dans le relevé',observed]);}
+    if(kind==='active'&&typeof options.identifyServices==='boolean')facts.push(['Identification des services',options.identifyServices?'Demandée · selon les réponses disponibles':'Non demandée · associations de ports uniquement']);
+    if(['active','map'].includes(kind)&&Number.isInteger(options.timeoutMs))facts.push(['Délai par test',number(options.timeoutMs)+' ms']);
+    if(['active','map'].includes(kind)&&Number.isInteger(options.concurrency))facts.push(['Tests simultanés',number(options.concurrency)]);
+    if(kind==='passive'){
+      const interfaces=[...new Set(rows.map(row=>row.interfaceName).filter(Boolean))],sources=[...new Set(rows.map(row=>sourceLabel(row.source)))];
+      if(interfaces.length)facts.push(['Interfaces observées',interfaces.join(' · ')]);
+      if(sources.length)facts.push(['Sources locales',sources.join(' · ')]);
+    }
+    const addresses=[...new Set(rows.map(row=>row.address))];
+    if(addresses.length&&addresses.length<=3)facts.push(['Adresse(s) observée(s)',addresses.join(' · ')]);
+    const names=[...new Set(rows.map(row=>row.hostname).filter(Boolean))];
+    if(names.length)facts.push(['Noms fournis',names.slice(0,8).join(' · ')+(names.length>8?' …':'')]);
+    const count=status=>rows.filter(row=>row.status===status).length;
+    const definitions=kind==='passive'?[['ARP','Voisins IPv4','neutral'],['NDP','Voisins IPv6','neutral'],['DNS','Noms DNS / hosts','info'],['TCP','Observations TCP','positive'],['UDP','Sockets UDP','info']]:kind==='vulnerability'?[['issue','À corriger','warning'],['notchecked','Non vérifiés','neutral'],['passed','Conformes','positive'],['info','Informations','info']]:[['open','Ouverts','positive'],['closed','Fermés','neutral'],['reachable','Répondants','positive'],['filtered','Filtrés','warning'],['open|filtered','Ouverts ou filtrés','warning'],['no-response','Sans réponse','neutral'],['unreachable','Injoignables','neutral'],['error','Erreurs','warning'],['unknown','Non renseignés','neutral'],['unfiltered','Non filtrés','info'],['closed|filtered','Fermés ou filtrés','warning']];
+    const breakdown=definitions.map(([key,label,tone])=>({key,label,tone,count:kind==='passive'?rows.filter(row=>row.transport===key).length:count(key)})).filter(item=>item.count);
+    const latencies=rows.filter(row=>['open','closed','reachable'].includes(row.status)&&Number.isFinite(row.latencyMs)&&row.latencyMs>=0).map(row=>row.latencyMs).sort((a,b)=>a-b);
+    if(latencies.length){const middle=Math.floor(latencies.length/2),median=latencies.length%2?latencies[middle]:(latencies[middle-1]+latencies[middle])/2;facts.push(['Temps de réponse médian',number(Math.round(median*10)/10)+' ms · '+number(latencies.length)+' réponse(s) mesurée(s)']);}
+    const warnings=[...new Set([...(report.warnings||[]),...(report.error?[report.error]:[])].map(String))];
+    return {status:jobLabels[report.jobStatus]||'État non fourni',tone:report.jobStatus==='completed'?'positive':['failed','expired','lost','cancelled'].includes(report.jobStatus)?'warning':'neutral',duration,facts,breakdown,warnings,summary:synthesis(kind,rows),limit:limits[kind]};
+  }
   const answered=row=>['reachable','open','closed'].includes(row.status);
   function metrics(kind,rows){
     const count=status=>rows.filter(row=>row.status===status).length,hosts=select=>new Set(rows.filter(select).map(row=>row.address)).size;
@@ -26,7 +67,7 @@ const webScanReport = (() => {
     const definition=scanInsights.definitions[kind];if(!definition||!report)throw new Error('Aucun relevé à exporter.');
     const safe=kind==='passive'?webScanModel.networkReport(report):report;
     if(kind==='passive'&&reference)reference=webScanModel.networkReport(reference);
-    return {kind,title:definition.title,short:definition.short,kicker:definition.kicker,name:String(report.name||definition.short),accent:themes[kind],target:report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie'),source:report.source||'Non fournie',captured:date(report.capturedAt||report.importedAt),generated:date(new Date()),status:jobLabels[report.jobStatus]||'Non fourni',rows:safe.rows,metrics:metrics(kind,safe.rows),summary:synthesis(kind,safe.rows),limit:limits[kind],warnings:[...(safe.warnings||[]),...(report.error?[report.error]:[])].map(String),reference:reference?{name:reference.name,date:date(reference.capturedAt||reference.importedAt),changes:webScanModel.compare(safe,reference)}:null};
+    return {kind,title:definition.title,short:definition.short,kicker:definition.kicker,name:String(report.name||definition.short),accent:themes[kind],target:report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie'),source:report.source||'Non fournie',captured:date(report.capturedAt||report.importedAt),generated:date(new Date()),...reading(kind,safe),rows:safe.rows,metrics:metrics(kind,safe.rows),reference:reference?{name:reference.name,date:date(reference.capturedAt||reference.importedAt),changes:webScanModel.compare(safe,reference)}:null};
   }
   async function file(kind,report,reference){
     const stamp=new Date(report.capturedAt||report.importedAt),day=Number.isNaN(stamp.getTime())?new Date().toISOString().slice(0,10):stamp.toISOString().slice(0,10);
@@ -65,5 +106,5 @@ const webScanReport = (() => {
   }
   function downloadArchive(files){save(archive(files),'application/zip','WolfGuard-Historique-'+new Date().toISOString().slice(0,10)+'.zip');}
   function downloadFile(output){save(output.content,'application/pdf',output.name);}
-  return {pdfModel,file,download,archive,downloadArchive,downloadFile};
+  return {pdfModel,reading,sourceLabel,endpoint,file,download,archive,downloadArchive,downloadFile};
 })();

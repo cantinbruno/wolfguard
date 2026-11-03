@@ -11,6 +11,7 @@ const webScanPDF = (() => {
   const text=value=>String(value??'');
   const xml=value=>text(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[char]));
   const label=status=>webScanModel.labels[status]||status||'Non renseigné';
+  const tones={positive:'#24715a',warning:'#a05d23',neutral:muted,info:'#346587'};
   let enginePromise,logoPromise;
   function script([path,integrity]){
     return new Promise((resolve,reject)=>{
@@ -34,11 +35,13 @@ const webScanPDF = (() => {
     return {margin:[0,8,0,4],table:{widths:['*'],body:[[{text:text(value),fontSize:8.2,lineHeight:1.35,color:warning?'#785327':muted,fillColor:warning?'#fff8ee':'#f4f7fa',border:[true,false,false,false],borderColor:[color,color,color,color]}]]},layout:{hLineWidth:()=>0,vLineWidth:i=>i===0?2:0,paddingLeft:()=>10,paddingRight:()=>10,paddingTop:()=>9,paddingBottom:()=>9}};
   }
   function table(headers,rows,widths){
-    const body=[headers.map(value=>({text:value,bold:true,fontSize:7.3,color:'#fff',fillColor:navy})),...rows.map(values=>values.map(value=>({text:text(value)||'—',fontSize:7.5,lineHeight:1.2})))];
+    const body=[headers.map(value=>({text:value,bold:true,fontSize:8,color:'#fff',fillColor:navy})),...rows.map(values=>values.map(value=>typeof value==='object'&&value!==null?{fontSize:8.2,lineHeight:1.3,...value}:{text:text(value)||'—',fontSize:8.2,lineHeight:1.3}))];
     return {table:{headerRows:1,keepWithHeaderRows:1,widths,body},layout:{hLineWidth:i=>i===0?0:.5,vLineWidth:()=>0,hLineColor:()=>line,fillColor:i=>i>0&&i%2===0?'#f6f8fa':null,paddingLeft:()=>5,paddingRight:()=>5,paddingTop:()=>7,paddingBottom:()=>7}};
   }
   function results(model){
     const rows=model.rows;
+    const endpoint=webScanReport.endpoint,source=webScanReport.sourceLabel;
+    const state=row=>({text:label(row.status),bold:true,color:['open','reachable','passed'].includes(row.status)?tones.positive:['issue','error','filtered','open|filtered','closed|filtered'].includes(row.status)?tones.warning:muted});
     if(!rows.length)return [{text:'Aucune observation à détailler.',color:muted,fontSize:9,margin:[0,8,0,12]}];
     if(model.kind==='vulnerability'){
       const ranks={issue:0,notchecked:1,info:2,passed:3},severities=['critical','high','medium','low','info'];
@@ -55,9 +58,31 @@ const webScanPDF = (() => {
         return {margin:[0,0,0,10],table:{widths:['*'],body:[[{stack}]]},layout:{hLineWidth:()=>.5,vLineWidth:i=>i===0?2:.5,hLineColor:()=>line,vLineColor:i=>i===0?(row.status==='issue'?'#d5914f':row.status==='passed'?'#69a58d':'#7d95a9'):line,paddingLeft:()=>12,paddingRight:()=>12,paddingTop:()=>12,paddingBottom:()=>12}};
       });
     }
-    if(model.kind==='passive')return [table(['Cible / port','Type','Nom / processus','Interface','Observation'],rows.map(row=>[row.address+(row.port==null?'':':'+row.port),row.transport,[row.hostname,row.processName,row.pid==null?'':'PID '+row.pid].filter(Boolean).join('\n'),row.interfaceName,[row.macAddress?'MAC : '+row.macAddress:'',row.localAddress?'Local : '+row.localAddress+(row.localPort==null?'':':'+row.localPort):'',row.detail,row.source].filter(Boolean).join('\n')]),['23%','9%','22%','14%','32%'])];
-    if(model.kind==='map')return [table(['Adresse IP','État observé','Nom fourni','Port / transport','MAC','Preuve'],rows.map(row=>[row.address,label(row.status),row.hostname,(row.port??'—')+' / '+row.transport,row.macAddress,row.detail]),['21%','16%','14%','14%','16%','19%'])];
-    return [table(['Adresse / port','État','Service / version','Nom d’hôte','Preuve'],rows.map(row=>[(row.address.includes(':')?'['+row.address+']':row.address)+(row.port==null?'':':'+row.port)+'\n'+row.transport,label(row.status),[row.service,row.product,row.version].filter(Boolean).join(' '),row.hostname,row.detail]),['23%','12%','22%','17%','26%'])];
+    if(model.kind==='passive'){
+      const groups=[['Voisins connus · ARP / NDP',row=>['ARP','NDP'].includes(row.transport)],['Noms connus · DNS et hosts',row=>row.transport==='DNS'],['Connexions déjà connues',row=>row.status==='connection'],['Écoutes et sockets du poste',row=>['listening','bound'].includes(row.status)]];
+      return groups.flatMap(([title,select])=>{const selected=rows.filter(select);if(!selected.length)return [];return [{text:title+' · '+selected.length,fontSize:11,bold:true,color:ink,margin:[0,12,0,8],headlineLevel:1},table(['Cible / port','Type / source','Nom / processus','Preuve locale'],selected.map(row=>[
+        endpoint(row.address,row.port),[row.transport,source(row.source)].filter(Boolean).join('\n'),[row.hostname,row.processName,row.pid==null?'':'PID '+row.pid].filter(Boolean).join('\n'),
+        [row.macAddress?'MAC : '+row.macAddress:'',row.interfaceName?'Interface : '+row.interfaceName:'',row.localAddress?'Local : '+endpoint(row.localAddress,row.localPort):'',row.direction==='local'&&row.remoteAddress?'Distant : '+endpoint(row.remoteAddress,row.remotePort):'',row.ttl==null?'':'TTL restant : '+row.ttl+' s',row.detail].filter(Boolean).join('\n')
+      ]),['23%','19%','23%','35%'])];});
+    }
+    if(model.kind==='map')return [table(['Adresse IP','État observé','Nom fourni','Port / transport','MAC','Preuve'],rows.map(row=>[row.address,state(row),row.hostname,(row.port??'—')+' / '+row.transport,row.macAddress,row.detail]),['21%','16%','14%','14%','16%','19%'])];
+    const rank={open:0,closed:1,filtered:2,'open|filtered':2,error:3};
+    return [table(['Adresse / port','État / réponse','Service / version','Preuve reçue'],[...rows].sort((a,b)=>(rank[a.status]??4)-(rank[b.status]??4)||(a.port??0)-(b.port??0)).map(row=>[
+      endpoint(row.address,row.port)+'\n'+row.transport,
+      {stack:[state(row),...(row.latencyMs==null?[]:[{text:row.latencyMs+' ms',color:muted,fontSize:8,margin:[0,5,0,0]}])]},
+      [row.service,row.product,row.version,row.hostname?'Nom : '+row.hostname:''].filter(Boolean).join('\n'),row.detail
+    ]),['24%','19%','25%','32%'])];
+  }
+  function context(model){
+    const cells=model.facts.map(([title,value])=>({stack:[{text:title.toUpperCase(),style:'eyebrow',margin:[0,0,0,5]},{text:text(value),fontSize:9,lineHeight:1.3}],fillColor:'#f4f7fa'})),body=[];
+    for(let index=0;index<cells.length;index+=2)body.push([cells[index],cells[index+1]||{text:'',fillColor:'#f4f7fa'}]);
+    return {table:{headerRows:0,widths:['*','*'],body},layout:{hLineWidth:()=>3,vLineWidth:()=>3,hLineColor:()=>'#fff',vLineColor:()=>'#fff',paddingLeft:()=>11,paddingRight:()=>11,paddingTop:()=>10,paddingBottom:()=>10},margin:[0,7,0,12]};
+  }
+  function distribution(model){
+    if(!model.breakdown.length)return [];
+    const total=model.breakdown.reduce((sum,item)=>sum+item.count,0),barWidth=523;let offset=0;
+    const canvas=model.breakdown.map(item=>{const width=barWidth*item.count/total,bar={type:'rect',x:offset,y:0,w:width,h:5,color:tones[item.tone]};offset+=width;return bar;});
+    return [{canvas,margin:[0,14,0,9]},{text:model.breakdown.flatMap((item,index)=>[{text:(index?'     ':'')+item.count+' ',bold:true,color:tones[item.tone]},{text:item.label,color:muted}]),fontSize:8.5,lineHeight:1.5,margin:[0,0,0,7]}];
   }
   function map(model){
     const hosts=[...new Set(model.rows.filter(row=>['reachable','open','closed'].includes(row.status)).map(row=>row.address))],shown=hosts.slice(0,16);
@@ -69,14 +94,15 @@ const webScanPDF = (() => {
   function definition(model,mark=''){
     const metadata=(title,value)=>({stack:[{text:title,style:'eyebrow',color:'#8fa3b9',margin:[0,0,0,5]},{text:text(value),fontSize:8.5,color:'#fff'}]});
     const content=[
-      {table:{widths:['*'],body:[[{fillColor:navy,stack:[{text:model.kicker,fontSize:7.5,bold:true,color:model.accent,characterSpacing:1.1,margin:[0,0,0,12]},{text:model.title,fontSize:25,bold:true,color:'#fff',margin:[0,0,0,8]},{text:model.name,fontSize:9,color:'#b9c7d7',margin:[0,0,0,22]},{columns:[metadata('CIBLE / PÉRIMÈTRE',model.target),metadata('DATE DU RELEVÉ',model.captured),metadata('SOURCE',model.source)],columnGap:18}]}]]},layout:{hLineWidth:()=>0,vLineWidth:()=>0,paddingLeft:()=>18,paddingRight:()=>18,paddingTop:()=>20,paddingBottom:()=>20},margin:[0,0,0,15]},
+      {table:{widths:['*'],body:[[{fillColor:navy,stack:[{text:model.kicker,fontSize:7.5,bold:true,color:model.accent,characterSpacing:1.1,margin:[0,0,0,12]},{text:model.title,fontSize:23,bold:true,color:'#fff',margin:[0,0,0,7]},{text:model.target,fontSize:17,color:model.accent,margin:[0,0,0,10]},{text:model.name,fontSize:9,color:'#b9c7d7',margin:[0,0,0,20]},{columns:[metadata('DATE DU RELEVÉ',model.captured),metadata('SOURCE',model.source)],columnGap:18}]}]]},layout:{hLineWidth:()=>0,vLineWidth:()=>0,paddingLeft:()=>20,paddingRight:()=>20,paddingTop:()=>22,paddingBottom:()=>20},margin:[0,0,0,15]},
       {columns:[{text:'État : '+model.status},{text:model.rows.length.toLocaleString('fr-FR')+' observation(s)',alignment:'right'}],fontSize:8,color:muted,margin:[0,0,0,12]},
       {table:{widths:['*','*','*','*'],body:[model.metrics.map(([value,label])=>({fillColor:'#f1f5f8',stack:[{text:Number(value).toLocaleString('fr-FR'),fontSize:22,bold:true,color:ink,margin:[0,0,0,5]},{text:label,fontSize:7.5,color:muted}]}))]},layout:{hLineWidth:()=>0,vLineWidth:()=>4,vLineColor:()=>'#fff',paddingLeft:()=>9,paddingRight:()=>9,paddingTop:()=>12,paddingBottom:()=>12},margin:[0,0,0,3]},
-      heading('01','Synthèse'),{text:model.summary,fontSize:10,lineHeight:1.4},note(model.limit,model.accent),
-      ...model.warnings.map(value=>note(value,'#c17c2f',true))
+      heading('01','Synthèse'),{text:model.summary,fontSize:10.5,lineHeight:1.4},...distribution(model),
+      {text:'INFORMATIONS DU SCAN',style:'eyebrow',margin:[0,16,0,4]},context(model),note(model.limit,model.accent),
+      ...(model.warnings.length?[{text:'Notes de collecte',fontSize:9,bold:true,color:muted,margin:[0,14,0,3]},...model.warnings.map(value=>({text:'• '+value,fontSize:8.2,color:muted,lineHeight:1.35,margin:[0,3,0,3]}))]:[])
     ];
     if(model.kind==='map')content.push(heading('02','Carte du périmètre'),...map(model));
-    content.push(heading(model.kind==='map'?'03':'02',model.kind==='vulnerability'?'Preuves & recommandations':model.kind==='passive'?'Observations réseau locales':model.kind==='map'?'Hôtes & preuves':'Services & réponses'),{text:'Toutes les observations reçues · Filtres de l’écran non appliqués',fontSize:7.5,color:muted,margin:[0,0,0,10]},...results(model));
+    content.push({...heading(model.kind==='map'?'03':'02',model.kind==='vulnerability'?'Preuves & recommandations':model.kind==='passive'?'Observations réseau locales':model.kind==='map'?'Hôtes & preuves':'Services & réponses'),...(model.kind==='vulnerability'?{pageBreak:'before'}:{})},{text:'Toutes les observations reçues · Filtres de l’écran non appliqués',fontSize:7.5,color:muted,margin:[0,0,0,10]},...results(model));
     if(model.reference){
       const names={added:'Nouvelle',removed:'Absente',changed:'Modifiée'},describe=row=>[label(row.status),row.macAddress,row.service,row.product,row.version,row.detail].filter(Boolean).join(' · ');
       content.push(heading(model.kind==='map'?'04':'03','Évolution du relevé'),note('Référence : '+model.reference.name+' · '+model.reference.date+'. Comparer le même périmètre et les mêmes options. Une absence ne confirme pas une disparition réelle.',model.accent));

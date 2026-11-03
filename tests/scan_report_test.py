@@ -45,9 +45,24 @@ def run():
             for kind,payload in scenarios.items():
                 navigate(page,kind)
                 if kind in ['passive','active']:page.locator('#scanTarget').fill('192.0.2.1')
+                payload={**payload,'startedAt':'2026-11-03T10:00:00Z','finishedAt':'2026-11-03T10:00:02.500Z','agentName':'Poste bureau','platform':'win32'}
                 feed_report(page,json.dumps(payload),'Agence · '+kind)
+                expect(page.locator('.scan-report-state')).to_have_text('Terminé')
+                expect(page.locator('.scan-report-meta')).to_contain_text('2,5 s')
+                page.locator('#wgScanDossier summary').click()
+                expect(page.locator('#wgScanDossier')).to_contain_text('Poste bureau')
+                expect(page.locator('#wgScanDossier')).to_contain_text('Méthode')
+                expect(page.locator('#wgScanDossier img,#wgScanBrief img,#wgScanReportStamp img')).to_have_count(0)
+                page.screenshot(path=str(ROOT/f'.cache/report-screen-{kind}-1440.png'),animations='disabled')
+                page.set_viewport_size({'width':390,'height':844})
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),kind
+                page.screenshot(path=str(ROOT/f'.cache/report-screen-{kind}-390.png'),animations='disabled')
+                page.set_viewport_size({'width':1440,'height':1000})
+                page.locator('#wgScanDossier summary').click()
                 if kind=='active':
-                    page.locator('[data-wg-tab=rows]').click();page.locator('#wgScanFilter').select_option('open')
+                    page.locator('[data-report-filter=open]').click()
+                    expect(page.locator('#wgScanFilter')).to_have_value('open')
+                    expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
                 expect(page.locator('.wgscan-report-actions button')).to_have_count(1)
                 expect(page.locator('#wgScanExport')).to_have_text('Exporter PDF')
                 data=download_report(page);reader=PdfReader(BytesIO(data));text=pdf_text(data)
@@ -61,6 +76,7 @@ def run():
                 assert not reader.root_object.get('/OpenAction')
                 assert not reader.root_object.get('/Names',{}).get('/JavaScript')
                 assert 'Agence · '+kind in text and 'Synthèse' in text
+                assert 'INFORMATIONS DU SCAN' in text and 'Poste bureau' in text and '2,5 s' in text
                 if kind=='active':assert all(value in text for value in ['OpenSSH','Connexion refusée','Fermé'])
                 if kind=='passive':assert '198.51.100.20' not in text and 'processName' not in text
                 if kind=='map':assert all('192.0.2.'+str(i+1) in text for i in range(20))

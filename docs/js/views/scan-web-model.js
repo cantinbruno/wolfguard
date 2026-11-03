@@ -26,6 +26,7 @@ const webScanModel = (() => {
       processName:text(raw.processName),pid:Number.isInteger(pid)&&pid>=0?pid:null,
       remoteAddress:text(raw.remoteAddress??raw.RemoteAddress,253),remotePort:Number.isInteger(remotePort)&&remotePort>=0&&remotePort<=65535?remotePort:null,
       localAddress:text(raw.localAddress,253),localPort:Number.isInteger(number(raw.localPort))?number(raw.localPort):null,direction:text(raw.direction,20),ttl:Number.isFinite(number(raw.ttl))?number(raw.ttl):null,
+      latencyMs:Number.isFinite(number(raw.latencyMs))&&number(raw.latencyMs)>=0?number(raw.latencyMs):null,
       checkId:text(raw.checkId,100),title:text(raw.title,500),severity:text(raw.severity,20),recommendation:text(raw.recommendation,2000),reference:text(raw.reference,1000),detail:text(raw.detail??raw.observationState??raw.State,4000)};
   }
   function key(r){return JSON.stringify([r.address,r.port,r.transport,r.remoteAddress,r.remotePort,r.pid,r.interfaceName,r.localAddress,r.localPort,r.direction,r.hostname,r.checkId||'']);}
@@ -102,6 +103,7 @@ const webScanModel = (() => {
       if(!data||typeof data!=='object')throw new Error('JSON attendu : une liste d’observations ou un rapport WolfGuard.');
       if(data?.strategy&&data.strategy!==kind)throw new Error('Ce relevé appartient au scan '+(data.strategy==='active'?'actif':'passif')+'.');
       parsed.source='JSON';parsed.target=text(data.target,253);parsed.capturedAt=text(data.capturedAt||data.startedAt);parsed.warnings=Array.isArray(data.warnings)?data.warnings.slice(0,20).map(w=>text(w,500)):[];
+      parsed.collection={startedAt:text(data.startedAt,100),finishedAt:text(data.finishedAt,100),completed:Number.isInteger(data.completed)&&data.completed>=0?data.completed:null,total:Number.isInteger(data.total)&&data.total>=0?data.total:null,platform:text(data.platform,40),agentName:text(data.agentName,180)};
       if(Array.isArray(data))parsed.rows=data;
       else if(Array.isArray(data.rows)||Array.isArray(data.results))parsed.rows=data.rows||data.results;
       else if(kind==='passive'&&(data.neighbors||data.connections||data.udp))parsed.rows=[...(Array.isArray(data.neighbors)?data.neighbors:[]).map(r=>({...r,status:'observed',transport:String(r.IPAddress).includes(':')?'NDP':'ARP'})),...(Array.isArray(data.connections)?data.connections:[]),...(Array.isArray(data.udp)?data.udp:[]).map(r=>({...r,status:'bound',transport:'UDP'}))];
@@ -114,7 +116,7 @@ const webScanModel = (() => {
     if(!parsed.rows.length)throw new Error('Aucune observation reconnue. Le relevé précédent reste conservé.');
     if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit de l’agent Windows, Linux ou macOS, avec ses contrôles et leurs preuves.');
     const unique=new Map();for(const raw of parsed.rows){const record=row(raw,kind,parsed.source);unique.set(key(record),record);}
-    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,target:parsed.target||'',name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
+    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,target:parsed.target||'',name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),...parsed.collection,source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
   }
   function compare(current,baseline){
     const old=new Map(baseline.rows.map(r=>[key(r),r])),next=new Map(current.rows.map(r=>[key(r),r])),changes=[];
