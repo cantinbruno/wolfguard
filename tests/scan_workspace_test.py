@@ -79,7 +79,7 @@ def run():
             page.locator('#scanTarget').fill('192.0.2.1');feed_report(page,json.dumps(PASSIVE),'Agence passive')
             expect(page.locator('#wgScanImportDialog')).to_have_count(0)
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Agence passive')
-            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','0','0','1']
             page.locator('[data-wg-tab=rows]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             page.locator('#wgScanSearch').fill('192.0.2.1');expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
             page.locator('.wgscan-row-detail').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('00-11-22-33-44-55')

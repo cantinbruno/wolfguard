@@ -9,6 +9,11 @@
 .wgscan[data-layout] .wgscan-title-group p { font-size: 14px; line-height: 1.6; max-width: 660px; }
 .wgscan[data-layout] .wgscan-title-icon { width: 44px; height: 44px; border-radius: 11px; }
 .wgscan[data-phase="ready"] .scan-output { display: none; }
+.wgscan[data-phase="ready"] .scan-report-strip { display: none; }
+.wgscan:is([data-phase="results"], [data-phase="loading"]) .scan-setup { display: none; }
+.wgscan[data-phase="results"] .wgscan-heading { max-width: none; }
+.wgscan[data-layout] #wgScanNew { min-height: 40px; font-size: 13px; padding: 9px 14px; }
+.wgscan #wgScanCancel { margin-top: 8px; font-size: 13px; }
 .wgscan .scan-setup {
   max-width: 900px;
   margin: 0 auto 24px;

@@ -74,7 +74,7 @@ def run():
             assert sum('/vendor/pdfmake-roboto-3.014.js' in url for url in requests)==1
             assert not any(url.startswith(('http:','https:')) and not url.startswith(f'http://127.0.0.1:{server.server_port}/') for url in requests),requests
             # All rows, the final observation and repeated table headers survive pagination.
-            navigate(page,'active');page.locator('#scanTarget').fill('192.0.2.1')
+            navigate(page,'active');page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('192.0.2.1')
             many={'strategy':'active','results':[{'address':'192.0.2.1','port':i+1,'transport':'TCP','status':'open','service':'test','detail':'preuve-complete-'+str(i)} for i in range(180)]}
             feed_report(page,json.dumps(many),'Rapport long')
             data=download_report(page);reader=PdfReader(BytesIO(data));text=pdf_text(data)

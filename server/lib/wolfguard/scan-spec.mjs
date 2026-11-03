@@ -1,18 +1,22 @@
 // Shared validation. Jobs are network operations, never terminal commands.
-export function localAddress(value) {
-  if(typeof value!=='string'||value.length>100)throw new Error('Adresse IP locale invalide.');
+export function scanAddress(value) {
+  if(typeof value!=='string'||value.length>100)throw new Error('Adresse IP invalide.');
   if(value==='localhost')return '127.0.0.1';
   if(value.includes(':')){
     let address;try{address=new URL('http://['+value+']/').hostname.slice(1,-1);}catch{throw new Error('Adresse IPv6 invalide.');}
-    if(address==='::1'||/^(?:f[cd][\da-f]{2}|fe[89ab][\da-f]):/i.test(address))return address;
-    throw new Error('Utilise une adresse privée, locale ou de boucle locale.');
+    const mapped=/^::ffff:([a-f\d]+):([a-f\d]+)$/i.exec(address);
+    if(mapped){const high=parseInt(mapped[1],16),low=parseInt(mapped[2],16);return scanAddress([high>>8,high&255,low>>8,low&255].join('.'));}
+    if(address==='::'||/^ff/i.test(address))throw new Error('Choisis une adresse unicast, pas une adresse indéfinie ou multicast.');
+    return address;
   }
   const parts=value.split('.');
   if(parts.length!==4||parts.some(p=>!/^\d{1,3}$/.test(p)||Number(p)>255))throw new Error('Adresse IPv4 invalide.');
   const n=parts.map(Number);
-  if(n[0]===10||n[0]===127||n[0]===172&&n[1]>=16&&n[1]<=31||n[0]===192&&n[1]===168||n[0]===169&&n[1]===254)return n.join('.');
-  throw new Error('Utilise une adresse privée, locale ou de boucle locale.');
+  if(n[0]===0||n[0]>=224)throw new Error('Choisis une adresse unicast, pas une adresse indéfinie, multicast ou réservée.');
+  return n.join('.');
 }
+// Compatibility for older callers; public and private unicast addresses are supported.
+export const localAddress=scanAddress;
 const integer=ip=>ip.split('.').reduce((n,p)=>n*256+Number(p),0);
 const address=n=>[24,16,8,0].map(shift=>Math.floor(n/2**shift)%256).join('.');
 export function singleTarget(value){
@@ -56,7 +60,7 @@ export function scanSpec(raw){
   if(workspace!==undefined&&!['passive','active','map','vulnerability'].includes(workspace))throw new Error('Section de scan invalide.');
   const extra=workspace?{workspace}:{};
   if(raw.strategy==='passive'){
-    if(raw.passiveScope&&!['all','neighbours','security'].includes(raw.passiveScope))throw new Error('Le scan passif réseau lit uniquement les voisins ARP/NDP.');
+    if(raw.passiveScope&&!['all','neighbours','security'].includes(raw.passiveScope))throw new Error('Périmètre de collecte locale invalide.');
     const passiveScope=raw.passiveScope==='security'?'security':'neighbours';
     if(workspace&&workspace!==(passiveScope==='security'?'vulnerability':'passive'))throw new Error('Source incompatible avec cette section.');
     return {strategy:'passive',passiveScope,...(passiveScope==='neighbours'?{target:singleTarget(raw.target)}:{}),...extra};
@@ -64,7 +68,7 @@ export function scanSpec(raw){
   if(workspace&& !['active','map'].includes(workspace))throw new Error('Section incompatible avec un scan actif.');
   const mode=raw.mode||'tcp';if(!['tcp','discovery','icmp'].includes(mode))throw new Error('Mode de scan invalide.');
   const supplied=Array.isArray(raw.ports)&&raw.ports.every(Number.isInteger)?raw.ports.join(','):raw.ports;
-  const target=workspace==='map'?raw.target.trim():singleTarget(raw.target);
+  const target=workspace==='map'&&typeof raw.target==='string'?raw.target.trim():singleTarget(raw.target);
   const addresses=workspace==='map'?targets(target):target.includes(':')||/^[\d.]+$/.test(target)?[localAddress(target)]:[],selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
   if(workspace==='map'&&mode!=='discovery')throw new Error('La cartographie utilise la découverte réseau.');
   if(mode==='discovery'&&selected.length>8)throw new Error('Maximum huit ports de découverte.');

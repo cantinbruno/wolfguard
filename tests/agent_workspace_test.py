@@ -79,14 +79,15 @@ def run():
             print('PASS: association unique depuis le web, vrai agent independant, collecte automatique et resultat sans import')
             expect(first.locator('#wgPassiveScope,[data-passive-process],.wgscan-local-socket')).to_have_count(0)
             first.set_viewport_size({'width':390,'height':844})
-            expect(first.locator('#wgPassiveQuickCollect')).to_be_enabled(timeout=15000)
+            expect(first.locator('#wgScanNew')).to_be_enabled(timeout=15000)
+            first.locator('#wgScanNew').click();expect(first.locator('.scan-setup')).to_be_visible()
             with first.expect_response(lambda response:response.request.method=='POST' and response.url.endswith('/scans')) as created:
-                first.locator('#wgPassiveQuickCollect').click()
+                first.locator('#wgAgentLaunch').click()
             job=created.value.json()
             first.wait_for_function("async value=>(await WolfGuardCloud.agentRequest('scans?agentId='+value.agent)).jobs.some(job=>job.id===value.id&&job.status==='completed')",arg={'id':job['id'],'agent':windows_id},polling=250,timeout=30000)
             expect(first.locator('#wgScanRows tbody tr')).to_have_count(1,timeout=30000)
             first.set_viewport_size({'width':1280,'height':900})
-            print('PASS: passive network collection returns ARP/NDP only and mobile can collect again')
+            print('PASS: passive collection filters by target and mobile can return to preparation for a new scan')
             navigate(first,'active');first.locator('#scanTarget').fill('localhost');first.locator('[data-wg-profile=custom]').click();first.locator('#wgScanPorts').fill('4178')
             expect(first.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000);first.locator('#wgAgentLaunch').click()
             expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan terminé',timeout=30000)
@@ -130,7 +131,7 @@ def run():
             first.locator('#wgAgentStop').evaluate('el=>{el.disabled=false;el.click()}')
             first.wait_for_timeout(100);assert cancelled==[]
             navigate(first,'active');expect(first.locator('#wgAgentStop')).to_be_enabled(timeout=10000)
-            first.locator('#wgAgentStop').click()
+            first.locator('#wgScanCancel').click()
             expect(first.locator('#wgAgentStop')).to_be_disabled()
             assert cancelled==[{'id':fake_id}]
             fake.update({'status':'failed','revision':1000,'report':None})

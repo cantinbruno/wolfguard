@@ -55,7 +55,7 @@ const webScanPDF = (() => {
         return {margin:[0,0,0,10],table:{widths:['*'],body:[[{stack}]]},layout:{hLineWidth:()=>.5,vLineWidth:i=>i===0?2:.5,hLineColor:()=>line,vLineColor:i=>i===0?(row.status==='issue'?'#d5914f':row.status==='passed'?'#69a58d':'#7d95a9'):line,paddingLeft:()=>12,paddingRight:()=>12,paddingTop:()=>12,paddingBottom:()=>12}};
       });
     }
-    if(model.kind==='passive')return [table(['Adresse IP','Adresse MAC','Interface','Cache','État du cache','Nom fourni'],rows.map(row=>[row.address,row.macAddress,row.interfaceName,row.transport,row.detail,row.hostname]),['20%','20%','15%','8%','20%','17%'])];
+    if(model.kind==='passive')return [table(['Cible / port','Type','Nom / processus','Interface','Observation'],rows.map(row=>[row.address+(row.port==null?'':':'+row.port),row.transport,[row.hostname,row.processName,row.pid==null?'':'PID '+row.pid].filter(Boolean).join('\n'),row.interfaceName,[row.macAddress?'MAC : '+row.macAddress:'',row.localAddress?'Local : '+row.localAddress+(row.localPort==null?'':':'+row.localPort):'',row.detail,row.source].filter(Boolean).join('\n')]),['23%','9%','22%','14%','32%'])];
     if(model.kind==='map')return [table(['Adresse IP','État observé','Nom fourni','Port / transport','MAC','Preuve'],rows.map(row=>[row.address,label(row.status),row.hostname,(row.port??'—')+' / '+row.transport,row.macAddress,row.detail]),['21%','16%','14%','14%','16%','19%'])];
     return [table(['Adresse / port','État','Service / version','Nom d’hôte','Preuve'],rows.map(row=>[(row.address.includes(':')?'['+row.address+']':row.address)+(row.port==null?'':':'+row.port)+'\n'+row.transport,label(row.status),[row.service,row.product,row.version].filter(Boolean).join(' '),row.hostname,row.detail]),['23%','12%','22%','17%','26%'])];
   }
@@ -76,7 +76,7 @@ const webScanPDF = (() => {
       ...model.warnings.map(value=>note(value,'#c17c2f',true))
     ];
     if(model.kind==='map')content.push(heading('02','Carte du périmètre'),...map(model));
-    content.push(heading(model.kind==='map'?'03':'02',model.kind==='vulnerability'?'Preuves & recommandations':model.kind==='passive'?'Voisins réseau observés':model.kind==='map'?'Hôtes & preuves':'Services & réponses'),{text:'Toutes les observations reçues · Filtres de l’écran non appliqués',fontSize:7.5,color:muted,margin:[0,0,0,10]},...results(model));
+    content.push(heading(model.kind==='map'?'03':'02',model.kind==='vulnerability'?'Preuves & recommandations':model.kind==='passive'?'Observations réseau locales':model.kind==='map'?'Hôtes & preuves':'Services & réponses'),{text:'Toutes les observations reçues · Filtres de l’écran non appliqués',fontSize:7.5,color:muted,margin:[0,0,0,10]},...results(model));
     if(model.reference){
       const names={added:'Nouvelle',removed:'Absente',changed:'Modifiée'},describe=row=>[label(row.status),row.macAddress,row.service,row.product,row.version,row.detail].filter(Boolean).join(' · ');
       content.push(heading(model.kind==='map'?'04':'03','Évolution du relevé'),note('Référence : '+model.reference.name+' · '+model.reference.date+'. Comparer le même périmètre et les mêmes options. Une absence ne confirme pas une disparition réelle.',model.accent));

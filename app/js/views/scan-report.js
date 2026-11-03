@@ -10,14 +10,14 @@ const webScanReport = (() => {
   const answered=row=>['reachable','open','closed'].includes(row.status);
   function metrics(kind,rows){
     const count=status=>rows.filter(row=>row.status===status).length,hosts=select=>new Set(rows.filter(select).map(row=>row.address)).size;
-    if(kind==='passive')return [[rows.length,'Entrées en cache'],[rows.filter(row=>row.transport==='ARP').length,'Voisins IPv4 · ARP'],[rows.filter(row=>row.transport==='NDP').length,'Voisins IPv6 · NDP'],[new Set(rows.map(row=>row.interfaceName).filter(Boolean)).size,'Interfaces réseau']];
+    if(kind==='passive')return [[rows.length,'Observations locales'],[rows.filter(row=>row.status==='connection').length,'Connexions connues'],[new Set(rows.filter(row=>row.transport==='DNS').map(row=>row.hostname)).size,'Noms en cache'],[new Set(rows.map(row=>row.interfaceName).filter(Boolean)).size,'Interfaces réseau']];
     if(kind==='map')return [[hosts(()=>true),'Adresses observées'],[hosts(answered),'Adresses répondantes'],[hosts(row=>['unreachable','no-response'].includes(row.status)),'Sans réponse'],[hosts(row=>row.status==='error'),'Erreurs de collecte']];
     if(kind==='vulnerability')return [[count('issue'),'Risques détectés'],[count('passed'),'Contrôles conformes'],[count('notchecked'),'Non vérifiés'],[rows.filter(row=>row.status==='issue'&&['critical','high'].includes(row.severity)).length,'Risques élevés / critiques']];
     return [[hosts(()=>true),'Machines observées'],[count('open'),'Ports ouverts'],[rows.filter(row=>row.status.includes('filtered')).length,'États filtrés / ambigus'],[new Set(rows.map(row=>row.service).filter(Boolean)).size,'Services nommés']];
   }
   function synthesis(kind,rows){
     if(!rows.length)return 'Aucune observation disponible dans ce relevé. Consulte l’état de la collecte et ses limites avant de conclure.';
-    if(kind==='passive')return number(rows.length)+' entrée(s) ARP/NDP associée(s) à la cible dans les caches réseau de l’agent. Le relevé décrit les informations déjà connues au moment de la collecte.';
+    if(kind==='passive')return number(rows.length)+' observation(s) associée(s) à la cible dans les caches et tables locales : voisins, noms DNS, connexions ou sockets du poste.';
     if(kind==='map')return number(new Set(rows.filter(answered).map(row=>row.address)).size)+' adresse(s) ont répondu depuis le poste d’observation. La carte et les preuves ci-dessous permettent de situer les réponses dans le périmètre examiné.';
     if(kind==='vulnerability')return number(rows.filter(row=>row.status==='issue').length)+' contrôle(s) signalent une configuration à examiner. Les risques sont classés par gravité, puis accompagnés de leurs preuves et de leurs recommandations. Les contrôles indisponibles restent non vérifiés.';
     return number(rows.filter(row=>row.status==='open').length)+' port(s) ont été observés ouverts. Les états, services et éléments d’identification sont détaillés pour la cible examinée. Un port ouvert ne constitue pas, à lui seul, une vulnérabilité.';

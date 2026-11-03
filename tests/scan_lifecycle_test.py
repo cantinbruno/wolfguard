@@ -19,7 +19,7 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','security-audit-v1']}
+    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','security-audit-v1']}
     jobs=[];held_create=[];held_result=[];result_requests=[];options={'hold_create':True,'hold_result':False,'fail_create':False}
 
     def report(job):
@@ -70,7 +70,7 @@ def run():
                 expect(page.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000)
                 with page.expect_request(lambda request:request.method=='POST' and request.url.endswith('/scans')):page.locator('#wgAgentLaunch').click()
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','loading')
-                expect(page.locator('#wgScanExecution')).to_be_visible()
+                expect(page.locator('#wgScanExecution')).to_be_visible();expect(page.locator('.scan-setup')).to_be_hidden()
                 expect(page.locator('#wgScanExecution')).to_be_in_viewport()
                 expect(page.locator('#wgScanExecutionTitle')).to_contain_text('Lancement')
                 expect(page.locator('.wgscan-tabs')).to_be_hidden()
@@ -102,9 +102,17 @@ def run():
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
                 expect(page.locator('#wgScanExecution')).to_be_hidden();expect(page.locator('.wgscan-tabs')).to_be_visible()
                 expect(page.locator('#wgScanMetrics')).to_be_visible();expect(page.locator('#wgScanExport')).to_be_enabled()
+                expect(page.locator('.scan-setup')).to_be_hidden();expect(page.locator('#wgScanNew')).to_be_visible()
                 page.set_viewport_size({'width':1440,'height':1000})
+            # Preparation persists through polling and navigation, preserving the chosen target.
+            page.locator('#wgScanNew').click();expect(page.locator('.scan-setup')).to_be_visible()
+            navigate(page,'passive');navigate(page,'vulnerability')
+            expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
+            expect(page.locator('.scan-output')).to_be_hidden();page.wait_for_timeout(3300)
+            expect(page.locator('.scan-setup')).to_be_visible()
             # A failed new launch hides the previous results and leaves a usable form.
             navigate(page,'active');expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
+            page.locator('#wgScanNew').click();expect(page.locator('#scanTarget')).to_have_value('192.168.1.10')
             options['fail_create']=True;page.locator('#wgAgentLaunch').click()
             expect(page.locator('.wgscan')).to_have_attribute('data-phase','error')
             expect(page.locator('#wgScanExecutionText')).to_contain_text('Relais indisponible')

@@ -12,6 +12,13 @@ const document=value=>vm.runInContext('webScanPDF.definition',context)(value);
 const row={address:'192.0.2.1',port:22,transport:'TCP',status:'open',service:'ssh',product:'OpenSSH',version:'9.9',detail:'Bannière reçue',hostname:'serveur',macAddress:'',interfaceName:'',checkId:'',title:'',severity:'',recommendation:'',reference:''};
 const report={name:'Agence · scan',target:'192.0.2.1',source:'Agent · Windows',capturedAt:'2026-11-02T09:00:00Z',jobStatus:'completed',warnings:[],rows:[row]};
 
+test('browser targets accept public unicast and normalize mapped IPv4 consistently with the agent',()=>{
+  const target=vm.runInContext('webScanModel.singleTarget',context);
+  assert.equal(target('8.8.8.8'),'8.8.8.8');assert.equal(target('::ffff:8.8.8.8'),'8.8.8.8');
+  assert.equal(target('2001:4860:4860::8888'),'2001:4860:4860::8888');
+  for(const value of ['0.0.0.0','224.0.0.1','255.255.255.255','::','ff02::1','::ffff:224.0.0.1'])assert.throws(()=>target(value),value);
+});
+
 test('lazy PDF engine and embedded fonts match pinned integrity values',()=>{
   const loader=readFileSync(new URL('../app/js/views/scan-pdf.js',import.meta.url),'utf8');
   for(const file of ['pdfmake-0.3.13.min.js','pdfmake-roboto-3.014.js']){
@@ -42,12 +49,22 @@ test('PDF audit retains controls and prioritizes high risks, evidence and failur
   assert.equal((output.match(/PREUVE \/ OBSERVATION/g)||[]).length,4);
 });
 
-test('passive PDF excludes processes and preserves comparison evidence',()=>{
+test('passive PDF excludes unrelated sockets and preserves comparison evidence',()=>{
   const neighbor={...row,port:null,transport:'ARP',status:'observed',interfaceName:'Ethernet',macAddress:'00:11:22:33:44:55'};
   const baseline={...report,rows:[{...neighbor,macAddress:'AA:BB:CC:DD:EE:FF'}]};
   const output=JSON.stringify(document(model('passive',{...report,rows:[neighbor,{...row,address:'127.0.0.1',processName:'host-secret',status:'listening'}]},baseline)));
   assert.equal(output.includes('host-secret'),false);assert.equal(output.includes('127.0.0.1'),false);
   for(const item of ['00:11:22:33:44:55','AA:BB:CC:DD:EE:FF','Évolution du relevé','Ethernet'])assert.ok(output.includes(item),item);
+});
+
+test('passive model and PDF keep DNS and distinct target connections with their owners',()=>{
+  const target={...report,target:'8.8.8.8',rows:[
+    {...row,address:'8.8.8.8',port:null,transport:'DNS',status:'observed',hostname:'dns.example',ttl:120},
+    ...[51000,51001].map(localPort=>({...row,address:'8.8.8.8',port:443,status:'connection',direction:'remote',remoteAddress:'8.8.8.8',remotePort:443,localAddress:'192.168.1.10',localPort,pid:42,processName:'browser'}))]};
+  const parse=vm.runInContext('webScanModel.parse',context),parsed=parse(JSON.stringify({...target,results:target.rows}),'passive');
+  assert.equal(parsed.rows.length,3);
+  const value=model('passive',parsed),output=JSON.stringify(document(value));
+  for(const field of ['dns.example','8.8.8.8:443','browser','51000','51001','PID 42'])assert.ok(output.includes(field),field);
 });
 
 test('PDF map bounds its diagram while keeping every observation in the table',()=>{

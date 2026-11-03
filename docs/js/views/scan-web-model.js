@@ -25,9 +25,10 @@ const webScanModel = (() => {
       macAddress:text(raw.macAddress??raw.LinkLayerAddress,80),interfaceName:text(raw.interfaceName??raw.InterfaceAlias??raw.InterfaceIndex,100),
       processName:text(raw.processName),pid:Number.isInteger(pid)&&pid>=0?pid:null,
       remoteAddress:text(raw.remoteAddress??raw.RemoteAddress,253),remotePort:Number.isInteger(remotePort)&&remotePort>=0&&remotePort<=65535?remotePort:null,
+      localAddress:text(raw.localAddress,253),localPort:Number.isInteger(number(raw.localPort))?number(raw.localPort):null,direction:text(raw.direction,20),ttl:Number.isFinite(number(raw.ttl))?number(raw.ttl):null,
       checkId:text(raw.checkId,100),title:text(raw.title,500),severity:text(raw.severity,20),recommendation:text(raw.recommendation,2000),reference:text(raw.reference,1000),detail:text(raw.detail??raw.observationState??raw.State,4000)};
   }
-  function key(r){return JSON.stringify([r.address,r.port,r.transport,r.remoteAddress,r.remotePort,r.pid,r.interfaceName,r.checkId||'']);}
+  function key(r){return JSON.stringify([r.address,r.port,r.transport,r.remoteAddress,r.remotePort,r.pid,r.interfaceName,r.localAddress,r.localPort,r.direction,r.hostname,r.checkId||'']);}
   function signature(r){return JSON.stringify([r.status,r.macAddress,r.service,r.product,r.version,r.processName,r.detail]);}
   function csv(input){
     const content=input.replace(/^#TYPE[^\n]*\n/i,'');
@@ -127,7 +128,10 @@ const webScanModel = (() => {
     if(target==='localhost')return '127.0.0.1';
     if(target.includes(':')||/^[\d.]+$/.test(target)){
       if(target.includes(':')?(!ipaddr.IPv6.isValid(target)||target.includes('%')):!ipaddr.IPv4.isValidFourPartDecimal(target))throw new Error('Adresse IP invalide.');
-      return ipaddr.parse(target).toString();
+      let address=ipaddr.parse(target);
+      if(address.kind()==='ipv6'&&address.isIPv4MappedAddress())address=address.toIPv4Address();
+      if(address.kind()==='ipv4'?(address.toByteArray()[0]===0||address.toByteArray()[0]>=224):['unspecified','multicast'].includes(address.range()))throw new Error('Choisis une adresse IP unicast.');
+      return address.toString();
     }
     const labels=target.split('.');
     if(labels.length<2||labels.some(label=>!label.length||label.length>63||!(/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(label)))||/^\d+$/.test(labels.at(-1)))throw new Error('Indique une seule IP ou un FQDN, sans plage, CIDR, URL ni port.');
@@ -140,9 +144,13 @@ const webScanModel = (() => {
     return {...report,target,rows,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) ne correspondant pas à la cible unique ont été écartées.']:[])]};
   }
   function networkReport(report){
-    const neighbors=report.rows.filter(item=>item.status==='observed'&&['ARP','NDP'].includes(item.transport)&&ipaddr.isValid(item.address.replace(/^\[|\]$/g,'').split('%')[0]));
-    const excluded=report.rows.length-neighbors.length;
-    return {...report,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) hors du périmètre réseau ont été écartées.']:[])],rows:neighbors.map(item=>({address:item.address,transport:item.transport,status:'observed',hostname:item.hostname||'',macAddress:item.macAddress||'',interfaceName:item.interfaceName||'',detail:item.detail||'',source:item.source||'Import'}))};
+    const valid=value=>typeof value==='string'&&ipaddr.isValid(value.replace(/^\[|\]$/g,'').split('%')[0]);
+    const rows=report.rows.map(item=>{
+      if(item.status==='connection'&&!item.direction&&!item.localAddress&&valid(item.remoteAddress)&&!['0.0.0.0','::'].includes(item.remoteAddress))return {...item,address:item.remoteAddress,port:item.remotePort,localAddress:item.address,localPort:item.port,direction:'remote'};
+      return item;
+    }).filter(item=>valid(item.address)&&(item.status==='observed'&&['ARP','NDP','DNS'].includes(item.transport)||['TCP','UDP'].includes(item.transport)&&['connection','listening','bound'].includes(item.status)&&!!(item.direction||item.localAddress)));
+    const excluded=report.rows.length-rows.length;
+    return {...report,warnings:[...(report.warnings||[]),...(excluded?[excluded+' observation(s) hors du périmètre réseau ont été écartées.']:[])],rows};
   }
   function command(values){
     if(values.kind!=='map')values={...values,target:singleTarget(values.target)};

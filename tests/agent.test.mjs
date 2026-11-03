@@ -6,7 +6,7 @@ import {randomBytes,createHash} from 'node:crypto';
 import {createServer} from 'node:net';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import {scanSpec,targets,singleTarget} from '../server/lib/wolfguard/scan-spec.mjs';
-import {runNetworkScan,fixedProcess,cachedTargetAddresses,activeTargetAddress} from '../agent/network.mjs';
+import {runNetworkScan,fixedProcess,cachedTargetAddresses,activeTargetAddress,passiveTargetRows} from '../agent/network.mjs';
 import {fileURLToPath} from 'node:url';
 import {PassThrough} from 'node:stream';
 import {desktopAgent,runAgent} from '../agent/agent.mjs';
@@ -46,23 +46,26 @@ async function setup(){
   // Activation header is intentionally supplied only through this local fixture.
   const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation},body:JSON.stringify({code:'07942685'})}),env,()=>now);
   const user='Bearer '+(await response.json()).token;
-  async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();await api('agent/poll',{capabilities:['network-target-v1']},'Agent '+agent.token);return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
+  async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();await api('agent/poll',{capabilities:['network-target-v1','network-scan-v3']},'Agent '+agent.token);return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
   return {api,user,pair,env,advance:ms=>{now+=ms;}};
 }
-test('strict scan plans reject Internet targets, injection, huge ranges and unsafe options',()=>{
+test('scan plans allow public unicast targets while rejecting injection, multicast and excessive scans',()=>{
   assert.equal(targets('192.168.1.0/24').length,254);assert.equal(targets('127.0.0.1')[0],'127.0.0.1');assert.equal(targets('::1')[0],'::1');
-  for(const value of ['8.8.8.8','169.254.1.2;echo hi','example.com','0.0.0.0','::ffff:8.8.8.8','2001:db8::1','192.168.0.0/16','10.0.0.1-10.0.2.1'])assert.throws(()=>targets(value),value);
+  for(const value of ['169.254.1.2;echo hi','example.com','0.0.0.0','224.0.0.1','255.255.255.255','::','ff02::1','::ffff:224.0.0.1','192.168.0.0/16','10.0.0.1-10.0.2.1'])assert.throws(()=>targets(value),value);
+  for(const [value,expected] of [['8.8.8.8','8.8.8.8'],['::ffff:8.8.8.8','8.8.8.8'],['2001:db8::1','2001:db8::1']])assert.deepEqual(targets(value),[expected]);
+  assert.equal(targets('8.8.8.0/24').length,254);
   const input={strategy:'active',target:'127.0.0.1',ports:'22,80,443',mode:'tcp',timeoutMs:200,concurrency:2};assert.deepEqual(scanSpec(scanSpec(input)),scanSpec(input));
   for(const change of [{ports:'1-65535'},{concurrency:99},{timeoutMs:9999},{target:'192.168.0.0/24',ports:'1-100'},{mode:'shell'},{ports:'22;curl invalid'}])assert.throws(()=>scanSpec({...input,...change}));
 });
 
 test('active and passive require one IP/FQDN and discard caller-supplied address lists',async()=>{
-  for(const target of ['',null,'10.0.0.0/24','10.0.0.1-10.0.0.2','10.0.0.1 10.0.0.2','http://host.example','host.example:443','*.example','-a.example','bad..example','8.8.8.8','::ffff:8.8.8.8']){
+  for(const target of ['',null,'10.0.0.0/24','10.0.0.1-10.0.0.2','10.0.0.1 10.0.0.2','http://host.example','host.example:443','*.example','-a.example','bad..example','0.0.0.0','224.0.0.1','::','ff02::1']){
     for(const strategy of ['active','passive'])assert.throws(()=>scanSpec({strategy,workspace:strategy,target,ports:'443'}),String(target));
   }
   assert.equal(singleTarget(' Serveur-test.Exemple.Local. '),'serveur-test.exemple.local');
   assert.deepEqual(scanSpec({strategy:'active',target:'10.0.0.1',ports:'443',addresses:['10.0.0.2']}).addresses,['10.0.0.1']);
-  for(const answers of [[{address:'8.8.8.8'}],[{address:'10.0.0.1'},{address:'8.8.8.8'}],[]])await assert.rejects(activeTargetAddress('host.example',{lookup:async()=>answers}));
+  for(const answers of [[{address:'224.0.0.1'}],[{address:'10.0.0.1'},{address:'::'}],[]])await assert.rejects(activeTargetAddress('host.example',{lookup:async()=>answers}));
+  assert.equal(await activeTargetAddress('host.example',{lookup:async()=>[{address:'8.8.8.8'},{address:'1.1.1.1'}]}),'8.8.8.8');
   const s=await setup();try{
     const agent=await s.pair();await s.api('agent/poll',{capabilities:['network-scan-v2']},agent.auth);
     for(const strategy of ['active','passive'])assert.equal((await s.api('scans',{agentId:agent.id,strategy,target:'10.0.0.1',ports:'443'},s.user)).status,409);
@@ -77,10 +80,29 @@ test('passive FQDN reads only cached associations, returns only its address and 
     const report=await runNetworkScan({strategy:'passive',target:'serveur-test.example.local'},{passiveCollector:async()=>({results:rows}),cacheOptions,lookup:()=>{throw new Error('DNS forbidden');}});
     assert.equal(reads,1);assert.equal(commands,platform==='win32'?1:0);assert.deepEqual(report.results.map(row=>row.address),['192.168.1.1']);assert.equal(report.target,'serveur-test.example.local');
   }
-  const cached=await cachedTargetAddresses('host.example',[],{platform:'win32',read:async()=>'',run:async()=>JSON.stringify(['192.168.1.2','8.8.8.8'])});assert.deepEqual(cached,['192.168.1.2']);
+  const cached=await cachedTargetAddresses('host.example',[],{platform:'win32',read:async()=>'',run:async()=>JSON.stringify(['192.168.1.2','8.8.8.8'])});assert.deepEqual(cached,['192.168.1.2','8.8.8.8']);
   const missing=await runNetworkScan({strategy:'passive',target:'unknown.example'},{passiveCollector:async()=>({results:rows}),cacheOptions:{platform:'linux',read:async()=>''},lookup:()=>{throw new Error('DNS forbidden');}});
   assert.equal(missing.results.length,0);assert.ok(missing.warnings.some(value=>value.includes('Aucune association locale')));
   const ipv6=await runNetworkScan({strategy:'passive',target:'fd00::1'},{passiveCollector:async()=>({results:[{address:'fd00:0000:0000:0000:0000:0000:0000:0001',transport:'NDP',status:'observed'},{address:'fd00::2',transport:'NDP',status:'observed'}]})});assert.deepEqual(ipv6.results.map(row=>row.address),['fd00::1']);
+});
+
+test('passive observations retain target DNS, remote ports and owners without leaking unrelated sockets',async()=>{
+  const snapshot={localAddresses:['192.168.1.10'],results:[
+    {address:'8.8.8.8',hostname:'dns.example',transport:'DNS',status:'observed',ttl:120},
+    {address:'192.168.1.10',port:51000,remoteAddress:'8.8.8.8',remotePort:443,transport:'TCP',status:'connection',pid:42,processName:'browser'},
+    {address:'192.168.1.10',port:51001,remoteAddress:'8.8.8.8',remotePort:443,transport:'TCP',status:'connection',pid:42,processName:'browser'},
+    {address:'192.168.1.10',port:51002,remoteAddress:'1.1.1.1',remotePort:443,transport:'TCP',status:'connection',pid:43},
+    {address:'0.0.0.0',port:8080,transport:'TCP',status:'listening',pid:77},
+    {address:'::',port:5353,transport:'UDP',status:'bound',pid:78}]};
+  const rows=passiveTargetRows(snapshot,['8.8.8.8'],'8.8.8.8');assert.equal(rows.length,3);
+  assert.ok(rows.every(row=>row.address==='8.8.8.8'));assert.equal(rows[0].ttl,120);
+  assert.equal(rows[1].port,443);assert.equal(rows[1].localPort,51000);assert.equal(rows[1].processName,'browser');
+  assert.equal(passiveTargetRows(snapshot,['9.9.9.9'],'9.9.9.9').length,0);
+  const local=passiveTargetRows(snapshot,['192.168.1.10'],'192.168.1.10');
+  assert.equal(local.filter(row=>['listening','bound'].includes(row.status)).length,2);
+  const report=await runNetworkScan({workspace:'passive',strategy:'passive',target:'dns.example'},
+    {passiveCollector:async()=>snapshot,cacheOptions:{platform:'linux',read:async()=>''},lookup:()=>{throw new Error('Network DNS forbidden');}});
+  assert.equal(report.results.length,3);assert.ok(report.results.every(row=>row.address==='8.8.8.8'));
 });
 
 test('one enrollment on each supported OS can execute all four scoped workspaces',async()=>{
@@ -90,7 +112,7 @@ test('one enrollment on each supported OS can execute all four scoped workspaces
     assert.equal((await s.api('agent/enroll',{code:ticket.code,name:'Unsupported',platform:'freebsd'})).status,400);
     for(const platform of ['win32','linux','darwin']){
       const agent=await s.pair('Poste '+platform,platform);
-      await s.api('agent/poll',{capabilities:['security-audit-v1','network-target-v1']},agent.auth);
+      await s.api('agent/poll',{capabilities:['security-audit-v1','network-target-v1','network-scan-v3']},agent.auth);
       const list=await (await s.api('agents',undefined,s.user)).json();
       assert.equal(list.agents.find(item=>item.id===agent.id).platform,platform);
       for(const workspace of ['passive','active','map','vulnerability']){
@@ -125,7 +147,8 @@ test('agent pairing is one-use, scoped, encrypted, revocable and separate from v
 });
 test('jobs have one lease, ordered snapshots, cancellation and no shell or vault access',async()=>{
   const s=await setup(),a=await s.pair(),b=await s.pair('Autre poste');
-  assert.equal((await s.api('scans',{agentId:a.id,strategy:'active',target:'8.8.8.8',ports:'443'},s.user)).status,400);
+  const publicJob=await s.api('scans',{agentId:a.id,strategy:'active',target:'8.8.8.8',ports:'443'},s.user);assert.equal(publicJob.status,201);
+  await s.api('scans/cancel',{id:(await publicJob.json()).id},s.user);
   const job=await (await s.api('scans',{agentId:a.id,strategy:'active',target:'127.0.0.1',ports:'22,443'},s.user)).json();
   assert.equal((await s.api('scans',{agentId:a.id,strategy:'passive',target:'127.0.0.1'},s.user)).status,409);
   const claims=await Promise.all([s.api('agent/poll',{},a.auth),s.api('agent/poll',{},a.auth)]);const claimed=(await Promise.all(claims.map(r=>r.json()))).map(data=>data.job).filter(Boolean);assert.equal(claimed.length,1);const lease=claimed[0];
@@ -151,7 +174,7 @@ test('global history paginates all scan kinds across agents and retains encrypte
   const s=await setup();
   try{
     const a=await s.pair('Poste principal'),b=await s.pair('Ancien poste','linux');
-    for(const agent of [a,b])await s.api('agent/poll',{capabilities:['network-target-v1','security-audit-v1']},agent.auth);
+    for(const agent of [a,b])await s.api('agent/poll',{capabilities:['network-target-v1','security-audit-v1','network-scan-v3']},agent.auth);
     const ids=[];
     for(let index=0;index<64;index++){
       const workspace=['passive','active','map','vulnerability'][index%4],agent=index%2?a:b;
@@ -186,7 +209,7 @@ test('global history paginates all scan kinds across agents and retains encrypte
 test('history deletion requires a current vault session, removes one completed report and protects live or future jobs',async()=>{
   const s=await setup();
   try{
-    const agent=await s.pair();await s.api('agent/poll',{capabilities:['network-target-v1']},agent.auth);
+    const agent=await s.pair();await s.api('agent/poll',{capabilities:['network-target-v1','network-scan-v3']},agent.auth);
     const create=async()=>{const response=await s.api('scans',{agentId:agent.id,strategy:'passive',target:'127.0.0.1'},s.user);assert.equal(response.status,201);return (await response.json()).id;};
     const id=await create();
     assert.equal((await s.api('scans/delete',{id})).status,401);
@@ -221,7 +244,7 @@ test('the actual network engine connects to a loopback service and cancels pendi
     const cancel=new AbortController();setTimeout(()=>cancel.abort(),100);
     const interrupted=await runNetworkScan({strategy:'active',target:'127.0.0.1',mode:'tcp',ports:String(port),timeoutMs:200,concurrency:1,identifyServices:true},{signal:cancel.signal});assert.equal(interrupted.cancelled,true);assert.equal(interrupted.completed,0);
   }finally{await new Promise(resolve=>server.close(resolve));}
-  const passive=await runNetworkScan({workspace:'passive',strategy:'passive',target:'192.168.1.1',passiveScope:'neighbours'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening',pid:42},{address:'192.168.1.1',transport:'ARP',status:'observed',pid:42}]})});assert.equal(passive.results.length,1);assert.equal(passive.results[0].address,'192.168.1.1');assert.equal(passive.results[0].pid,undefined);
+  const passive=await runNetworkScan({workspace:'passive',strategy:'passive',target:'192.168.1.1',passiveScope:'neighbours'},{passiveCollector:async()=>({results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'listening',pid:42},{address:'192.168.1.1',transport:'ARP',status:'observed'}]})});assert.equal(passive.results.length,1);assert.equal(passive.results[0].address,'192.168.1.1');assert.equal(passive.results[0].pid,undefined);
 });
 test('Windows protects the agent credential for the current user using real DPAPI',{skip:process.platform!=='win32'},async()=>{
   const script=fileURLToPath(new URL('../agent/protect.ps1',import.meta.url));

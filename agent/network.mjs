@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {lookup as dnsLookup} from 'node:dns/promises';
 import {readFile} from 'node:fs/promises';
 import {join} from 'node:path';
+import {networkInterfaces} from 'node:os';
 import {scanSpec,localAddress,singleTarget} from '../server/lib/wolfguard/scan-spec.mjs';
 import {evaluateSecurity} from './security-rules.mjs';
 import {collectPosixPassive,collectPosixSecurity} from './posix.mjs';
@@ -14,9 +15,39 @@ export function fixedProcess(file,args,{input='',signal,timeout=20000,maxBytes=3
   return new Promise((resolve,reject)=>{const child=execFile(file,args,{windowsHide:true,encoding:'utf8',timeout,maxBuffer:maxBytes,signal,env:{...process.env,LC_ALL:'C',LANG:'C'}},(error,stdout,stderr)=>{if(error){error.stdout=stdout;error.stderr=stderr;reject(error);}else resolve(stdout);});child.stdin.on('error',()=>{});child.stdin.end(input);});
 }
 export async function collectPassive(signal){
-  if(process.platform!=='win32')return collectPosixPassive(signal,{run:fixedProcess});
-  const result=await fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./collect.ps1',import.meta.url))],{signal,timeout:30000});
-  const data=JSON.parse(result.replace(/^\uFEFF/,''));if(!Array.isArray(data.results))throw new Error('Relevé Windows illisible.');return data;
+  let data;
+  if(process.platform!=='win32')data=await collectPosixPassive(signal,{run:fixedProcess});
+  else{
+    const result=await fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./collect.ps1',import.meta.url))],{signal,timeout:30000});
+    data=JSON.parse(result.replace(/^\uFEFF/,''));if(!Array.isArray(data.results))throw new Error('Relevé Windows illisible.');
+  }
+  data.localAddresses=[...new Set([...(data.localAddresses||[]),...Object.values(networkInterfaces()).flat().filter(Boolean).map(item=>item.address)])];
+  try{
+    const hosts=await readFile(process.platform==='win32'?join(process.env.SystemRoot||'C:\\Windows','System32','drivers','etc','hosts'):'/etc/hosts','utf8');
+    for(const line of hosts.split(/\r?\n/)){
+      const [address,...names]=line.split('#',1)[0].trim().split(/\s+/);
+      for(const hostname of names)data.results.push({address,hostname,transport:'DNS',status:'observed',source:'agent-hosts',detail:'Association présente dans le fichier hosts local.'});
+    }
+  }catch{data.warnings.push('Fichier hosts local indisponible.');}
+  return data;
+}
+export function passiveTargetRows(snapshot,addresses,target){
+  const normalize=value=>{try{return localAddress(String(value||'').split('%')[0]);}catch{return '';}};
+  const known=addresses.find(address=>snapshot.results.some(row=>normalize(row.address)===address||normalize(row.remoteAddress)===address));
+  const selected=known||addresses[0];if(!selected)return [];
+  const local=new Set((snapshot.localAddresses||[]).map(normalize)),isLocal=local.has(selected)||selected==='::1'||/^127\./.test(selected);
+  const rows=[],seen=new Set();
+  const add=row=>{const key=JSON.stringify([row.address,row.port,row.transport,row.hostname,row.localAddress,row.localPort,row.remoteAddress,row.remotePort,row.pid,row.interfaceName]);if(!seen.has(key)){seen.add(key);rows.push(row);}};
+  for(const row of snapshot.results){
+    const address=normalize(row.address),remote=normalize(row.remoteAddress),transport=String(row.transport||'').toUpperCase();
+    if(address===selected&&row.status==='observed'&&['ARP','NDP','DNS'].includes(transport)){
+      add({...row,address:selected,port:null,transport,hostname:row.hostname||(!target.includes(':')&&!/^[\d.]+$/.test(target)?target:''),source:row.source||'agent-local-cache'});
+    }else if(['TCP','UDP'].includes(transport)&&['connection','listening','bound'].includes(row.status)){
+      if(remote===selected&&row.status==='connection')add({...row,address:selected,port:row.remotePort,localAddress:address,localPort:row.port,remoteAddress:remote,remotePort:row.remotePort,direction:'remote',source:row.source||'agent-connection-table'});
+      else if(address===selected||isLocal&&['0.0.0.0','::'].includes(String(row.address)))add({...row,address:selected,localAddress:row.address,localPort:row.port,remoteAddress:row.remoteAddress||'',direction:'local',source:row.source||'agent-local-socket'});
+    }
+  }
+  return rows;
 }
 export async function collectSecurity(signal){
   if(process.platform!=='win32')return collectPosixSecurity(signal,{run:fixedProcess});
@@ -90,11 +121,10 @@ export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollec
     let matches=null;
     if(spec.passiveScope!=='security'){
       const addresses=spec.target.includes(':')||/^[\d.]+$/.test(spec.target)?[spec.target]:await cachedTargetAddresses(spec.target,snapshot.results,{...cacheOptions,signal});
-      const known=addresses.find(address=>snapshot.results.some(row=>{try{return localAddress(String(row.address).split('%')[0])===address;}catch{return false;}}));
-      matches=new Set(addresses.length?[known||addresses[0]]:[]);
+      matches=addresses;
     }
-    for(const row of snapshot.results){if(signal?.aborted)break;if(spec.passiveScope==='security')add(row);else {let address;try{address=localAddress(String(row.address).split('%')[0]);}catch{continue;}if(matches.has(address)&&row.status==='observed'&&['ARP','NDP'].includes(row.transport))add({address,port:null,transport:row.transport,status:'observed',hostname:spec.target.includes(':')||/^[\d.]+$/.test(spec.target)?'':spec.target,macAddress:row.macAddress||'',interfaceName:row.interfaceName||'',detail:row.detail||'',source:row.source||'agent-neighbor'});}}
-    if(matches&&!rows.length)warnings.push(matches.size?'Aucune entrée ARP/NDP connue pour '+spec.target+'. Aucune sonde envoyée.':'Aucune association locale connue pour ce FQDN (fichier hosts ou cache DNS Windows). Aucune requête DNS ni sonde envoyée.');
+    for(const row of spec.passiveScope==='security'?snapshot.results:passiveTargetRows(snapshot,matches,spec.target)){if(signal?.aborted)break;add(row);}
+    if(matches&&!rows.length)warnings.push(matches.length?'Aucune observation locale connue pour '+spec.target+'. Aucune sonde envoyée.':'Aucune association locale connue pour ce FQDN (fichier hosts ou cache DNS Windows). Aucune requête DNS ni sonde envoyée.');
     warnings.push(...(snapshot.warnings||[]).slice(0,10));completed=total=rows.length;onProgress(report());return report();
   }
   if(spec.workspace!=='map'){

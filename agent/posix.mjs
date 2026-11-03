@@ -103,7 +103,17 @@ export async function collectPosixPassive(signal, {platform = process.platform, 
       if (data.available) results.push(...parseNeighbors(data.output)); else warnings.push('Lecture ' + file.split('/').at(-1) + ' indisponible.');
     }
   } else throw new Error('Système non pris en charge.');
-  warnings.push('Cache ARP/NDP uniquement, sans sonde. Une entrée ne confirme pas la présence actuelle du voisin.');
+  if(platform==='linux'){
+    const sockets=await observe(run,'ss',['-H','-tunap'],signal);
+    if(sockets.available)results.push(...parseSS(sockets.output));
+    else for(const [file,transport,ipv6] of [['tcp','TCP',false],['tcp6','TCP',true],['udp','UDP',false],['udp6','UDP',true]]){
+      try{results.push(...parseProcNet(await read('/proc/net/'+file),transport,ipv6));}catch{warnings.push('Table '+file+' indisponible.');}
+    }
+  }else{
+    const sockets=await observe(run,'/usr/sbin/lsof',['-nP','-iTCP','-iUDP','-FpcfnPT'],signal,[0,1]);
+    if(sockets.available)results.push(...parseLsof(sockets.output));else warnings.push('Tables des connexions locales indisponibles.');
+  }
+  warnings.push('Tables et caches locaux uniquement, sans sonde ni résolution DNS réseau.');
   return {results, warnings};
 }
 

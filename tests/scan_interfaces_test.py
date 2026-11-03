@@ -70,14 +70,35 @@ def run():
                 {'address':'127.0.0.1','port':8080,'transport':'TCP','status':'listening','pid':77,'processName':'host-only-secret'}]}
             feed_report(page,json.dumps(network),'Caches réseau')
             expect(page.locator('.passive-network-device')).to_have_count(1)
-            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','1','0','1']
+            assert page.locator('#wgScanMetrics strong').all_text_contents()==['1','0','0','1']
             raw=export_report(page)
             assert 'host-only-secret' not in raw and 'processName' not in raw and 'pid' not in raw
             assert '192.0.2.1' in raw and '2001:db8::1' not in raw
-            page.locator('#scanTarget').fill('2001:db8::1');feed_report(page,json.dumps(network),'Cible IPv6')
+            page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('2001:db8::1');feed_report(page,json.dumps(network),'Cible IPv6')
             expect(page.locator('.passive-network-device')).to_have_count(1)
             expect(page.locator('.passive-network-device')).to_contain_text('2001:db8::1')
-            page.locator('#scanTarget').fill('inconnu.example.local');feed_report(page,json.dumps(network),'Cible inconnue')
+            public={'strategy':'passive','workspace':'passive','target':'8.8.8.8','results':[
+                {'address':'8.8.8.8','transport':'DNS','status':'observed','hostname':'dns.example','ttl':120,'source':'agent-dns-cache'},
+                {'address':'8.8.8.8','port':443,'transport':'TCP','status':'connection','localAddress':'192.168.1.10','localPort':51000,'direction':'remote','pid':42,'processName':'browser','interfaceName':'Ethernet','detail':'Established'},
+                {'address':'1.1.1.1','transport':'DNS','status':'observed','hostname':'unrelated.example'}]}
+            page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('8.8.8.8');feed_report(page,json.dumps(public),'Cible publique')
+            expect(page.locator('.scan-setup')).to_be_hidden();expect(page.locator('#wgScanNew')).to_be_visible()
+            expect(page.locator('.passive-dns-observation')).to_have_count(1)
+            expect(page.locator('.passive-connection-observation')).to_contain_text('browser')
+            expect(page.locator('.passive-network-inventory')).not_to_contain_text('unrelated.example')
+            page.locator('.passive-connection-observation').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('51000')
+            expect(page.locator('#wgScanDetailBody')).to_contain_text('42');page.locator('#wgScanDetail [data-wg-close]').click()
+            page.locator('[data-passive-category=DNS]').click();expect(page.locator('.passive-connection-observation')).to_have_count(0)
+            page.locator('[data-passive-category=all]').click();page.locator('#wgPassiveSearch').fill('browser')
+            expect(page.locator('.passive-dns-observation')).to_have_count(0);expect(page.locator('.passive-connection-observation')).to_have_count(1)
+            page.locator('#wgPassiveSearch').fill('');raw=export_report(page)
+            assert 'dns.example' in raw and 'browser' in raw and '51000' in raw and 'unrelated.example' not in raw
+            for width in [1440,390,320]:
+                page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
+                page.screenshot(path=str(ROOT/f'.cache/passive-enriched-{width}.png'),animations='disabled')
+            page.set_viewport_size({'width':1440,'height':1000})
+            page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('inconnu.example.local');feed_report(page,json.dumps(network),'Cible inconnue')
             expect(page.locator('.passive-network-device')).to_have_count(0)
             expect(page.locator('#wgScanReportStamp')).to_contain_text('Cible inconnue')
             print('PASS: passive requires one IP/FQDN, excludes unrelated neighbors and shows empty reports for unknown targets')
@@ -147,10 +168,10 @@ def run():
             expect(page.locator('.wgscan-audit-overview script,.wgscan-audit-overview img,.wgscan-audit-overview svg')).to_have_count(0)
             print('PASS: audit prioritizes risks, filters severity and proof, copies recommendations and escapes report content')
 
-            navigate(page,'active');page.locator('[data-wg-profile=custom]').click();page.locator('#wgScanPorts').fill('22,8443')
+            navigate(page,'active');page.locator('#wgScanNew').click();page.locator('[data-wg-profile=custom]').click();page.locator('#wgScanPorts').fill('22,8443')
             page.locator('.wgscan-agent-options summary').click()
-            page.locator('#wgAgentTimeout').fill('2300');page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
-            navigate(page,'map');page.locator('#scanTarget').fill('192.0.2.0/24');page.locator('.wgscan-agent-options summary').click();page.locator('#wgAgentTimeout').fill('700')
+            page.locator('#wgAgentTimeout').fill('2300');feed_report(page,XML,'Services');page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
+            navigate(page,'map');page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('192.0.2.0/24');page.locator('.wgscan-agent-options summary').click();page.locator('#wgAgentTimeout').fill('700');feed_report(page,XML,'Réseau')
             for kind in ['map','passive','vulnerability']:
                 navigate(page,kind);page.locator('[data-wg-tab=changes]').click()
                 expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Aucune référence')
@@ -170,7 +191,7 @@ def run():
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,kind)
                     if kind=='passive' and width<=768:
-                        expect(page.locator('#wgPassiveQuickCollect')).to_be_visible()
+                        expect(page.locator('#wgScanNew')).to_be_visible()
                     page.locator('#wgScanTab-overview').focus();page.keyboard.press('ArrowRight')
                     expect(page.locator('#wgScanTab-rows')).to_be_focused()
                     page.keyboard.press('Home');expect(page.locator('#wgScanTab-overview')).to_be_focused()
