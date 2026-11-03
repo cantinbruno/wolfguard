@@ -183,6 +183,34 @@ test('global history paginates all scan kinds across agents and retains encrypte
     assert.equal((await s.api('scans/result?id='+ids[0],undefined,rotated)).status,404);
   }finally{s.env.DB.db.close();}
 });
+test('history deletion requires a current vault session, removes one completed report and protects live or future jobs',async()=>{
+  const s=await setup();
+  try{
+    const agent=await s.pair();await s.api('agent/poll',{capabilities:['network-target-v1']},agent.auth);
+    const create=async()=>{const response=await s.api('scans',{agentId:agent.id,strategy:'passive',target:'127.0.0.1'},s.user);assert.equal(response.status,201);return (await response.json()).id;};
+    const id=await create();
+    assert.equal((await s.api('scans/delete',{id})).status,401);
+    assert.equal((await s.api('scans/delete',{id},agent.auth)).status,401);
+    assert.equal((await s.api('scans/delete',{id:'invalid'},s.user)).status,400);
+    assert.equal((await s.api('scans/delete',{id},s.user)).status,409);
+    const {job}=await (await s.api('agent/poll',{},agent.auth)).json();
+    assert.equal((await s.api('scans/delete',{id},s.user)).status,409);
+    assert.equal((await s.api('agent/update',{id,lease:job.lease,revision:job.revision+1,status:'completed',completed:1,total:1,report:{strategy:'passive',results:[{address:'127.0.0.1'}]}},agent.auth)).status,200);
+    const queued=await create();
+    s.env.DB.db.exec('UPDATE vault SET generation=generation+1 WHERE id=1');
+    assert.equal((await s.api('scans/delete',{id},s.user)).status,401);
+    const user='Bearer '+(await (await s.api('login',{code:'07942685'})).json()).token;
+    s.env.DB.db.prepare('UPDATE scan_jobs SET generation=100 WHERE id=?').run(id);
+    assert.equal((await s.api('scans/delete',{id},user)).status,404);
+    s.env.DB.db.prepare('UPDATE scan_jobs SET generation=1 WHERE id=?').run(id);
+    assert.equal((await s.api('scans/delete',{id},user)).status,200);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) AS count FROM scan_jobs WHERE id=?').get(id).count,0);
+    assert.equal((await s.api('scans/result?id='+id,undefined,user)).status,404);
+    assert.equal((await s.api('scans/delete',{id},user)).status,404);
+    assert.deepEqual((await (await s.api('scans?history=1',undefined,user)).json()).jobs.map(job=>job.id),[queued]);
+  }finally{s.env.DB.db.close();}
+});
+
 test('the actual network engine connects to a loopback service and cancels pending probes',async()=>{
   const server=createServer(socket=>{socket.on('data',()=>{});socket.on('error',()=>{});});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const port=server.address().port;try{

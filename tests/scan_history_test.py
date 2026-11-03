@@ -27,7 +27,7 @@ def run():
             stamp=int(time.time()*1000);kinds=['passive','active','map','vulnerability'];jobs=[]
             for i in range(55):
                 jobs.append({'id':f'{i+1:032x}','agentId':'a'*32,'workspace':kinds[i%4],'strategy':'active' if i%4 in [1,2] else 'passive','createdAt':stamp-i*60000,'revision':2,'completed':1,'total':1,'status':'expired' if i==53 else 'failed' if i==8 else 'completed','target':f'192.168.20.{i+1}' if i%4!=3 else '', 'agentName':'<img src=x onerror=alert(1)>' if i==4 else 'Poste Nord' if i%2 else 'Ancien poste','platform':'linux' if i%2 else 'win32','hasReport':i!=53})
-            state={'fail_history':False,'fail_result':False,'wrong_result':False,'empty':False,'hold':False};pending=[];history_requests=[]
+            state={'fail_history':False,'fail_result':False,'wrong_result':False,'empty':False,'hold':False,'fail_delete':False};pending=[];history_requests=[];delete_requests=[]
             def result(job):
                 audit=job['workspace']=='vulnerability'
                 raw=None if job['status']=='expired' else {'strategy':job['strategy'],'workspace':job['workspace'],'target':job['target'],'startedAt':'2026-11-01T10:00:00Z','warnings':[], 'error':'Collecte interrompue' if job['status']=='failed' else '', 'results':[{'address':job['target'] or '127.0.0.1','port':443 if job['workspace']=='active' else None,'transport':'AUDIT' if audit else 'TCP' if job['workspace']=='active' else 'HOST' if job['workspace']=='map' else 'ARP','status':'issue' if audit else 'open' if job['workspace']=='active' else 'reachable' if job['workspace']=='map' else 'observed','checkId':'firewall' if audit else '', 'title':'Pare-feu du poste' if audit else '', 'severity':'high','detail':'Observation historique','recommendation':'Activer la protection' if audit else '', 'macAddress':'00:11:22:33:44:55'}]}
@@ -41,6 +41,12 @@ def run():
                     start=next((i+1 for i,job in enumerate(available) if job['id']==query.get('beforeId',[''])[0]),0)
                     selected=available[start:start+50];last=selected[-1] if selected else None
                     route.fulfill(json={'jobs':selected,'next':{'beforeAt':last['createdAt'],'beforeId':last['id']} if start+50<len(available) else None});return
+                if url.path=='/api/scans/delete':
+                    delete_requests.append(route.request.post_data_json['id'])
+                    if state['fail_delete']:route.fulfill(status=503,json={'error':'Suppression temporairement indisponible'});return
+                    job=next(job for job in jobs if job['id']==delete_requests[-1])
+                    if job['status'] in ['queued','running']:route.fulfill(status=409,json={'error':'Arrête le scan avant de le supprimer'});return
+                    jobs.remove(job);route.fulfill(json={'ok':True});return
                 if url.path=='/api/scans/result':
                     job=next(job for job in jobs if job['id']==query['id'][0])
                     if state['hold']:pending.append((route,result(job)));return
@@ -144,6 +150,43 @@ def run():
             pending.clear()
             assert page.evaluate("window.__historyAborted.some(url=>url.includes('/scans/result?'))")
             assert len(downloads)==before
+            state['hold']=False
+            page.locator('#wgHistorySearch').fill('192.168.20.53')
+            page.locator('[data-history-delete]').click();expect(page.locator('.app-dialog')).to_be_visible()
+            expect(page.locator('#wgHistorySearch')).to_be_disabled()
+            page.locator('.app-dialog-cancel').click();expect(page.locator('[data-history-delete]')).to_be_enabled()
+            assert not delete_requests
+            state['fail_delete']=True
+            page.locator('[data-history-delete]').click();page.locator('.app-dialog-submit').click()
+            expect(page.locator('#wgHistoryStatus')).to_contain_text('Suppression impossible')
+            expect(page.locator('.scan-history-item')).to_have_count(1)
+            state['fail_delete']=False
+            page.locator('[data-history-delete]').click();page.locator('.app-dialog-submit').click()
+            expect(page.locator('#wgHistoryStatus')).to_contain_text('Scan supprimé')
+            expect(page.locator('.scan-history-item')).to_have_count(0)
+            expect(page.locator('#wgHistoryList')).to_be_focused()
+            page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryExportAll')).to_be_disabled()
+            expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
+            expect(page.locator('.scan-history-item')).to_have_count(0)
+            expect(page.locator('#wgHistoryCount')).to_contain_text('55')
+            # Two archives in the same setting keep correct identities after the first is removed.
+            page.evaluate("""async archive=>{await put('settings',{key:'scan-web-passive-reports-v1',value:{version:1,reports:[archive,{...archive,name:'Autre archive',target:'192.168.1.2'}]}})}""",archive)
+            page.locator('#wgHistorySearch').fill('192.168.1.')
+            page.locator('#wgHistoryRefresh').click();expect(page.locator('[data-history-delete]')).to_have_count(2)
+            expect(page.locator('[data-history-delete]').first).to_be_enabled()
+            for count in [1,0]:
+                page.locator('[data-history-delete]').first.click();page.locator('.app-dialog-submit').click()
+                expect(page.locator('#wgHistoryStatus')).to_contain_text('Scan supprimé')
+                expect(page.locator('.scan-history-item')).to_have_count(count)
+            assert page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value.reports")==[]
+            page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
+            expect(page.locator('.scan-history-item')).to_have_count(0)
+            # Running jobs can be exported but cannot be deleted.
+            jobs[0]['status']='running';page.locator('#wgHistorySearch').fill('192.168.20.1')
+            page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
+            expect(page.locator('[data-history-delete]').first).to_be_disabled()
+            print('PASS: row deletion confirms, cancels, preserves reports on failure, persists after refresh, reindexes local archives and protects running scans')
+            page.locator('#wgHistorySearch').fill('192.168.20.55');state['hold']=True
             with page.expect_request(lambda request:'/scans/result?' in request.url):page.locator('[data-history-export]').click()
             page.evaluate('lockApplication()');expect(page.locator('#lock')).to_be_visible()
             for route,data in pending:route.fulfill(json=data)

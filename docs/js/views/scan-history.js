@@ -40,19 +40,21 @@ const webScanHistory = (() => {
       find('#wgHistoryReset').hidden=!hasFilters();
       for(const control of panel.querySelectorAll('.scan-history-refine input,.scan-history-refine select,#wgHistoryReset,#wgHistorySearch,[data-history-kind]'))control.disabled=busy;
       for(const button of panel.querySelectorAll('[data-history-export]'))button.disabled=busy;
+      for(const button of panel.querySelectorAll('[data-history-delete]'))button.disabled=busy||loading||['queued','running'].includes(items.find(item=>item.id===button.dataset.historyDelete)?.status);
     }
     function draw(){
       if(!live())return;
       const rows=filtered(),pages=Math.max(1,Math.ceil(rows.length/20));page=Math.min(page,pages-1);
       find('#wgHistoryCount').textContent=items.length.toLocaleString('fr-FR')+' scan(s)';
       for(const button of panel.querySelectorAll('[data-history-kind]')){button.setAttribute('aria-pressed',String(kind===button.dataset.historyKind));button.querySelector('span').textContent=items.filter(item=>button.dataset.historyKind==='all'||item.kind===button.dataset.historyKind).length;}
-      const focused=panel.contains(document.activeElement)?document.activeElement:null,focusId=focused?.id,exportId=focused?.dataset.historyExport;
-      find('#wgHistoryList').innerHTML=rows.slice(page*20,page*20+20).map(item=>'<article class="scan-history-item" data-kind="'+item.kind+'"><span class="scan-history-icon" aria-hidden="true">'+workspaceSectionIcon('scan-'+item.kind)+'</span><div class="scan-history-copy"><div><strong>'+esc(scanInsights.definitions[item.kind].short)+'</strong><span class="scan-history-state" data-status="'+esc(item.status)+'">'+esc(statuses[item.status]||'État non fourni')+'</span></div><p>'+esc(item.target||(item.kind==='vulnerability'?'Poste de l’agent':'Cible non fournie'))+'</p><small>'+esc(item.agentName||item.name||'Source non fournie')+'</small></div><time datetime="'+esc(new Date(item.createdAt).toISOString())+'">'+esc(date(item.createdAt))+'</time><button type="button" class="settings-btn" data-history-export="'+esc(item.id)+'" aria-label="Exporter le PDF '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+settingsIcon('download')+'Exporter PDF</button></article>').join('')||'<div class="scan-history-empty">'+settingsIcon('history')+'<h4>'+(loading?'Chargement des anciens scans…':items.length?'Aucun scan pour ces filtres':'Aucun ancien scan disponible')+'</h4><p>'+(items.length?'Efface ou ajuste les filtres pour retrouver un relevé.':'Les prochains scans apparaîtront ici. Les résultats supprimés avant l’activation de cet historique ne sont plus récupérables.')+'</p></div>';
+      const focused=panel.contains(document.activeElement)?document.activeElement:null,focusId=focused?.id,exportId=focused?.dataset.historyExport,deleteId=focused?.dataset.historyDelete;
+      find('#wgHistoryList').innerHTML=rows.slice(page*20,page*20+20).map(item=>'<article class="scan-history-item" data-kind="'+item.kind+'"><span class="scan-history-icon" aria-hidden="true">'+workspaceSectionIcon('scan-'+item.kind)+'</span><div class="scan-history-copy"><div><strong>'+esc(scanInsights.definitions[item.kind].short)+'</strong><span class="scan-history-state" data-status="'+esc(item.status)+'">'+esc(statuses[item.status]||'État non fourni')+'</span></div><p>'+esc(item.target||(item.kind==='vulnerability'?'Poste de l’agent':'Cible non fournie'))+'</p><small>'+esc(item.agentName||item.name||'Source non fournie')+'</small></div><time datetime="'+esc(new Date(item.createdAt).toISOString())+'">'+esc(date(item.createdAt))+'</time><div class="scan-history-actions"><button type="button" class="settings-btn" data-history-export="'+esc(item.id)+'" aria-label="Exporter le PDF '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+settingsIcon('download')+'Exporter PDF</button><button type="button" class="settings-btn scan-history-delete" data-history-delete="'+esc(item.id)+'" title="'+(['queued','running'].includes(item.status)?'Arr?ter le scan avant de le supprimer':'Supprimer ce scan')+'" aria-label="Supprimer '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+ITEM_ACTION_ICONS.delete+'Supprimer</button></div></article>').join('')||'<div class="scan-history-empty">'+settingsIcon('history')+'<h4>'+(loading?'Chargement des anciens scans…':items.length?'Aucun scan pour ces filtres':'Aucun ancien scan disponible')+'</h4><p>'+(items.length?'Efface ou ajuste les filtres pour retrouver un relevé.':'Les prochains scans apparaîtront ici. Les résultats supprimés avant l’activation de cet historique ne sont plus récupérables.')+'</p></div>';
       find('#wgHistoryPages').innerHTML=pages>1?'<span role="status" aria-live="polite">'+rows.length+' scan(s) · Page '+(page+1)+' sur '+pages+'</span><div><button type="button" class="settings-btn" id="wgHistoryPrev" '+(page===0?'disabled':'')+'>Précédente</button><button type="button" class="settings-btn" id="wgHistoryNext" '+(page+1===pages?'disabled':'')+'>Suivante</button></div>':'<span role="status" aria-live="polite">'+rows.length+' scan(s)'+(hasFilters()?' pour ces filtres':'')+'</span>';
       if(find('#wgHistoryPrev'))find('#wgHistoryPrev').onclick=()=>{page--;draw();find('#wgHistoryList').scrollIntoView({block:'start',behavior:'instant'});};if(find('#wgHistoryNext'))find('#wgHistoryNext').onclick=()=>{page++;draw();find('#wgHistoryList').scrollIntoView({block:'start',behavior:'instant'});};
       for(const button of panel.querySelectorAll('[data-history-export]'))button.onclick=()=>exportRows([items.find(item=>item.id===button.dataset.historyExport)],false);
+      for(const button of panel.querySelectorAll('[data-history-delete]'))button.onclick=()=>deleteRow(items.find(item=>item.id===button.dataset.historyDelete));
       controls();
-      if(focused&&!focused.isConnected){const target=exportId?[...panel.querySelectorAll('[data-history-export]')].find(button=>button.dataset.historyExport===exportId):focusId?find('#'+focusId):null;if(target&&!target.disabled)target.focus({preventScroll:true});else find('#wgHistoryList').focus({preventScroll:true});}
+      if(focused&&!focused.isConnected){const target=exportId?[...panel.querySelectorAll('[data-history-export]')].find(button=>button.dataset.historyExport===exportId):deleteId?[...panel.querySelectorAll('[data-history-delete]')].find(button=>button.dataset.historyDelete===deleteId):focusId?find('#'+focusId):null;if(target&&!target.disabled)target.focus({preventScroll:true});else find('#wgHistoryList').focus({preventScroll:true});}
     }
     async function legacy(){
       const settings=await Promise.all(kinds.map(value=>get('settings','scan-web-'+value+'-reports-v1')));if(!live())return;
@@ -61,7 +63,7 @@ const webScanHistory = (() => {
         try{
           const report=webScanModel.parse(JSON.stringify(raw),scanInsights.definitions[kinds[index]].strategy,raw.name,kinds[index]);
           const stamp=new Date(raw.importedAt||report.importedAt);report.importedAt=Number.isNaN(stamp.getTime())?report.importedAt:stamp.toISOString();report.source=String(raw.source||report.source).slice(0,100);report.jobStatus=raw.jobStatus||'';
-          records.push(indexItem({id:'saved-'+kinds[index]+'-'+position,kind:kinds[index],name:report.name,target:report.target,agentName:report.name,createdAt:Date.parse(report.importedAt),status:'saved',report}));
+          records.push(indexItem({id:'saved-'+kinds[index]+'-'+position,kind:kinds[index],name:report.name,target:report.target,agentName:report.name,createdAt:Date.parse(report.importedAt),status:'saved',report,archive:raw,archiveKey:record.key,archivePosition:position}));
         }catch{invalid++;}
       }
       return {invalid,records};
@@ -84,6 +86,28 @@ const webScanHistory = (() => {
         status(invalid?invalid+' ancienne(s) archive(s) illisible(s). Les autres rapports restent exportables.':workspaceAgents.available()?'Historique à jour · Export individuel ou archive ZIP de la sélection.':'Archives locales disponibles. Connecte-toi au site pour retrouver les scans de l’agent.',!!invalid);
       }catch(error){if(live()){items=[...new Map([...previous,...candidates].map(item=>[item.id,item])).values()].sort((a,b)=>b.createdAt-a.createdAt);status('Historique incomplet : '+error.message+' Les relevés déjà chargés restent disponibles. Actualise pour réessayer.',true);}}
       finally{loading=false;if(live())draw();}
+    }
+    async function deleteRow(item){
+      if(busy||loading||!live()||!item||['queued','running'].includes(item.status))return;
+      busy=true;controls();
+      try{
+        const accepted=await appConfirm('Supprimer le scan « '+item.name+' » du '+date(item.createdAt)+(item.target?' pour '+item.target:'')+' ? Son rapport sera définitivement supprimé de l’historique.',{title:'Supprimer ce scan ?',confirmLabel:'Supprimer',danger:true});
+        if(!accepted||!live())return;
+        status('Suppression du scan…');
+        if(item.status==='saved'){
+          const record=await get('settings',item.archiveKey);if(!live())return;
+          const reports=record?.value?.reports;
+          if(!Array.isArray(reports)||JSON.stringify(reports[item.archivePosition])!==JSON.stringify(item.archive))throw new Error('Cette archive a changé. Actualise l’historique puis réessaie.');
+          await put('settings',{...record,value:{...record.value,reports:reports.filter((_,index)=>index!==item.archivePosition)}});if(!live())return;
+          const local=await legacy();if(!live())return;
+          items=[...items.filter(row=>row.status!=='saved'),...local.records].sort((a,b)=>b.createdAt-a.createdAt);
+        }else{
+          await WolfGuardCloud.agentRequest('scans/delete',{id:item.id},{signal:lifetime.signal});if(!live())return;
+          items=items.filter(row=>row.id!==item.id);
+        }
+        status('Scan supprimé de l’historique.');
+      }catch(error){if(live())status('Suppression impossible : '+error.message,true);}
+      finally{busy=false;if(live()){draw();const target=[...panel.querySelectorAll('[data-history-delete]')].find(button=>button.dataset.historyDelete===item.id)||find('#wgHistoryList');target.focus({preventScroll:true});}}
     }
     async function resolve(item,signal){
       if(item.report)return item.report;

@@ -93,5 +93,15 @@ export async function handleAgentAPI(request,env,now,h){
   if(path==='/api/scans/cancel'&&request.method==='POST'){
     const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND generation=? AND status IN ('queued','running') RETURNING id").bind(now,id,session.generation).first();if(!row)fail(409,'Ce scan est déjà terminé.');return json({ok:true});
   }
+  if(path==='/api/scans/delete'&&request.method==='POST'){
+    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');
+    const deleted=await env.DB.prepare("DELETE FROM scan_jobs WHERE id=? AND generation<=? AND status NOT IN ('queued','running') RETURNING id").bind(id,session.generation).first();
+    if(!deleted){
+      const row=await env.DB.prepare('SELECT status FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();
+      if(!row)fail(404,'Scan introuvable.');
+      fail(409,'Arrête le scan avant de le supprimer de l’historique.');
+    }
+    return json({ok:true});
+  }
   fail(404,'Adresse inconnue.');
 }
