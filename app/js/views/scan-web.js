@@ -84,7 +84,6 @@ const webScanWorkspace = (() => {
     const visibleRows=filtered(view);
     summary(view,passive,visibleRows);drawRows(view,passive,visibleRows);changes(view);
     if(view.kind==='passive'){
-      for(const button of $('#wgScanOverview').querySelectorAll('[data-passive-settings]'))button.onclick=()=>$('#wgAgentSettings').click();
       const refresh=focus=>{view.page=0;draw(view,passive);if(focus)document.getElementById(focus)?.focus({preventScroll:true});};
       const reset=()=>{resetPassiveFilters(view);view.query='';view.filter='all';refresh('wgPassiveSearch');};
       const search=$('#wgPassiveSearch');if(search)search.oninput=event=>{const start=event.target.selectionStart,end=event.target.selectionEnd;view.query=event.target.value;refresh('wgPassiveSearch');if(start!==null)try{$('#wgPassiveSearch').setSelectionRange(start,end);}catch{}};

@@ -71,7 +71,7 @@ def run():
             first.locator('#wgAgentViewPosts').click()
             expect(first.locator('#wgAgentFleetPanel')).to_be_visible()
             first.locator('#closeSettingsBtn').click();navigate(first,'passive');expect(first.locator('#wgAgentLaunch')).to_be_disabled();first.locator('#scanTarget').fill('192.168.10.1');expect(first.locator('#wgAgentLaunch')).to_be_enabled(timeout=20000)
-            expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage')).to_have_count(0)
+            expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage,#wgAgentSettings,[data-passive-settings]')).to_have_count(0)
             first.locator('#wgAgentLaunch').click();expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan terminé',timeout=30000)
             expect(first.locator('#wgScanReportStamp')).to_contain_text('Agent · Windows')
             first.locator('[data-wg-tab=rows]').click();expect(first.locator('#wgScanRows tbody tr')).to_have_count(1)
@@ -165,7 +165,7 @@ def run():
                 assert response.status==200
                 enrolled=response.json();extra.append(enrolled)
                 a.request.post(backend+'/api/agent/poll',headers={'Authorization':'Agent '+enrolled['token']},data={'capabilities':['security-audit-v1']})
-                first.locator('#wgAgentSettings').click()
+                first.locator('#settingsBtn').click();first.locator('#settings-tab-agents').click()
                 expect(first.locator('#wgAgentSelect option[value="'+enrolled['id']+'"]')).to_have_count(1,timeout=15000)
                 first.locator('[data-agent-use="'+enrolled['id']+'"]').focus()
                 first.keyboard.press('Enter')
@@ -175,10 +175,10 @@ def run():
                 first.locator('#closeSettingsBtn').click()
                 for kind in ['active','map','vulnerability','passive']:
                     navigate(first,kind);expect(first.locator('#wgAgentName')).to_contain_text(name,timeout=15000)
-                    expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage')).to_have_count(0)
+                    expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage,#wgAgentSettings,[data-passive-settings]')).to_have_count(0)
             first.reload();expect(first.locator('#app')).to_be_visible(timeout=30000);navigate(first,'active')
             expect(first.locator('#wgAgentName')).to_contain_text('Poste macOS',timeout=15000)
-            first.locator('#wgAgentSettings').click()
+            first.locator('#settingsBtn').click();first.locator('#settings-tab-agents').click()
             first.locator('#wgAgentSelect').select_option(windows_id)
             expect(first.locator('#wgAgentSetupStatus')).to_contain_text('Agent commun enregistré')
             for width in [1440,900,390,320]:

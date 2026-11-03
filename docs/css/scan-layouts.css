@@ -27,7 +27,6 @@
 .wgscan[data-layout] #wgScanAgentHost #wgAgentName{font-size:12px;line-height:1.6}
 .wgscan[data-layout] #wgScanAgentHost #wgAgentPresence{font-size:9px;color:var(--ws-muted)}
 .wgscan[data-layout] #wgScanAgentHost #wgAgentPresence[data-online="true"]{color:#9fd8c6}
-.wgscan[data-layout] #wgScanAgentHost #wgAgentSettings{margin:4px 0 9px;min-height:26px;font-size:10px}
 .wgscan[data-layout] #wgScanAgentHost #wgAgentLaunch{font-size:11px;min-height:39px}
 .wgscan[data-layout] #wgScanAgentHost #wgAgentStop{min-height:29px;font-size:10px}
 .wgscan[data-layout] #wgScanAgentHost #wgAgentStatus{min-height:0;margin:8px 0;font-size:10px;line-height:1.7}
@@ -122,7 +121,6 @@
  .wgscan[data-layout="probe"] #wgScanAgentHost .wgscan-agent-top{grid-column:1;display:flex;align-items:center;gap:20px;margin:0}
  .wgscan[data-layout="probe"] #wgScanAgentHost .wgscan-agent-top>div{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
  .wgscan[data-layout="probe"] #wgScanAgentHost .wgscan-kicker{display:none}
- .wgscan[data-layout="probe"] #wgScanAgentHost #wgAgentSettings{margin:0;font-size:9px;min-height:23px;flex-shrink:0}
  .wgscan[data-layout="probe"] #wgScanAgentHost .wgscan-agent-controls{grid-column:2;grid-row:1;align-items:center;max-width:none}
  .wgscan[data-layout="probe"] #wgScanAgentHost #wgAgentLaunch{width:auto;padding:9px 13px}
  .wgscan[data-layout="probe"] #wgScanAgentHost #wgAgentStatus{grid-column:1;grid-row:2;margin:0;font-size:9px}
@@ -143,14 +141,12 @@
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-agent-controls{grid-column:2;grid-row:1;display:flex;align-items:start;max-width:none;gap:6px}
 .wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentLaunch{width:auto;font-size:10px;padding:9px 11px;min-height:37px}
 .wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentStop{font-size:9px;padding:7px 8px}
-.wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentSettings{margin:3px 0 0;min-height:19px;font-size:9px}
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-agent-history{grid-column:1/-1;margin:0;padding:0;border:0}
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-agent-history summary{font-size:9px}
 .wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentStatus,.wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentProgress{grid-column:1/-1;margin:0;font-size:9px}
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-agent-top{display:flex;align-items:center;gap:15px;margin:0}
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-agent-top>div{min-width:0}
 .wgscan[data-layout="atlas"] #wgScanAgentHost .wgscan-kicker{display:none}
-.wgscan[data-layout="atlas"] #wgScanAgentHost #wgAgentSettings{margin:0;flex-shrink:0}
 .scan-atlas-options{grid-column:1/-1;display:flex;gap:24px;min-width:0}
 .wgscan[data-layout="atlas"] .scan-atlas-options>details{flex:1;border:0;margin:0;padding:0;min-width:0}
 .scan-atlas-canvas{min-width:0}
@@ -302,12 +298,9 @@
 .wgscan:is([data-layout="monitor"], [data-layout="probe"]) #wgScanAgentHost #wgAgentName {
   font-size: 14px;
 }
-.wgscan:is([data-layout="monitor"], [data-layout="probe"]) #wgScanAgentHost :is(#wgAgentPresence, #wgAgentStatus, #wgAgentSettings, .wgscan-agent-history summary) {
+.wgscan:is([data-layout="monitor"], [data-layout="probe"]) #wgScanAgentHost :is(#wgAgentPresence, #wgAgentStatus, .wgscan-agent-history summary) {
   font-size: 12px;
   line-height: 1.7;
-}
-.wgscan:is([data-layout="monitor"], [data-layout="probe"]) #wgScanAgentHost #wgAgentSettings {
-  min-height: 36px;
 }
 .wgscan:is([data-layout="monitor"], [data-layout="probe"]) #wgScanAgentHost #wgAgentLaunch {
   font-size: 13px;

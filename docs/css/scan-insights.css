@@ -57,7 +57,6 @@
 #wgScanAgentHost .wgscan-agent-top>div{display:grid;gap:8px}
 #wgScanAgentHost .wgscan-kicker{font-size:9px;letter-spacing:1px}
 #wgAgentName{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
-#wgScanAgentHost #wgAgentSettings{font-size:10px;padding:0;border:0;background:none;min-height:32px;margin:4px 0 10px;color:var(--ws-accent);text-align:left}
 #wgScanAgentHost .wgscan-agent-controls{display:flex;flex-wrap:wrap;gap:7px;margin:0}
 #wgScanAgentHost #wgAgentLaunch{width:100%;justify-content:center;white-space:normal;line-height:1.5;padding:11px 9px;font-size:11px}
 #wgScanAgentHost #wgAgentStop{font-size:10px;min-height:32px}

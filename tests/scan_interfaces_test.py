@@ -32,7 +32,7 @@ def run():
                 expect(page.locator('.wgscan')).to_have_attribute('data-layout',{'passive':'monitor','active':'probe','map':'atlas','vulnerability':'review'}[kind])
                 expect(page.locator('[data-empty-kind]')).to_have_attribute('data-empty-kind',kind)
                 expect(page.locator('#wgScanAgentHost #wgAgentLaunch')).to_have_count(1)
-                expect(page.locator('#wgAgentPair,#wgAgentSelect,#wgAgentDownload')).to_have_count(0)
+                expect(page.locator('#wgAgentPair,#wgAgentSelect,#wgAgentDownload,#wgAgentSettings,[data-passive-settings]')).to_have_count(0)
                 expect(page.locator('#scanTarget')).to_have_count(1 if kind in ['passive','active','map'] else 0)
                 expect(page.locator('#wgScanPorts,#wgScanIdentify')).to_have_count(2 if kind=='active' else 0)
                 expect(page.locator('#wgPassiveScope')).to_have_count(0)
@@ -44,10 +44,9 @@ def run():
                   return {right:agent.left>=overview.right,above:agent.bottom<=overview.top,wide:overview.width>page.width*.85,left:metrics.right<=overview.left};}''')
                 assert placement[{'passive':'right','active':'above','map':'wide','vulnerability':'left'}[kind]],(kind,placement)
                 page.screenshot(path=str(ROOT/f'.cache/scan-layout-{kind}-empty.png'),animations='disabled')
-                if kind=='passive':
-                    page.locator('[data-passive-settings]').click()
-                    expect(page.locator('#settings-tab-agents')).to_have_attribute('aria-selected','true')
-                    page.locator('#closeSettingsBtn').click()
+            page.locator('#settingsBtn').click();page.locator('#settings-tab-agents').click()
+            expect(page.locator('#wgAgentSelect')).to_be_visible()
+            page.locator('#closeSettingsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
             navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');feed_report(page,json.dumps(PASSIVE),'Réseau passif')
@@ -160,6 +159,7 @@ def run():
                 page.set_viewport_size({'width':width,'height':height})
                 for kind in ['passive','active','map','vulnerability']:
                     navigate(page,kind)
+                    expect(page.locator('#wgAgentSelect,#wgAgentSettings,[data-passive-settings]')).to_have_count(0)
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,kind)
                     if kind=='passive' and width<=768:

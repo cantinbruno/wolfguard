@@ -21,7 +21,7 @@ const webScanAgent = (() => {
     const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
     root.className = 'wgscan-agent'; root.setAttribute('aria-label', 'Exécution par l’agent commun');
     $('#wgScanAgentHost').append(root);
-    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div><button type="button" id="wgAgentSettings" title="Gérer l’agent commun">Paramètres → Agents</button></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
+    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
     let agent = null, jobs = [], busy = false, lastResult = '', current = null, running = null, selected = '', refreshing = false, compatibilityIssue = false;
@@ -76,7 +76,6 @@ const webScanAgent = (() => {
     }
     async function poll() { await refresh(); if (live()) timer = setTimeout(poll, 3000); }
     if(['active','passive'].includes(kind))$('#scanTarget').addEventListener('input',render);
-    find('#wgAgentSettings').onclick = () => openSettings('agents');
     const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.onclick=()=>find('#wgAgentLaunch').click();
     find('#wgAgentHistory').onchange = async event => { jobIds[kind] = event.target.value; lastResult = ''; render(); try { await result(); } catch (error) { status(error.message, true); } };
     find('#wgAgentLaunch').onclick = async () => {
