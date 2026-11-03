@@ -1,0 +1,90 @@
+/* A single preparation card leads into the existing loading and report views. */
+.wgscan[data-layout] .wgscan-heading {
+  max-width: 900px;
+  margin: 4px auto 26px;
+  padding-bottom: 0;
+}
+.wgscan[data-layout] .wgscan-title-group .wgscan-kicker { display: none; }
+.wgscan[data-layout] h1 { font-size: 28px; }
+.wgscan[data-layout] .wgscan-title-group p { font-size: 14px; line-height: 1.6; max-width: 660px; }
+.wgscan[data-layout] .wgscan-title-icon { width: 44px; height: 44px; border-radius: 11px; }
+.wgscan[data-phase="ready"] .scan-output { display: none; }
+.wgscan .scan-setup {
+  max-width: 900px;
+  margin: 0 auto 24px;
+  border: 1px solid var(--ws-border);
+  border-radius: 14px;
+  background: var(--ws-panel);
+  overflow: hidden;
+}
+.scan-setup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 24px 28px 0; }
+.wgscan .scan-setup-heading h2 { font-size: 18px; line-height: 1.4; }
+.scan-setup-mode { flex: none; padding: 4px 9px; border-radius: 6px; background: color-mix(in srgb, var(--ws-accent) 10%, transparent); color: var(--ws-accent); font-size: 11px; }
+.scan-setup-fields { padding: 22px 28px 24px; }
+.wgscan[data-layout] .scan-setup .wgscan-field { font-size: 13px; gap: 8px; }
+.wgscan[data-layout] .scan-setup .wgscan-field input { min-height: 46px; padding: 12px 14px; font-size: 15px; }
+.wgscan[data-layout] .scan-setup .wgscan-field input::placeholder { font-size: 13px; }
+.wgscan[data-layout] .scan-setup .wgscan-note { font-size: 12px; line-height: 1.6; }
+.scan-profile-picker { min-width: 0; margin: 22px 0 0; padding: 0; border: 0; }
+.scan-profile-picker legend { padding: 0; margin-bottom: 9px; font-size: 13px; color: #bacbde; }
+.wgscan[data-layout] .scan-setup .wgscan-profiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.wgscan[data-layout] .scan-setup .wgscan-profiles button { min-height: 75px; padding: 12px; gap: 10px; }
+.wgscan[data-layout] .scan-setup .wgscan-profiles strong { font-size: 13px; }
+.wgscan[data-layout] .scan-setup .wgscan-profiles small { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; }
+.wgscan[data-layout] .scan-setup #wgScanCustomPorts { margin-top: 16px; }
+.wgscan[data-layout] .scan-setup .wgscan-check { font-size: 13px; margin-top: 18px; }
+.wgscan[data-layout] .scan-setup .wgscan-check small { display: block; margin: 3px 0 0; font-size: 12px; line-height: 1.5; }
+.wgscan[data-layout] .scan-setup :is(.wgscan-agent-options, .scan-setup-explanation) { margin-top: 20px; padding: 0; border: 0; }
+.wgscan[data-layout] .scan-setup details > summary { font-size: 12px; line-height: 1.6; color: var(--ws-muted); cursor: pointer; width: fit-content; }
+.wgscan[data-layout] .scan-setup details[open] > summary { color: var(--ws-text); margin-bottom: 14px; }
+.scan-setup-explanation p { max-width: 700px; color: var(--ws-muted); font-size: 12px; line-height: 1.8; }
+.scan-audit-checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.scan-audit-checks > div { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 4px 10px; padding: 16px 12px; background: #101b2b66; border-radius: 9px; }
+.scan-audit-checks svg { grid-row: 1/3; width: 21px; height: 21px; color: var(--ws-accent); }
+.scan-audit-checks strong { font-size: 13px; font-weight: 600; }
+.scan-audit-checks span { grid-column: 2; font-size: 12px; line-height: 1.6; color: var(--ws-muted); }
+.scan-setup-footer { padding: 20px 28px; background: #101b2b66; border-top: 1px solid var(--ws-border); }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost { margin: 0; padding: 0; border: 0; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 20px; margin: 0; padding: 0; border: 0; background: none; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent-top { grid-column: 1; grid-row: 1; display: block; margin: 0; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent-top > div { display: grid; gap: 3px; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-kicker { display: block; font-size: 10px; letter-spacing: .6px; color: var(--ws-muted); }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentName { font-size: 14px; line-height: 1.5; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentPresence { font-size: 12px; line-height: 1.5; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent-controls { grid-column: 2; grid-row: 1; display: flex; align-items: center; align-self: center; gap: 8px; margin: 0; max-width: none; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentLaunch { width: auto; min-height: 46px; padding: 12px 18px; font-size: 14px; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentStop { min-height: 40px; font-size: 12px; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost :is(#wgAgentStatus, #wgAgentLaunchHint, #wgAgentProgress, .wgscan-agent-history) { grid-column: 1/-1; grid-row: auto; justify-self: stretch; margin: 0; padding: 0; border: 0; font-size: 12px; line-height: 1.7; }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .scan-launch-hint { color: var(--ws-muted); }
+.wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent-history summary { font-size: 12px; }
+.wgscan:is([data-phase="loading"], [data-phase="error"]) .scan-output { max-width: 900px; margin: 0 auto; }
+.wgscan:is([data-phase="loading"], [data-phase="error"]) .scan-review-layout { display: block; }
+.wgscan:is([data-phase="loading"], [data-phase="error"]) .scan-review-summary { display: none; }
+.wgscan .scan-output { margin-top: 24px; }
+@media(max-width: 650px) {
+  .scan-setup-heading { padding: 20px 20px 0; }
+  .scan-setup-fields { padding: 18px 20px 20px; }
+  .scan-setup-footer { padding: 18px 20px; }
+  .scan-audit-checks { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .scan-audit-checks > div { padding: 12px; }
+  .wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .wgscan[data-layout] .scan-setup #wgScanAgentHost .wgscan-agent-controls { grid-column: 1; grid-row: auto; }
+  .wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentLaunch { flex: 1; }
+  .wgscan[data-layout] .scan-setup #wgScanAgentHost #wgAgentStop { flex: 0 0 auto; }
+}
+@media(max-width: 520px) {
+  .wgscan[data-layout] .wgscan-heading { margin: 0 auto 20px; }
+  .wgscan[data-layout] h1 { font-size: 24px; }
+  .wgscan[data-layout] .wgscan-title-group p { font-size: 13px; }
+  .wgscan .scan-setup-heading { align-items: flex-start; }
+  .wgscan .scan-setup-heading h2 { font-size: 17px; }
+  .scan-setup-mode { font-size: 10px; padding: 3px 7px; }
+  .wgscan[data-layout] .scan-setup .wgscan-profiles { gap: 7px; }
+  .wgscan[data-layout] .scan-setup .wgscan-profiles button { min-height: 58px; padding: 9px 7px; }
+  .wgscan[data-layout] .scan-setup .wgscan-profiles strong { font-size: 12px; line-height: 1.5; }
+  .wgscan[data-layout] .scan-setup .wgscan-profiles small { display: none; }
+  .wgscan[data-layout] .scan-setup .wgscan-profiles i { display: none; }
+}
+@media(max-width: 360px) {
+  .wgscan[data-layout] .scan-setup .wgscan-profiles strong { font-size: 11px; }
+}

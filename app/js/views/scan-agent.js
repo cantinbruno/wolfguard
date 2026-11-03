@@ -21,7 +21,7 @@ const webScanAgent = (() => {
     const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
     root.className = 'wgscan-agent'; root.setAttribute('aria-label', 'Exécution par l’agent commun');
     $('#wgScanAgentHost').append(root);
-    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">POSTE D’EXÉCUTION COMMUN</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
+    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">Agent utilisé</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentLaunchHint" class="scan-launch-hint" hidden></p><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
     let agent = null, jobs = [], busy = false, launching = false, actionRevision = 0, lastResult = '', current = null, running = null, selected = '', refreshing = false, compatibilityIssue = false;
@@ -38,7 +38,8 @@ const webScanAgent = (() => {
       if (current) jobIds[kind] = current.id;
       find('#wgAgentPresence').textContent = agent ? agent.online ? '● Connecté' : '○ Hors ligne' : 'À configurer dans les paramètres';
       find('#wgAgentPresence').dataset.online = String(!!agent?.online);
-      let validTarget=true;if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
+      find('#wgAgentPresence').hidden = !agent;
+      let validTarget=kind!=='map'||!!values().target.trim();if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
       find('#wgAgentLaunch').disabled = !validTarget || busy || !agent?.online || !!running || !compatible;
       const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.disabled=find('#wgAgentLaunch').disabled;
       const otherScan=running&&(running.workspace||running.strategy)!==kind;
@@ -47,6 +48,9 @@ const webScanAgent = (() => {
       find('#wgAgentStop').textContent = 'Arrêter';
       find('#wgAgentLaunch').title=otherScan?'Poste occupé : '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan')+'. Son arrêt se fait depuis sa propre rubrique.':'';
       if(otherScan)find('#wgAgentPresence').textContent='● Occupé · '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan');
+      const hint=!agent?'Choisis un agent dans Paramètres → Agents pour lancer le scan.':!agent.online?'Démarre l’agent sur le poste choisi.':!validTarget?(kind==='map'?'Renseigne le réseau ou la plage à explorer.':'Renseigne l’adresse IP ou le nom d’hôte de la cible.'):'';
+      find('#wgAgentLaunchHint').textContent=hint;find('#wgAgentLaunchHint').hidden=!hint||launching;
+      if(hint)find('#wgAgentLaunch').setAttribute('aria-describedby','wgAgentLaunchHint');else find('#wgAgentLaunch').removeAttribute('aria-describedby');
       find('#wgAgentHistory').disabled = launching || !!(running && !otherScan);
       find('.wgscan-agent-history').hidden = !matching.length;
       if(launching)onExecution({status:'starting'});
@@ -84,7 +88,7 @@ const webScanAgent = (() => {
       finally { refreshing = false; }
     }
     async function poll() { await refresh(); if (live()) timer = setTimeout(poll, 3000); }
-    if(['active','passive'].includes(kind))$('#scanTarget').addEventListener('input',render);
+    if(['active','passive','map'].includes(kind))$('#scanTarget').addEventListener('input',render);
     const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.onclick=()=>find('#wgAgentLaunch').click();
     find('#wgAgentHistory').onchange = async event => { jobIds[kind] = event.target.value; lastResult = ''; render(); try { await result(); } catch (error) { status(error.message, true); if(live())onExecution({status:'error',message:error.message}); } };
     find('#wgAgentLaunch').onclick = async () => {
@@ -103,7 +107,7 @@ const webScanAgent = (() => {
       finally { busy = false; launching = false; if (live()) await refresh(); }
     };
     find('#wgAgentStop').onclick = async () => { if (busy || !running || !live() || (running.workspace||running.strategy)!==kind) return; const id=running.id;busy = true; render(); try { await request('scans/cancel', {id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
-    if (workspaceAgents.available()) poll(); else { render(); status('Configure l’agent dans Paramètres → Agents sur le site après saisie de ton code.'); }
+    if (workspaceAgents.available()) poll(); else { render(); status(''); }
   }
   return {mount, reset, fromJob};
 })();

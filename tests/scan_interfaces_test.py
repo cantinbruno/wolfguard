@@ -38,12 +38,19 @@ def run():
                 expect(page.locator('#wgPassiveScope')).to_have_count(0)
                 expect(page.locator('#wgScanCommand,#wgScanImport,#wgScanFile,#wgScanPaste,#wgScanDrop,#wgScanImportDialog,.wgscan-manual')).to_have_count(0)
                 expect(page.locator('#wgAgentTimeout')).to_have_count(1 if kind in ['active','map'] else 0)
-                # Check actual placement, not just different names or colors.
+                expect(page.locator('.scan-setup')).to_have_count(1)
+                expect(page.locator('.scan-output')).to_be_hidden()
+                expect(page.locator('#wgAgentLaunchHint')).to_contain_text('Paramètres → Agents')
+                # The first screen has a single card, with one launch action after its fields.
                 placement=page.evaluate('''()=>{const box=s=>document.querySelector(s).getBoundingClientRect();
-                  const overview=box('#wgScanOverview'),agent=box('#wgScanAgentHost'),metrics=box('#wgScanMetrics'),page=box('.wgscan');
-                  return {right:agent.left>=overview.right,above:agent.bottom<=overview.top,wide:overview.width>page.width*.85,left:metrics.right<=overview.left};}''')
-                assert placement[{'passive':'right','active':'above','map':'wide','vulnerability':'left'}[kind]],(kind,placement)
+                  const card=box('.scan-setup'),fields=box('.scan-setup-fields'),agent=box('#wgScanAgentHost');
+                  return {width:card.width,fieldsAbove:fields.bottom<=agent.top,inside:agent.left>=card.left&&agent.right<=card.right};}''')
+                assert placement['fieldsAbove'] and placement['inside'] and placement['width']<=900,(kind,placement)
                 page.screenshot(path=str(ROOT/f'.cache/scan-layout-{kind}-empty.png'),animations='disabled')
+                page.set_viewport_size({'width':390,'height':844})
+                page.screenshot(path=str(ROOT/f'.cache/scan-setup-{kind}-mobile.png'),animations='disabled')
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),kind
+                page.set_viewport_size({'width':1440,'height':1000})
             page.locator('#settingsBtn').click();page.locator('#settings-tab-agents').click()
             expect(page.locator('#wgAgentSelect')).to_be_visible()
             page.locator('#closeSettingsBtn').click()
@@ -163,7 +170,6 @@ def run():
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,kind)
                     assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,kind)
                     if kind=='passive' and width<=768:
-                        assert page.locator('#wgScanOverview').bounding_box()['y']<page.locator('.scan-monitor-controls').bounding_box()['y']
                         expect(page.locator('#wgPassiveQuickCollect')).to_be_visible()
                     page.locator('#wgScanTab-overview').focus();page.keyboard.press('ArrowRight')
                     expect(page.locator('#wgScanTab-rows')).to_be_focused()
