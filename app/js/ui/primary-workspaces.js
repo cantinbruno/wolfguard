@@ -16,7 +16,7 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => isScanSection(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const primarySectionFor = section => isScanSection(section) || section === 'remote' ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
 const availablePrimarySections = () => PRIMARY_WORKSPACE_SECTIONS.filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
@@ -128,7 +128,7 @@ async function switchPrimaryWorkspace(section) {
     return true;
   }
   if (target === 'library') return openSection('library');
-  if (isScanSection(target)) return openSection(target);
+  if (isScanSection(target) || target === 'remote') return openSection(target);
   if (target === 'modules') return openSection('modules');
   if (target === 'vault') return openSection('vault', null, {
     resume: primaryWorkspaces.vault
@@ -140,7 +140,7 @@ async function switchPrimaryWorkspace(section) {
 }
 document.addEventListener('input', () => syncMemoDraftIndicator());
 document.addEventListener('keydown', event => {
-  const digit=/^[1-6]$/.test(event.key)?event.key:/^Digit([1-6])$/.exec(event.code||'')?.[1];
+  const digit=/^[1-7]$/.test(event.key)?event.key:/^Digit([1-7])$/.exec(event.code||'')?.[1];
   if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !digit || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
   const destination=availablePrimarySections()[Number(digit)-1];
   if(!destination)return;

@@ -38,6 +38,11 @@ def run():
                 assert info['actionEnabled']
                 if state in ['connected','scanning','completed','failed']:assert info['title']=='En marche'
                 if state=='stopped':assert info['title']=='Arrêté'
+        remote_preview=target/'remote-preview'
+        subprocess.run([str(exe),'--remote-preview-dir',str(remote_preview)],check=True,timeout=30)
+        for name in ['consent','active']:
+            data=(remote_preview/(name+'.png')).read_bytes()
+            assert data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>2000
         subprocess.run([str(exe),'--verify-extraction',str(payload)],check=True,timeout=30)
         assert not (target/'outside-test.txt').exists()
         with ZipFile(ROOT/'app/downloads/WolfGuard-Agent-Windows.zip') as archive:

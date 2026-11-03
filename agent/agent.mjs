@@ -1,3 +1,4 @@
+import {executeRemoteSession} from './remote.mjs';
 import {setTimeout as delay} from 'node:timers/promises';
 import {readFile,writeFile,mkdir,rename,lstat,chmod} from 'node:fs/promises';
 import path from 'node:path';
@@ -32,10 +33,10 @@ const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(20
   const outcome=latest.error?'failed':cancel.signal.aborted||remoteStopped?'cancelled':'completed';
   onStatus(outcome==='failed'?'Le scan a échoué. Consulte le rapport sur le site.':outcome==='cancelled'?'Scan arrêté.':'Scan terminé. Les résultats sont disponibles sur le site.',{state:outcome,completed:latest.completed,total:latest.total});return latest;
 }
-export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000}={}){
+export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,remoteRunner=executeRemoteSession}={}){
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
   while(!signal?.aborted){
-    try{const {job}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3']}, {signal});if(signal?.aborted)break;if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
+    try{const {job,remote}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1']}, {signal});if(signal?.aborted)break;if(remote)await remoteRunner(client,remote,{signal,onStatus,directory:agentDirectory()});else if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan depuis le site.',{state:'connected'});}
     catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
     try{await delay(pollMs,undefined,{signal});}catch{break;}
   }

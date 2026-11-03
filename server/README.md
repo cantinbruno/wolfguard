@@ -55,3 +55,28 @@ A partial unique index permits one queued/running job per agent. Atomic claims i
 ## Local verification commands
 
 Node 22.13 or newer is required. Follow the Sites starter installation/build instructions. Generate migrations with `npm run db:generate`; apply only unapplied SQL to the local D1 database. Run browser and server tests from the parent WolfGuard GitHub repository. Local and production databases are separate. Test fixtures and synthetic development secrets must never initialize production.
+
+## Interactive remote desktop
+
+The Remote workspace uses the selected agent and a separate, per-browser-session
+lease. Windows uses GDI/SendInput and a visible WPF consent/Stop window. macOS
+uses its screen-capture utility and CoreGraphics input after native privacy
+permissions. Linux uses X11/XTest or RemoteDesktop/ScreenCast portals with
+PipeWire and GStreamer on Wayland. Linux needs a graphical session and
+zenity/kdialog (xmessage is an X11 fallback). Native code dependencies are
+version-pinned and SHA-512 checked before extraction; no package install
+scripts run. Dependency licenses stay with their downloaded packages.
+
+The relay accepts only bounded screen images and a finite keyboard/pointer
+protocol. There is no shell, file-transfer or arbitrary process endpoint.
+Images and queued input are encrypted at rest with independent AES-GCM contexts;
+HTTPS protects transport. This is server-side encryption, not end-to-end.
+The last image replaces its predecessor in R2. Ordered input is acknowledged
+and removed, and both are deleted when a session ends. Consent is required
+locally before capture or input. Sharing stops on refusal, local Stop, agent
+Stop, browser navigation, logout/revocation, stale input or loss of heartbeat.
+Viewer and agent heartbeats expire after 15 seconds; input older than four
+seconds terminates the session rather than replaying delayed actions. An
+unclaimed request expires after 90 seconds; all sessions expire after 20 minutes.
+Scans and desktop sessions cannot run concurrently on one agent. These are
+administration-oriented image updates, not a video/audio conferencing service.

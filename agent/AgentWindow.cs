@@ -151,11 +151,11 @@ namespace WolfGuard {
       currentState = state;
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
-        {"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
+        {"remote","En marche"},{"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
         {"failed","En marche"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
-      bool active = state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
+      bool active = state == "remote" || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
       detail.Text = active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
       dot.Fill = Brush(active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" ? "#ff978d" : "#f6aa5d");
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
@@ -261,6 +261,7 @@ namespace WolfGuard {
         StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8,
         WorkingDirectory = System.IO.Path.GetDirectoryName(agentPath)
       };
+      info.EnvironmentVariables["WOLFGUARD_AGENT_EXE"] = Assembly.GetExecutingAssembly().Location;
       Process process = new Process { StartInfo = info, EnableRaisingEvents = true }; child = process;
       process.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e) {
         if (e.Data == null || e.Data.Length > 4096) return;
@@ -298,6 +299,8 @@ namespace WolfGuard {
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ShowWindow(IntPtr handle, int command);
     [STAThread] public static int Main(string[] args) {
       try {
+        if (args.Length == 1 && args[0] == "--remote-permission") return RemotePermission.Run();
+        if (args.Length == 2 && args[0] == "--remote-preview-dir") { RemotePermission.Preview(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--render-logo") { AgentWindow.SavePng(AgentWindow.LogoBitmap(256), args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {

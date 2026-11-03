@@ -143,7 +143,7 @@ export async function handleAPI(request,env,clock=Date.now) {
       }else if(path==='/api/login'&&request.method==='POST'){
         const {code}=await smallJSON(request);const row=await verifyPIN(code,env,now);
         response=json({token:await issueSession(env,row.generation,now),version:row.version,exists:!!row.object_key});
-      }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path==='/api/scans'||path.startsWith('/api/scans/')){
+      }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);

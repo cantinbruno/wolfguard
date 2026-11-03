@@ -15,6 +15,13 @@
       "when": 1793143069036,
       "tag": "0001_nosy_may_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793724493024,
+      "tag": "0002_curvy_layla_miller",
+      "breakpoints": true
     }
   ]
 }

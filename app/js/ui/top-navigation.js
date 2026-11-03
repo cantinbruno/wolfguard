@@ -8,7 +8,8 @@ const topNavigation = (() => {
     'scan-active': 'Scan actif',
     'scan-map': 'Cartographie',
     'scan-vulnerability': 'Vulnérabilités',
-    tools: 'Outils'
+    tools: 'Outils',
+    remote: 'Prise en main'
   };
 
   function positionIndicator() {
@@ -68,7 +69,7 @@ const topNavigation = (() => {
       return button;
     });
     navigation.replaceChildren(...buttons);
-    new ResizeObserver(positionIndicator).observe(navigation);
+    new ResizeObserver(()=>{positionIndicator();navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});}).observe(navigation);
     setActive(state.section);
   }
   return {

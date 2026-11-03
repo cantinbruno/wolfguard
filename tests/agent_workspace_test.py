@@ -58,7 +58,7 @@ def run():
             installer=Path(download.value.path()).read_bytes()
             assert installer==(ROOT/'app/downloads/WolfGuard-Agent-Windows.exe').read_bytes()
             assert installer[:2]==b'MZ'
-            expect(first.locator('#settings-agents')).to_contain_text('Un poste commun')
+            expect(first.locator('#settings-agents')).to_contain_text('Le poste utilisé pour les scans et la prise en main.')
             runner=subprocess.Popen([str(node),str(ROOT/'tests/agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
             runner.stdin.write(json.dumps({'backend':backend,'code':code}));runner.stdin.close();assert runner.stdout.readline().strip()=='ready'
             expect(first.locator('#wgAgentSelect')).to_be_enabled(timeout=20000)

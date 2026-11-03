@@ -1,0 +1,50 @@
+[
+  {
+    "name": "koffi",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/koffi/-/koffi-3.3.6.tgz",
+    "integrity": "sha512-pPqCZg8o4laLvzxySGEju/T1Fd+eCJTVnJmcH6h1u98HFRoBQ9EokNuBSj3NxIQdzkEPRxPnHKjhBVkLeB+X0g=="
+  },
+  {
+    "name": "jpeg-js",
+    "version": "0.4.4",
+    "url": "https://registry.npmjs.org/jpeg-js/-/jpeg-js-0.4.4.tgz",
+    "integrity": "sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg=="
+  },
+  {
+    "name": "@koromix/koffi-win32-x64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-win32-x64/-/koffi-win32-x64-3.3.6.tgz",
+    "integrity": "sha512-g9KC6VKQLe88Tjgeubk3yhu0CjtqSeRq4XjWFWxUq4rsP0/wfLUBoeISvG60HoPmhYQp+U7hVd8Ms+amOMHDvA=="
+  },
+  {
+    "name": "@koromix/koffi-win32-arm64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-win32-arm64/-/koffi-win32-arm64-3.3.6.tgz",
+    "integrity": "sha512-WDVsrvWAaHbA7xiCMXX3PBmfDf4+VnfY67ryRAW86QNW8109W9WPS3YVGGD2YoPswDmSZsMBVzzZCEFUrLdJuA=="
+  },
+  {
+    "name": "@koromix/koffi-linux-x64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-linux-x64/-/koffi-linux-x64-3.3.6.tgz",
+    "integrity": "sha512-RTRbVTZ1rf1GFowSsbuU2acYoRq66ZwJGh+rTgau1Cat3muv2884p0FRH6UKfwlgWkpjIHJ7N8N0liM7Oe2eAQ=="
+  },
+  {
+    "name": "@koromix/koffi-linux-arm64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-linux-arm64/-/koffi-linux-arm64-3.3.6.tgz",
+    "integrity": "sha512-8LuJcdH74wTg7JcZjnRnb3z+qWPKcEDSv8HRPkWTVD56TFm0CXZXgl/WJ4maDbWem6ZoXxc87a8nQEA+wABzNA=="
+  },
+  {
+    "name": "@koromix/koffi-darwin-x64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-darwin-x64/-/koffi-darwin-x64-3.3.6.tgz",
+    "integrity": "sha512-eOyit0eyfkmdXCNlOkG8cNtpQUx+dikr1QsozJdwm7/zH1u7KP5dRtmsaGUMLSUY7cVYSRTUStkwHBrHjBtuzw=="
+  },
+  {
+    "name": "@koromix/koffi-darwin-arm64",
+    "version": "3.3.6",
+    "url": "https://registry.npmjs.org/@koromix/koffi-darwin-arm64/-/koffi-darwin-arm64-3.3.6.tgz",
+    "integrity": "sha512-++V4qscXff/Ya5cE6vOPOomcxk3T5JQu81Uc0fvoso3VVELcoHt2/dz9E0FY0EPyQNIRcWOVg7CgvsPCKId9lg=="
+  }
+]

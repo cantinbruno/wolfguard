@@ -42,8 +42,30 @@ Sections : Scan passif (cache pour la cible IP/FQDN), Scan actif (ports de la ci
 L’audit lit les configurations et le cache Windows Update, sans installer de correctif. Une lecture refusée ou indisponible reste non vérifiée. Le cache peut être ancien ou incomplet.
 Pour mettre à jour : ferme l’ancien agent puis lance la nouvelle version téléchargée depuis le site ; l’association du poste est conservée.
 
-Scans reseau : le passif lit uniquement les caches voisins ARP/NDP, sans sonde.
+Scans reseau : le passif lit les voisins ARP/NDP, noms en cache, connexions et sockets connus pour la cible, sans sonde.
 L actif analyse les services TCP de la seule cible IP ou FQDN indiquee
 (4096 tests maximum). Les controles du poste restent dans Vulnerabilites.
 
 Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résout pas les noms sur le réseau : fichier hosts ou cache DNS Windows uniquement. Si aucune association locale n’existe, le rapport explique l’absence de résultat. Les réseaux et plages restent réservés à la cartographie.
+
+PRISE EN MAIN DU BUREAU
+Dans WolfGuard, ouvre Prise en main puis Demander la connexion.
+Le poste utilise toujours l agent choisi dans Parametres > Agents.
+Une demande locale doit etre acceptee avant toute capture ou action.
+Un bouton local permet de terminer le partage ; Arreter l agent le termine aussi.
+La session expire apres 20 minutes, a la fermeture de la rubrique ou si la liaison est perdue.
+La premiere demande telecharge Koffi et jpeg-js depuis npm, avec versions
+et empreintes SHA-512 imposees dans remote-dependencies.json. Aucun programme
+d installation n est execute. Les licences sont incluses dans le cache local.
+Windows : nouvel agent graphique, session utilisateur ouverte. Les fenetres
+elevees, verrouillage et demandes UAC restent soumis aux restrictions Windows.
+macOS : autoriser le processus de l agent ou Terminal/Node dans Accessibilite
+et Enregistrement de l ecran. Relancer l agent apres les autorisations si necessaire.
+Linux : session graphique, zenity ou kdialog (xmessage est un recours sous X11).
+Wayland utilise le portail RemoteDesktop/ScreenCast et PipeWire. Installer
+GStreamer : gstreamer1.0-tools, gstreamer1.0-pipewire et gstreamer1.0-plugins-good
+sur Debian/Ubuntu. Les permissions du portail sont demandees a chaque session.
+Le bureau est transmis sous forme d images pour l administration, sans audio
+ni transfert de fichiers. Le flux passe en HTTPS par le relais WolfGuard ;
+la derniere image et les actions en attente y sont chiffrees temporairement.
+Le relais les dechiffre : ce n est pas un chiffrement de bout en bout.

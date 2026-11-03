@@ -56,11 +56,11 @@ def run():
             enter_code(page,PASSWORD,creating=True)
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
-            counts=page.evaluate("async()=>({sources:(await all('items')).filter(item=>item.consolidatedInto).length,guides:(await all('items')).filter(item=>item.consolidatedGuideVersion).length,visible:(await activeItems()).length})")
+            counts=page.evaluate("async()=>({sources:(await all('items')).filter(item=>item.consolidatedInto).length,guides:(await all('items')).filter(item=>item.consolidatedGuideVersion).length,references:(await activeItems()).filter(item=>item.referenceCatalogId===MEMO_PORT_REFERENCE).length,visible:(await activeItems()).length})")
             assert counts['sources']==740, counts
-            assert counts['visible']==counts['guides'] and 0<counts['guides']<counts['sources'], counts
+            assert counts['references']==1 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
-            assert page.locator('.workspace-section-button').count()==6
+            assert page.locator('.workspace-section-button').count()==7
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')
@@ -129,13 +129,15 @@ def run():
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTitle')).to_have_text('Scan passif du réseau')
             expect(page.locator('#scanStart')).to_have_count(0)
-            expect(page.locator('#wgScanImport')).to_be_enabled()
+            expect(page.locator('#wgScanImport')).to_have_count(0)
+            expect(page.locator('.scan-setup')).to_be_visible()
             page.locator('.workspace-section-button[data-section=scan-active]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTarget')).to_have_value('192.0.2.42')
             expect(page.locator('#scanStart')).to_have_count(0)
-            expect(page.locator('#wgScanImport')).to_be_enabled()
-            assert 'Nmap' in page.locator('#content').inner_text()
+            expect(page.locator('#wgScanImport')).to_have_count(0)
+            expect(page.locator('.scan-setup')).to_be_visible()
+            expect(page.locator('#wgAgentLaunch')).to_contain_text('Lancer le scan actif')
             print('PASS: trois outils, reference des ports dans Memo, deux sections scan distinctes, execution Windows explicitement indiquee')
 
             page.locator('#settingsBtn').click()

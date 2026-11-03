@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 export const vault = sqliteTable('vault', {
   id: integer('id').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
@@ -28,3 +28,11 @@ export const scanJobs = sqliteTable('scan_jobs', {
   revision: integer('revision').notNull(), completed: integer('completed').notNull(), total: integer('total').notNull(),
   leaseHash: text('lease_hash'), leaseUntil: integer('lease_until').notNull()
 },table=>[uniqueIndex('scan_jobs_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('queued','running')`)]);
+export const remoteSessions = sqliteTable('remote_sessions', {
+  id:text('id').primaryKey(),agentId:text('agent_id').notNull(),generation:integer('generation').notNull(),ownerHash:text('owner_hash').notNull(),status:text('status').notNull(),
+  createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),viewerUntil:integer('viewer_until').notNull(),agentUntil:integer('agent_until').notNull(),
+  leaseHash:text('lease_hash'),frameRevision:integer('frame_revision').notNull().default(0),inputSeq:integer('input_seq').notNull().default(0),inputAck:integer('input_ack').notNull().default(0),messageCipher:text('message_cipher')
+},table=>[uniqueIndex('remote_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('requested','preparing','active')`)]);
+export const remoteInputs = sqliteTable('remote_inputs', {
+  sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),inputCipher:text('input_cipher').notNull()
+},table=>[primaryKey({columns:[table.sessionId,table.seq]})]);

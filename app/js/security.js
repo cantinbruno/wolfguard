@@ -142,6 +142,7 @@ function resetPinUI() {
 }
 
 function lockApplication() {
+  window.remoteDesktopWorkspace?.reset();
   appMessages.dismiss();
   resetPrimaryWorkspaces();
   window.workspaceSearch?.reset();
