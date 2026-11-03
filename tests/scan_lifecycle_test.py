@@ -20,7 +20,12 @@ def run():
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','security-audit-v1']}
-    jobs=[];held_create=[];held_result=[];result_requests=[];options={'hold_create':True,'hold_result':False,'fail_create':False}
+    jobs=[{'id':f'{100+index:032x}','workspace':kind,'strategy':'active' if kind in ['active','map'] else 'passive',
+           'target':'192.168.1.20' if kind!='vulnerability' else '', 'createdAt':int(time.time()*1000)-86400000,
+           'status':'completed','revision':2,'completed':1,'total':1}
+          for index,kind in enumerate(['passive','active','map','vulnerability'])]
+    old_ids={job['workspace']:job['id'] for job in jobs}
+    held_create=[];held_result=[];result_requests=[];options={'hold_create':True,'hold_result':False,'fail_create':False}
 
     def report(job):
         kind=job['workspace']
@@ -66,6 +71,20 @@ def run():
                 navigate(page,kind)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
                 expect(page.locator('.wgscan-tabs')).to_be_hidden();expect(page.locator('#wgScanMetrics')).to_be_hidden()
+                expect(page.locator('#wgAgentHistory option')).to_have_count(2,timeout=15000)
+                expect(page.locator('#wgAgentHistory')).to_have_value('')
+                page.wait_for_timeout(3200)
+                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
+                assert old_ids[kind] not in result_requests
+                # The first archived row is still available through an explicit choice.
+                page.locator('.wgscan-agent-history summary').click()
+                page.locator('#wgAgentHistory').select_option(old_ids[kind])
+                expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
+                expect(page.locator('#wgScanReportStamp')).to_contain_text('192.168.1.20' if kind!='vulnerability' else 'Agent')
+                page.locator('#wgScanNew').click()
+                expect(page.locator('.scan-setup')).to_be_visible()
+                page.wait_for_timeout(3200)
+                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
                 if kind!='vulnerability':page.locator('#scanTarget').fill('192.168.1.10')
                 expect(page.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000)
                 with page.expect_request(lambda request:request.method=='POST' and request.url.endswith('/scans')):page.locator('#wgAgentLaunch').click()
@@ -123,6 +142,14 @@ def run():
             jobs[-1].update(status='cancelled',revision=1)
             expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
             expect(page.locator('#wgScanStatus')).to_contain_text('Scan arrêté')
+            # A fresh page with populated history still opens every scan at preparation.
+            page.reload();expect(page.locator('#app')).to_be_visible(timeout=30000)
+            for kind in ['passive','active','map','vulnerability']:
+                navigate(page,kind)
+                expect(page.locator('#wgAgentHistory option')).not_to_have_count(1,timeout=10000)
+                expect(page.locator('#wgAgentHistory')).to_have_value('')
+                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
+                expect(page.locator('.scan-setup')).to_be_visible()
             assert not errors,errors
             browser.close()
             print('PASS: all four scans prepare, show immediate loading with real progress, wait for the complete report, survive navigation and recover from failed/aborted runs without stale results')

@@ -1,7 +1,8 @@
 'use strict';
 
 const webScanAgent = (() => {
-  let timer = 0, generation = 0, jobIds = {passive: '', active: '', map: '', vulnerability: ''};
+  const emptySelection = () => ({passive: '', active: '', map: '', vulnerability: ''});
+  let timer = 0, generation = 0, jobIds = emptySelection(), jobAgents = emptySelection();
   const labels = {queued: 'En attente de l’agent', running: 'Scan en cours', completed: 'Scan terminé', cancelled: 'Scan arrêté', failed: 'Collecte en échec', expired: 'Agent non disponible à temps', lost: 'Connexion à l’agent perdue'};
   function fromJob(data,agent={}) {
     const kind=data.workspace||data.spec?.workspace||data.strategy,definition=scanInsights.definitions[kind];
@@ -15,7 +16,7 @@ const webScanAgent = (() => {
     if(kind==='passive')report=webScanModel.networkReport(report);
     return report;
   }
-  function reset(clear = true) { clearTimeout(timer); timer = 0; generation++; if (clear) jobIds = {passive: '', active: '', map: '', vulnerability: ''}; }
+  function reset(clear = true) { clearTimeout(timer); timer = 0; generation++; if (clear) { jobIds = emptySelection(); jobAgents = emptySelection(); } }
   function mount(kind, values, onReport, onExecution = () => {}) {
     reset(false);
     const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
@@ -24,7 +25,7 @@ const webScanAgent = (() => {
     root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">Agent utilisé</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentLaunchHint" class="scan-launch-hint" hidden></p><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
-    let agent = null, jobs = [], busy = false, launching = false, actionRevision = 0, lastResult = '', current = null, running = null, selected = '', refreshing = false, compatibilityIssue = false;
+    let agent = null, jobs = [], busy = false, launching = false, actionRevision = 0, lastResult = '', current = null, running = null, selected = jobAgents[kind], refreshing = false, compatibilityIssue = false;
     const request = (path, value) => WolfGuardCloud.agentRequest(path, value);
     const status = (text, error = false) => { if (live()) { find('#wgAgentStatus').textContent = text; find('#wgAgentStatus').classList.toggle('is-error', error); } };
     function render() {
@@ -34,7 +35,8 @@ const webScanAgent = (() => {
       if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis Paramètres → Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
       running = jobs.find(job => ['queued', 'running'].includes(job.status));
       const matching = jobs.filter(job => (job.workspace || job.strategy) === kind);
-      current = matching.find(job => ['queued','running'].includes(job.status)) || matching.find(job => job.id === jobIds[kind]) || matching[0] || null;
+      // Resume a running scan or a scan chosen in this session; archives require an explicit choice.
+      current = matching.find(job => ['queued','running'].includes(job.status)) || matching.find(job => job.id === jobIds[kind]) || null;
       if (current) jobIds[kind] = current.id;
       find('#wgAgentPresence').textContent = agent ? agent.online ? '● Connecté' : '○ Hors ligne' : 'À configurer dans les paramètres';
       find('#wgAgentPresence').dataset.online = String(!!agent?.online);
@@ -55,7 +57,7 @@ const webScanAgent = (() => {
       if(launching)onExecution({status:'starting'});
       else if(current && ['queued','running'].includes(current.status))onExecution({status:current.status,completed:current.completed,total:current.total});
       else if(!current)onExecution({status:'ready'});
-      find('#wgAgentHistory').innerHTML = matching.length ? matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('') : '<option value="">Aucun rapport : ' + definition.short + '</option>';
+      find('#wgAgentHistory').innerHTML = '<option value="" disabled '+(!current?'selected':'')+'>'+(matching.length?'Choisir un ancien scan…':'Aucun rapport : '+definition.short)+'</option>'+matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('');
       const progress = find('#wgAgentProgress'); progress.hidden = !current;
       if (current) { const bar = progress.querySelector('progress'); bar.max = Math.max(1, current.total); if (current.status === 'running' && !current.total) bar.removeAttribute('value'); else bar.value = current.completed; progress.querySelector('span').textContent = (labels[current.status] || current.status) + (current.total ? ' · ' + current.completed + ' / ' + current.total + (kind === 'vulnerability' ? ' contrôles' : kind === 'map' ? ' adresses' : ' tests') : ''); }
     }
@@ -80,7 +82,7 @@ const webScanAgent = (() => {
       try {
         const snapshot = await workspaceAgents.snapshot(); if (!live() || action !== actionRevision) return;
         agent = snapshot.selected;
-        if (selected !== (agent?.id || '')) { selected = agent?.id || ''; lastResult = ''; jobs = []; jobIds[kind] = ''; }
+        if (selected !== (agent?.id || '')) { if(selected){values().preparing=true;values().execution=null;} selected = agent?.id || ''; jobAgents[kind] = selected; lastResult = ''; jobs = []; jobIds[kind] = ''; }
         const id = selected;
         if (id) { const response = await request('scans?agentId=' + id); if (!live() || selected !== id || action !== actionRevision) return; jobs = response.jobs; } else jobs = [];
         render(); await result();
