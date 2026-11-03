@@ -2,7 +2,7 @@
 /* Agent management */
 #settings-agents{--agent-accent:#a8c8e8}
 #settings-agents [hidden]{display:none!important}
-#settings-agents .agent-manager-heading{align-items:center;padding-bottom:18px;gap:12px}
+#settings-agents .agent-manager-heading{align-items:center;padding-bottom:0;margin-bottom:24px;border-bottom:0;gap:12px}
 .agent-manager-heading>div>p{margin:6px 0 0;color:var(--ui-muted);font-size:11px}
 #settings-agents .settings-btn{font-size:11px;min-height:34px;padding:7px 11px;line-height:1.5}
 #settings-agents .settings-btn-icon{width:32px;min-width:32px;height:32px;min-height:32px;padding:6px}
