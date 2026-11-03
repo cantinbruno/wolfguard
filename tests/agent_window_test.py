@@ -24,11 +24,20 @@ def run():
         assert target.is_relative_to(cache.resolve())
         preview=target/'preview';payload=target/'payload'
         subprocess.run([str(exe),'--preview-dir',str(preview)],check=True,timeout=30)
-        for state in ['pairing','connected','scanning','offline']:
+        for state in ['pairing','connected','scanning','offline','stopped','error','connecting','completed','failed']:
             data=(preview/(state+'.png')).read_bytes()
-            assert data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>8000
+            assert data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>4000
             width,height=struct.unpack('>II',data[16:24])
-            assert width==620 and height>=700
+            assert 360<=width<=480 and 280<=height<=560
+            info=json.loads((preview/(state+'.json')).read_text(encoding='utf8'))
+            if state=='pairing':
+                assert info['buttons']==['Associer ce poste']
+            else:
+                assert height<=400
+                assert info['buttons']==(['Démarrer'] if state in ['stopped','error'] else ['Arrêter'])
+                assert info['actionEnabled']
+                if state in ['connected','scanning','completed','failed']:assert info['title']=='En marche'
+                if state=='stopped':assert info['title']=='Arrêté'
         subprocess.run([str(exe),'--verify-extraction',str(payload)],check=True,timeout=30)
         assert not (target/'outside-test.txt').exists()
         with ZipFile(ROOT/'app/downloads/WolfGuard-Agent-Windows.zip') as archive:
@@ -45,6 +54,6 @@ def run():
         assert all(event['type']=='state' for event in events)
     assert startup_value()==startup
     assert (credential.stat().st_mtime_ns if credential.exists() else None)==prior
-    print('PASS: executable Windows reel, logo vectoriel et quatre etats rendus, extraction conforme et chemins malveillants refuses; aucune installation, association ou modification du demarrage automatique')
+    print('PASS: compact native window with agent status and one Start/Stop button, nine rendered states, safe extraction; no installation, pairing or startup change')
 
 if __name__=='__main__':run()

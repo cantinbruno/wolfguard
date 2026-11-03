@@ -19,7 +19,6 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Xml;
-using Microsoft.Win32;
 
 [assembly: AssemblyTitle("WolfGuard Agent")]
 [assembly: AssemblyProduct("WolfGuard Agent")]
@@ -27,19 +26,17 @@ using Microsoft.Win32;
 
 namespace WolfGuard {
   public sealed class AgentWindow : Window {
-    const string Site = "https://wolfguard.wavetools.fr/";
     const string NodeUrl = "https://nodejs.org/dist/v22.23.4/node-v22.23.4-win-x64.zip";
     const string NodeHash = "cbc74b5e0982c9dbb41525fd8fb5dcd32fbee237863f7829072f4639a1ce5f20";
     readonly string home = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WolfGuardAgent");
     readonly JavaScriptSerializer json = new JavaScriptSerializer();
     readonly Grid root;
-    readonly TextBlock statusTitle, detail, contact, lastScan;
+    readonly TextBlock statusTitle, detail;
     readonly Ellipse dot;
     readonly ProgressBar progress;
     readonly StackPanel pairing;
     readonly TextBox code;
-    readonly Button pairButton, mainButton, retryButton, repairButton;
-    readonly CheckBox startup;
+    readonly Button pairButton, mainButton;
     Process child;
     WebClient download;
     string currentState = "preparing", nodePath, agentPath;
@@ -49,7 +46,7 @@ namespace WolfGuard {
     public AgentWindow(bool previewMode) {
       preview = previewMode;
       Title = "WolfGuard Agent";
-      Width = 620; Height = 760; MinWidth = 520; MinHeight = 520;
+      Width = 440; Height = 340; MinWidth = 360; MinHeight = 280;
       WindowStartupLocation = WindowStartupLocation.CenterScreen;
       Background = Brush("#0e1928"); Foreground = Brush("#edf2f7");
       FontFamily = new FontFamily("Segoe UI");
@@ -59,17 +56,16 @@ namespace WolfGuard {
  <Style TargetType='Button'><Setter Property='Foreground' Value='#e7edf6'/><Setter Property='Background' Value='#21344a'/><Setter Property='Padding' Value='18,11'/><Setter Property='Margin' Value='0,0,8,0'/><Setter Property='BorderThickness' Value='0'/><Setter Property='Cursor' Value='Hand'/><Setter Property='FontSize' Value='13'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border Background='{TemplateBinding Background}' Padding='{TemplateBinding Padding}' CornerRadius='8'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></Border><ControlTemplate.Triggers><Trigger Property='IsMouseOver' Value='True'><Setter Property='Opacity' Value='0.82'/></Trigger><Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.45'/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
 </Grid.Resources>
 <ScrollViewer VerticalScrollBarVisibility='Auto' HorizontalScrollBarVisibility='Disabled'>
- <StackPanel Margin='30,22,30,24'>
-  <TextBlock Text='AGENT WINDOWS' Foreground='#f6aa5d' FontSize='11' FontWeight='SemiBold' HorizontalAlignment='Center' Margin='0,0,0,14'/>
-  <Viewbox x:Name='LogoHost' Height='156' Width='156'/>
-  <TextBlock Text='WolfGuard' FontSize='34' FontWeight='Bold' HorizontalAlignment='Center' Margin='0,10,0,2'/>
-  <TextBlock Text='Ton poste, connecté à tes scans.' Foreground='#9aadc3' FontSize='14' HorizontalAlignment='Center' Margin='0,0,0,24'/>
-  <Border Background='#17273b' BorderBrush='#30465e' BorderThickness='1' CornerRadius='13' Padding='21,18'>
+ <StackPanel Margin='24'>
+  <StackPanel Orientation='Horizontal' Margin='0,0,0,20'>
+   <Viewbox x:Name='LogoHost' Height='32' Width='32' Margin='0,0,10,0'/>
+   <TextBlock Text='WolfGuard Agent' FontSize='18' FontWeight='SemiBold' VerticalAlignment='Center'/>
+  </StackPanel>
+  <Border Background='#17273b' BorderBrush='#30465e' BorderThickness='1' CornerRadius='12' Padding='18'>
    <StackPanel>
-    <StackPanel Orientation='Horizontal'><Ellipse x:Name='StateDot' Width='13' Height='13' Fill='#f6aa5d' Margin='0,0,12,0'/><TextBlock x:Name='StateTitle' Text='Préparation…' FontSize='25' FontWeight='SemiBold'/></StackPanel>
-    <TextBlock x:Name='StateDetail' Text='L’agent se prépare pour son premier lancement.' FontSize='13' Foreground='#b4c2d4' TextWrapping='Wrap' Margin='0,9,0,0'/>
+    <StackPanel Orientation='Horizontal'><Ellipse x:Name='StateDot' Width='11' Height='11' Fill='#f6aa5d' Margin='0,0,10,0'/><TextBlock x:Name='StateTitle' Text='Préparation…' FontSize='24' FontWeight='SemiBold'/></StackPanel>
+    <TextBlock x:Name='StateDetail' Text='Préparation de l’agent.' FontSize='13' Foreground='#b4c2d4' TextWrapping='Wrap' Margin='0,8,0,0'/>
     <ProgressBar x:Name='StateProgress' Height='6' Margin='0,16,0,0' Minimum='0' Maximum='100' Foreground='#f6aa5d' Background='#263d56' BorderThickness='0' IsIndeterminate='True'/>
-    <TextBlock x:Name='Contact' Foreground='#8fa5bd' FontSize='11' Margin='0,11,0,0'/>
    </StackPanel>
   </Border>
   <StackPanel x:Name='Pairing' Margin='0,20,0,0' Visibility='Collapsed'>
@@ -78,33 +74,16 @@ namespace WolfGuard {
    <TextBox x:Name='PairCode' MaxLength='32' FontFamily='Consolas' FontSize='17' Padding='11' Foreground='#edf2f7' Background='#0b1420' BorderBrush='#405b77' SelectionBrush='#936037' AutomationProperties.Name='Code temporaire d’association'/>
    <Button x:Name='PairButton' Content='Associer ce poste' Background='#f6aa5d' Foreground='#132033' FontWeight='SemiBold' HorizontalAlignment='Left' Margin='0,10,0,0'/>
   </StackPanel>
-  <TextBlock x:Name='LastScan' TextWrapping='Wrap' Foreground='#9aadc3' FontSize='12' Margin='0,16,0,0'/>
-  <WrapPanel Margin='0,18,0,0'>
-   <Button x:Name='MainButton' Content='Arrêter l’agent' Visibility='Collapsed'/>
-   <Button x:Name='RetryButton' Content='Réessayer' Visibility='Collapsed'/>
-   <Button x:Name='SiteButton' Content='Ouvrir WolfGuard'/>
-  </WrapPanel>
-  <Button x:Name='RepairButton' Content='Nouvelle association' FontSize='12' HorizontalAlignment='Left' Background='Transparent' Foreground='#a9bbd1' Padding='0,12' Margin='0' Visibility='Collapsed'/>
-  <Border BorderBrush='#263a51' BorderThickness='0,1,0,0' Margin='0,18,0,0' Padding='0,16,0,0'>
-   <StackPanel>
-    <CheckBox x:Name='Startup' Content='Ouvrir l’agent avec ma session Windows' Foreground='#b4c2d4' FontSize='12' IsEnabled='False'/>
-    <TextBlock x:Name='Machine' Foreground='#70879f' FontSize='11' Margin='0,12,0,0' TextTrimming='CharacterEllipsis'/>
-   </StackPanel>
-  </Border>
+  <Button x:Name='MainButton' Content='Démarrer' FontWeight='SemiBold' Height='44' Margin='0,18,0,0' IsEnabled='False'/>
  </StackPanel>
 </ScrollViewer></Grid>";
       root = (Grid)XamlReader.Parse(xaml); Content = root;
       ((Viewbox)root.FindName("LogoHost")).Child = Logo();
       statusTitle = (TextBlock)root.FindName("StateTitle"); detail = (TextBlock)root.FindName("StateDetail");
-      contact = (TextBlock)root.FindName("Contact"); lastScan = (TextBlock)root.FindName("LastScan");
       dot = (Ellipse)root.FindName("StateDot"); progress = (ProgressBar)root.FindName("StateProgress");
       pairing = (StackPanel)root.FindName("Pairing"); code = (TextBox)root.FindName("PairCode");
       pairButton = (Button)root.FindName("PairButton"); mainButton = (Button)root.FindName("MainButton");
-      retryButton = (Button)root.FindName("RetryButton"); repairButton = (Button)root.FindName("RepairButton");
-      startup = (CheckBox)root.FindName("Startup");
-      ((TextBlock)root.FindName("Machine")).Text = Environment.MachineName + "  ·  WolfGuard Agent 2.0";
       Icon = LogoBitmap(64);
-      ((Button)root.FindName("SiteButton")).Click += delegate { if (!preview) Process.Start(new ProcessStartInfo(Site) { UseShellExecute = true }); };
       pairButton.Click += delegate {
         string value = code.Text.Trim().ToLowerInvariant();
         if (!System.Text.RegularExpressions.Regex.IsMatch(value, "^[a-f0-9]{32}$")) { SetState("pairing", "Copie le code temporaire de 32 caractères généré sur le site.", 0, 0); return; }
@@ -114,19 +93,6 @@ namespace WolfGuard {
         if (child == null || child.HasExited) { await Prepare(); return; }
         bool start = currentState == "stopped" || currentState == "error";
         if (Send(new { type = start ? "start" : "stop" })) SetState(start ? "connecting" : "stopping", start ? "Connexion à WolfGuard…" : "Arrêt du scan et de la connexion…", 0, 0);
-      };
-      repairButton.Click += delegate { if (Send(new { type = "repair" })) SetState("stopping", "Arrêt de l’ancienne connexion avant association…", 0, 0); };
-      retryButton.Click += async delegate { await Prepare(); };
-      if (!preview) using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) startup.IsChecked = (key != null && key.GetValue("WolfGuardAgent") != null) || LegacyStartup(false);
-      startup.Click += delegate {
-        if (preview) return;
-        try {
-          using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run")) {
-            if (startup.IsChecked == true) key.SetValue("WolfGuardAgent", "\"" + System.IO.Path.Combine(home, "WolfGuard-Agent.exe") + "\"");
-            else key.DeleteValue("WolfGuardAgent", false);
-          }
-          LegacyStartup(true);
-        } catch { startup.IsChecked = !startup.IsChecked; MessageBox.Show(this, "Le démarrage automatique n’a pas pu être modifié.", "WolfGuard", MessageBoxButton.OK, MessageBoxImage.Information); }
       };
       Closing += async delegate(object sender, System.ComponentModel.CancelEventArgs e) {
         if (preview || canClose) return;
@@ -139,24 +105,6 @@ namespace WolfGuard {
     }
 
     static SolidColorBrush Brush(string color) { return (SolidColorBrush)new BrushConverter().ConvertFromString(color); }
-    static bool LegacyStartup(bool remove) {
-      object service = null, folder = null, task = null;
-      try {
-        dynamic scheduler = Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service")); service = scheduler; scheduler.Connect();
-        dynamic root = scheduler.GetFolder(@"\"); folder = root;
-        try { task = root.GetTask("WolfGuard-Scan-Agent"); } catch { return false; }
-        dynamic previous = task;
-        WindowsIdentity user = WindowsIdentity.GetCurrent();
-        string owner = Convert.ToString(previous.Definition.Principal.UserId);
-        if (!String.Equals(owner, user.Name, StringComparison.OrdinalIgnoreCase) && !String.Equals(owner, user.User.Value, StringComparison.OrdinalIgnoreCase)) return false;
-        bool enabled = previous.Enabled;
-        if (remove) root.DeleteTask("WolfGuard-Scan-Agent", 0);
-        return enabled;
-      } catch { if (remove) throw; return false; }
-      finally {
-        foreach (object value in new object[] {task, folder, service}) if (value != null && System.Runtime.InteropServices.Marshal.IsComObject(value)) System.Runtime.InteropServices.Marshal.FinalReleaseComObject(value);
-      }
-    }
     public static Canvas Logo() {
       Canvas canvas = new Canvas { Width = 64, Height = 64 };
       XmlDocument svg = new XmlDocument(); svg.XmlResolver = null;
@@ -186,38 +134,49 @@ namespace WolfGuard {
     public void Preview(string state, string file) {
       string message = state == "scanning" ? "Scan actif en cours. Les résultats remontent sur le site." : state == "connected" ? "Prêt à recevoir un scan depuis WolfGuard." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : "Colle le code temporaire généré dans WolfGuard.";
       SetState(state, message, state == "scanning" ? 37 : 0, state == "scanning" ? 100 : 0);
-      SavePng(Render(root, 620, state == "pairing" ? 820 : 730), file);
+      int height = state == "pairing" ? 540 : 340;
+      SavePng(Render(root, 440, height), file);
+      List<string> buttons = new List<string>();
+      VisibleButtons(root, buttons);
+      File.WriteAllText(System.IO.Path.ChangeExtension(file, ".json"), json.Serialize(new {state, title = statusTitle.Text, buttons, actionEnabled = mainButton.IsEnabled}), new UTF8Encoding(false));
+    }
+    static void VisibleButtons(DependencyObject parent, List<string> buttons) {
+      UIElement element = parent as UIElement;
+      if (element != null && element.Visibility != Visibility.Visible) return;
+      Button button = parent as Button;
+      if (button != null) { buttons.Add(Convert.ToString(button.Content)); return; }
+      for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++) VisibleButtons(VisualTreeHelper.GetChild(parent, index), buttons);
     }
     void SetState(string state, string message, int completed, int total) {
       currentState = state;
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
-        {"connected","Connecté"},{"scanning","Scan en cours"},{"completed","Scan terminé"},{"cancelled","Scan arrêté"},
-        {"failed","Échec du scan"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Agent arrêté"},{"error","Action nécessaire"}
+        {"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
+        {"failed","En marche"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
-      detail.Text = message.Length > 500 ? message.Substring(0, 500) : message;
-      dot.Fill = Brush(state == "connected" || state == "completed" ? "#6bd5ac" : state == "offline" || state == "error" || state == "failed" || state == "revoked" ? "#ff978d" : "#f6aa5d");
+      bool active = state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
+      detail.Text = active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
+      dot.Fill = Brush(active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" ? "#ff978d" : "#f6aa5d");
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
+      bool resize = (pairing.Visibility == Visibility.Visible) != pair;
       pairing.Visibility = pair ? Visibility.Visible : Visibility.Collapsed;
+      if (resize) { MinHeight = pair ? 460 : 280; Height = Math.Min(pair ? 540 : 340, SystemParameters.WorkArea.Height - 32); }
       pairButton.IsEnabled = state != "enrolling";
       code.IsEnabled = state != "enrolling";
-      bool running = state == "connected" || state == "scanning" || state == "offline" || state == "completed" || state == "cancelled" || state == "failed" || state == "connecting";
-      mainButton.Visibility = running || state == "stopped" || (state == "error" && child != null && !child.HasExited) ? Visibility.Visible : Visibility.Collapsed;
-      mainButton.Content = state == "stopped" || state == "error" ? "Démarrer l’agent" : "Arrêter l’agent";
-      retryButton.Visibility = state == "error" && (child == null || child.HasExited) ? Visibility.Visible : Visibility.Collapsed;
-      repairButton.Visibility = running || state == "stopped" ? Visibility.Visible : Visibility.Collapsed;
-      progress.Visibility = state == "preparing" || state == "enrolling" || state == "connecting" || state == "scanning" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
+      bool start = state == "stopped" || state == "error" || state == "preparing";
+      mainButton.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
+      mainButton.IsEnabled = state != "preparing" && state != "stopping";
+      mainButton.Content = start ? "Démarrer" : "Arrêter";
+      mainButton.Background = Brush(start ? "#f6aa5d" : "#243b52");
+      mainButton.Foreground = Brush(start ? "#132033" : "#edf2f7");
+      progress.Visibility = state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
       progress.IsIndeterminate = total <= 0; progress.Maximum = Math.Max(1, total); progress.Value = Math.Max(0, Math.Min(completed, total));
-      if (state == "scanning" && total > 0) contact.Text = completed + " / " + total + " tests";
-      else if (state == "connected") contact.Text = "Dernier contact : " + DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
-      else contact.Text = "";
-      if (state == "completed" || state == "cancelled" || state == "failed") lastScan.Text = statusTitle.Text + " à " + DateTime.Now.ToString("HH:mm", CultureInfo.InvariantCulture) + (total > 0 ? " · " + completed + " / " + total + " tests" : "");
     }
     bool Send(object command) {
       if (preview) return false;
       try { if (child == null || child.HasExited) throw new IOException(); child.StandardInput.WriteLine(json.Serialize(command)); child.StandardInput.Flush(); return true; }
-      catch { SetState("error", "Le moteur n’est pas disponible. Clique sur Réessayer.", 0, 0); return false; }
+      catch { SetState("error", "Le moteur n’est pas disponible. Clique sur Démarrer pour réessayer.", 0, 0); return false; }
     }
     static bool RuntimeReady(string executable) {
       if (!File.Exists(executable)) return false;
@@ -278,7 +237,6 @@ namespace WolfGuard {
           using (download = new WebClient()) {
             download.DownloadProgressChanged += delegate(object sender, DownloadProgressChangedEventArgs e) {
               progress.IsIndeterminate = e.TotalBytesToReceive <= 0; progress.Maximum = 100; progress.Value = e.ProgressPercentage;
-              contact.Text = (e.BytesReceived / (1024 * 1024)) + " Mo téléchargés";
             };
             await download.DownloadFileTaskAsync(new Uri(NodeUrl), archive);
           }
@@ -290,7 +248,7 @@ namespace WolfGuard {
           });
         }
         if (closing) return;
-        StartChild(); startup.IsEnabled = true;
+        StartChild();
       } catch {
         if (!closing) SetState("error", "La préparation n’a pas pu se terminer. Vérifie ta connexion Internet et l’espace disponible, puis réessaie.", 0, 0);
       } finally { download = null; preparing = false; }
@@ -317,7 +275,7 @@ namespace WolfGuard {
         }));
       };
       process.ErrorDataReceived += delegate { /* Never display raw process output or credentials. */ };
-      process.Exited += delegate { Dispatcher.BeginInvoke(new Action(delegate { if (!closing && child == process) SetState("error", "Le moteur s’est arrêté. Clique sur Réessayer pour le relancer.", 0, 0); })); };
+      process.Exited += delegate { Dispatcher.BeginInvoke(new Action(delegate { if (!closing && child == process) SetState("error", "Le moteur s’est arrêté. Clique sur Démarrer pour le relancer.", 0, 0); })); };
       try { process.Start(); process.StandardInput.AutoFlush = true; process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
       catch { if (child == process) child = null; process.Dispose(); throw; }
       if (RequestPair) { RequestPair = false; Send(new {type = "repair"}); }
@@ -344,7 +302,7 @@ namespace WolfGuard {
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {
           Directory.CreateDirectory(args[1]);
-          foreach (string state in new string[] { "pairing", "connected", "scanning", "offline" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
+          foreach (string state in new string[] { "pairing", "connected", "scanning", "offline", "stopped", "error", "connecting", "completed", "failed" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
           return 0;
         }
         string sid = WindowsIdentity.GetCurrent().User.Value; bool created;

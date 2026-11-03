@@ -1,7 +1,8 @@
 WolfGuard Agent - Windows 10/11 x64
 
 Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
-La fenetre affiche le grand logo, la connexion et la progression des scans.
+La fenetre compacte affiche uniquement l etat de l agent et un bouton
+Demarrer ou Arreter. Les resultats des scans restent sur le site.
 Aucune extraction d archive ni console n est necessaire.
 
 1. Ouvrir WolfGuard, saisir le code habituel puis Parametres > Agents.
@@ -13,7 +14,8 @@ Aucune extraction d archive ni console n est necessaire.
 Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
 Fermer la console de l ancien agent avant d ouvrir cette version graphique.
 Une association existante est reutilisee pour le meme utilisateur Windows.
-Nouvelle association permet de remplacer un acces revoque ou illisible.
+La saisie du code apparait uniquement si une association est necessaire.
+Pour refaire une association volontairement, utiliser Associer-agent.cmd.
 
 Au premier lancement, le moteur Node.js est telecharge depuis nodejs.org ;
 son SHA-256 est verifie avant extraction et execution. Les fichiers de
@@ -22,18 +24,17 @@ Aucun droit administrateur n est demande. Le code WolfGuard n est jamais
 transmis a l agent ; son acces est protege par Windows DPAPI.
 Le fichier executable n est pas signe numeriquement.
 
-Etats : A associer, Connexion, Connecte, Scan en cours avec compteurs,
-Scan termine, Scan arrete, Hors ligne avec nouvelle tentative, acces revoque.
-Connecte apparait uniquement apres une reponse effective du serveur.
+Etats : A associer, Connexion, En marche, Arrete, Hors ligne ou erreur.
+En marche apparait uniquement apres une reponse effective du serveur.
 Arreter l agent suspend sa connexion et annule le scan en cours.
+Demarrer le reconnecte avec l association deja enregistree.
 Fermer la fenetre termine son moteur ; reduire la fenetre le garde actif.
-La case Ouvrir l agent avec ma session Windows est facultative.
 
 Aucun port entrant n est ouvert. Les scans actifs ciblent uniquement des
 adresses privees ou locales : une cible IP/FQDN (256 adresses en cartographie),
 4096 tests, 32 tests simultanes
-et trois minutes maximum. Les resultats restent sur le relais sept jours.
-Enregistrer le rapport dans WolfGuard pour le conserver durablement.
+et trois minutes maximum. Les resultats restent consultables sur le site
+dans Parametres > Historique.
 
 Sources : https://github.com/cantinbruno/wolfguard/tree/main/agent
 
