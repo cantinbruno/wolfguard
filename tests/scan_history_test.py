@@ -27,7 +27,7 @@ def run():
             stamp=int(time.time()*1000);kinds=['passive','active','map','vulnerability'];jobs=[]
             for i in range(55):
                 jobs.append({'id':f'{i+1:032x}','agentId':'a'*32,'workspace':kinds[i%4],'strategy':'active' if i%4 in [1,2] else 'passive','createdAt':stamp-i*60000,'revision':2,'completed':1,'total':1,'status':'expired' if i==53 else 'failed' if i==8 else 'completed','target':f'192.168.20.{i+1}' if i%4!=3 else '', 'agentName':'<img src=x onerror=alert(1)>' if i==4 else 'Poste Nord' if i%2 else 'Ancien poste','platform':'linux' if i%2 else 'win32','hasReport':i!=53})
-            state={'fail_history':False,'fail_result':False,'empty':False,'hold':False};pending=[];history_requests=[]
+            state={'fail_history':False,'fail_result':False,'wrong_result':False,'empty':False,'hold':False};pending=[];history_requests=[]
             def result(job):
                 audit=job['workspace']=='vulnerability'
                 raw=None if job['status']=='expired' else {'strategy':job['strategy'],'workspace':job['workspace'],'target':job['target'],'startedAt':'2026-11-01T10:00:00Z','warnings':[], 'error':'Collecte interrompue' if job['status']=='failed' else '', 'results':[{'address':job['target'] or '127.0.0.1','port':443 if job['workspace']=='active' else None,'transport':'AUDIT' if audit else 'TCP' if job['workspace']=='active' else 'HOST' if job['workspace']=='map' else 'ARP','status':'issue' if audit else 'open' if job['workspace']=='active' else 'reachable' if job['workspace']=='map' else 'observed','checkId':'firewall' if audit else '', 'title':'Pare-feu du poste' if audit else '', 'severity':'high','detail':'Observation historique','recommendation':'Activer la protection' if audit else '', 'macAddress':'00:11:22:33:44:55'}]}
@@ -45,6 +45,7 @@ def run():
                     job=next(job for job in jobs if job['id']==query['id'][0])
                     if state['hold']:pending.append((route,result(job)));return
                     if state['fail_result']:route.fulfill(status=503,json={'error':'Rapport temporairement indisponible'});return
+                    if state['wrong_result']:route.fulfill(json={**result(job),'workspace':'vulnerability' if job['workspace']!='vulnerability' else 'map'});return
                     route.fulfill(json=result(job));return
                 route.fallback()
             context.route(API+'/api/scans**',scans)
@@ -64,6 +65,22 @@ def run():
             expect(page.locator('#wgHistoryPages')).to_contain_text('Page 1 sur 3')
             expect(page.locator('.scan-history-list img,.scan-history-list script')).to_have_count(0)
             page.locator('#wgHistoryNext').click();expect(page.locator('#wgHistoryPages')).to_contain_text('Page 2 sur 3')
+            expect(page.locator('#wgHistoryNext')).to_be_focused()
+            page.locator('#wgHistoryState').select_option('partial')
+            expect(page.locator('.scan-history-item')).to_have_count(2)
+            expect(page.locator('#wgHistoryExportAll')).to_contain_text('(2)')
+            page.locator('#wgHistoryReset').click()
+            expect(page.locator('#wgHistorySearch')).to_be_focused()
+            page.locator('#wgHistoryFrom').fill('2026-10-01');page.locator('#wgHistoryTo').fill('2026-10-01')
+            expect(page.locator('.scan-history-item')).to_have_count(1)
+            expect(page.locator('.scan-history-copy p')).to_have_text('192.168.1.1')
+            page.locator('#wgHistoryReset').click()
+            page.locator('#wgHistorySort').select_option('oldest')
+            expect(page.locator('.scan-history-copy p').first).to_have_text('192.168.1.1')
+            page.locator('#wgHistorySort').select_option('recent')
+            expect(page.locator('.scan-history-copy p').first).to_have_text('192.168.20.1')
+            page.locator('#wgHistorySearch').fill('vulnerabilites')
+            expect(page.locator('.scan-history-item')).to_have_count(13)
             page.locator('#wgHistorySearch').fill('192.168.20.55');expect(page.locator('.scan-history-item')).to_have_count(1)
             with page.expect_download() as downloaded:page.locator('[data-history-export]').click()
             assert downloaded.value.suggested_filename.endswith('.pdf')
@@ -100,12 +117,33 @@ def run():
             state['fail_history']=True;page.locator('#wgHistoryRefresh').click()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique incomplet')
             expect(page.locator('#wgHistoryExportAll')).to_be_disabled()
-            expect(page.locator('.scan-history-item')).to_have_count(1)
+            expect(page.locator('.scan-history-item')).to_have_count(20)
+            expect(page.locator('#wgHistoryCount')).to_contain_text('56')
             state['fail_history']=False;page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             page.locator('#wgHistorySearch').fill('192.168.20.1');state['fail_result']=True
             page.locator('[data-history-export]').first.click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Export impossible')
-            state['fail_result']=False;page.locator('#wgHistorySearch').fill('192.168.20.55');state['hold']=True
+            state['fail_result']=False;page.locator('#wgHistorySearch').fill('192.168.20.55');state['wrong_result']=True
+            before=len(downloads);page.locator('[data-history-export]').click()
+            expect(page.locator('#wgHistoryStatus')).to_contain_text('ne correspond pas au scan demandé')
+            expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
+            assert len(downloads)==before
+            state['wrong_result']=False;state['hold']=True
             before=len(downloads)
+            page.evaluate("""()=>{window.__historyAborted=[];const original=window.fetch.bind(window);window.fetch=(url,options)=>{
+              if(String(url).includes('/scans/result?'))options?.signal?.addEventListener('abort',()=>window.__historyAborted.push(String(url)),{once:true});return original(url,options);
+            }}""")
+            with page.expect_request(lambda request:'/scans/result?' in request.url):page.locator('#wgHistoryExportAll').click()
+            expect(page.locator('#wgHistoryExportProgress')).to_be_visible()
+            expect(page.locator('#wgHistorySearch')).to_be_disabled()
+            page.locator('#wgHistoryCancel').click()
+            expect(page.locator('#wgHistoryStatus')).to_contain_text('Export annulé')
+            expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
+            expect(page.locator('#wgHistoryExportProgress')).to_be_hidden()
+            expect(page.locator('#wgHistoryExportAll')).to_be_focused()
+            for route,data in pending:route.fulfill(json=data)
+            pending.clear()
+            assert page.evaluate("window.__historyAborted.some(url=>url.includes('/scans/result?'))")
+            assert len(downloads)==before
             with page.expect_request(lambda request:'/scans/result?' in request.url):page.locator('[data-history-export]').click()
             page.evaluate('lockApplication()');expect(page.locator('#lock')).to_be_visible()
             for route,data in pending:route.fulfill(json=data)
@@ -113,7 +151,7 @@ def run():
             assert len(downloads)==before
             expect(page.locator('#settings-history')).to_have_count(0)
             assert not errors,errors
-            print('PASS: search, type filters, 320px layout, keyboard tabs, outage recovery and lock cancel pending exports without revealing old results')
+            print('PASS: accent-insensitive search, state/date filters, sort, keyboard pagination, 320px layout, refresh preserves 56 reports on outage, and explicit cancel/lock abort exports without downloads')
             browser.close()
     finally:
         backend_process.terminate();backend_process.wait(timeout=10);server.shutdown();server.server_close()

@@ -41,8 +41,11 @@ const webScanAgent = (() => {
       let validTarget=true;if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
       find('#wgAgentLaunch').disabled = !validTarget || busy || !agent?.online || !!running || !compatible;
       const quick=$('#wgPassiveQuickCollect');if(kind==='passive'&&quick)quick.disabled=find('#wgAgentLaunch').disabled;
-      find('#wgAgentStop').disabled = busy || !running;
-      find('#wgAgentStop').textContent = running && (running.workspace || running.strategy) !== kind ? 'Arrêter : ' + (scanInsights.definitions[running.workspace || running.strategy]?.short || 'scan en cours') : 'Arrêter';
+      const otherScan=running&&(running.workspace||running.strategy)!==kind;
+      find('#wgAgentStop').disabled = busy || !running || !!otherScan;
+      find('#wgAgentStop').textContent = 'Arrêter';
+      find('#wgAgentLaunch').title=otherScan?'Poste occupé : '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan')+'. Son arrêt se fait depuis sa propre rubrique.':'';
+      if(otherScan)find('#wgAgentPresence').textContent='● Occupé · '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan');
       find('#wgAgentHistory').innerHTML = matching.length ? matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('') : '<option value="">Aucun rapport : ' + definition.short + '</option>';
       const progress = find('#wgAgentProgress'); progress.hidden = !current;
       if (current) { const bar = progress.querySelector('progress'); bar.max = Math.max(1, current.total); if (current.status === 'running' && !current.total) bar.removeAttribute('value'); else bar.value = current.completed; progress.querySelector('span').textContent = (labels[current.status] || current.status) + (current.total ? ' · ' + current.completed + ' / ' + current.total + (kind === 'vulnerability' ? ' contrôles' : kind === 'map' ? ' adresses' : ' tests') : ''); }
@@ -51,11 +54,12 @@ const webScanAgent = (() => {
       if (!current || lastResult === current.id + ':' + current.revision) return;
       const id = current.id, revision = current.revision, data = await request('scans/result?id=' + id);
       if (!live() || current?.id !== id) return;
-      if (data.report) {
-        const report=fromJob(data,agent||{});
-        onReport(report, data); lastResult = id + ':' + revision;
-        if (data.report.error) status(data.report.error, true); else if (['completed', 'cancelled'].includes(data.status)) status(labels[data.status] + ' : ' + report.rows.length + ' observation(s) reçue(s).');
-      } else if (data.status === 'running') onReport({...fromJob(data,agent||{}),name:'Collecte en cours'},data);
+      if(data.id!==id||(data.workspace||data.spec?.workspace)!==kind)throw new Error('Le rapport reçu ne correspond pas à cette rubrique de scan.');
+      const report=fromJob(data,agent||{});
+      // A new empty/failed job must replace the previous report rather than displaying old results.
+      onReport(report, data); lastResult = id + ':' + revision;
+      if (report.error) status(report.error, true);
+      else if (labels[data.status]) status(labels[data.status] + (['completed','cancelled'].includes(data.status)?' : ' + report.rows.length + ' observation(s) reçue(s).':'.'));
     }
     async function refresh() {
       if (!live() || busy || refreshing) return;
@@ -88,7 +92,7 @@ const webScanAgent = (() => {
       } catch (error) { status(error.message, true); }
       finally { busy = false; if (live()) await refresh(); }
     };
-    find('#wgAgentStop').onclick = async () => { if (busy || !running) return; busy = true; render(); try { await request('scans/cancel', {id: running.id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
+    find('#wgAgentStop').onclick = async () => { if (busy || !running || !live() || (running.workspace||running.strategy)!==kind) return; const id=running.id;busy = true; render(); try { await request('scans/cancel', {id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
     if (workspaceAgents.available()) poll(); else { render(); status('Configure l’agent dans Paramètres → Agents sur le site après saisie de ton code.'); }
   }
   return {mount, reset, fromJob};

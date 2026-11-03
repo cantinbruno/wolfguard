@@ -12,6 +12,20 @@
 .scan-history-filters button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--ui-border);border-radius:6px;background:transparent;padding:7px 9px;min-height:33px;color:var(--ui-muted);font:10px 'Segoe UI',sans-serif;cursor:pointer}
 .scan-history-filters button[aria-pressed=true]{background:var(--ui-highlight-soft);border-color:#a8c8e86b;color:var(--ui-text)}
 .scan-history-filters button>span{font-size:9px;opacity:.65}
+.scan-history-refine{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin-bottom:18px;align-items:end}
+.scan-history-refine label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:10px;color:var(--ui-muted)}
+.scan-history-refine :is(input,select){box-sizing:border-box;min-width:0;width:100%;height:35px;padding:6px 8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text);font:10px 'Segoe UI',sans-serif;color-scheme:dark}
+.scan-history-refine .settings-btn{min-height:35px;font-size:10px;justify-content:center}
+.scan-history-export-progress{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-sidebar);margin-bottom:14px}
+.scan-history-export-progress>div{display:flex;gap:10px;align-items:center;flex:1;min-width:0}
+.scan-history-export-progress progress{width:100%;min-width:0;height:5px;accent-color:#78cdbb}
+.scan-history-export-progress span{font-size:10px;color:var(--ui-muted);white-space:nowrap}
+.scan-history-export-progress .settings-btn{font-size:10px;white-space:nowrap}
+.scan-history-list:focus{outline:2px solid #a8c8e8;outline-offset:3px}
+.scan-history-list{scroll-margin-top:16px}
+#settings-history :is(button,input,select):disabled{opacity:.55;cursor:default}
+#settings-history select:focus-visible{outline:2px solid #a8c8e8;outline-offset:3px}
+@media(max-width:640px){.scan-history-refine{grid-template-columns:repeat(2,minmax(0,1fr))}.scan-history-refine>#wgHistoryReset{grid-column:1/-1}.scan-history-export-progress{flex-wrap:wrap}.scan-history-export-progress>div{flex-basis:100%}.scan-history-export-progress .settings-btn{width:100%;justify-content:center}}
 .scan-history-status{font-size:10px;color:var(--ui-muted);line-height:1.7;margin:0 0 12px;min-height:17px;overflow-wrap:anywhere}
 .scan-history-status.is-error{color:#e6b39c}
 .scan-history-list{border-top:1px solid var(--ui-border)}

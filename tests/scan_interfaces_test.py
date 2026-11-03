@@ -80,6 +80,19 @@ def run():
             page.locator('.wgscan-service-card').click();expect(page.locator('#wgScanDetailBody')).to_contain_text('OpenSSH')
             page.locator('#wgScanDetail [data-wg-close]').click()
 
+            page.locator('[data-wg-tab=rows]').click()
+            page.locator('#wgScanSearch').fill('ssh')
+            page.locator('#wgScanSearch').evaluate('el=>el.setSelectionRange(0,0)')
+            page.keyboard.type('x')
+            expect(page.locator('#wgScanSearch')).to_have_value('xssh')
+            assert page.locator('#wgScanSearch').evaluate('el=>el.selectionStart')==1
+            page.keyboard.press('Backspace')
+            expect(page.locator('#wgScanSearch')).to_have_value('ssh')
+            expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            page.locator('#wgScanSort').select_option('status');expect(page.locator('#wgScanSort')).to_be_focused()
+            page.locator('#wgScanFilter').select_option('open');expect(page.locator('#wgScanFilter')).to_be_focused()
+            page.locator('#wgScanFilter').select_option('all');page.locator('#wgScanSearch').fill('')
+
             navigate(page,'map');feed_report(page,XML,'Réseau')
             page.locator('[data-map-select="192.0.2.51"]').click()
             expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.51')
@@ -127,6 +140,21 @@ def run():
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgAuditSearch').fill('')
             expect(page.locator('.wgscan-audit-overview script,.wgscan-audit-overview img,.wgscan-audit-overview svg')).to_have_count(0)
             print('PASS: audit prioritizes risks, filters severity and proof, copies recommendations and escapes report content')
+
+            navigate(page,'active');page.locator('[data-wg-profile=custom]').click();page.locator('#wgScanPorts').fill('22,8443')
+            page.locator('.wgscan-agent-options summary').click()
+            page.locator('#wgAgentTimeout').fill('2300');page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
+            navigate(page,'map');page.locator('#scanTarget').fill('192.0.2.0/24');page.locator('.wgscan-agent-options summary').click();page.locator('#wgAgentTimeout').fill('700')
+            for kind in ['map','passive','vulnerability']:
+                navigate(page,kind);page.locator('[data-wg-tab=changes]').click()
+                expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Aucune référence')
+            navigate(page,'active')
+            expect(page.locator('#scanTarget')).to_have_value('192.0.2.50')
+            expect(page.locator('#wgScanPorts')).to_have_value('22,8443');expect(page.locator('#wgAgentTimeout')).to_have_value('2300')
+            expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Services')
+            navigate(page,'map');expect(page.locator('#scanTarget')).to_have_value('192.0.2.0/24');expect(page.locator('#wgAgentTimeout')).to_have_value('700')
+            navigate(page,'passive');expect(page.locator('#scanTarget')).to_have_value('inconnu.example.local')
+            print('PASS: editing a search keeps the caret and focus; all four scans keep independent targets, options, reports and references')
 
             for width,height in [(1440,1000),(900,900),(768,900),(390,844),(320,720)]:
                 page.set_viewport_size({'width':width,'height':height})

@@ -19,10 +19,14 @@ function restoreSession(value) {
   token = value.token; version = value.version; initialized = true;
 }
 function detach() { token = ''; version = 0; }
-async function request(path,{method='GET',body,headers={},anonymous=false}={}) {
+async function request(path,{method='GET',body,headers={},anonymous=false,signal}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
+  const cancel=()=>controller.abort();
+  signal?.addEventListener('abort',cancel,{once:true});
+  if(signal?.aborted)cancel();
   let response;
   try{
+    if(controller.signal.aborted)throw new DOMException('Requête annulée.','AbortError');
     response=await fetch(API_ORIGIN+'/api/'+path,{method,headers:{...(credential&&!anonymous?{Authorization:'Bearer '+credential}:{}),...headers},...(body===undefined?{}:{body}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
@@ -31,12 +35,16 @@ async function request(path,{method='GET',body,headers={},anonymous=false}={}) {
       if(data.retryAfter)error.retryAfter=Number(data.retryAfter);
       throw error;
     }
-    return response;
-  }catch(error){if(error.name==='AbortError'||error instanceof TypeError)throw new Error('Connexion au stockage partagé impossible. Tes données existantes sont conservées.');throw error;}
-  finally{clearTimeout(timeout);}
+    // Keep the deadline and cancellation active while the response body arrives too.
+    return {data:await response.json(),headers:response.headers};
+  }catch(error){
+    if(signal?.aborted)throw new DOMException('Requête annulée.','AbortError');
+    if(error.name==='AbortError'||error instanceof TypeError)throw new Error('Connexion au stockage partagé impossible. Tes données existantes sont conservées.');throw error;
+  }
+  finally{clearTimeout(timeout);signal?.removeEventListener('abort',cancel);}
 }
-const post = async(path,value,options={}) => (await request(path,{method:'POST',body:JSON.stringify(value),headers:{'Content-Type':'application/json',...options.headers},...options})).json();
-async function status(){const data=await (await request('status',{anonymous:true})).json();initialized=!!data.initialized;return initialized;}
+const post = async(path,value,options={}) => (await request(path,{...options,method:'POST',body:JSON.stringify(value),headers:{'Content-Type':'application/json',...options.headers}})).data;
+async function status(){const {data}=await request('status',{anonymous:true});initialized=!!data.initialized;return initialized;}
 async function login(code){
   const data=await post('login',{code},{anonymous:true});token=data.token;version=data.version;initialized=true;return data;
 }
@@ -46,7 +54,7 @@ async function initialize(code){
   token=data.token;version=data.version;initialized=true;activation='';return data;
 }
 async function load(){
-  const response=await request('vault'),data=await response.json();
+  const response=await request('vault'),data=response.data;
   const remoteVersion=Number(response.headers.get('X-WG-Version'));
   if(!Number.isSafeInteger(remoteVersion)||remoteVersion<1)throw new Error('Version distante invalide.');
   version=remoteVersion;return data;
@@ -54,16 +62,16 @@ async function load(){
 async function save(envelope,rotation){
   if(!token)throw new Error('Saisis à nouveau ton code pour enregistrer.');
   const body=JSON.stringify(envelope),size=new TextEncoder().encode(body).length;
-  const data=await (await request('vault',{method:'PUT',body,headers:{'Content-Type':'application/json','X-WG-Version':String(version),'X-WG-Size':String(size),...(rotation?{'X-WG-Rotation':rotation}:{})}})).json();
+  const {data}=await request('vault',{method:'PUT',body,headers:{'Content-Type':'application/json','X-WG-Version':String(version),'X-WG-Size':String(size),...(rotation?{'X-WG-Rotation':rotation}:{})}});
   if(!Number.isSafeInteger(data.version)||data.version!==version+1)throw new Error('Confirmation distante invalide.');
   version=data.version;if(data.token)token=data.token;
 }
 async function prepareRotation(oldCode,newCode){return (await post('rotation',{oldCode,newCode,version})).rotation;}
 async function touch(){if(token)await post('touch',{});}
-async function agentRequest(path,value){
+async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
   if(!/^(?:agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel))?)(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
-  return value===undefined?(await request(path)).json():post(path,value);
+  return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 function clear(){
   if(token)request('logout',{method:'POST'}).catch(()=>{});

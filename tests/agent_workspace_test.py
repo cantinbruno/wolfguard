@@ -111,6 +111,37 @@ def run():
             navigate(first,'passive');expect(first.locator('#wgScanReportStamp')).to_contain_text('Agent · Windows',timeout=20000)
             first.locator('[data-wg-tab=rows]').click();expect(first.locator('#wgScanRows tbody tr')).to_have_count(1)
             print('PASS: four independent agent histories, loopback map and injected Windows audit on two browsers')
+            # A shared host must not expose another workspace's Stop action.
+            snapshot=first.evaluate("async id=>await WolfGuardCloud.agentRequest('scans?agentId='+id)",windows_id)
+            active=next(job for job in snapshot['jobs'] if job['workspace']=='active')
+            active_result=first.evaluate("async id=>await WolfGuardCloud.agentRequest('scans/result?id='+id)",active['id'])
+            fake_id='f'*32;cancelled=[]
+            fake={**active,'id':fake_id,'status':'running','revision':999,'total':100,'completed':2}
+            list_url=API+'/api/scans?agentId='+windows_id
+            result_url=API+'/api/scans/result?id='+fake_id
+            first.route(list_url,lambda route:route.fulfill(json={**snapshot,'jobs':[fake,*[job for job in snapshot['jobs'] if job['workspace']!='active']]}))
+            first.route(result_url,lambda route:route.fulfill(json={**active_result,**fake}))
+            def cancel_fake(route):
+                cancelled.append(route.request.post_data_json);fake['status']='cancelled';route.fulfill(json={'ok':True})
+            first.route(API+'/api/scans/cancel',cancel_fake)
+            navigate(first,'map');navigate(first,'passive')
+            expect(first.locator('#wgAgentPresence')).to_contain_text('Occupé')
+            expect(first.locator('#wgAgentStop')).to_be_disabled()
+            first.locator('#wgAgentStop').evaluate('el=>{el.disabled=false;el.click()}')
+            first.wait_for_timeout(100);assert cancelled==[]
+            navigate(first,'active');expect(first.locator('#wgAgentStop')).to_be_enabled(timeout=10000)
+            first.locator('#wgAgentStop').click()
+            expect(first.locator('#wgAgentStop')).to_be_disabled()
+            assert cancelled==[{'id':fake_id}]
+            fake.update({'status':'failed','revision':1000,'report':None})
+            expect(first.locator('#wgAgentStatus')).to_contain_text('Collecte en échec',timeout=10000)
+            expect(first.locator('#wgScanMetrics strong').first).to_have_text('0')
+            expect(first.locator('.wgscan-service-card')).to_have_count(0)
+            first.unroute(list_url);first.unroute(result_url);first.unroute(API+'/api/scans/cancel')
+            navigate(first,'passive')
+            expect(first.locator('#scanTarget')).to_have_value('192.168.10.1')
+            expect(first.locator('#wgScanReportStamp')).to_contain_text('Agent · Windows')
+            print('PASS: a scan cannot stop another workspace, even via a forced click; only its own running job can be cancelled')
             first.locator('#settingsBtn').click();first.locator('#settings-tab-history').click()
             expect(first.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
             assert first.locator('.scan-history-item').count()>=5
