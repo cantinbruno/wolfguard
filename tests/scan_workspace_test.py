@@ -25,8 +25,8 @@ def navigate(page,kind):
     # Feed deterministic reports through the same callback as the agent.
     page.evaluate('''()=>{if(window.__scanReportFixtures)return;
       window.__scanReportFixtures={};const mount=webScanAgent.mount;
-      webScanAgent.mount=(kind,getView,onReport)=>{
-        window.__scanReportFixtures[kind]={getView,onReport};return mount(kind,getView,onReport);
+      webScanAgent.mount=(kind,getView,onReport,onExecution)=>{
+        window.__scanReportFixtures[kind]={getView,onReport,onExecution};return mount(kind,getView,onReport,onExecution);
       };
     }''')
     page.locator(f'.workspace-section-button[data-section=scan-{kind}]').click()

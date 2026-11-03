@@ -3,8 +3,26 @@
 const webScanWorkspace = (() => {
   const compareAddresses = new Intl.Collator('en', {numeric: true}).compare;
   let generation=0;
-  const make=kind=>({kind,report:null,reference:null,tab:'overview',query:'',filter:'all',sort:'address',page:0,target:'',profile:kind==='map'?'discovery':'common',ports:'22,80,443,445,3389',identify:false,passiveScope:'neighbours',passiveCategory:'all',passiveInterface:'all',mapQuery:'',mapSelection:'',mapZoom:1,auditSeverity:'all',status:'',error:false,busy:false});
+  const make=kind=>({kind,report:null,execution:null,reference:null,tab:'overview',query:'',filter:'all',sort:'address',page:0,target:'',profile:kind==='map'?'discovery':'common',ports:'22,80,443,445,3389',identify:false,passiveScope:'neighbours',passiveCategory:'all',passiveInterface:'all',mapQuery:'',mapSelection:'',mapZoom:1,auditSeverity:'all',status:'',error:false,busy:false});
   function resetPassiveFilters(view){view.passiveCategory='all';view.passiveInterface='all';}
+  const scanPhase=view=>['starting','queued','running','receiving'].includes(view.execution?.status)?'loading':view.execution?.status==='error'?'error':view.report?'results':'ready';
+  function syncWorkflow(view){
+    const root=$('.wgscan');if(!root)return;
+    const phase=scanPhase(view),loading=phase==='loading',execution=view.execution||{},entering=loading&&root.dataset.phase!=='loading';
+    root.dataset.phase=phase;
+    const panel=$('#wgScanExecution');panel.hidden=!['loading','error'].includes(phase);
+    $('#wgScanPanel-overview').setAttribute('aria-busy',String(loading));
+    if(entering)requestAnimationFrame(()=>{if(panel.isConnected&&root.dataset.phase==='loading')panel.scrollIntoView({block:'center',behavior:'instant'});});
+    const titles={starting:'Lancement du scan…',queued:'En attente de l’agent…',running:'Scan en cours…',receiving:'Préparation des résultats…',error:'Le scan n’a pas pu aboutir'};
+    $('#wgScanExecutionTitle').textContent=execution.title||titles[execution.status]||'';
+    $('#wgScanExecutionText').textContent=phase==='error'?execution.message||'Vérifie la connexion, puis relance le scan.':execution.status==='queued'?'Le poste sélectionné va démarrer la collecte.':execution.status==='receiving'?'Le scan est terminé. Chargement du rapport.':'Les résultats s’afficheront automatiquement à la fin du scan.';
+    const bar=$('#wgScanExecutionProgress'),known=execution.status==='running'&&Number.isFinite(execution.total)&&execution.total>0;
+    bar.hidden=!loading;bar.max=known?execution.total:1;
+    if(known)bar.value=Math.min(execution.total,Math.max(0,execution.completed||0));else bar.removeAttribute('value');
+    $('#wgScanExecutionCount').textContent=known?(execution.completed||0)+' / '+execution.total+({'vulnerability':' contrôles','map':' adresses'}[view.kind]||' tests'):'';
+    for(const control of root.querySelectorAll('#scanTarget,#wgScanPorts,#wgScanIdentify,#wgAgentTimeout,#wgAgentConcurrency,[data-wg-profile]'))control.disabled=loading;
+    const exportButton=$('#wgScanExport');if(exportButton)exportButton.disabled=loading||phase==='error'||!view.report||view.busy;
+  }
   const fresh=()=>Object.fromEntries(Object.keys(scanInsights.definitions).map(kind=>[kind,make(kind)]));
   let views=fresh();
   const labels=webScanModel.labels;
@@ -81,6 +99,7 @@ const webScanWorkspace = (() => {
   function draw(view,passive){
     if(!$('#wgScanMetrics'))return;
     $('.wgscan').dataset.hasReport=String(!!view.report);
+    if(!view.report)view.tab='overview';
     const visibleRows=filtered(view);
     summary(view,passive,visibleRows);drawRows(view,passive,visibleRows);changes(view);
     if(view.kind==='passive'){
@@ -117,6 +136,7 @@ const webScanWorkspace = (() => {
     for(const panel of document.querySelectorAll('[data-wg-panel]'))panel.hidden=panel.dataset.wgPanel!==view.tab;
     $('#wgScanReferenceLabel').textContent=view.reference?'Référence : '+view.reference.name:'Aucune référence définie';
     message(view,view.status,view.error);
+    syncWorkflow(view);
   }
   async function exportData(view,kind,token){
     if(!view.report||view.busy)return;
@@ -137,7 +157,8 @@ const webScanWorkspace = (() => {
   function pageLayout(view,definition){
     const kind=view.kind,passive=kind==='passive',controls=preparation(view);
     const agent='<div id="wgScanAgentHost"></div>',metrics='<div id="wgScanMetrics" class="wgscan-metrics"></div>',status='<p id="wgScanStatus" class="wgscan-status" role="status" aria-live="polite"></p>';
-    const panels=`<nav class="wgscan-tabs" role="tablist" aria-label="Analyse du relevé">${['overview','rows','changes'].map((id,index)=>'<button type="button" role="tab" id="wgScanTab-'+id+'" aria-controls="wgScanPanel-'+id+'" data-wg-tab="'+id+'">'+definition.tabs[index]+'</button>').join('')}</nav><section id="wgScanPanel-overview" role="tabpanel" aria-labelledby="wgScanTab-overview" data-wg-panel="overview"><div id="wgScanOverview"></div></section><section id="wgScanPanel-rows" role="tabpanel" aria-labelledby="wgScanTab-rows" data-wg-panel="rows"><div id="wgScanRows"></div></section><section id="wgScanPanel-changes" role="tabpanel" aria-labelledby="wgScanTab-changes" data-wg-panel="changes"><div class="wgscan-reference-bar"><span id="wgScanReferenceLabel"></span><button type="button" id="wgScanReference">Définir comme référence</button></div><div id="wgScanChanges"></div></section>`;
+    const execution='<section id="wgScanExecution" class="scan-execution" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="wgScanExecutionTitle" hidden><span class="scan-execution-symbol" aria-hidden="true"></span><h2 id="wgScanExecutionTitle"></h2><p id="wgScanExecutionText"></p><progress id="wgScanExecutionProgress" max="1" aria-label="Progression du scan"></progress><span id="wgScanExecutionCount"></span></section>';
+    const panels=`${execution}<nav class="wgscan-tabs" role="tablist" aria-label="Analyse du relevé">${['overview','rows','changes'].map((id,index)=>'<button type="button" role="tab" id="wgScanTab-'+id+'" aria-controls="wgScanPanel-'+id+'" data-wg-tab="'+id+'">'+definition.tabs[index]+'</button>').join('')}</nav><section id="wgScanPanel-overview" role="tabpanel" aria-labelledby="wgScanTab-overview" data-wg-panel="overview"><div id="wgScanOverview"></div></section><section id="wgScanPanel-rows" role="tabpanel" aria-labelledby="wgScanTab-rows" data-wg-panel="rows"><div id="wgScanRows"></div></section><section id="wgScanPanel-changes" role="tabpanel" aria-labelledby="wgScanTab-changes" data-wg-panel="changes"><div class="wgscan-reference-bar"><span id="wgScanReferenceLabel"></span><button type="button" id="wgScanReference">Définir comme référence</button></div><div id="wgScanChanges"></div></section>`;
     const heading=`<header class="wgscan-heading"><div class="wgscan-title-group"><span class="wgscan-title-icon">${workspaceSectionIcon('scan-'+kind)}</span><div><span class="wgscan-kicker">${definition.kicker}</span><h1 id="scanTitle">${definition.title}</h1><p>${definition.description}</p></div></div>${passive?'<button type="button" id="wgPassiveQuickCollect" disabled>'+workspaceSectionIcon('scan-passive')+'Relever à nouveau</button>':''}</header>`;
     const report=`<div class="scan-report-strip"><p id="wgScanReportStamp"></p><div class="wgscan-report-actions"><button type="button" id="wgScanExport" title="Télécharger le rapport PDF complet">${networkToolIcon('download')}Exporter PDF</button></div></div>`;
     if(passive)return heading+report+`<div class="scan-monitor-layout"><main class="scan-monitor-feed"><div class="scan-section-label"><span>CIBLE OBSERVÉE</span><small>Entrées ARP / NDP</small></div>${metrics}${status}${panels}</main><aside class="scan-monitor-controls"><div class="scan-control-heading"><span class="wgscan-kicker">POINT D’OBSERVATION</span><h2>Observer une cible</h2></div>${controls.scope}${agent}<p class="scan-control-note">Les voisins en cache ne constituent pas une preuve de présence sur le réseau.</p></aside></div>`;
@@ -152,7 +173,7 @@ const webScanWorkspace = (() => {
     webScanAgent.reset(false);
     $('#content').classList.add('scan-content');
     const layouts={passive:'monitor',active:'probe',map:'atlas',vulnerability:'review'};
-    $('#content').innerHTML=`<section class="wgscan" data-kind="${kind}" data-layout="${layouts[kind]}" data-has-report="${!!view.report}" aria-labelledby="scanTitle">${pageLayout(view,definition)}
+    $('#content').innerHTML=`<section class="wgscan" data-kind="${kind}" data-layout="${layouts[kind]}" data-has-report="${!!view.report}" data-phase="${scanPhase(view)}" aria-labelledby="scanTitle">${pageLayout(view,definition)}
       <dialog id="wgScanDetail" class="wgscan-dialog" aria-labelledby="wgScanDetailTitle"><header><h2 id="wgScanDetailTitle"></h2><button type="button" data-wg-close aria-label="Fermer">✕</button></header><div id="wgScanDetailBody"></div></dialog>
     </section>`;
     for(const button of document.querySelectorAll('[data-wg-close]'))button.onclick=()=>button.closest('dialog').close();
@@ -170,7 +191,18 @@ const webScanWorkspace = (() => {
     $('#wgScanExport').onclick=()=>exportData(view,kind,token);
     if(kind==='active')$('#wgScanCustomPorts').hidden=view.profile!=='custom';
     draw(view,passive);
-    webScanAgent.mount(kind,()=>view,report=>{if(!alive(kind,view,token))return;const focused=['wgScanSearch','wgMapSearch','wgAuditSearch','wgPassiveSearch','wgPassiveInterface'].includes(document.activeElement?.id)?document.activeElement.id:'';if(kind==='passive')report=webScanModel.networkReport(report);view.report=report;view.error=false;view.status='';draw(view,passive);if(focused)document.getElementById(focused)?.focus({preventScroll:true});});$('#content').scrollTop=0;
+    webScanAgent.mount(kind,()=>view,report=>{
+      if(!alive(kind,view,token))return;
+      const reveal=scanPhase(view)==='loading';
+      const focused=['wgScanSearch','wgMapSearch','wgAuditSearch','wgPassiveSearch','wgPassiveInterface'].includes(document.activeElement?.id)?document.activeElement.id:'';
+      if(kind==='passive')report=webScanModel.networkReport(report);
+      view.report=report;view.execution=null;view.error=!!report.error||['failed','expired','lost'].includes(report.jobStatus);view.status=report.error||({cancelled:'Scan arrêté. Les observations disponibles sont affichées.',failed:'Le scan a échoué. Les observations reçues restent consultables.',expired:'L’agent n’a pas démarré le scan à temps.',lost:'La connexion à l’agent a été perdue. Les observations reçues restent consultables.'}[report.jobStatus]||'');
+      draw(view,passive);if(focused)document.getElementById(focused)?.focus({preventScroll:true});
+      if(reveal)requestAnimationFrame(()=>{if(alive(kind,view,token)&&scanPhase(view)==='results')$('#wgScanExecution').parentElement.scrollIntoView({block:'start',behavior:'instant'});});
+    },execution=>{
+      if(!alive(kind,view,token)||execution.status==='ready'&&view.execution?.status==='error')return;
+      view.execution=execution;syncWorkflow(view);
+    });$('#content').scrollTop=0;
   }
   return {render,reset(){webScanAgent.reset();generation++;for(const dialog of document.querySelectorAll('.wgscan-dialog'))dialog.close();views=fresh();}};
 })();

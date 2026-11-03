@@ -428,3 +428,45 @@
   .wgscan[data-layout="probe"] .scan-probe-empty { gap: 20px; }
   .wgscan[data-layout="probe"] .scan-probe-options { padding: 16px 20px; }
 }
+
+
+/* Prepare, run, then read: only completed reports expose the result controls. */
+.wgscan[data-phase="ready"] :is(.wgscan-metrics, .wgscan-tabs, .scan-section-label, .scan-atlas-legend) {
+  display: none;
+}
+.wgscan:is([data-phase="loading"], [data-phase="error"]) :is(.wgscan-metrics, .wgscan-tabs, [data-wg-panel], .scan-section-label, .scan-report-strip, .scan-atlas-legend, #wgScanStatus, #wgAgentProgress) {
+  display: none;
+}
+.wgscan[data-phase="ready"] #wgPassiveQuickCollect { display: none; }
+.wgscan #wgAgentProgress progress { display: none; }
+.wgscan .scan-execution {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+  padding: 40px 24px;
+  border: 1px solid var(--ws-border);
+  border-radius: 12px;
+  background: var(--ws-panel);
+  text-align: center;
+}
+.wgscan .scan-execution h2 { font-size: 22px; line-height: 1.4; }
+.wgscan .scan-execution p { max-width: 480px; color: var(--ws-muted); font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.wgscan .scan-execution progress { width: min(100%, 320px); height: 8px; accent-color: var(--ws-accent); }
+.wgscan .scan-execution > span:last-child { font-size: 13px; color: var(--ws-muted); }
+.scan-execution-symbol {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border: 3px solid var(--ws-border);
+  border-top-color: var(--ws-accent);
+  border-radius: 50%;
+  animation: scan-execution-spin 1s linear infinite;
+}
+.wgscan[data-phase="error"] .scan-execution-symbol { display: grid; place-items: center; border-color: #e6b39c; color: #e6b39c; animation: none; font-size: 26px; }
+.wgscan[data-phase="error"] .scan-execution-symbol::before { content: '!'; }
+@keyframes scan-execution-spin { to { transform: rotate(360deg); } }
+@media(prefers-reduced-motion: reduce) { .scan-execution-symbol { animation: none; } }
+@media(max-width: 520px) { .wgscan .scan-execution { min-height: 260px; padding: 28px 20px; } .wgscan .scan-execution h2 { font-size: 20px; } }
