@@ -13,12 +13,15 @@ def run():
     cache=ROOT/'.cache';cache.mkdir(exist_ok=True)
     credential=Path(os.environ['LOCALAPPDATA'])/'WolfGuardAgent/credential.dpapi'
     prior=credential.stat().st_mtime_ns if credential.exists() else None
+    installed=Path(os.environ['LOCALAPPDATA'])/'WolfGuardAgent/WolfGuard-Agent.exe'
+    prior_install=installed.read_bytes() if installed.exists() else None
     import winreg
     def startup_value():
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Microsoft\Windows\CurrentVersion\Run') as key:return winreg.QueryValueEx(key,'WolfGuardAgent')
         except FileNotFoundError:return None
     startup=startup_value()
+    subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(ROOT/'tests/remote_permission_test.ps1'),'-Executable',str(exe)],check=True,timeout=60)
     with tempfile.TemporaryDirectory(prefix='agent-window-test-',dir=cache) as temporary:
         target=Path(temporary).resolve()
         assert target.is_relative_to(cache.resolve())
@@ -59,6 +62,7 @@ def run():
         assert all(event['type']=='state' for event in events)
     assert startup_value()==startup
     assert (credential.stat().st_mtime_ns if credential.exists() else None)==prior
-    print('PASS: compact native window with agent status and one Start/Stop button, nine rendered states, safe extraction; no installation, pairing or startup change')
+    assert (installed.read_bytes() if installed.exists() else None)==prior_install
+    print('PASS: compact native window, nine rendered states, safe extraction; no installation, pairing or startup change')
 
 if __name__=='__main__':run()

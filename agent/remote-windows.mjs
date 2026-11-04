@@ -11,8 +11,8 @@ async function permission(signal,onClose){
     const timeout=setTimeout(()=>{stop();reject(denied());},65000);
     const finish=(error)=>{if(settled)return;settled=true;clearTimeout(timeout);error?reject(error):resolve();};
     lines.on('line',line=>{try{const value=JSON.parse(line);if(value.status==='accepted'){accepted=true;finish();}}catch{}});
-    child.once('error',()=>finish(new Error('Télécharge la nouvelle version de l’agent Windows pour utiliser la prise en main.')));
-    child.once('exit',()=>{signal?.removeEventListener('abort',stop);if(!accepted)finish(denied());else onClose();});
+    child.once('error',()=>finish(new Error('La fenêtre d’autorisation n’a pas pu démarrer sur le poste distant. Vérifie que WolfGuard Agent est accessible.')));
+    child.once('exit',code=>{signal?.removeEventListener('abort',stop);lines.close();if(!accepted)finish(code===0?denied():new Error('La fenêtre d’autorisation s’est arrêtée sur le poste distant. Consulte le diagnostic startup-error.log dans le dossier local WolfGuardAgent.'));else onClose();});
   });
   return ()=>{signal?.removeEventListener('abort',stop);stop();lines.close();};
 }

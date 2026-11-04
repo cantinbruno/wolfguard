@@ -297,6 +297,17 @@ namespace WolfGuard {
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr FindWindow(string className, string title);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr handle);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ShowWindow(IntPtr handle, int command);
+    static string StartupErrorMessage(Exception error) {
+      string message = "WolfGuard Agent n’a pas pu démarrer. Ferme cette fenêtre puis réessaie. Si l’erreur revient, transmets le diagnostic pour identifier la cause.";
+      string diagnostic = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WolfGuardAgent", "startup-error.log");
+      try {
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(diagnostic));
+        File.WriteAllText(diagnostic, DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture) + Environment.NewLine + error.ToString(), new UTF8Encoding(false));
+        return message + "\n\nDiagnostic : " + diagnostic;
+      } catch {
+        return message + "\n\nErreur : " + error.GetType().Name + " (0x" + error.HResult.ToString("X8", CultureInfo.InvariantCulture) + "). Le diagnostic n’a pas pu être enregistré.";
+      }
+    }
     [STAThread] public static int Main(string[] args) {
       try {
         if (args.Length == 1 && args[0] == "--remote-permission") return RemotePermission.Run();
@@ -315,7 +326,9 @@ namespace WolfGuard {
           finally { mutex.ReleaseMutex(); }
         }
         return 0;
-      } catch { MessageBox.Show("WolfGuard Agent n’a pas pu démarrer. Télécharge de nouveau l’agent depuis le site.", "WolfGuard Agent", MessageBoxButton.OK, MessageBoxImage.Error); return 1; }
+      } catch (Exception error) {
+        MessageBox.Show(StartupErrorMessage(error), "WolfGuard Agent", MessageBoxButton.OK, MessageBoxImage.Error); return 1;
+      }
     }
   }
 }

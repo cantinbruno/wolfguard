@@ -24,6 +24,10 @@ Aucun droit administrateur n est demande. Le code WolfGuard n est jamais
 transmis a l agent ; son acces est protege par Windows DPAPI.
 Le fichier executable n est pas signe numeriquement.
 
+En cas d echec au demarrage, le message indique le fichier diagnostic
+%LOCALAPPDATA%\WolfGuardAgent\startup-error.log a transmettre au support.
+Cette erreur ne signifie pas que l agent telecharge est obsolete.
+
 Etats : A associer, Connexion, En marche, Arrete, Hors ligne ou erreur.
 En marche apparait uniquement apres une reponse effective du serveur.
 Arreter l agent suspend sa connexion et annule le scan en cours.
