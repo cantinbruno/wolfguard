@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -37,13 +38,16 @@ namespace WolfGuard {
     readonly StackPanel pairing;
     readonly TextBox code;
     readonly Button pairButton, mainButton;
+    System.Windows.Forms.NotifyIcon tray;
+    System.Drawing.Icon trayIcon;
     Process child;
     WebClient download;
     string currentState = "preparing", nodePath, agentPath;
     bool closing, canClose, preparing, preview;
     public bool RequestPair { get; set; }
 
-    public AgentWindow(bool previewMode) {
+    public AgentWindow(bool previewMode) : this(previewMode, true) { }
+    internal AgentWindow(bool previewMode, bool prepareEngine) {
       preview = previewMode;
       Title = "WolfGuard Agent";
       Width = 440; Height = 340; MinWidth = 360; MinHeight = 280;
@@ -94,14 +98,60 @@ namespace WolfGuard {
         bool start = currentState == "stopped" || currentState == "error";
         if (Send(new { type = start ? "start" : "stop" })) SetState(start ? "connecting" : "stopping", start ? "Connexion à WolfGuard…" : "Arrêt du scan et de la connexion…", 0, 0);
       };
-      Closing += async delegate(object sender, System.ComponentModel.CancelEventArgs e) {
+      Closing += delegate(object sender, System.ComponentModel.CancelEventArgs e) {
         if (preview || canClose) return;
-        e.Cancel = true; if (closing) return; closing = true;
-        if (download != null) download.CancelAsync();
-        SetState("stopping", "Fermeture de l’agent et arrêt des scans…", 0, 0);
-        await StopChild(); canClose = true; Close();
+        e.Cancel = true;
+        if (!closing) { ShowInTaskbar = false; Hide(); }
       };
-      if (!preview) Loaded += async delegate { Height = Math.Min(Height, SystemParameters.WorkArea.Height - 32); await Prepare(); };
+      if (!preview) {
+        CreateTray();
+        SourceInitialized += delegate { HwndSource.FromHwnd(new WindowInteropHelper(this).Handle).AddHook(WindowMessage); };
+        Closed += delegate { DisposeTray(); if (Application.Current != null) Application.Current.SessionEnding -= SessionEnding; };
+        if (Application.Current != null) Application.Current.SessionEnding += SessionEnding;
+        if (prepareEngine) Loaded += async delegate { Height = Math.Min(Height, SystemParameters.WorkArea.Height - 32); await Prepare(); };
+      }
+    }
+
+    void CreateTray() {
+      trayIcon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
+      tray = new System.Windows.Forms.NotifyIcon { Icon = trayIcon, Text = "WolfGuard Agent", Visible = true };
+      System.Windows.Forms.ContextMenuStrip menu = new System.Windows.Forms.ContextMenuStrip();
+      menu.Items.Add("Ouvrir WolfGuard Agent", null, delegate { RestoreWindow(); });
+      menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+      menu.Items.Add("Quitter l’agent", null, async delegate { await Quit(); });
+      tray.ContextMenuStrip = menu;
+      tray.DoubleClick += delegate { RestoreWindow(); };
+    }
+    void DisposeTray() {
+      if (tray != null) {
+        tray.Visible = false;
+        System.Windows.Forms.ContextMenuStrip menu = tray.ContextMenuStrip;
+        tray.Dispose(); tray = null;
+        if (menu != null) menu.Dispose();
+      }
+      if (trayIcon != null) { trayIcon.Dispose(); trayIcon = null; }
+    }
+    void RestoreWindow() {
+      if (closing) return;
+      ShowInTaskbar = true; Show();
+      if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+      Activate();
+    }
+    IntPtr WindowMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam, ref bool handled) {
+      if (message == Program.RestoreWindowMessage) { RestoreWindow(); handled = true; }
+      return IntPtr.Zero;
+    }
+    async Task Quit() {
+      if (closing) return; closing = true;
+      if (download != null) download.CancelAsync();
+      SetState("stopping", "Fermeture de l’agent et arrêt des scans…", 0, 0);
+      await StopChild(); canClose = true; Close();
+    }
+    void SessionEnding(object sender, SessionEndingCancelEventArgs e) {
+      closing = true; canClose = true;
+      if (download != null) download.CancelAsync();
+      Send(new { type = "shutdown" });
+      DisposeTray();
     }
 
     static SolidColorBrush Brush(string color) { return (SolidColorBrush)new BrushConverter().ConvertFromString(color); }
@@ -155,6 +205,7 @@ namespace WolfGuard {
         {"failed","En marche"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
+      if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
       bool active = state == "remote" || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
       detail.Text = active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
       dot.Fill = Brush(active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" ? "#ff978d" : "#f6aa5d");
@@ -212,7 +263,7 @@ namespace WolfGuard {
       }
     }
     async Task Prepare() {
-      if (preparing || closing || preview) return; preparing = true;
+      if (preparing || closing || preview || child != null && !child.HasExited) return; preparing = true;
       try {
         if (child != null && child.HasExited) { child.Dispose(); child = null; }
         SetState("preparing", "Installation dans ta session Windows. Aucun droit administrateur n’est demandé.", 0, 0);
@@ -294,9 +345,10 @@ namespace WolfGuard {
   }
 
   public static class Program {
+    internal const int RestoreWindowMessage = 0x8000 + 71;
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr FindWindow(string className, string title);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr handle);
-    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool ShowWindow(IntPtr handle, int command);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PostMessage(IntPtr handle, int message, IntPtr wParam, IntPtr lParam);
     static string StartupErrorMessage(Exception error) {
       string message = "WolfGuard Agent n’a pas pu démarrer. Ferme cette fenêtre puis réessaie. Si l’erreur revient, transmets le diagnostic pour identifier la cause.";
       string diagnostic = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WolfGuardAgent", "startup-error.log");
@@ -322,7 +374,7 @@ namespace WolfGuard {
         }
         string sid = WindowsIdentity.GetCurrent().User.Value; bool created;
         using (Mutex mutex = new Mutex(true, @"Local\WolfGuardAgent-" + sid, out created)) {
-          if (!created) { IntPtr window = FindWindow(null, "WolfGuard Agent"); if (window != IntPtr.Zero) { ShowWindow(window, 9); SetForegroundWindow(window); } return 0; }
+          if (!created) { IntPtr window = FindWindow(null, "WolfGuard Agent"); if (window != IntPtr.Zero) { PostMessage(window, RestoreWindowMessage, IntPtr.Zero, IntPtr.Zero); SetForegroundWindow(window); } return 0; }
           try { Application app = new Application(); AgentWindow window = new AgentWindow(false); window.RequestPair = args.Length == 1 && args[0] == "--pair"; app.Run(window); }
           finally { mutex.ReleaseMutex(); }
         }

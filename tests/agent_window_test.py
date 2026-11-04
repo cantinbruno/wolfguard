@@ -55,6 +55,7 @@ def run():
         assert (payload/'agent/agent.mjs').is_file()
         assert (payload/'server/lib/wolfguard/scan-spec.mjs').is_file()
         node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+        subprocess.run(['powershell.exe','-STA','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(ROOT/'tests/agent_lifetime_test.ps1'),'-Executable',str(exe),'-Node',str(node),'-WorkingDirectory',str(target)],check=True,timeout=30)
         subprocess.run([str(node),'--test',str(ROOT/'tests/remote-windows-native.mjs')],check=True,timeout=30)
         subprocess.run([str(node),'--check',str(payload/'agent/agent.mjs')],check=True,timeout=10)
         result=subprocess.run([str(node),str(payload/'agent/agent.mjs'),'--gui'],input='{"type":"shutdown"}\n',env={**os.environ,'LOCALAPPDATA':str(target/'isolated-profile')},capture_output=True,text=True,encoding='utf8',check=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
