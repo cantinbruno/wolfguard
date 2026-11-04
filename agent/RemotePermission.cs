@@ -48,12 +48,17 @@ namespace WolfGuard {
         AgentWindow.SavePng(bitmap,Path.Combine(directory,active?"active.png":"consent.png"));window.timer.Stop();
       }
     }
-    public static int Run(){
+    public static int Run(bool immediate=false){
       // This GUI executable has redirected pipes, without a Windows console.
       // Console.OutputEncoding calls SetConsoleOutputCP and fails in that context.
       Console.SetOut(new StreamWriter(Console.OpenStandardOutput(),new UTF8Encoding(false)) {AutoFlush=true});
       Console.SetIn(new StreamReader(Console.OpenStandardInput(),new UTF8Encoding(false)));
-      Application app=new Application();app.Run(new RemotePermission(false));return 0;
+      Application app=new Application();RemotePermission window=new RemotePermission(false);
+      if(immediate){
+        window.ActivateSharing();
+        window.Loaded+=delegate {Console.Out.WriteLine("{\"status\":\"ready\"}");Console.Out.Flush();};
+      }
+      app.Run(window);return 0;
     }
   }
 }

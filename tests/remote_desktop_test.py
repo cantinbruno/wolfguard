@@ -51,6 +51,7 @@ def run():
             def navigate(section):
                 page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste de test',timeout=15000)
+            expect(page.locator('#wgRemoteHint')).to_contain_text('sans confirmation locale')
             expect(page.locator('#wgAgentSelect')).to_have_count(0);expect(page.locator('#wgRemoteSession')).to_be_hidden()
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
@@ -59,6 +60,7 @@ def run():
             page.set_viewport_size({'width':1440,'height':1000})
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible()
             assert started==[{'agentId':agent['id']}];expect(page.locator('#wgRemoteCanvas')).to_be_hidden();assert inputs==[]
+            expect(page.locator('#wgRemoteWaiting')).to_contain_text('Une fenêtre visible')
             control['status']='preparing';expect(page.locator('#wgRemoteSessionState')).to_contain_text('Préparation',timeout=10000)
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)

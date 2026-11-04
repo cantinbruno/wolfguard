@@ -1,31 +1,43 @@
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {fileURLToPath} from 'node:url';
-import path from 'node:path';
-import {encodeDesktop,denied} from './remote-native.mjs';
+import {encodeDesktop} from './remote-native.mjs';
 const host=()=>process.env.WOLFGUARD_AGENT_EXE||fileURLToPath(new URL('../WolfGuard-Agent.exe',import.meta.url));
-async function permission(signal,onClose){
-  const child=spawn(host(),['--remote-permission'],{windowsHide:false,stdio:['pipe','pipe','ignore']}),lines=createInterface({input:child.stdout});let accepted=false,settled=false;
-  const stop=()=>{if(!child.killed)child.kill();};signal?.addEventListener('abort',stop,{once:true});
-  await new Promise((resolve,reject)=>{
-    const timeout=setTimeout(()=>{stop();reject(denied());},65000);
-    const finish=(error)=>{if(settled)return;settled=true;clearTimeout(timeout);error?reject(error):resolve();};
-    lines.on('line',line=>{try{const value=JSON.parse(line);if(value.status==='accepted'){accepted=true;finish();}}catch{}});
-    child.once('error',()=>finish(new Error('La fenêtre d’autorisation n’a pas pu démarrer sur le poste distant. Vérifie que WolfGuard Agent est accessible.')));
-    child.once('exit',code=>{signal?.removeEventListener('abort',stop);lines.close();if(!accepted)finish(code===0?denied():new Error('La fenêtre d’autorisation s’est arrêtée sur le poste distant. Consulte le diagnostic startup-error.log dans le dossier local WolfGuardAgent.'));else onClose();});
-  });
-  return ()=>{signal?.removeEventListener('abort',stop);stop();lines.close();};
+export async function startWindowsSharing(signal,onClose,{executable=host()}={}){
+  signal?.throwIfAborted();
+  const child=spawn(executable,['--remote-sharing'],{windowsHide:true,stdio:['pipe','pipe','ignore']}),lines=createInterface({input:child.stdout});
+  let ready=false,stopping=false,abort;
+  const stop=()=>{stopping=true;signal?.removeEventListener('abort',abort);lines.close();child.stdin.destroy();if(child.exitCode===null&&!child.killed)child.kill();};
+  child.stdin.on('error',()=>{});
+  try{
+    await new Promise((resolve,reject)=>{
+      let settled=false;
+      const timeout=setTimeout(()=>finish(new Error('La fenêtre de partage ne répond pas sur le poste distant.')),10000);
+      const finish=error=>{if(settled)return;settled=true;clearTimeout(timeout);error?reject(error):resolve();};
+      abort=()=>{finish(signal.reason||new DOMException('Session annulée.','AbortError'));stop();};
+      signal?.addEventListener('abort',abort,{once:true});
+      lines.on('line',line=>{try{if(JSON.parse(line).status==='ready'){ready=true;finish();}}catch{}});
+      child.once('error',()=>finish(new Error('La fenêtre de partage n’a pas pu démarrer sur le poste distant. Vérifie que WolfGuard Agent est accessible.')));
+      child.once('close',()=>{signal?.removeEventListener('abort',abort);lines.close();if(!ready)finish(new Error('La fenêtre de partage s’est arrêtée sur le poste distant. Consulte le diagnostic startup-error.log dans le dossier local WolfGuardAgent.'));else if(!stopping)onClose?.();});
+      if(signal?.aborted)abort();
+    });
+    return stop;
+  }catch(error){stop();throw error;}
 }
-export async function openDesktop({ffi,jpeg,signal,onClose,permissionPrompt=permission}){
-  const stop=await permissionPrompt(signal,onClose);signal?.throwIfAborted();
+export async function openDesktop({ffi,jpeg,signal,onClose,permissionPrompt=startWindowsSharing}){
+  const stop=await permissionPrompt(signal,onClose);
+  try{signal?.throwIfAborted();return createDesktop({ffi,jpeg,signal,stop});}
+  catch(error){stop();throw error;}
+}
+function createDesktop({ffi,jpeg,signal,stop}){
   const user=ffi.load('user32.dll'),gdi=ffi.load('gdi32.dll');
   const metrics=user.func('int __stdcall GetSystemMetrics(int)'),getDC=user.func('void * __stdcall GetDC(void *)'),releaseDC=user.func('int __stdcall ReleaseDC(void *,void *)');
   try{user.func('void * __stdcall SetThreadDpiAwarenessContext(void *)')(-4);}catch{}
-  const width=metrics(0),height=metrics(1);if(width<1||height<1||width*height>32000000){stop();throw new Error('Bureau interactif indisponible.');}
+  const width=metrics(0),height=metrics(1);if(width<1||height<1||width*height>32000000)throw new Error('Bureau interactif indisponible.');
   const createDC=gdi.func('void * __stdcall CreateCompatibleDC(void *)'),deleteDC=gdi.func('bool __stdcall DeleteDC(void *)'),select=gdi.func('void * __stdcall SelectObject(void *,void *)'),deleteObject=gdi.func('bool __stdcall DeleteObject(void *)');
   const createBitmap=gdi.func('void * __stdcall CreateDIBSection(void *,const void *,uint32_t,_Out_ void **,void *,uint32_t)'),copy=gdi.func('bool __stdcall BitBlt(void *,int,int,int,int,void *,int,int,uint32_t)');
   const info=Buffer.alloc(44);info.writeUInt32LE(40);info.writeInt32LE(width,4);info.writeInt32LE(-height,8);info.writeUInt16LE(1,12);info.writeUInt16LE(32,14);
-  const screen=getDC(null),memory=createDC(screen),bits=[null],bitmap=createBitmap(screen,info,0,bits,null,0);if(!screen||!memory||!bitmap){stop();throw new Error('Capture du bureau Windows indisponible.');}
+  const screen=getDC(null),memory=createDC(screen),bits=[null],bitmap=createBitmap(screen,info,0,bits,null,0);if(!screen||!memory||!bitmap){if(bitmap)deleteObject(bitmap);if(memory)deleteDC(memory);if(screen)releaseDC(null,screen);throw new Error('Capture du bureau Windows indisponible.');}
   const previous=select(memory,bitmap),heldKeys=new Set(),heldButtons=new Set();let closed=false;
   const setCursor=user.func('bool __stdcall SetCursorPos(int,int)');
   const send=user.func('uint32_t __stdcall SendInput(uint32_t,const void *,int)');

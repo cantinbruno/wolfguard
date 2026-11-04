@@ -72,6 +72,8 @@ Dans **Paramètres → Historique**, tous les scans disponibles sont chargés pa
 
 La recherche de l’historique ignore les accents et couvre aussi le type et l’état du scan. Les filtres par état et par dates inclusives utilisent le fuseau du navigateur ; le tri permet de retrouver les plus anciens relevés. Effacer les filtres rétablit toute la liste. Un export affiche le nombre de PDF préparés et peut être annulé sans téléchargement partiel. Les requêtes en attente sont interrompues à l’annulation, à la fermeture de l’historique et au verrouillage. Une actualisation en échec conserve les métadonnées déjà affichées et signale que la liste n’est pas à jour. Le délai réseau de 45 secondes couvre aussi la réception du corps des réponses.
 
+La prise en main Windows se connecte directement depuis une session WolfGuard authentifiée sur le poste déjà associé, sans confirmation locale. Une fenêtre « Bureau partagé » reste visible avec le bouton « Arrêter le partage ». Les tests natifs vérifient ce lancement depuis Node.js, la fermeture et l’annulation, sans démarrer de capture ni envoyer d’actions au bureau. Les permissions du système restent nécessaires sur macOS et Wayland.
+
 ## Sources et publication manuelle
 
 - `myapp/` est directement le dépôt Git `cantinbruno/wolfguard`, avec la même arborescence et le même historique que GitHub.

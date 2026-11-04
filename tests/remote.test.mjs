@@ -55,6 +55,18 @@ test('Windows adapter obeys consent and Win32 input layout, normalizes image col
   assert.ok(sent.some(value=>value.readUInt32LE(0)===0&&value.readUInt32LE(20)===4));
 });
 
+test('Windows closes the sharing indicator if setup fails or cancellation arrives during its launch',async()=>{
+  for(const reason of ['native-load','cancelled']){
+    const cancel=new AbortController();let stopped=0;
+    await assert.rejects(windowsDesktop({
+      signal:cancel.signal,
+      ffi:{load(){throw new Error('Native desktop unavailable');}},
+      permissionPrompt:async()=>{if(reason==='cancelled')cancel.abort();return ()=>stopped++;}
+    }));
+    assert.equal(stopped,1,reason);
+  }
+});
+
 test('desktop relay authenticates both peers, encrypts images and input, orders and acknowledges actions without replay',async()=>{
   const s=await setup();try{
     const a=await s.pair(),b=await s.pair();

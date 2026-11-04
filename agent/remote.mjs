@@ -24,7 +24,7 @@ export async function executeRemoteSession(client,session,{signal,onStatus=()=>{
     }
   })();
   try{
-    onStatus('Préparation de la prise en main. Une autorisation sera demandée sur ce poste.',{state:'remote'});
+    onStatus('Préparation de la prise en main. Une fenêtre de partage sera affichée sur ce poste.',{state:'remote'});
     const runtime=await prepare(directory,{signal:cancel.signal});cancel.signal.throwIfAborted();
     adapter=await openDesktop({...runtime,signal:cancel.signal,onClose:()=>cancel.abort()});
     cancel.signal.throwIfAborted();status='active';

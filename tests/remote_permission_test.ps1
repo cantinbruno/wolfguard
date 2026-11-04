@@ -3,13 +3,13 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
-function Find-Prompt($Process) {
+function Find-Prompt($Process, [string]$Title = 'WolfGuard · Autoriser la prise en main') {
   $condition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $Process.Id)
   $deadline = [DateTime]::UtcNow.AddSeconds(10)
   do {
     if ($Process.HasExited) { throw "Permission helper exited before displaying consent: $($Process.ExitCode)" }
     $window = [System.Windows.Automation.AutomationElement]::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children, $condition)
-    if ($window -and $window.Current.Name -eq 'WolfGuard · Autoriser la prise en main') { return $window }
+    if ($window -and $window.Current.Name -eq $Title) { return $window }
     Start-Sleep -Milliseconds 50
   } while ([DateTime]::UtcNow -lt $deadline)
   throw 'Consent window was not displayed'
@@ -29,11 +29,12 @@ function Read-Status($Pending, [string]$Expected) {
 }
 
 # Only launch the consent helper. No desktop adapter, capture or input is started.
-foreach ($action in @('refuse', 'accept-stop', 'close', 'disconnect')) {
+foreach ($action in @('refuse', 'accept-stop', 'close', 'disconnect', 'sharing-stop', 'sharing-disconnect')) {
   Write-Output "Checking consent action: $action"
   $info = New-Object System.Diagnostics.ProcessStartInfo
   $info.FileName = $Executable
-  $info.Arguments = '--remote-permission'
+  $immediate = $action.StartsWith('sharing-')
+  $info.Arguments = if ($immediate) { '--remote-sharing' } else { '--remote-permission' }
   $info.UseShellExecute = $false
   $info.CreateNoWindow = $true
   $info.RedirectStandardInput = $true
@@ -44,10 +45,20 @@ foreach ($action in @('refuse', 'accept-stop', 'close', 'disconnect')) {
   try {
     [void]$process.Start()
     $pending = $process.StandardOutput.ReadLineAsync()
-    $window = Find-Prompt $process
+    if ($immediate) {
+      Read-Status $pending 'ready'
+      $window = Find-Prompt $process 'WolfGuard · Bureau partagé'
+      $pending = $process.StandardOutput.ReadLineAsync()
+    } else { $window = Find-Prompt $process }
     if ($window.Current.IsOffscreen) { throw 'Consent window is not visible' }
     if ($pending.Wait(200)) { throw 'Helper emitted a decision before user consent' }
-    if ($action -eq 'accept-stop') {
+    if ($immediate) {
+      $allowCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Autoriser cette session')
+      if ($window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $allowCondition)) { throw 'Unattended sharing still asks for consent' }
+      if ($action -eq 'sharing-stop') { Click-Button $window 'Arrêter le partage' }
+      else { $process.StandardInput.Close() }
+      Read-Status $pending 'closed'
+    } elseif ($action -eq 'accept-stop') {
       Click-Button $window 'Autoriser cette session'
       Read-Status $pending 'accepted'
       $pending = $process.StandardOutput.ReadLineAsync()
@@ -68,4 +79,4 @@ foreach ($action in @('refuse', 'accept-stop', 'close', 'disconnect')) {
     $process.Dispose()
   }
 }
-Write-Output 'PASS: real Windows consent helper with redirected pipes; visible prompt, no automatic acceptance, refusal, accept/stop, close and parent disconnect'
+Write-Output 'PASS: Windows helper; legacy consent, direct sharing without confirmation, visible Stop button and parent disconnect'

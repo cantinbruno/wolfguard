@@ -311,6 +311,7 @@ namespace WolfGuard {
     [STAThread] public static int Main(string[] args) {
       try {
         if (args.Length == 1 && args[0] == "--remote-permission") return RemotePermission.Run();
+        if (args.Length == 1 && args[0] == "--remote-sharing") return RemotePermission.Run(true);
         if (args.Length == 2 && args[0] == "--remote-preview-dir") { RemotePermission.Preview(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--render-logo") { AgentWindow.SavePng(AgentWindow.LogoBitmap(256), args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
