@@ -3,7 +3,7 @@ import {desktopInput,desktopFrame} from '../server/lib/wolfguard/remote-spec.mjs
 import {prepareDesktopRuntime} from './remote-runtime.mjs';
 import {openNativeDesktop} from './remote-native.mjs';
 
-export async function executeRemoteSession(client,session,{signal,onStatus=()=>{},directory,openDesktop=openNativeDesktop,prepare=prepareDesktopRuntime,intervalMs=700}={}){
+export async function executeRemoteSession(client,session,{signal,onStatus=()=>{},directory,openDesktop=openNativeDesktop,prepare=prepareDesktopRuntime,intervalMs=80,captureIntervalMs=160}={}){
   const cancel=new AbortController(),external=()=>cancel.abort();signal?.addEventListener('abort',external,{once:true});if(signal?.aborted)cancel.abort();
   const deadline=setTimeout(()=>cancel.abort(),Math.max(0,Math.min(20*60000,session.expiresAt-Date.now())));
   let adapter=null,status='preparing',message='',frame=null,ack=0;
@@ -24,12 +24,16 @@ export async function executeRemoteSession(client,session,{signal,onStatus=()=>{
     }
   })();
   try{
-    onStatus('Préparation de la prise en main. Une fenêtre de partage sera affichée sur ce poste.',{state:'remote'});
+    onStatus('Préparation de la prise en main.',{state:'remote'});
     const runtime=await prepare(directory,{signal:cancel.signal});cancel.signal.throwIfAborted();
     adapter=await openDesktop({...runtime,signal:cancel.signal,onClose:()=>cancel.abort()});
     cancel.signal.throwIfAborted();status='active';
-    onStatus('Prise en main active. Tu peux arrêter le partage depuis la fenêtre affichée sur ce poste.',{state:'remote'});
-    while(!cancel.signal.aborted){frame=desktopFrame(await adapter.capture());await delay(intervalMs,undefined,{signal:cancel.signal}).catch(()=>{});}
+    onStatus('Prise en main active. Arrêt depuis WolfGuard ou le menu de l’icône de l’agent.',{state:'remote'});
+    while(!cancel.signal.aborted){
+      const started=Date.now();
+      if(!frame)frame=desktopFrame(await adapter.capture());
+      await delay(Math.max(0,captureIntervalMs-(Date.now()-started)),undefined,{signal:cancel.signal}).catch(()=>{});
+    }
   }catch(error){if(!cancel.signal.aborted){status=error.code==='CONSENT_DENIED'?'denied':'error';message=String(error.message||'Bureau indisponible.').slice(0,500);}cancel.abort();}
   finally{
     clearTimeout(deadline);signal?.removeEventListener('abort',external);

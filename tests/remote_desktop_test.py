@@ -60,7 +60,7 @@ def run():
             page.set_viewport_size({'width':1440,'height':1000})
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible()
             assert started==[{'agentId':agent['id']}];expect(page.locator('#wgRemoteCanvas')).to_be_hidden();assert inputs==[]
-            expect(page.locator('#wgRemoteWaiting')).to_contain_text('Une fenêtre visible')
+            expect(page.locator('#wgRemoteWaiting')).to_contain_text('l’icône de l’agent')
             control['status']='preparing';expect(page.locator('#wgRemoteSessionState')).to_contain_text('Préparation',timeout=10000)
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
@@ -68,7 +68,7 @@ def run():
             page.locator('#wgRemoteCanvas').click(position={'x':100,'y':80});page.keyboard.type('abc');page.keyboard.press('Control+c')
             page.wait_for_timeout(300)
             assert any(value['type']=='button' and value['down'] for value in inputs),inputs
-            assert any(value.get('text')=='a' for value in inputs),inputs
+            assert any('a' in value.get('text','') for value in inputs),inputs
             assert any(value.get('key')=='KeyC' for value in inputs),inputs
             page.keyboard.down('Control')
             page.locator('#wgRemoteCanvas').dispatch_event('keydown',{'key':'z','code':'KeyW','ctrlKey':True})
@@ -76,6 +76,17 @@ def run():
             page.keyboard.up('Control');page.wait_for_timeout(200)
             assert any(value.get('key')=='KeyZ' for value in inputs),inputs
             assert not any(value.get('key')=='KeyW' for value in inputs),inputs
+
+            before=len(inputs)
+            page.evaluate('''()=>{const canvas=document.querySelector('#wgRemoteCanvas');window.remoteTyping=setInterval(()=>canvas.dispatchEvent(new KeyboardEvent('keydown',{key:'x',code:'KeyX',bubbles:true})),5);}''')
+            try:
+                page.wait_for_timeout(140)
+                assert any('x' in value.get('text','') for value in inputs[before:]),'Continuous typing must be sent before the typing stops'
+            finally:page.evaluate('clearInterval(window.remoteTyping)')
+            before=len(inputs)
+            page.locator('#wgRemoteCanvas').click(button='right',position={'x':80,'y':60})
+            page.wait_for_timeout(100)
+            assert any(value.get('button')==2 and value.get('down') for value in inputs[before:]),inputs[before:]
 
             assert all(0<=value['x']<=1 and 0<=value['y']<=1 for value in inputs if value['type'] in ['move','button','wheel'])
             page.locator('#wgRemoteText').fill('Texte de test é\nseconde ligne');page.locator('#wgRemoteSendText').click();page.wait_for_timeout(200)
@@ -89,13 +100,15 @@ def run():
                 page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
                 page.screenshot(path=str(ROOT/f'.cache/remote-active-{width}.png'),animations='disabled')
-            page.locator('#wgRemoteDisconnect').click();expect(page.locator('#wgRemoteSession')).to_be_hidden()
+            page.evaluate('''()=>{document.querySelector('#wgRemoteCanvas').dispatchEvent(new KeyboardEvent('keydown',{key:'y',code:'KeyY',bubbles:true}));document.querySelector('#wgRemoteDisconnect').click();}''');expect(page.locator('#wgRemoteSession')).to_be_hidden()
             assert len(stopped)==1
             control.update(status='denied',message='La demande a été refusée sur le poste.')
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteStatus')).to_contain_text('refusée',timeout=10000)
             expect(page.locator('#wgRemoteSession')).to_be_hidden();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             control.update(status='active',message='',revision=2)
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
+            before_input=len(inputs);page.locator('#wgRemoteCanvas').focus();page.keyboard.type('r');page.wait_for_timeout(100)
+            assert any('r' in value.get('text','') for value in inputs[before_input:]),'Reconnecting must restore input after a cancelled input timer'
             before=len(stopped);navigate('library');page.wait_for_timeout(300);assert len(stopped)==before+1
             navigate('remote');expect(page.locator('#wgRemoteSession')).to_be_hidden()
             for platform in ['linux','darwin','win32']:

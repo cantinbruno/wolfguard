@@ -1,35 +1,11 @@
-import {spawn} from 'node:child_process';
-import {createInterface} from 'node:readline';
-import {fileURLToPath} from 'node:url';
-import {encodeDesktop} from './remote-native.mjs';
-const host=()=>process.env.WOLFGUARD_AGENT_EXE||fileURLToPath(new URL('../WolfGuard-Agent.exe',import.meta.url));
-export async function startWindowsSharing(signal,onClose,{executable=host()}={}){
+import {createWindowsEncoder} from './remote-windows-encoder.mjs';
+export async function openDesktop({ffi,signal,encoderFactory=createWindowsEncoder}){
   signal?.throwIfAborted();
-  const child=spawn(executable,['--remote-sharing'],{windowsHide:true,stdio:['pipe','pipe','ignore']}),lines=createInterface({input:child.stdout});
-  let ready=false,stopping=false,abort;
-  const stop=()=>{stopping=true;signal?.removeEventListener('abort',abort);lines.close();child.stdin.destroy();if(child.exitCode===null&&!child.killed)child.kill();};
-  child.stdin.on('error',()=>{});
-  try{
-    await new Promise((resolve,reject)=>{
-      let settled=false;
-      const timeout=setTimeout(()=>finish(new Error('La fenêtre de partage ne répond pas sur le poste distant.')),10000);
-      const finish=error=>{if(settled)return;settled=true;clearTimeout(timeout);error?reject(error):resolve();};
-      abort=()=>{finish(signal.reason||new DOMException('Session annulée.','AbortError'));stop();};
-      signal?.addEventListener('abort',abort,{once:true});
-      lines.on('line',line=>{try{if(JSON.parse(line).status==='ready'){ready=true;finish();}}catch{}});
-      child.once('error',()=>finish(new Error('La fenêtre de partage n’a pas pu démarrer sur le poste distant. Vérifie que WolfGuard Agent est accessible.')));
-      child.once('close',()=>{signal?.removeEventListener('abort',abort);lines.close();if(!ready)finish(new Error('La fenêtre de partage s’est arrêtée sur le poste distant. Consulte le diagnostic startup-error.log dans le dossier local WolfGuardAgent.'));else if(!stopping)onClose?.();});
-      if(signal?.aborted)abort();
-    });
-    return stop;
-  }catch(error){stop();throw error;}
+  const encoder=await encoderFactory({signal});
+  try{signal?.throwIfAborted();return createDesktop({ffi,signal,encoder});}
+  catch(error){encoder.close();throw error;}
 }
-export async function openDesktop({ffi,jpeg,signal,onClose,permissionPrompt=startWindowsSharing}){
-  const stop=await permissionPrompt(signal,onClose);
-  try{signal?.throwIfAborted();return createDesktop({ffi,jpeg,signal,stop});}
-  catch(error){stop();throw error;}
-}
-function createDesktop({ffi,jpeg,signal,stop}){
+function createDesktop({ffi,signal,encoder}){
   const user=ffi.load('user32.dll'),gdi=ffi.load('gdi32.dll');
   const metrics=user.func('int __stdcall GetSystemMetrics(int)'),getDC=user.func('void * __stdcall GetDC(void *)'),releaseDC=user.func('int __stdcall ReleaseDC(void *,void *)');
   try{user.func('void * __stdcall SetThreadDpiAwarenessContext(void *)')(-4);}catch{}
@@ -41,14 +17,15 @@ function createDesktop({ffi,jpeg,signal,stop}){
   const previous=select(memory,bitmap),heldKeys=new Set(),heldButtons=new Set();let closed=false;
   const setCursor=user.func('bool __stdcall SetCursorPos(int,int)');
   const send=user.func('uint32_t __stdcall SendInput(uint32_t,const void *,int)');
-  function keyboard(code,down,unicode=false){const payload=Buffer.alloc(32);payload.writeUInt16LE(unicode?0:code,0);payload.writeUInt16LE(unicode?code:0,2);payload.writeUInt32LE((down?0:2)|(unicode?4:0),4);if(send(1,Buffer.concat([Buffer.from([1,0,0,0,0,0,0,0]),payload]),40)!==1)throw new Error('Windows bloque le contrôle de cette fenêtre. Les fenêtres élevées et sécurisées restent gérées par Windows.');}
+  const extended=new Set([33,34,35,36,37,38,39,40,45,46,91,93]);
+  function keyboard(code,down,unicode=false){const payload=Buffer.alloc(32);payload.writeUInt16LE(unicode?0:code,0);payload.writeUInt16LE(unicode?code:0,2);payload.writeUInt32LE((down?0:2)|(unicode?4:extended.has(code)?1:0),4);if(send(1,Buffer.concat([Buffer.from([1,0,0,0,0,0,0,0]),payload]),40)!==1)throw new Error('Windows bloque le contrôle de cette fenêtre. Les fenêtres élevées et sécurisées restent gérées par Windows.');}
   function mouse(flags,data=0){const payload=Buffer.alloc(32);payload.writeInt32LE(data,8);payload.writeUInt32LE(flags,12);if(send(1,Buffer.concat([Buffer.alloc(8),payload]),40)!==1)throw new Error('Souris distante indisponible.');}
   const codes={Enter:13,Escape:27,Tab:9,Backspace:8,Delete:46,Insert:45,Home:36,End:35,PageUp:33,PageDown:34,ArrowLeft:37,ArrowRight:39,ArrowUp:38,ArrowDown:40,Control:17,Alt:18,Shift:16,Meta:91,CapsLock:20,ContextMenu:93,Space:32,Minus:189,Equal:187,BracketLeft:219,BracketRight:221,Backslash:220,Semicolon:186,Quote:222,Comma:188,Period:190,Slash:191,Backquote:192};
   const code=key=>codes[key]??(/^Key[A-Z]$/.test(key)?key.charCodeAt(3):/^Digit[0-9]$/.test(key)?key.charCodeAt(5):/^F\d+$/.test(key)?111+Number(key.slice(1)):0);
   function release(){for(const value of heldKeys){try{keyboard(value,false);}catch{}}for(const value of heldButtons){try{mouse([4,64,16][value]);}catch{}}heldKeys.clear();heldButtons.clear();}
   return {
-    async capture(){signal?.throwIfAborted();if(closed||metrics(0)!==width||metrics(1)!==height||!copy(memory,0,0,width,height,screen,0,0,0x40cc0020))throw new Error('Le bureau Windows a changé ou n’est plus accessible. Reconnecte la session.');const bgra=Buffer.from(ffi.view(bits[0],width*height*4));return encodeDesktop(bgra,width,height,jpeg,{bgr:true});},
-    async input(event){if(closed)throw new Error('Session fermée.');if(event.type==='release'){release();return;}if(event.type==='text'){for(let index=0;index<event.text.length;index++){const value=event.text.charCodeAt(index),special=value===10||value===9;keyboard(value===10?13:value,true,!special);keyboard(value===10?13:value,false,!special);}return;}if(event.type==='key'){const value=code(event.key);if(!value)throw new Error('Touche non prise en charge.');keyboard(value,event.down);event.down?heldKeys.add(value):heldKeys.delete(value);return;}setCursor(Math.round(event.x*(width-1)),Math.round(event.y*(height-1)));if(event.type==='button'){mouse(event.down?[2,32,8][event.button]:[4,64,16][event.button]);event.down?heldButtons.add(event.button):heldButtons.delete(event.button);}else if(event.type==='wheel')mouse(0x800,-event.delta*120);},
-    async close(){if(closed)return;closed=true;release();select(memory,previous);deleteObject(bitmap);deleteDC(memory);releaseDC(null,screen);stop();}
+    async capture(){signal?.throwIfAborted();if(closed||metrics(0)!==width||metrics(1)!==height||!copy(memory,0,0,width,height,screen,0,0,0x40cc0020))throw new Error('Le bureau Windows a changé ou n’est plus accessible. Reconnecte la session.');const bgra=Buffer.from(ffi.view(bits[0],width*height*4));return encoder.encode(bgra,width,height);},
+    async input(event){signal?.throwIfAborted();if(closed)throw new Error('Session fermée.');if(event.type==='release'){release();return;}if(event.type==='text'){for(let index=0;index<event.text.length;index++){const value=event.text.charCodeAt(index),special=value===10||value===9;keyboard(value===10?13:value,true,!special);keyboard(value===10?13:value,false,!special);}return;}if(event.type==='key'){const value=code(event.key);if(!value)throw new Error('Touche non prise en charge.');keyboard(value,event.down);event.down?heldKeys.add(value):heldKeys.delete(value);return;}if(!setCursor(Math.round(event.x*(width-1)),Math.round(event.y*(height-1))))throw new Error('Le bureau Windows ne permet pas de déplacer la souris.');if(event.type==='button'){mouse(event.down?[2,32,8][event.button]:[4,64,16][event.button]);event.down?heldButtons.add(event.button):heldButtons.delete(event.button);}else if(event.type==='wheel')mouse(0x800,-event.delta*120);},
+    async close(){if(closed)return;closed=true;try{release();select(memory,previous);deleteObject(bitmap);deleteDC(memory);releaseDC(null,screen);}finally{encoder.close();}}
   };
 }

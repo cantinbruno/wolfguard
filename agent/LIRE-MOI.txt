@@ -30,8 +30,9 @@ Cette erreur ne signifie pas que l agent telecharge est obsolete.
 
 Etats : A associer, Connexion, En marche, Arrete, Hors ligne ou erreur.
 La prise en main Windows se connecte directement depuis WolfGuard sur un
-poste deja associe, sans confirmation locale. Une fenetre Bureau partage
-reste visible et son bouton Arreter le partage termine la session.
+poste deja associe, sans confirmation locale ni popup sur son bureau.
+L icone de l agent indique Prise en main. Son menu Arreter la prise en main
+termine le partage sans arreter l agent ; Deconnecter sur le site l arrete aussi.
 En marche apparait uniquement apres une reponse effective du serveur.
 Arreter l agent suspend sa connexion et annule le scan en cours.
 Demarrer le reconnecte avec l association deja enregistree.

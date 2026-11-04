@@ -25,7 +25,7 @@ FILES={
 EXE=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
 MANIFEST=ROOT/'agent/windows-build.json'
 POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mjs','agent/network.mjs','agent/posix.mjs','agent/security-rules.mjs','server/lib/wolfguard/scan-spec.mjs']}
-for name in ['remote.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
+for name in ['remote.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
@@ -47,7 +47,7 @@ def source_archive(files=FILES):
 
 def executable(payload,check=False):
     digest=hashlib.sha256(payload)
-    for name in ['agent/AgentWindow.cs','agent/RemotePermission.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py']:
+    for name in ['agent/AgentWindow.cs','agent/DesktopEncoder.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py']:
         digest.update(name.encode());digest.update((ROOT/name).read_text(encoding='utf8').replace('\r\n','\n').encode())
     source_hash=digest.hexdigest()
     recorded=json.loads(MANIFEST.read_text(encoding='utf8')) if MANIFEST.exists() else {}
@@ -66,12 +66,12 @@ def executable(payload,check=False):
         references=[framework/'System.dll',framework/'System.Core.dll',framework/'System.Drawing.dll',framework/'System.Windows.Forms.dll',framework/'Microsoft.CSharp.dll',framework/'System.Xml.dll',framework/'System.Web.Extensions.dll',framework/'System.IO.Compression.dll',framework/'System.IO.Compression.FileSystem.dll',framework/'WindowsBase.dll',framework/'WPF/PresentationCore.dll',framework/'WPF/PresentationFramework.dll',framework/'WPF/System.Xaml.dll']
         # System.Xaml lives beside WindowsBase on some Windows installations.
         references=[next((candidate for candidate in [p,framework/p.name,framework/'WPF'/p.name] if candidate.exists()),p) for p in references]
-        command=[str(compiler),'/nologo','/target:winexe','/platform:x64','/optimize+','/debug-','/out:'+str(output),'/win32manifest:'+str(ROOT/'agent/windows.manifest'),'/resource:'+str(archive)+',WolfGuard.Payload.zip','/resource:'+str(ROOT/'app/images/logo-loup.svg')+',WolfGuard.Logo.svg']+['/reference:'+str(p) for p in references]+[str(ROOT/'agent/AgentWindow.cs'),str(ROOT/'agent/RemotePermission.cs'),str(generated)]
+        command=[str(compiler),'/nologo','/target:winexe','/platform:x64','/optimize+','/debug-','/out:'+str(output),'/win32manifest:'+str(ROOT/'agent/windows.manifest'),'/resource:'+str(archive)+',WolfGuard.Payload.zip','/resource:'+str(ROOT/'app/images/logo-loup.svg')+',WolfGuard.Logo.svg']+['/reference:'+str(p) for p in references]+[str(ROOT/'agent/AgentWindow.cs'),str(ROOT/'agent/DesktopEncoder.cs'),str(generated)]
         subprocess.run(command,check=True,cwd=ROOT)
         png=cache/'logo.png';subprocess.run([str(output),'--render-logo',str(png)],check=True,cwd=ROOT,timeout=30)
         image=png.read_bytes();icon=cache/'logo.ico'
         icon.write_bytes(struct.pack('<HHH',0,1,1)+struct.pack('<BBBBHHII',0,0,0,0,1,32,len(image),22)+image)
-        subprocess.run(command[:-3]+['/win32icon:'+str(icon)]+command[-3:],check=True,cwd=ROOT)
+        subprocess.run(command+['/win32icon:'+str(icon)],check=True,cwd=ROOT)
         current=output.read_bytes();EXE.parent.mkdir(parents=True,exist_ok=True);EXE.write_bytes(current)
         MANIFEST.write_text(json.dumps({'format':'wolfguard-agent-build','version':2,'sourceSha256':source_hash,'exeSha256':hashlib.sha256(current).hexdigest(),'payloadSha256':hashlib.sha256(payload).hexdigest()},indent=2)+'\n',encoding='utf8')
     if check:

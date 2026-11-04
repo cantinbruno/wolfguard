@@ -65,13 +65,17 @@ export function diskCredentialStore(directory=agentDirectory(),{platform=process
 
 // The native window sends only pairing/control commands over stdin. Status
 // events on stdout contain no credential, pairing code, target or scan report.
-export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector}={}){
-  let controller=null,work=null,closing=false;
+export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector,remoteRunner=executeRemoteSession}={}){
+  let controller=null,remoteController=null,work=null,closing=false;
   const state=(message,detail={})=>emit({type:'state',state:detail.state||'error',message,...detail});
   async function stop(){if(controller)controller.abort();if(work)await work;controller=null;work=null;}
   function connect(credential){
     client.token=credential.token;controller=new AbortController();
-    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,onStatus:state}).catch(error=>state(error.status===401||error.status===403?'Ce poste doit être associé de nouveau. Génère un code sur le site.':'La connexion n’a pas pu démarrer.',{state:error.status===401||error.status===403?'revoked':'error'}));
+    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,onStatus:state,remoteRunner:async(client,session,options)=>{
+      const current=new AbortController();remoteController=current;
+      try{await remoteRunner(client,session,{...options,signal:AbortSignal.any([options.signal,current.signal])});}
+      finally{if(remoteController===current)remoteController=null;}
+    }}).catch(error=>state(error.status===401||error.status===403?'Ce poste doit être associé de nouveau. Génère un code sur le site.':'La connexion n’a pas pu démarrer.',{state:error.status===401||error.status===403?'revoked':'error'}));
   }
   let credential=null;
   const lines=createInterface({input,crlfDelay:Infinity,terminal:false});
@@ -84,6 +88,7 @@ export async function desktopAgent({client=new AgentClient(),store=diskCredentia
       if(closing)return;
       let command;try{if(line.length>2048)throw new Error();command=JSON.parse(line);}catch{state('Commande de la fenêtre invalide.',{state:'error'});return;}
       if(command.type==='shutdown'){closing=true;await stop();lines.close();return;}
+      if(command.type==='stop-remote'){remoteController?.abort();return;}
       if(command.type==='stop'){await stop();state('L’agent est arrêté. Aucun scan ne sera exécuté.',{state:'stopped'});return;}
       if(command.type==='repair'){await stop();state('Génère un nouveau code temporaire sur le site, puis colle-le ici.',{state:'pairing'});return;}
       if(command.type==='start'){if(work)await stop();if(credential)connect(credential);else state('Colle un code temporaire pour associer ce poste.',{state:'pairing'});return;}

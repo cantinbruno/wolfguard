@@ -65,8 +65,14 @@ public static class AgentLifetimeTest {
           tray.ContextMenuStrip.Items[0].PerformClick();
           Check(window.IsVisible,"Tray Open did not restore the window");
           Check(File.ReadAllText(log)=="started\n","Hiding or restoring affected the engine");
+          Check(!tray.ContextMenuStrip.Items[1].Enabled,"Remote Stop must be disabled while idle");
+          type.GetMethod("SetState",flags).Invoke(window,new object[]{"remote","Remote test",0,0});
+          Check(tray.ContextMenuStrip.Items[1].Enabled,"Remote Stop must be available while sharing");
+          tray.ContextMenuStrip.Items[1].PerformClick();
+          await Task.Delay(100);
+          Check(!engine.HasExited&&File.ReadAllText(log)=="started\nremote-stopped\n","Remote Stop must target sharing without quitting the agent");
           // Exercise the same explicit exit action exposed to the user.
-          tray.ContextMenuStrip.Items[2].PerformClick();
+          tray.ContextMenuStrip.Items[tray.ContextMenuStrip.Items.Count-1].PerformClick();
         } catch(Exception error) {
           failure=error;
         }
@@ -74,7 +80,7 @@ public static class AgentLifetimeTest {
       };
       app.Run(window);
       if(failure!=null)throw failure;
-      Check(File.ReadAllText(log)=="started\nshutdown\n","Quit did not stop the engine gracefully");
+      Check(File.ReadAllText(log)=="started\nremote-stopped\nshutdown\n","Quit did not stop the engine gracefully");
       Check(type.GetField("child",flags).GetValue(window)==null,"Quit retained the child process");
       Check(type.GetField("tray",flags).GetValue(window)==null,"Quit retained the tray icon");
     } finally {
@@ -104,7 +110,7 @@ const log=process.argv[2];
 appendFileSync(log,'started\n');
 process.stdout.write('ready\n');
 const input=createInterface({input:process.stdin});
-input.on('line',line=>{if(JSON.parse(line).type==='shutdown'){appendFileSync(log,'shutdown\n');process.exit(0);}});
+input.on('line',line=>{const command=JSON.parse(line);if(command.type==='stop-remote')appendFileSync(log,'remote-stopped\n');if(command.type==='shutdown'){appendFileSync(log,'shutdown\n');process.exit(0);}});
 input.on('close',()=>process.exit(1));
 '@
 [IO.File]::WriteAllText($worker,$workerSource,[Text.UTF8Encoding]::new($false))

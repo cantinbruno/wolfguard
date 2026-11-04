@@ -39,6 +39,7 @@ namespace WolfGuard {
     readonly TextBox code;
     readonly Button pairButton, mainButton;
     System.Windows.Forms.NotifyIcon tray;
+    System.Windows.Forms.ToolStripMenuItem remoteStop;
     System.Drawing.Icon trayIcon;
     Process child;
     WebClient download;
@@ -117,6 +118,8 @@ namespace WolfGuard {
       tray = new System.Windows.Forms.NotifyIcon { Icon = trayIcon, Text = "WolfGuard Agent", Visible = true };
       System.Windows.Forms.ContextMenuStrip menu = new System.Windows.Forms.ContextMenuStrip();
       menu.Items.Add("Ouvrir WolfGuard Agent", null, delegate { RestoreWindow(); });
+      remoteStop = (System.Windows.Forms.ToolStripMenuItem)menu.Items.Add("Arrêter la prise en main", null, delegate { Send(new { type = "stop-remote" }); });
+      remoteStop.Enabled = false;
       menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
       menu.Items.Add("Quitter l’agent", null, async delegate { await Quit(); });
       tray.ContextMenuStrip = menu;
@@ -201,13 +204,14 @@ namespace WolfGuard {
       currentState = state;
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
-        {"remote","En marche"},{"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
+        {"remote","Prise en main"},{"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
         {"failed","En marche"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
       if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
+      if (remoteStop != null) remoteStop.Enabled = state == "remote";
       bool active = state == "remote" || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
-      detail.Text = active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
+      detail.Text = state == "remote" ? (message.Length > 500 ? message.Substring(0, 500) : message) : active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
       dot.Fill = Brush(active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" ? "#ff978d" : "#f6aa5d");
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
       bool resize = (pairing.Visibility == Visibility.Visible) != pair;
@@ -362,9 +366,7 @@ namespace WolfGuard {
     }
     [STAThread] public static int Main(string[] args) {
       try {
-        if (args.Length == 1 && args[0] == "--remote-permission") return RemotePermission.Run();
-        if (args.Length == 1 && args[0] == "--remote-sharing") return RemotePermission.Run(true);
-        if (args.Length == 2 && args[0] == "--remote-preview-dir") { RemotePermission.Preview(args[1]); return 0; }
+        if (args.Length == 1 && args[0] == "--desktop-encoder") return DesktopEncoder.Run();
         if (args.Length == 2 && args[0] == "--render-logo") { AgentWindow.SavePng(AgentWindow.LogoBitmap(256), args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {

@@ -35,7 +35,7 @@ test('remote input accepts only finite pointer, keyboard and text events',()=>{
   assert.throws(()=>desktopFrame({...frame,jpeg:'<script>'}));assert.throws(()=>desktopFrame({...frame,width:9000}));
 });
 
-test('Windows adapter obeys consent and Win32 input layout, normalizes image colors and releases held keys and buttons',async()=>{
+test('Windows adapter uses native encoding, valid Win32 input layout and releases held keys and buttons',async()=>{
   let accepted=false,stopped=0,pixels;const sent=[],positions=[],bgra=Buffer.from([10,20,30,0,40,50,60,0]);
   const ffi={view:value=>value,load:()=>({func(signature){
     if(signature.includes('GetSystemMetrics'))return dimension=>dimension===0?2:1;
@@ -44,8 +44,8 @@ test('Windows adapter obeys consent and Win32 input layout, normalizes image col
     if(signature.includes('SetCursorPos'))return (x,y)=>{positions.push([x,y]);return true;};
     return ()=>1;
   }})};
-  const adapter=await windowsDesktop({ffi,jpeg:{encode(value){pixels=value;return {data:Buffer.from(frame.jpeg,'base64')};}},permissionPrompt:async()=>{accepted=true;return ()=>stopped++;}});
-  assert.equal(accepted,true);await adapter.capture();assert.deepEqual([...pixels.data],[30,20,10,255,60,50,40,255]);
+  const adapter=await windowsDesktop({ffi,encoderFactory:async()=>{accepted=true;return {encode(value){pixels=value;return frame;},close(){stopped++;}};}});
+  assert.equal(accepted,true);await adapter.capture();assert.deepEqual([...pixels],[10,20,30,0,40,50,60,0]);
   await adapter.input({type:'button',x:1,y:0,button:0,down:true});await adapter.input({type:'key',key:'Control',down:true});
   await adapter.input({type:'text',text:'é\n'});await adapter.close();
   assert.deepEqual(positions,[[1,0]]);assert.equal(stopped,1);
@@ -61,7 +61,7 @@ test('Windows closes the sharing indicator if setup fails or cancellation arrive
     await assert.rejects(windowsDesktop({
       signal:cancel.signal,
       ffi:{load(){throw new Error('Native desktop unavailable');}},
-      permissionPrompt:async()=>{if(reason==='cancelled')cancel.abort();return ()=>stopped++;}
+      encoderFactory:async()=>{if(reason==='cancelled')cancel.abort();return {close(){stopped++;}};}
     }));
     assert.equal(stopped,1,reason);
   }

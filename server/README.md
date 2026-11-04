@@ -59,7 +59,7 @@ Node 22.13 or newer is required. Follow the Sites starter installation/build ins
 ## Interactive remote desktop
 
 The Remote workspace uses the selected agent and a separate, per-browser-session
-lease. Windows uses GDI/SendInput and a visible WPF consent/Stop window. macOS
+lease. Windows uses GDI/SendInput and a native background JPEG encoder. The agent tray menu and authenticated viewer provide Stop controls; there is no desktop popup. macOS
 uses its screen-capture utility and CoreGraphics input after native privacy
 permissions. Linux uses X11/XTest or RemoteDesktop/ScreenCast portals with
 PipeWire and GStreamer on Wayland. Linux needs a graphical session and
@@ -72,8 +72,7 @@ protocol. There is no shell, file-transfer or arbitrary process endpoint.
 Images and queued input are encrypted at rest with independent AES-GCM contexts;
 HTTPS protects transport. This is server-side encryption, not end-to-end.
 The last image replaces its predecessor in R2. Ordered input is acknowledged
-and removed, and both are deleted when a session ends. Consent is required
-locally before capture or input. Sharing stops on refusal, local Stop, agent
+and removed, and both are deleted when a session ends. Enrolled Windows agents connect directly after viewer authentication; macOS/Linux privacy permissions still apply. Sharing stops on refusal, the tray sharing Stop, agent
 Stop, browser navigation, logout/revocation, stale input or loss of heartbeat.
 Viewer and agent heartbeats expire after 15 seconds; input older than four
 seconds terminates the session rather than replaying delayed actions. An

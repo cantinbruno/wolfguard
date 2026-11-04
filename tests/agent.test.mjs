@@ -34,6 +34,20 @@ test('four workspaces keep network scans separate from host security audits and 
 });
 
 async function until(predicate,timeout=6000){const end=Date.now()+timeout;while(!predicate()){if(Date.now()>end)throw new Error('Agent state timeout');await new Promise(resolve=>setTimeout(resolve,15));}}
+
+test('tray sharing Stop cancels only the remote session and leaves the agent connected',async()=>{
+  const input=new PassThrough(),events=[];let first=true,started=false,ended=false;
+  const client={origin:'https://fixture.invalid',async post(route){assert.equal(route,'poll');if(first){first=false;return {remote:{id:'a'.repeat(32)}};}return {};}};
+  const work=desktopAgent({client,input,pollMs:2,emit:event=>events.push(event),store:{async load(){return {api:client.origin,token:'b'.repeat(64)};}},remoteRunner:async(_client,_session,{signal,onStatus})=>{
+    started=true;onStatus('Remote fixture',{state:'remote'});
+    await new Promise(resolve=>{if(signal.aborted)return resolve();signal.addEventListener('abort',resolve,{once:true});});ended=true;
+  }});
+  try{
+    await until(()=>started);input.write(JSON.stringify({type:'stop-remote'})+'\n');
+    await until(()=>ended&&events.some(event=>event.state==='connected'));
+    assert.equal(events.some(event=>event.state==='stopped'),false);
+  }finally{input.end();await work;}
+});
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
   prepare(sql){const statement=this.db.prepare(sql);let values=[];return {bind(...args){values=args;return this;},async first(){return statement.get(...values)||null;},async all(){return {results:statement.all(...values)};},async run(){const result=statement.run(...values);return {meta:{changes:Number(result.changes)}};}};}
