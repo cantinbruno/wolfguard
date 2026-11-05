@@ -3,10 +3,11 @@
 // The original UI, editors and tools stay unchanged. Only desktop storage and
 // the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
-  let cryptography, storage, cloud, tabSessions, tabSession, session = null, envelope = null, pendingBackup = null;
+  let cryptography, storage, cloud, tabSessions, shared, tabSession, session = null, envelope = null, pendingBackup = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null;
   const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
   function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
@@ -17,11 +18,17 @@ const webWorkspace = (() => {
   }
   function activateSession(result, clock = {started: Date.now(), active: Date.now()}) {
     session = result; envelope = result.envelope; pendingBackup = null; db = new BrowserDatabase();
+    if(cloud.enabled){
+      session.cloudVersion=cloud.currentVersion();
+      try{agentChoice=sessionStorage.getItem('wolfguard-agent-choice-v1');}catch{}
+      if(agentChoice===null){agentChoice=result.payload.settings.find(row=>row.key==='scanAgentId')?.value||'';try{sessionStorage.setItem('wolfguard-agent-choice-v1',agentChoice);}catch{}}
+      clearInterval(sharedTimer);sharedTimer=setInterval(()=>refreshShared(),10000);
+    }
     const wall = Date.now(), mono = performance.now();
     sessionClock = {...clock, monotonicStart: mono - (wall - clock.started), monotonicActive: mono - (wall - clock.active)};
     armSessionTimer();
     if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(() => { if (session && !sessionExpired()) cloud.touch().catch(() => lock()); }, 25000); }
-    resetSettingsCache(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
+    resetSessionSettings(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
     state.vaultKey = result.key; sessionAccessCode = '';
   }
   async function resumeAfterReload() {
@@ -41,7 +48,7 @@ const webWorkspace = (() => {
       if (generation !== epoch || !tabSessions.validClock(saved.clock)) throw new Error('Session expirée.');
       if (cloud.enabled) {
         if (envelope && envelope.iv !== latest.iv) await storage.preserve(envelope);
-        await storage.write(latest, envelope?.revision || 0);
+        await storage.cacheShared(latest,cloud.currentVersion());
       }
       activateSession(result, saved.clock);
       // Scan renderers need an active workspace while their async data loads.
@@ -125,10 +132,63 @@ const webWorkspace = (() => {
     }
     return snapshot;
   }
-  const saveStatus = message => { $('#webSaveState').textContent = message; };
+  const saveStatus = message => { $('#webSaveLabel').textContent = message;$('#webSharedRefresh').hidden=!cloud?.enabled||!session; };
   const savedMessage = () => cloud?.enabled ? 'Enregistré · Synchronisé et chiffré' : 'Enregistré · Chiffré sur cet appareil';
+  function resetSessionSettings(records){resetSettingsCache(records);if(cloud?.enabled&&agentChoice!==null)settingsCache.set('scanAgentId',agentChoice);}
+  function canRefreshShared(){
+    return session&&!busy&&!locking&&!rotating&&!document.hidden&&state.mode!=='edit'&&primaryWorkspaces.memo?.state.mode!=='edit'&&!sectionTransition.active&&!$('#modalRoot')?.children.length&&!document.querySelector('.app-dialog[open]')&&!document.activeElement?.matches('input,textarea,select,[contenteditable="true"]')&&!window.getSelection()?.toString();
+  }
+  async function refreshShared({manual=false}={}){
+    if(!cloud?.enabled||!session)return false;
+    if(sharedRefreshing)return sharedRefreshing;
+    if(!canRefreshShared()){if(manual)saveStatus('Brouillon ou formulaire ouvert · Actualisation après sa fermeture');return false;}
+    const current=session,generation=epoch;
+    const fresh=()=>session===current&&epoch===generation&&!sessionExpired();
+    const work=queue.then(async()=>{
+      if(!fresh()||!canRefreshShared())return false;
+      const latest=await cloud.refresh(current.cloudVersion);
+      if(!latest||!fresh()||!canRefreshShared())return false;
+      const version=cloud.currentVersion(),result=await cryptography.openWithKey(latest,current.key,current.salt);
+      validate(result.payload);
+      if(!fresh()||!canRefreshShared())return false;
+      const changed=!shared.sameValue(current.payload.items,result.payload.items)||!shared.sameValue(current.payload.folders,result.payload.folders);
+      await storage.cacheShared(result.envelope,version);
+      if(!fresh())return false;
+      Object.assign(current,result,{cloudVersion:version});envelope=result.envelope;
+      resetSessionSettings(result.payload.settings);window.workspaceSearch?.invalidate();updateReloadTicket();
+      if(primaryWorkspaces.memo?.state.mode!=='edit')primaryWorkspaces.memo=null;
+      saveStatus('À jour · Espace partagé chiffré');
+      return changed;
+    });
+    queue=work.catch(()=>{});
+    sharedRefreshing=(async()=>{
+      try{
+        const changed=await work;
+        // Scans and remote sessions keep their own live DOM and connections.
+        if(changed&&fresh()&&canRefreshShared()&&['library','vault'].includes(state.section)){
+          if(state.item&&!current.payload.items.some(row=>row.id===state.item&&!row.deletedAt))state.item=null;
+          saveExplorerScroll();const content=$('#content');
+          const scrolls=[...content.querySelectorAll('[id]')].filter(node=>node.scrollTop||node.scrollLeft).map(node=>({id:node.id,top:node.scrollTop,left:node.scrollLeft}));
+          content.inert=true;
+          try{await renderWorkspace();if(fresh())for(const position of scrolls){const node=document.getElementById(position.id);if(node){node.scrollTop=position.top;node.scrollLeft=position.left;}}}
+          finally{content.inert=false;}
+        }
+        if(manual&&fresh()&&!changed)saveStatus('À jour · Espace partagé chiffré');
+        return changed;
+      }catch(error){
+        console.warn('Actualisation de l’espace partagé impossible.',error);
+        if(fresh()){
+          if(error.code==='CLOUD_ACCESS'||error.code==='INVALID_ACCESS_CODE')await lock();
+          else saveStatus('Synchronisation indisponible · Réessaie dans quelques instants');
+        }
+        return false;
+      }finally{sharedRefreshing=null;}
+    })();
+    return sharedRefreshing;
+  }
   const gateExists = () => !!(pendingBackup || envelope) || (cloud?.enabled && (cloud.isInitialized()!==false || !cloud.canActivate()));
   async function claimTab() {
+    if(cloud.enabled)return;
     if (releaseTab) return;
     if (!navigator.locks) throw new Error('Un navigateur récent avec Web Locks est nécessaire.');
     await new Promise((resolve,reject) => {
@@ -140,7 +200,7 @@ const webWorkspace = (() => {
   }
   function release() { releaseTab?.(); releaseTab = null; }
   async function cacheSnapshot(value,expectedRevision) {
-    try{await storage.write(value,expectedRevision);}
+    try{if(cloud.enabled)await storage.cacheShared(value,cloud.currentVersion());else await storage.write(value,expectedRevision);}
     catch(error){
       if(cloud.enabled && session){
         // The server already committed. Continuing with an older payload or
@@ -151,25 +211,40 @@ const webWorkspace = (() => {
       throw error;
     }
   }
-  async function commit(change,{backupOrganization=false}={}) {
+  async function commit(change,{backupOrganization=false,editBase=null,replace=false}={}) {
     assertFreshSession();
     const current = session, generation = epoch;
     if (!current) throw new Error('Espace verrouillé.');
     saveStatus('Enregistrement…');
     const work = queue.then(async () => {
       if (session !== current || generation !== epoch) throw new Error('Espace verrouillé.');
-      const payload = structuredClone(current.payload);
+      assertFreshSession();
+      const base=structuredClone(current.payload);
+      if(editBase){const index=base.items.findIndex(row=>row.id===editBase.id);if(index<0)base.items.push(structuredClone(editBase));else base.items[index]=structuredClone(editBase);}
+      let payload = structuredClone(base);
       const result = change(payload);
       validate(payload);
       for(const version of Array.isArray(backupOrganization)?backupOrganization:backupOrganization?[backupOrganization]:[])await storage.preserveOrganization(current.envelope,version);
-      const encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
+      let encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
       if(cloud.enabled){
-        try{await cloud.save(encrypted);}catch(error){await storage.preserve(encrypted,true);throw error;}
+        const wanted=payload,recovery=encrypted;
+        try{
+          for(let attempt=0;attempt<3;attempt++){
+            const latest=await cryptography.openWithKey(await cloud.load(),current.key,current.salt);validate(latest.payload);
+            if(session!==current||generation!==epoch)throw new Error('Espace verrouillé.');
+            if(replace&&!shared.sameValue(base,latest.payload))throw shared.sharedConflict();
+            payload=validate(shared.mergeWorkspace(base,wanted,latest.payload));
+            encrypted=await cryptography.seal(payload,current.key,current.salt,latest.envelope.revision+1);
+            assertFreshSession();if(session!==current||generation!==epoch)throw new Error('Espace verrouillé.');
+            try{await cloud.save(encrypted);break;}catch(error){if(error.code!=='CLOUD_CONFLICT'||attempt===2)throw error;}
+          }
+        }catch(error){await storage.preserve(recovery,true);if(error.code==='CLOUD_ACCESS'||error.code==='INVALID_ACCESS_CODE')queueMicrotask(()=>lock());throw error;}
         if(session!==current || generation!==epoch)throw new Error('Espace verrouillé. La copie distante est enregistrée.');
       }
       await cacheSnapshot(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
-      if (session === current) { resetSettingsCache(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); updateReloadTicket(); }
+      if(cloud.enabled)current.cloudVersion=cloud.currentVersion();
+      if (session === current) { resetSessionSettings(payload.settings); window.workspaceSearch?.invalidate(); saveStatus(savedMessage()); updateReloadTicket(); }
       return result;
     });
     queue = work.catch(() => {});
@@ -177,12 +252,20 @@ const webWorkspace = (() => {
   }
   class BrowserDatabase {
     constructor() { this.native = true; }
-    async get(store,id) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
+    async get(store,id) { assertFreshSession();await queue;assertFreshSession();if(cloud.enabled&&store==='settings'&&id==='scanAgentId')return {key:id,value:agentChoice};return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
     async all(store) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store] || []); }
     readOnly(store) { return this.all(store); }
     storageFiles() { return [{id:'main',name:cloud?.enabled?'Espace partagé chiffré':'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
     batch(operations) {
-      const records = structuredClone(operations);
+      assertFreshSession();
+      const records = structuredClone(operations).filter(operation=>{
+        if(cloud.enabled&&operation.store==='settings'&&(operation.record?.key==='scanAgentId'||operation.id==='scanAgentId')){
+          const choice=operation.action==='delete'?'':String(operation.record?.value||'');
+          sessionStorage.setItem('wolfguard-agent-choice-v1',choice);agentChoice=choice;settingsCache.set('scanAgentId',choice);return false;
+        }
+        return true;
+      });
+      if(!records.length)return Promise.resolve(true);
       const backupVersion=records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-form-cleanup-version')?3:records.some(operation=>operation.store==='settings' && operation.record?.key==='memo-mail-cleanup-version')?2:records.find(operation=>operation.store==='settings' && operation.record?.key==='memo-folder-organization-version')?.record.value||false;
       const backupOrganization=[...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='memo-consolidation-version')?[5]:[]),...(records.some(operation=>operation.store==='settings'&&operation.record?.key==='procedure-technology-organization-version')?[4]:[]),...(backupVersion?[backupVersion]:[])];
       return commit(payload => {
@@ -205,6 +288,7 @@ const webWorkspace = (() => {
       payload.activity = payload.activity.filter(record => record.itemId !== id);
     }); }
     updateItem(id,update) { return commit(payload => { const item = payload.items.find(record => record.id === id && !isDeleted(record)); if (item) update(item); return structuredClone(item); }); }
+    saveEditedItem(item,base) { return commit(payload=>{const index=payload.items.findIndex(row=>row.id===item.id);if(index<0)payload.items.push(structuredClone(item));else payload.items[index]=structuredClone(item);return true;},{editBase:base}); }
     async flush() { await queue; return true; }
   }
   async function seed() {
@@ -332,7 +416,7 @@ const webWorkspace = (() => {
     if(result.envelope.version!==cryptography.WORKSPACE_VERSION){result.envelope=await cryptography.seal(result.payload,result.key,result.salt,result.envelope.revision+1);remote=false;}
     if(!remote)await cloud.save(result.envelope);
     if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
-    await storage.write(result.envelope,previous?.revision||0);
+    await storage.cacheShared(result.envelope,cloud.currentVersion());
     return result;
   }
   async function authenticate(event) {
@@ -400,6 +484,7 @@ const webWorkspace = (() => {
     locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
     const forgotten = tabSession?.forget().catch(() => {});
     clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
+    clearInterval(sharedTimer);sharedTimer=null;agentChoice=null;
     clearTimeout(autoLockTimer); autoLockTimer=null;
     unlockTransition.cancel(); sectionTransition.cancel(); appMessages.dismiss();
     resetPrimaryWorkspaces(); window.workspaceSearch?.reset(); resetCollectionSearch(); resetNetworkTools(); resetScanTool();
@@ -436,7 +521,7 @@ const webWorkspace = (() => {
         const current=session;if(!current)throw new Error('Espace verrouillé.');
         for(const item of payload.items.filter(item=>item.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],restored.key),current.key);
         await storage.preserve(current.envelope,true);
-        await commit(target=>{for(const store of STORES)target[store]=payload[store];});
+        await commit(target=>{for(const store of STORES)target[store]=payload[store];},{replace:true});
         await lock();appNotify('Sauvegarde restaurée et synchronisée. Saisis ton code habituel.');
       }finally{code='';}
       return;
@@ -456,6 +541,11 @@ const webWorkspace = (() => {
       await cryptography.open(current.envelope,oldPassword);
       const work=queue.then(async () => {
         if (session!==current || epoch!==generation) throw new Error('Espace verrouillé.');
+        if(cloud.enabled){
+          const latest=await cryptography.openWithKey(await cloud.load(),current.key,current.salt);validate(latest.payload);
+          if(session!==current||epoch!==generation)throw new Error('Espace verrouillé.');
+          Object.assign(current,latest,{cloudVersion:cloud.currentVersion()});envelope=latest.envelope;
+        }
         const payload=structuredClone(current.payload);
         const result=await cryptography.create(payload,password,current.envelope.revision+1);
         for (const item of payload.items.filter(item => item.type==='vault')) {
@@ -469,6 +559,7 @@ const webWorkspace = (() => {
         }
         await cacheSnapshot(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
+        if(cloud.enabled)current.cloudVersion=cloud.currentVersion();
         if (session===current) { state.vaultKey=result.key; await rememberSession(); closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
       });
       queue=work.catch(() => {}); await work;
@@ -547,7 +638,8 @@ const webWorkspace = (() => {
   }
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
-    [cryptography,storage,cloud,tabSessions]=await Promise.all([import('./crypto.js'),import('./storage.js'),import('./cloud.js'),import('./tab-session.js')]);
+    [cryptography,storage,cloud,tabSessions,shared]=await Promise.all([import('./crypto.js'),import('./storage.js'),import('./cloud.js'),import('./tab-session.js'),import('./shared-workspace.js')]);
+    window.addEventListener('focus',()=>refreshShared());
     tabSession = tabSessions.createTabSession(storage);
     window.addEventListener('hashchange',()=>{if(cloud.enabled && cloud.canActivate() && !session && !busy && !locking && !booting)showGate();});
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));
@@ -595,7 +687,8 @@ const webWorkspace = (() => {
     $('#lock .lock-card').append(actions);
     $('#webCancelRestore').onclick=async () => { pendingBackup=null;await loadAttempts();showGate(); };
     $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
-    const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status'); document.body.append(status);
+    const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status');status.innerHTML='<span id="webSaveLabel"></span><button type="button" id="webSharedRefresh" aria-label="Actualiser l’espace partagé" hidden>Actualiser</button>';document.body.append(status);
+    $('#webSharedRefresh').onclick=()=>refreshShared({manual:true});
     topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
     document.addEventListener('click',event => { if (!event.target.closest('.search')) hideSearch(); });
     applyExplorerWidth(getExplorerWidth()); registerActivityForAutoLock();
@@ -626,6 +719,6 @@ const webWorkspace = (() => {
     }
     booting=false;renderKeypad();if(!resumed)$('#lock').focus({preventScroll:true});
   }
-  return {start};
+  return {start,refreshShared};
 })();
 webWorkspace.start().catch(error => { $('#startupSplash')?.remove();$('#lock').classList.remove('hidden');$('#lockError').textContent=error.message; });

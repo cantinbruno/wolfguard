@@ -1,6 +1,6 @@
 'use strict';
 
-// Agent selection belongs to the encrypted workspace, shared by all scans.
+// Agent selection is common to scans and desktop in the current session.
 const workspaceAgents = (() => {
   const downloadRevision=new URL(document.currentScript?.src||location.href).searchParams.get('wg')||'network-target-v1';
   const platformNames = {win32:'Windows',linux:'Linux',darwin:'macOS'};
@@ -114,7 +114,7 @@ const workspaceAgents = (() => {
     async function choose(id){
       if(busy||!live()||!agents.some(agent=>agent.id===id))return;
       busy=true;renderAgents();error('');
-      try{await setSetting('scanAgentId',id);status('Agent commun enregistré pour toutes les sections.');}
+      try{await setSetting('scanAgentId',id);status('Agent commun enregistré pour toutes les sections'+(cloud()?.enabled?' de cet onglet.':'.'));}
       catch(exception){error(exception.message);}
       finally{busy=false;if(live()){await refresh();const card=[...root.querySelectorAll('[data-agent-id]')].find(node=>node.dataset.agentId===id);if(card&&selected?.id===id){card.tabIndex=-1;card.focus({preventScroll:true});}}}
     }

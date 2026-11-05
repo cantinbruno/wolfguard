@@ -65,6 +65,8 @@ def run():
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             expect(page.locator('#wgRemoteStatus')).to_contain_text('Connexion établie')
+            page.evaluate("""async()=>{const c=await import('./browser/crypto.js'),snapshot=await WolfGuardCloud.load(),opened=await c.open(snapshot,'07942685');opened.payload.items.push({id:'multiuser-remote-note',type:'memo',title:'Autre personne',content:'Test partagé'});await WolfGuardCloud.save(await c.seal(opened.payload,opened.key,opened.salt,snapshot.revision+1));await webWorkspace.refreshShared();}""")
+            expect(page.locator('#wgRemoteCanvas')).to_be_visible();assert stopped==[]
             page.locator('#wgRemoteCanvas').click(position={'x':100,'y':80});page.keyboard.type('abc');page.keyboard.press('Control+c')
             page.wait_for_timeout(300)
             assert any(value['type']=='button' and value['down'] for value in inputs),inputs

@@ -247,6 +247,7 @@ async function renderLibraryEdit(item) {
   updateLibraryCommandSection();
   enableEditorImagePaste();
   $('#detailHost').dataset.editorDirty = 'false';
+  $('#detailHost').workspaceEditBase=structuredClone(item);
 }
 async function cancelLibraryEdit() {
   if (await confirmDiscardChanges()) {
@@ -293,7 +294,7 @@ function libraryItemFromEditor(source) {
 async function saveLibraryItem(id) {
   const key = state.vaultKey;
   if (!itemActionSessionValid(key) || state.item !== id) return;
-  const source = await get('items', id);
+  const source = structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);
   if (!source || !itemActionSessionValid(key)) return;
   const item = libraryItemFromEditor(source);
   const commandBlocks = item.commandBlocks;
@@ -303,7 +304,27 @@ async function saveLibraryItem(id) {
     reviewedAt: null,
     impact: 'À revalider'
   };
-  await put('items', item);
+  try{if(db?.saveEditedItem)await db.saveEditedItem(item,source);else await put('items', item);}
+  catch(error){
+    if(error.code!=='SHARED_CONFLICT')throw error;
+    let notice=$('.library-editor-conflict');
+    if(!notice){notice=document.createElement('div');notice.className='library-editor-conflict';notice.setAttribute('role','alert');$('.library-editor-heading').after(notice);}
+    notice.textContent=error.message;
+    let copy=$('#saveLibraryDraftCopy');
+    if(!copy){copy=document.createElement('button');copy.id='saveLibraryDraftCopy';copy.type='button';copy.className='secondary';copy.textContent='Enregistrer mon brouillon en copie';}
+    notice.append(copy);
+    copy.onclick=async()=>{
+      if(!itemActionSessionValid(key)||state.item!==id)return;
+      copy.disabled=true;
+      try{
+        const duplicate=libraryItemFromEditor(source);duplicate.id=uid();duplicate.title+=' — copie';duplicate.createdAt=now();
+        await put('items',duplicate);if(!itemActionSessionValid(key)||state.item!==id)return;state.item=duplicate.id;state.folder=duplicate.folderId;state.mode='view';await renderWorkspace();
+      }catch(failure){appNotify(failure.message,{kind:'error'});}
+      finally{copy.disabled=false;}
+    };
+    return;
+  }
+  if(!itemActionSessionValid(key)||state.item!==id)return;
   state.folder = item.folderId;
   state.mode = 'view';
   await renderWorkspace();

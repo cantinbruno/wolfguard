@@ -150,7 +150,7 @@ def run():
             def corrupt(route):
                 response=route.fetch()
                 route.fulfill(response=response,body=response.body()+b'\n// altered asset')
-            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js','tab-session.bundle.js']:
+            for asset in ['adapter.js','crypto.bundle.js','storage.bundle.js','tab-session.bundle.js','shared-workspace.bundle.js']:
                 tampered=browser.new_context();blocked=tampered.new_page()
                 blocked.route('**/browser/'+asset+'?*',corrupt)
                 blocked.goto(url)

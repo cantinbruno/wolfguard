@@ -164,7 +164,7 @@ def run():
                 assert any('Scan de vulnérabilités' in report for report in reports)
             first.locator('#closeSettingsBtn').click()
             print('PASS: Settings history exports actual agent results from all four scan workspaces as one valid ZIP')
-            # The same encrypted selection is reused by every section and reload.
+            # This tab's agent selection is reused by every section and reload.
             extra=[]
             for platform,name in [('linux','Poste Linux'),('darwin','Poste macOS')]:
                 ticket=first.evaluate("async()=>await WolfGuardCloud.agentRequest('agents/pair',{})")

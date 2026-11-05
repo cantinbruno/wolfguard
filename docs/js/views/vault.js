@@ -208,6 +208,7 @@ async function renderVaultEdit(item) {
       </div>
       <div class="vault-edit-footer"><button class="primary" data-wg-click="saveVault('${item.id}')">Enregistrer</button><button class="secondary" data-wg-click="duplicateItem('${item.id}')">Dupliquer</button><button class="danger" data-wg-click="deleteItem('${item.id}')">Supprimer</button></div>
     </div>`;
+  $('#detailHost').workspaceEditBase=structuredClone(item);
 }
 
 function customRow(x = {
@@ -219,7 +220,8 @@ function customRow(x = {
 window.addCustom = () => $('#customFields').insertAdjacentHTML('beforeend', customRow());
 
 async function saveVault(id) {
-  let x = await get('items', id);
+  const base=structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);
+  let x = structuredClone(base);
   await baseForm(x);
   const d = {
     username: $('#fUser').value,
@@ -240,7 +242,7 @@ async function saveVault(id) {
   delete x.host;
   delete x.notes;
   delete x.custom;
-  await put('items', x);
+  if(db?.saveEditedItem)await db.saveEditedItem(x,base);else await put('items', x);
   state.mode = 'view';
   await renderWorkspace();
 }

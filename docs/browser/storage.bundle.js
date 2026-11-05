@@ -40,6 +40,20 @@ async function write(envelope, expectedRevision) {
   });
 }
 
+// Shared tabs have independent sessions; their encrypted cache follows the
+// server version so a delayed response cannot replace a newer confirmed copy.
+async function cacheShared(envelope,version) {
+  if(!Number.isSafeInteger(version)||version<1)throw new Error('Version distante invalide.');
+  const database=await connect();
+  return new Promise((resolve,reject)=>{
+    const transaction=database.transaction('encrypted','readwrite'),store=transaction.objectStore('encrypted');
+    const request=store.get('shared-version');
+    request.onsuccess=()=>{if((request.result||0)<=version){store.put(version,'shared-version');store.put(envelope,'workspace');}};
+    transaction.oncomplete=()=>resolve();
+    transaction.onabort=()=>reject(new Error('Enregistrement local impossible. Vérifie le stockage du navigateur.'));
+  });
+}
+
 function attemptKey(scope) {
   if (typeof scope !== 'string' || scope.length > 100) throw new Error('Espace de verrouillage invalide.');
   return 'attempts:' + scope;
@@ -134,5 +148,5 @@ async function recoveries() {
   });
 }
 
-return Object.freeze({connect,read,write,readAttempts,registerFailure,resetAttempts,blockAttempts,readRecovery,preserve,preserveOrganization,recoveries});
+return Object.freeze({connect,read,write,cacheShared,readAttempts,registerFailure,resetAttempts,blockAttempts,readRecovery,preserve,preserveOrganization,recoveries});
 })();

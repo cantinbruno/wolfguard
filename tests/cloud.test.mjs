@@ -56,6 +56,16 @@ test('already cancelled calls do not contact the server',()=>client(async(cloud)
   assert.equal(calls,0);
 }));
 
+test('shared refresh cancels an unchanged body and accepts the caller snapshot version',()=>client(async(cloud)=>{
+  let cancelled=0,read=0;
+  globalThis.fetch=async()=>({ok:true,headers:new Headers({'X-WG-Version':'1'}),body:{async cancel(){cancelled++;}},async json(){read++;throw new Error('Unchanged snapshot must not be read');}});
+  assert.equal(await cloud.refresh(1),null);assert.equal(cancelled,1);assert.equal(read,0);
+  globalThis.fetch=async()=>({ok:true,headers:new Headers({'X-WG-Version':'2'}),json:async()=>({format:'newer'})});
+  assert.deepEqual(await cloud.refresh(1),{format:'newer'});assert.equal(cloud.currentVersion(),2);
+  // A deferred editor still owns version 1 even if another read saw version 2.
+  assert.deepEqual(await cloud.refresh(1),{format:'newer'});
+}));
+
 test('cloud keeps authorization, version headers and conflict errors intact',()=>client(async(cloud)=>{
   const calls=[];
   globalThis.fetch=async(url,options)=>{calls.push({url,...options});return {ok:true,headers:new Headers({'X-WG-Version':'2'}),json:async()=>url.endsWith('/status')?{initialized:true}:url.endsWith('/vault')&&options.method==='PUT'?{version:3}:{format:'synthetic'}};};

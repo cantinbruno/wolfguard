@@ -13,6 +13,11 @@
 .web-access-actions button {font-size:11px;padding:8px 10px}
 #lock .lock-error {height:auto;min-height:22px;white-space:normal}
 .web-save-state {font-size:11px;color:var(--muted);padding:8px 16px;position:fixed;right:8px;bottom:0;z-index:20;background:var(--bg);border:1px solid var(--line);border-radius:6px 6px 0 0;max-width:calc(100vw - 16px)}
+.web-save-state {display:flex;align-items:center;gap:10px}
+.web-save-state button {flex-shrink:0;border:0;background:transparent;color:var(--text);font:inherit;text-decoration:underline;cursor:pointer;padding:2px}
+.web-save-state button:focus-visible {outline:2px solid currentColor;outline-offset:2px}
+.library-editor-conflict {margin:0 20px 12px;padding:12px;border:1px solid #d99b53;border-radius:8px;color:var(--text);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.library-editor-conflict button {display:block;margin-top:10px;max-width:100%;white-space:normal}
 
 /* A quiet access screen; feedback starts only when the user interacts. */
 #lock.access-screen {

@@ -105,10 +105,11 @@ def run(backend=None):
             expect(second.locator('#wgScanSave,#wgScanSaved')).to_have_count(0)
             print('PASS: anciennes archives de scans conservees dans les donnees chiffrees et synchronisees')
 
+            second.evaluate("async()=>{window.staleEdit=await get('items','memo-test')}")
             first.evaluate("async()=>{const item=await get('items','memo-test');item.title='Modification du premier appareil';await put('items',item)}")
             # A stale editor must not overwrite the newly committed remote data.
-            result=second.evaluate("""async()=>{const item=await get('items','memo-test');item.title='Conflit du second appareil';try{await put('items',item);return 'incorrect'}catch(e){return e.message}}""")
-            assert 'autre copie' in result.lower(),result
+            result=second.evaluate("""async()=>{const item=structuredClone(window.staleEdit);item.title='Conflit du second appareil';try{await db.saveEditedItem(item,window.staleEdit);return 'incorrect'}catch(e){return e.message}}""")
+            assert 'autre personne' in result.lower(),result
             assert second.evaluate("async()=>!!(await (await import('./browser/storage.js')).recoveries()).find(r=>r.key==='cloud-pending')")
             second.evaluate('lockApplication()');unlock(second)
             assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Modification du premier appareil'

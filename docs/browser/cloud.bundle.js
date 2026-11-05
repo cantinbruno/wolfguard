@@ -19,7 +19,7 @@ function restoreSession(value) {
   token = value.token; version = value.version; initialized = true;
 }
 function detach() { token = ''; version = 0; }
-async function request(path,{method='GET',body,headers={},anonymous=false,signal}={}) {
+async function request(path,{method='GET',body,headers={},anonymous=false,signal,skipVersion}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
   const cancel=()=>controller.abort();
   signal?.addEventListener('abort',cancel,{once:true});
@@ -34,6 +34,9 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
       error.code=response.status===409?'CLOUD_CONFLICT':response.status===401?'CLOUD_ACCESS':'CLOUD_ERROR';
       if(data.retryAfter)error.retryAfter=Number(data.retryAfter);
       throw error;
+    }
+    if (skipVersion!==undefined && Number(response.headers.get('X-WG-Version'))===skipVersion) {
+      await response.body?.cancel();return {data:null,headers:response.headers};
     }
     // Keep the deadline and cancellation active while the response body arrives too.
     return {data:await response.json(),headers:response.headers};
@@ -59,6 +62,13 @@ async function load(){
   if(!Number.isSafeInteger(remoteVersion)||remoteVersion<1)throw new Error('Version distante invalide.');
   version=remoteVersion;return data;
 }
+async function refresh(since){
+  const response=await request('vault',{skipVersion:since});
+  const latest=Number(response.headers.get('X-WG-Version'));
+  if(!Number.isSafeInteger(latest)||latest<1)throw new Error('Version distante invalide.');
+  if(response.data===null)return null;
+  version=latest;return response.data;
+}
 async function save(envelope,rotation){
   if(!token)throw new Error('Saisis à nouveau ton code pour enregistrer.');
   const body=JSON.stringify(envelope),size=new TextEncoder().encode(body).length;
@@ -78,5 +88,5 @@ function clear(){
   token='';version=0;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,sessionState,restoreSession,detach,status,login,initialize,load,save,prepareRotation,touch,agentRequest,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,sessionState,restoreSession,detach,status,login,initialize,load,refresh,save,prepareRotation,touch,agentRequest,clear});
 })();
