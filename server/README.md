@@ -40,6 +40,16 @@ Immutable R2 uploads commit through a D1 compare-and-swap of the snapshot pointe
 
 The frontend preserves an encrypted copy of the original browser workspace and failed changes locally. Export them under Settings > Data. A forgotten PIN has no automatic recovery route. Exported client-only backups remain limited by the entropy of their eight-digit code.
 
+## Access management
+
+Authenticated `GET /api/access` lists all unexpired current-generation web sessions and blocked IPs. The shared PIN grants the same access-management permissions to each person. Each connection has an independent random public ID; session tokens and token hashes never appear in that response. Connection metadata includes its browser/OS label, first observation, last server activity, and the edge-observed IP. "Online" means a request within the last 90 seconds; a browser tab is not a named user account. Legacy sessions remain disconnectable before their next heartbeat, with unknown metadata shown honestly.
+
+`POST /api/access/disconnect` revokes one connection. `POST /api/access/block` accepts an exact IPv4 or IPv6 address, revokes every matching connection, and prevents new PIN logins and authenticated requests from that address. `POST /api/access/unblock` removes a block by its public ID; previously revoked tokens remain invalid. Blocks persist across PIN rotations. Managers cannot block their own current IP, including an IPv4-mapped IPv6 alias. Same-IP peers can still be disconnected separately. Disconnecting or blocking a desktop viewer immediately closes its desktop session and deletes transient images and input. A snapshot upload also rechecks session validity at commit, so revocation during upload cannot modify the shared vault.
+
+Only `CF-Connecting-IP` is accepted as the observed address, with strict canonicalization; user-supplied forwarding headers and the shared cross-zone Worker placeholder are excluded. See [Cloudflare's header contract](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip). If hosting does not supply a usable address, the UI reports an unavailable IP and still permits session disconnection. An IP may be shared by several people behind a router or VPN. IPs and browser labels are encrypted with the existing storage key and separate authenticated contexts; address lookup uses an HMAC with the existing server pepper. The new Drizzle migration only adds `access_connections` and `access_blocks`; existing vault data, keys and storage bindings are preserved.
+
+The browser checks its session every 25 seconds and locks immediately when any authenticated request reports revocation or an IP block. The access tab refreshes every 15 seconds while open. Expired sessions are excluded from its listing. All mutation controls require confirmation, and offline refresh failures retain the last known list with actions disabled.
+
 ## Local verification
 
 ## Scan agents

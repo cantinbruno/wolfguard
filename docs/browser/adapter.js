@@ -640,6 +640,7 @@ const webWorkspace = (() => {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
     [cryptography,storage,cloud,tabSessions,shared]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud,WolfGuardTabSession,WolfGuardSharedWorkspace];
     window.addEventListener('focus',()=>refreshShared());
+    window.addEventListener('wolfguard-access-revoked',event=>{if(session&&!locking){const message=String(event.detail||'Session déconnectée.');lock().then(()=>{$('#lockError').textContent=message;});}});
     tabSession = tabSessions.createTabSession(storage);
     window.addEventListener('hashchange',()=>{if(cloud.enabled && cloud.canActivate() && !session && !busy && !locking && !booting)showGate();});
     $('#pinDots').replaceChildren(...Array.from({length:8},()=>{const dot=document.createElement('span');dot.className='dot';return dot;}));

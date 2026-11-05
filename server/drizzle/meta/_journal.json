@@ -22,6 +22,13 @@
       "when": 1793724493024,
       "tag": "0002_curvy_layla_miller",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793881204465,
+      "tag": "0003_graceful_sprite",
+      "breakpoints": true
     }
   ]
 }

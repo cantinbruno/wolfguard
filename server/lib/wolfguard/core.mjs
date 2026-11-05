@@ -1,6 +1,7 @@
 // Single-owner WolfGuard storage. Secrets are supplied by the host, never Git.
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
+import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
 const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 15 * 60000;
@@ -48,22 +49,27 @@ async function verifyPIN(code,env,now) {
   if(!valid)fail(401,'Code incorrect.',{retryAfter:row.failures*5});
   return row;
 }
-async function issueSession(env,generation,now) {
+async function issueSession(env,generation,now,request) {
   const token=random(32), hash=await digest(token);
+  const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expires_at<=? OR active_at<=? OR generation<>?').bind(now,now-IDLE_MS,generation),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at) VALUES (?,?,?,?)').bind(hash,generation,now+SESSION_MS,now)
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at) VALUES (?,?,?,?)').bind(hash,generation,now+SESSION_MS,now),
+    await connectionStatement(env,request,hash,now,context)
   ]);
+  try{await assertAddressAllowed(env,context,fail);}catch(error){await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash),env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash)]);throw error;}
   return token;
 }
 async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
-  const hash=await digest(token);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *')
-    .bind(now,hash,now,now-IDLE_MS).first();
-  if(!session)fail(401,'Session expirée. Saisis à nouveau ton code.');
-  return {...session,hash};
+  const hash=await digest(token),context=await addressContext(request,env);
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING *')
+    .bind(now,hash,now,now-IDLE_MS,context.hash||'').first();
+  if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
+  const path=new URL(request.url).pathname;
+  if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
+  return {...session,hash,access:context};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
@@ -102,12 +108,12 @@ async function putSnapshot(request,env,session,now) {
     if(typeof FixedLengthStream==='function'){const fixed=new FixedLengthStream(cipherLength);pump=body.pipeTo(fixed.writable);upload=fixed.readable;}
     await Promise.all([env.BUCKET.put(objectKey,upload,{customMetadata:{format:'1',nonce,size:String(length)},httpMetadata:{contentType:'application/octet-stream'}}),pump]);
     const generation=rotation?session.generation+1:session.generation;
-    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? RETURNING version')
-      .bind(objectKey,generation,rotation?.pin_salt||row.pin_salt,rotation?.pin_hash||row.pin_hash,expected,session.generation).first();
-    if(!changed){await env.BUCKET.delete(objectKey);fail(409,'Une autre copie a changé. Verrouille puis rouvre WolfGuard pour la récupérer.');}
+    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING version')
+      .bind(objectKey,generation,rotation?.pin_salt||row.pin_salt,rotation?.pin_hash||row.pin_hash,expected,session.generation,session.hash,session.access.hash||'').first();
+    if(!changed){await env.BUCKET.delete(objectKey);await authorize(request,env,now);fail(409,'Une autre copie a changé. Verrouille puis rouvre WolfGuard pour la récupérer.');}
     // Previous immutable objects remain available as encrypted recovery history.
     if(rotation)await env.DB.batch([env.DB.prepare('DELETE FROM rotations'),env.DB.prepare('DELETE FROM sessions WHERE generation<>?').bind(generation)]);
-    return json({version:changed.version,...(rotation?{token:await issueSession(env,generation,now)}:{})});
+    return json({version:changed.version,...(rotation?{token:await issueSession(env,generation,now,request)}:{})});
   }catch(error){
     // Delete only if this request did not commit its object as the current vault.
     const current=await state(env);if(current?.object_key!==objectKey)await env.BUCKET.delete(objectKey).catch(()=>{});
@@ -133,21 +139,24 @@ export async function handleAPI(request,env,clock=Date.now) {
       const path=new URL(request.url).pathname,now=clock();
       if(path==='/api/status'&&request.method==='GET')response=json({initialized:!!(await state(env))});
       else if(path==='/api/setup'&&request.method==='POST'){
+        await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
         if(!/^[a-f0-9]{64}$/.test(activation)||!equal(await digest(activation),env.BOOTSTRAP_HASH))fail(403,'Lien d’activation invalide.');
         const {code}=await smallJSON(request);if(!codeOK(code))fail(400,'Choisis un code de 8 chiffres.');
         const salt=random(16),hash=await pinHash(code,salt,env);
         const inserted=await env.DB.prepare('INSERT INTO vault (id,pin_salt,pin_hash,generation,version,failures,blocked_until,lease_until) VALUES (1,?,?,1,0,0,0,0) ON CONFLICT(id) DO NOTHING RETURNING id').bind(salt,hash).first();
         if(!inserted)fail(409,'Le partage est déjà activé. Saisis ton code habituel.');
-        response=json({token:await issueSession(env,1,now),version:0,exists:false});
+        response=json({token:await issueSession(env,1,now,request),version:0,exists:false});
       }else if(path==='/api/login'&&request.method==='POST'){
+        await assertAddressAllowed(env,await addressContext(request,env),fail);
         const {code}=await smallJSON(request);const row=await verifyPIN(code,env,now);
-        response=json({token:await issueSession(env,row.generation,now),version:row.version,exists:!!row.object_key});
+        response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key});
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
-        if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
+        if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
+        else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true});
         else if(path==='/api/vault'&&request.method==='GET'){
           const row=await state(env);if(!row.object_key)fail(404,'Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');

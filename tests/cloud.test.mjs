@@ -66,6 +66,15 @@ test('shared refresh cancels an unchanged body and accepts the caller snapshot v
   assert.deepEqual(await cloud.refresh(1),{format:'newer'});
 }));
 
+test('revoked sessions and blocked IPs notify the app, while a wrong login code does not',()=>client(async cloud=>{
+  const events=[];window.dispatchEvent=event=>events.push(event.type);
+  globalThis.fetch=async()=>({ok:false,status:403,json:async()=>({error:'IP bloquée',code:'ACCESS_BLOCKED'})});
+  await assert.rejects(cloud.agentRequest('access'),{code:'CLOUD_ACCESS'});assert.deepEqual(events,['wolfguard-access-revoked']);
+  globalThis.fetch=async()=>({ok:false,status:401,json:async()=>({error:'Code incorrect'})});
+  await assert.rejects(cloud.login('00000000'),{code:'CLOUD_ACCESS'});assert.equal(events.length,1);
+  await assert.rejects(cloud.agentRequest('access'),{code:'CLOUD_ACCESS'});assert.equal(events.length,2);
+}));
+
 test('cloud keeps authorization, version headers and conflict errors intact',()=>client(async(cloud)=>{
   const calls=[];
   globalThis.fetch=async(url,options)=>{calls.push({url,...options});return {ok:true,headers:new Headers({'X-WG-Version':'2'}),json:async()=>url.endsWith('/status')?{initialized:true}:url.endsWith('/vault')&&options.method==='PUT'?{version:3}:{format:'synthetic'}};};

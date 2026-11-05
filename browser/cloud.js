@@ -30,8 +30,9 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
-      error.code=response.status===409?'CLOUD_CONFLICT':response.status===401?'CLOUD_ACCESS':'CLOUD_ERROR';
+      error.code=response.status===409?'CLOUD_CONFLICT':response.status===401||response.status===403&&data.code==='ACCESS_BLOCKED'?'CLOUD_ACCESS':'CLOUD_ERROR';
       if(data.retryAfter)error.retryAfter=Number(data.retryAfter);
+      if(error.code==='CLOUD_ACCESS'&&credential&&!anonymous)window.dispatchEvent?.(new CustomEvent('wolfguard-access-revoked',{detail:error.message}));
       throw error;
     }
     if (skipVersion!==undefined && Number(response.headers.get('X-WG-Version'))===skipVersion) {
@@ -79,7 +80,7 @@ export async function prepareRotation(oldCode,newCode){return (await post('rotat
 export async function touch(){if(token)await post('touch',{});}
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 export function clear(){

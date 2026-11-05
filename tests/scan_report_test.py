@@ -105,7 +105,7 @@ def run():
                 expect(page.locator('#settings-tab-security')).to_have_attribute('aria-selected','true')
                 page.locator('.settings-modal').evaluate('async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))}')
                 baseline=page.locator('.settings-modal').bounding_box()
-                for tab in ['security','data','interface','agents','history']:
+                for tab in ['security','data','interface','agents','access','history']:
                     page.locator('#settings-tab-'+tab).click()
                     expect(page.locator('#settings-tab-'+tab)).to_have_attribute('aria-selected','true')
                     box=page.locator('.settings-modal').bounding_box()
@@ -116,7 +116,7 @@ def run():
                         page.screenshot(path=str(ROOT/f'.cache/settings-fixed-{tab}-{width}.png'),animations='disabled')
                 page.locator('#closeSettingsBtn').click()
             assert not errors,errors
-            print('PASS: all five Settings tabs keep identical dimensions from 320px mobile to 1440px desktop')
+            print('PASS: all six Settings tabs keep identical dimensions from 320px mobile to 1440px desktop')
             browser.close()
     finally:
         server.shutdown();server.server_close()

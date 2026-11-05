@@ -14,6 +14,13 @@ export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
   generation: integer('generation').notNull(), version: integer('version').notNull(), expiresAt: integer('expires_at').notNull()
 });
+export const accessConnections = sqliteTable('access_connections', {
+  tokenHash:text('token_hash').primaryKey(),id:text('id').notNull().unique(),createdAt:integer('created_at').notNull(),
+  ipHash:text('ip_hash'),ipCipher:text('ip_cipher'),deviceCipher:text('device_cipher').notNull()
+});
+export const accessBlocks = sqliteTable('access_blocks', {
+  id:text('id').primaryKey(),ipHash:text('ip_hash').notNull().unique(),ipCipher:text('ip_cipher').notNull(),createdAt:integer('created_at').notNull()
+});
 export const scanAgents = sqliteTable('scan_agents', {
   id: text('id').primaryKey(), nameCipher: text('name_cipher').notNull(), tokenHash: text('token_hash').notNull().unique(),
   generation: integer('generation').notNull(), createdAt: integer('created_at').notNull(), lastSeen: integer('last_seen').notNull(), revokedAt: integer('revoked_at')
