@@ -19,7 +19,7 @@ class Quiet(WolfGuardTestHandler):
 def ready(page):expect(page.locator('#keypad button').first).to_be_enabled(timeout=20000)
 def unlock(page,code=CODE):
     ready(page)
-    if page.locator('#webUsername').is_visible():page.locator('#webUsername').fill('admin')
+    if page.locator('#webUsername').is_visible():page.locator('#webUsername').fill('cantin.bruno@gmx.fr')
     page.locator('#lock').focus();page.keyboard.type(code)
     expect(page.locator('#app')).to_be_visible(timeout=30000)
     page.wait_for_function('()=>!document.querySelector("#app").inert')

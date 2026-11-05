@@ -433,8 +433,8 @@ const webWorkspace = (() => {
   async function configureUsers(password,result){
     setupActive=true;$('#keypad').hidden=true;$('#pinDots').hidden=true;$('#webUsernameRow').hidden=true;
     const form=document.createElement('form');form.id='webUserSetupForm';form.className='user-setup-form';
-    form.innerHTML='<h2>Créer le compte administrateur</h2><p>Choisis un nom et un nouveau code personnel. Les données et les postes associés sont conservés.</p><label>Nom d’utilisateur<input id="setupUsername" autocomplete="username" minlength="3" maxlength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" required></label><label>Nouveau code administrateur<input id="setupUserCode" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le nouveau code<input id="setupUserConfirm" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert"></p><div class="actions"><button type="submit" class="primary">Créer mon compte</button><button type="button" class="secondary" id="cancelUserSetup">Revenir à la connexion</button></div>';
-    $('#lockError').before(form);$('#setupUsername').value=$('#webUsername').value.trim()||'admin';$('#setupUsername').focus();
+    form.innerHTML='<h2>Créer le compte administrateur</h2><p>Le compte administrateur est cantin.bruno@gmx.fr. Choisis un nouveau code personnel. Les données et les postes associés sont conservés.</p><label>Adresse mail<input id="setupUsername" type="email" autocomplete="username" maxlength="254" value="cantin.bruno@gmx.fr" readonly required></label><label>Nouveau code administrateur<input id="setupUserCode" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le nouveau code<input id="setupUserConfirm" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert"></p><div class="actions"><button type="submit" class="primary">Créer mon compte</button><button type="button" class="secondary" id="cancelUserSetup">Revenir à la connexion</button></div>';
+    $('#lockError').before(form);$('#setupUsername').value='cantin.bruno@gmx.fr';$('#setupUserCode').focus();
     try{await new Promise((resolve,reject)=>{
       $('#cancelUserSetup').onclick=()=>reject(new Error('Configuration annulée. Reconnecte-toi pour créer le compte administrateur.'));
       form.onsubmit=async event=>{
@@ -652,7 +652,7 @@ const webWorkspace = (() => {
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton nom d’utilisateur et ton code sont personnels. Un administrateur peut réinitialiser ton code sans modifier les données partagées.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse mail est ton identifiant. Ton code est personnel. Un administrateur peut réinitialiser ton code sans modifier les données partagées.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
@@ -688,7 +688,7 @@ const webWorkspace = (() => {
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
     [cryptography,storage,cloud,tabSessions,shared]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud,WolfGuardTabSession,WolfGuardSharedWorkspace];
-    try{$('#webUsername').value=localStorage.getItem('wolfguard-username-v1')||'admin';}catch{}
+    try{$('#webUsername').value=(localStorage.getItem('wolfguard-username-v1')||'').includes('@')?localStorage.getItem('wolfguard-username-v1'):'cantin.bruno@gmx.fr';}catch{}
     $('#webUsername').oninput=()=>{enteredCode='';creationCode='';renderKeypad();};
     window.addEventListener('focus',()=>refreshShared());
     window.addEventListener('wolfguard-access-revoked',event=>{if(session&&!locking){const message=String(event.detail||'Session déconnectée.');lock().then(()=>{$('#lockError').textContent=message;});}});

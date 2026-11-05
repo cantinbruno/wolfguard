@@ -36,7 +36,7 @@ const server=createServer(async(req,res)=>{
       if(!vault.users_enabled){
         const id='a'.repeat(32),now=Date.now()+offset;
         const material={key:pbkdf2Sync(fixtureCode,Buffer.from(snapshot.salt,'base64'),600000,32,'sha256').toString('base64'),salt:snapshot.salt};
-        env.DB.db.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at,last_login) VALUES (?,?,?,'admin',?,?,?,?,?)").run(id,await usernameHash('admin',env),await seal('admin','WolfGuard users v1:name:'+id,env),vault.pin_salt,vault.pin_hash,now,now,now);
+        env.DB.db.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at,last_login) VALUES (?,?,?,'admin',?,?,?,?,?)").run(id,await usernameHash('cantin.bruno@gmx.fr',env),await seal('cantin.bruno@gmx.fr','WolfGuard users v1:name:'+id,env),vault.pin_salt,vault.pin_hash,now,now,now);
         env.DB.db.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=?').run(await seal(material,'WolfGuard users v1:workspace-key',env));
         env.DB.db.prepare('UPDATE sessions SET user_id=?,user_version=1').run(id);
       }

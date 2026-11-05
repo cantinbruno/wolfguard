@@ -27,3 +27,5 @@
 .agents-modal .agent-manager-heading h3 {display:none}
 .agents-modal .agent-manager-heading {margin-bottom:16px!important}
 @media(max-width:640px){.agents-modal .agents-dialog-content{padding:16px}.users-toolbar{align-items:flex-start;flex-direction:column}.users-form{padding:12px}}
+
+.user-card .access-card-heading strong {overflow-wrap:anywhere;min-width:0}

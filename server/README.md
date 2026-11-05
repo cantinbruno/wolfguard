@@ -1,7 +1,7 @@
 # WolfGuard shared storage
 
 Managed server for the GitHub Pages frontend at https://wolfguard.wavetools.fr/.
-Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the user's name and personal eight-digit code.
+Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the user's email address and personal eight-digit code.
 
 ## Deployment
 
@@ -42,11 +42,11 @@ The frontend preserves an encrypted copy of the original browser workspace and f
 
 ## User accounts
 
-The first legacy login must create an administrator with a username (3-32 ASCII letters, digits, dots, underscores or hyphens) and a new eight-digit code distinct from the old shared code. Initialization atomically enables named users, attaches the current session and revokes other legacy sessions. The existing encrypted snapshot and agent generation are preserved. The browser derives the existing workspace key once and submits it over HTTPS; the server stores it encrypted with STORAGE_KEY and an independent authenticated context. Personal login returns it only to the authenticated browser, which imports it as a non-extractable AES key. Raw keys are never saved in browser storage or reload tickets. This is a server-assisted encryption model, not zero knowledge. Preserve STORAGE_KEY.
+The first legacy login must create an administrator with the fixed owner email cantin.bruno@gmx.fr and a new eight-digit code distinct from the old shared code. Initialization atomically enables named users, attaches the current session and revokes other legacy sessions. The existing encrypted snapshot and agent generation are preserved. The browser derives the existing workspace key once and submits it over HTTPS; the server stores it encrypted with STORAGE_KEY and an independent authenticated context. Personal login returns it only to the authenticated browser, which imports it as a non-extractable AES key. Raw keys are never saved in browser storage or reload tickets. This is a server-assisted encryption model, not zero knowledge. Preserve STORAGE_KEY.
 
 Usernames are encrypted, with peppered HMAC lookup. Each code has an independent salt and PBKDF2 verifier; no plaintext code is stored. Sessions bind to user ID and code version, checked on every request and again when committing uploads. Disabled/deleted accounts and old code versions cannot reuse existing sessions. Unknown users receive the same error and shared throttling as incorrect codes.
 
-Administrators manage users in Settings, including roles, enable/disable, reset code, disconnect and delete. Atomic guards preserve at least one active administrator even with simultaneous requests. Members can edit the shared workspace, run scans and use existing agents, but cannot manage users, IP blocks, pairings or agent revocation. Each user can change their own code after verification. Standalone exports use that personal code and re-encrypt retained vault fields for the backup; importing older backups remains supported.
+Administrators manage users in Settings, including enable/disable, reset code, disconnect and delete. Only cantin.bruno@gmx.fr can be administrator. Its ID is pinned in vault.owner_user_id, and its email, active status and role are protected. Creating/promoting other administrators is rejected server-side. A one-time runtime migration renames the original earliest administrator, preserves its code and ID, demotes other former administrators and revokes their sessions. Old member identifiers must be changed to valid email addresses by the owner before they can log in. Members can edit the shared workspace, run scans and use existing agents, but cannot manage users, IP blocks, pairings or agent revocation. Each user can change their own code after verification. Standalone exports use that personal code and re-encrypt retained vault fields for the backup; importing older backups remains supported.
 
 ## Access management
 

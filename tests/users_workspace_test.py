@@ -32,9 +32,9 @@ def run():
             first.goto(origin+'/?sync-test');ready(first)
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const payload={version:2,items:[{id:'personal-preserved',type:'memo',title:'Fiche conservée',content:'<p>Contenu avant les utilisateurs</p>',tags:[],commandBlocks:[]}],folders:[],settings:[],activity:[]};const result=await c.create(payload,'07942685');payload.items.push({id:'retained-vault',type:'vault',title:'Ancienne donnée',vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({password:'synthetic-retained-secret'}),result.key)});await s.write(await c.seal(payload,result.key,result.salt,1),0)}""")
             first.goto(origin+'/?sync-test&users-test#activate='+('b'*64));ready(first)
-            first.locator('#webUsername').fill('owner');first.locator('#lock').focus();first.keyboard.type(CODE)
+            first.locator('#webUsername').fill('cantin.bruno@gmx.fr');first.locator('#lock').focus();first.keyboard.type(CODE)
             expect(first.locator('#webUserSetupForm')).to_be_visible(timeout=15000);expect(first.locator('#app')).not_to_be_visible()
-            first.locator('#setupUsername').fill('owner');first.locator('#setupUserCode').fill(ADMIN);first.locator('#setupUserConfirm').fill(ADMIN)
+            expect(first.locator('#setupUsername')).to_have_value('cantin.bruno@gmx.fr');expect(first.locator('#setupUsername')).to_have_attribute('readonly','');first.locator('#setupUserCode').fill(ADMIN);first.locator('#setupUserConfirm').fill(ADMIN)
             first.locator('#webUserSetupForm').get_by_role('button',name='Créer mon compte').click()
             expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
             assert first.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
@@ -46,11 +46,13 @@ def run():
 
             def users():
                 first.locator('#settingsBtn').click();first.locator('#settings-tab-users').click()
-            users();expect(first.locator('#settings-tab-agents')).to_have_count(0)
-            expect(first.locator('#wgUsersList')).to_contain_text('owner')
-            first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice');first.locator('#wgUserCode').fill('12345678');first.locator('#wgUserSave').click()
-            expect(first.locator('#wgUsersList')).to_contain_text('alice')
-            owner_row=first.locator('.user-card').filter(has=first.get_by_text('owner',exact=True));expect(owner_row).to_contain_text('Compte protégé')
+            users();expect(first.locator('#settings-tab-agents,#wgUserRole')).to_have_count(0)
+            expect(first.locator('#webUsername')).to_have_attribute('type','email')
+            expect(first.locator('#wgUsersList')).to_contain_text('cantin.bruno@gmx.fr')
+            first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice@example.test');first.locator('#wgUserCode').fill('12345678');first.locator('#wgUserSave').click()
+            expect(first.locator('#wgUsersList')).to_contain_text('alice@example.test')
+            owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Compte protégé')
+            owner_row.get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
             for width in [1440,1150,1050,900,640,390,320]:
                 first.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
                 assert first.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
@@ -74,7 +76,7 @@ def run():
             first.set_viewport_size({'width':1440,'height':1000})
             print('PASS: user creation, protected last administrator, responsive account settings and a dedicated Agents button beside Settings from 320px to desktop')
 
-            second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(origin+'/?sync-test');login(second,'alice','12345678')
+            second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(origin+'/?sync-test');login(second,'alice@example.test','12345678')
             assert second.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             second.locator('#settingsBtn').click();expect(second.locator('#settings-tab-users,#settings-tab-access')).to_have_count(0);second.locator('#closeSettingsBtn').click()
             assert second.evaluate("async()=>{try{await WolfGuardCloud.agentRequest('users');return false}catch{return true}}")
@@ -82,21 +84,21 @@ def run():
             print('PASS: personal member login reads the same data, hides administrator controls and has a read-only agent management view')
 
             users()
-            def alice():return first.locator('.user-card').filter(has=first.get_by_text('alice',exact=True))
+            def alice():return first.locator('.user-card').filter(has=first.get_by_text('alice@example.test',exact=True))
             def manage(name):
                 if alice().locator('details').get_attribute('open') is None:alice().locator('summary').click()
                 alice().get_by_role('button',name=name,exact=True).click()
             manage('Désactiver');first.locator('.app-dialog-submit').click();expect(alice()).to_contain_text('Compte désactivé')
             second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible()
-            manage('Activer');first.locator('.app-dialog-submit').click();expect(alice()).not_to_contain_text('Compte désactivé');login(second,'alice','12345678')
+            manage('Activer');first.locator('.app-dialog-submit').click();expect(alice()).not_to_contain_text('Compte désactivé');login(second,'alice@example.test','12345678')
             manage('Réinitialiser le code');first.locator('.app-dialog-input').fill('23456789');first.locator('.app-dialog-submit').click();expect(first.locator('.app-dialog-input')).to_have_count(0)
             with first.expect_response(lambda response:urlsplit(response.url).path=='/api/users/reset-code' and response.status==200):first.locator('.app-dialog-submit').click()
             expect(first.locator('#wgUsersStatus')).to_contain_text('Action effectuée')
-            second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible();login(second,'alice','23456789')
+            second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible();login(second,'alice@example.test','23456789')
             first.locator('#closeSettingsBtn').click();first.locator('#settingsBtn').click();first.locator('#changeCodeBtn').click()
             first.locator('#oldAccessCode').fill(ADMIN);first.locator('#newAccessCode').fill('56781234');first.locator('#confirmAccessCode').fill('56781234');first.locator('#webChangePassword').click()
             expect(first.locator('#modalRoot')).to_be_empty();assert second.evaluate('async()=>{await WolfGuardCloud.touch();return true}')
-            first.evaluate('lockApplication()');login(first,'owner','56781234')
+            first.evaluate('lockApplication()');login(first,'cantin.bruno@gmx.fr','56781234')
             print('PASS: disable/enable and code reset revoke the right user; changing the administrator code leaves the member and shared encryption intact')
             first.locator('#settingsBtn').click();first.locator('#settings-tab-data').click();first.locator('#exp').click()
             first.locator('.app-dialog-input').fill('56781234')

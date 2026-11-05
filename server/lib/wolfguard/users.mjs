@@ -3,7 +3,30 @@ const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
 const hex=value=>[...new Uint8Array(value)].map(n=>n.toString(16).padStart(2,'0')).join('');
-export const normalizeUsername=value=>typeof value==='string'&&/^[a-z0-9][a-z0-9._-]{2,31}$/.test(value.trim().normalize('NFKC').toLowerCase())?value.trim().normalize('NFKC').toLowerCase():null;
+export const OWNER_EMAIL='cantin.bruno@gmx.fr';
+export function normalizeUsername(value){
+  if(typeof value!=='string')return null;
+  const email=value.trim().toLowerCase(),parts=email.split('@');
+  if(email.length>254||parts.length!==2)return null;
+  const [local,domain]=parts;
+  return local.length>0&&local.length<=64&&/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)&&!local.startsWith('.')&&!local.endsWith('.')&&!local.includes('..')&&domain.includes('.')&&domain.split('.').every(label=>label.length<=63&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))?email:null;
+}
+// Bind the original administrator to the owner's requested email once. Preserve
+// its ID, verifier, data and session; revoke any other former administrator.
+export async function ensureOwnerAccount(env,now){
+  const vault=await env.DB.prepare('SELECT users_enabled,owner_user_id FROM vault WHERE id=1').first();
+  if(!vault?.users_enabled||vault.owner_user_id)return;
+  const nameHash=await usernameHash(OWNER_EMAIL,env);
+  const owner=await env.DB.prepare("SELECT id FROM users WHERE name_hash=? OR role='admin' ORDER BY CASE WHEN name_hash=? THEN 0 ELSE 1 END,created_at,id LIMIT 1").bind(nameHash,nameHash).first();
+  if(!owner)throw new Error('Owner account unavailable');
+  const former=await env.DB.prepare("SELECT id FROM users WHERE role='admin' AND id<>?").bind(owner.id).all();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET name_hash=?,name_cipher=?,role='admin',disabled_at=NULL,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM vault WHERE id=1 AND owner_user_id IS NULL)").bind(nameHash,await seal(OWNER_EMAIL,'WolfGuard users v1:name:'+owner.id,env),now,owner.id),
+    env.DB.prepare("UPDATE users SET role='member',updated_at=? WHERE id<>? AND role='admin' AND EXISTS(SELECT 1 FROM vault WHERE id=1 AND owner_user_id IS NULL)").bind(now,owner.id),
+    env.DB.prepare('UPDATE vault SET owner_user_id=? WHERE id=1 AND owner_user_id IS NULL').bind(owner.id)
+  ]);
+  for(const user of former.results)await revokeUserSessions(env,user.id,now);
+}
 export async function usernameHash(name,env){const key=await crypto.subtle.importKey('raw',bytes(env.AUTH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(await crypto.subtle.sign('HMAC',key,encoder.encode('WolfGuard username v1:'+name)));}
 export async function findUser(name,env){const normalized=normalizeUsername(name);return normalized?env.DB.prepare('SELECT * FROM users WHERE name_hash=?').bind(await usernameHash(normalized,env)).first():null;}
 export async function publicUser(row,env){return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,createdAt:row.created_at,lastLogin:row.last_login};}
@@ -21,14 +44,14 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/initialize'&&request.method==='POST'){
     if(vault.users_enabled)fail(409,'Les utilisateurs sont déjà configurés. Recharge la connexion.');
     const data=await body(),name=normalizeUsername(data.username);
-    if(!name)fail(400,'Le nom doit contenir 3 à 32 lettres, chiffres, points, tirets ou traits de soulignement.');
+    if(name!==OWNER_EMAIL)fail(400,'Le compte administrateur est réservé à '+OWNER_EMAIL+'.');
     if(!codeOK(data.code)||data.code===data.oldCode)fail(400,'Choisis un nouveau code administrateur de 8 chiffres, différent de l’ancien code commun.');
     if(!validMaterial(data.workspace)||data.version!==vault.version||!vault.object_key)fail(409,'La copie partagée a changé. Recharge la connexion pour configurer les utilisateurs.');
     await verifyPIN(data.oldCode,env,now);
     const id=random(16),salt=random(16),nameHash=await usernameHash(name,env),nameCipher=await seal(name,'WolfGuard users v1:name:'+id,env);
     const result=await env.DB.batch([
       env.DB.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,code_version,created_at,updated_at,last_login) SELECT ?,?,?,'admin',?,?,1,?,?,? WHERE EXISTS(SELECT 1 FROM vault WHERE id=1 AND users_enabled=0 AND version=? AND generation=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)").bind(id,nameHash,nameCipher,salt,await pinHash(data.code,salt,env),now,now,now,data.version,session.generation,session.hash),
-      env.DB.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=? WHERE id=1 AND users_enabled=0 AND version=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(await seal(data.workspace,'WolfGuard users v1:workspace-key',env),data.version,id),
+      env.DB.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=?,owner_user_id=? WHERE id=1 AND users_enabled=0 AND version=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(await seal(data.workspace,'WolfGuard users v1:workspace-key',env),id,data.version,id),
       env.DB.prepare('UPDATE sessions SET user_id=?,user_version=1 WHERE token_hash=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(id,session.hash,id),
       env.DB.prepare('DELETE FROM sessions WHERE token_hash<>? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(session.hash,id)
     ]);
@@ -59,8 +82,10 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(request.method!=='POST')fail(404,'Adresse utilisateur inconnue.');
   const data=await body();
   if(path==='/api/users/create'){
-    const name=normalizeUsername(data.username),role=data.role;
-    if(!name||!['admin','member'].includes(role)||!codeOK(data.code))fail(400,'Vérifie le nom, le rôle et le code de 8 chiffres.');
+    const name=normalizeUsername(data.username),role='member';
+    if(data.role!==undefined&&data.role!=='member')fail(403,'Seul '+OWNER_EMAIL+' est administrateur.');
+    if(name===OWNER_EMAIL)fail(409,'Cette adresse est réservée au compte administrateur.');
+    if(!name||!codeOK(data.code))fail(400,'Vérifie l’adresse mail et le code de 8 chiffres.');
     if(await findUser(name,env))fail(409,'Ce nom d’utilisateur est déjà utilisé.');
     const id=random(16),salt=random(16);
     const added=await env.DB.prepare('INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING RETURNING *').bind(id,await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+id,env),role,salt,await pinHash(data.code,salt,env),now,now).first();
@@ -68,12 +93,14 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Utilisateur invalide.');
   const target=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(data.id).first();if(!target)fail(404,'Utilisateur introuvable.');
-  const lastAdmin="(role<>'admin' OR disabled_at IS NOT NULL OR EXISTS(SELECT 1 FROM users other WHERE other.id<>users.id AND other.role='admin' AND other.disabled_at IS NULL))";
+  const isOwner=target.id===vault.owner_user_id;
   if(path==='/api/users/update'){
-    const name=normalizeUsername(data.username),role=data.role,disabled=data.disabled;
-    if(!name||!['admin','member'].includes(role)||typeof disabled!=='boolean')fail(400,'Paramètres utilisateur invalides.');
+    const name=normalizeUsername(data.username),role=isOwner?'admin':'member',disabled=data.disabled;
+    if(!name||typeof disabled!=='boolean')fail(400,'Vérifie l’adresse mail et les paramètres du compte.');
+    if(isOwner&&(name!==OWNER_EMAIL||disabled||data.role!==undefined&&data.role!=='admin'))fail(409,'Le compte administrateur '+OWNER_EMAIL+' est protégé.');
+    if(!isOwner&&(name===OWNER_EMAIL||data.role!==undefined&&data.role!=='member'))fail(403,'Seul '+OWNER_EMAIL+' est administrateur.');
     const duplicate=await findUser(name,env);if(duplicate&&duplicate.id!==target.id)fail(409,'Ce nom d’utilisateur est déjà utilisé.');
-    const updated=await env.DB.prepare('UPDATE users SET name_hash=?,name_cipher=?,role=?,disabled_at=?,updated_at=? WHERE id=? AND (?=1 OR '+lastAdmin+') RETURNING *').bind(await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+target.id,env),role,disabled?now:null,now,target.id,role==='admin'&&!disabled?1:0).first();
+    const updated=await env.DB.prepare('UPDATE users SET name_hash=?,name_cipher=?,role=?,disabled_at=?,updated_at=? WHERE id=? RETURNING *').bind(await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+target.id,env),role,disabled?now:null,now,target.id).first();
     if(!updated)fail(409,'Il faut conserver au moins un administrateur actif.');
     if(disabled||target.role!==role)await revokeUserSessions(env,target.id,now);
     return json({user:await publicUser(updated,env),reconnect:target.id===session.user.id&&(disabled||target.role!==role)});
@@ -84,7 +111,8 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(path==='/api/users/disconnect'){await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});}
   if(path==='/api/users/delete'){
-    const removed=await env.DB.prepare('DELETE FROM users WHERE id=? AND '+lastAdmin+' RETURNING id').bind(target.id).first();
+    if(isOwner)fail(409,'Le compte administrateur '+OWNER_EMAIL+' est protégé.');
+    const removed=await env.DB.prepare('DELETE FROM users WHERE id=? AND id<>(SELECT owner_user_id FROM vault WHERE id=1) RETURNING id').bind(target.id).first();
     if(!removed)fail(409,'Il faut conserver au moins un administrateur actif.');await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});
   }
   fail(404,'Adresse utilisateur inconnue.');

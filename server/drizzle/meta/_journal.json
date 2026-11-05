@@ -36,6 +36,13 @@
       "when": 1793893635958,
       "tag": "0004_talented_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793898921101,
+      "tag": "0005_brave_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }

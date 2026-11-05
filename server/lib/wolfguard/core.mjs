@@ -2,7 +2,7 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI} from './users.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI,ensureOwnerAccount} from './users.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -140,6 +140,7 @@ export async function handleAPI(request,env,clock=Date.now) {
     } else {
       if(!env.DB||!env.BUCKET||!/^[a-f0-9]{64}$/.test(env.AUTH_PEPPER||'')||!/^[a-f0-9]{64}$/.test(env.STORAGE_KEY||'')||!/^[a-f0-9]{64}$/.test(env.BOOTSTRAP_HASH||''))fail(503,'Stockage partagé indisponible.');
       const path=new URL(request.url).pathname,now=clock();
+      if(!path.startsWith('/api/agent/'))await ensureOwnerAccount(env,now);
       if(path==='/api/status'&&request.method==='GET')response=json({initialized:!!(await state(env))});
       else if(path==='/api/setup'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);

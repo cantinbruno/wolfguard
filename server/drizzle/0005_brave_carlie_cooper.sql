@@ -1,0 +1,1 @@
+ALTER TABLE `vault` ADD `owner_user_id` text;

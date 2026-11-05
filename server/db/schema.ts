@@ -5,7 +5,7 @@ export const vault = sqliteTable('vault', {
   generation: integer('generation').notNull(), version: integer('version').notNull(), objectKey: text('object_key'),
   failures: integer('failures').notNull(), blockedUntil: integer('blocked_until').notNull(),
   lease: text('lease'), leaseUntil: integer('lease_until').notNull(),
-  usersEnabled:integer('users_enabled').notNull().default(0),workspaceKeyCipher:text('workspace_key_cipher')
+  usersEnabled:integer('users_enabled').notNull().default(0),workspaceKeyCipher:text('workspace_key_cipher'),ownerUserId:text('owner_user_id')
 });
 export const sessions = sqliteTable('sessions', {
   tokenHash: text('token_hash').primaryKey(), generation: integer('generation').notNull(),
