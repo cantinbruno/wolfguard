@@ -11,6 +11,17 @@ export function normalizeUsername(value){
   const [local,domain]=parts;
   return local.length>0&&local.length<=64&&/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(local)&&!local.startsWith('.')&&!local.endsWith('.')&&!local.includes('..')&&domain.includes('.')&&domain.split('.').every(label=>label.length<=63&&/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label))?email:null;
 }
+// Pre-create the owner's account using the existing verifier, without knowing
+// or changing the code. The browser binds the existing key on first sign-in.
+export async function provisionOwnerAccount(env,now){
+  const vault=await env.DB.prepare('SELECT * FROM vault WHERE id=1').first();
+  if(!vault||vault.users_enabled||vault.owner_user_id||!vault.object_key)return;
+  const id=hex(crypto.getRandomValues(new Uint8Array(16))),nameHash=await usernameHash(OWNER_EMAIL,env);
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO users(id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) SELECT ?,?,?,'admin',pin_salt,pin_hash,?,? FROM vault WHERE id=1 AND users_enabled=0 AND owner_user_id IS NULL ON CONFLICT(name_hash) DO NOTHING").bind(id,nameHash,await seal(OWNER_EMAIL,'WolfGuard users v1:name:'+id,env),now,now),
+    env.DB.prepare('UPDATE vault SET owner_user_id=(SELECT id FROM users WHERE name_hash=?) WHERE id=1 AND users_enabled=0 AND owner_user_id IS NULL').bind(nameHash)
+  ]);
+}
 // Bind the original administrator to the owner's requested email once. Preserve
 // its ID, verifier, data and session; revoke any other former administrator.
 export async function ensureOwnerAccount(env,now){
@@ -45,15 +56,16 @@ export async function handleUsersAPI(request,env,now,session,h){
     if(vault.users_enabled)fail(409,'Les utilisateurs sont déjà configurés. Recharge la connexion.');
     const data=await body(),name=normalizeUsername(data.username);
     if(name!==OWNER_EMAIL)fail(400,'Le compte administrateur est réservé à '+OWNER_EMAIL+'.');
-    if(!codeOK(data.code)||data.code===data.oldCode)fail(400,'Choisis un nouveau code administrateur de 8 chiffres, différent de l’ancien code commun.');
+    if(!codeOK(data.code)||!vault.owner_user_id&&data.code===data.oldCode)fail(400,'Choisis un nouveau code administrateur de 8 chiffres, différent de l’ancien code commun.');
     if(!validMaterial(data.workspace)||data.version!==vault.version||!vault.object_key)fail(409,'La copie partagée a changé. Recharge la connexion pour configurer les utilisateurs.');
     await verifyPIN(data.oldCode,env,now);
-    const id=random(16),salt=random(16),nameHash=await usernameHash(name,env),nameCipher=await seal(name,'WolfGuard users v1:name:'+id,env);
+    const id=vault.owner_user_id||random(16),salt=random(16),nameHash=await usernameHash(name,env),nameCipher=await seal(name,'WolfGuard users v1:name:'+id,env),keyCipher=await seal(data.workspace,'WolfGuard users v1:workspace-key',env),codeHash=await pinHash(data.code,salt,env);
     const result=await env.DB.batch([
-      env.DB.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,code_version,created_at,updated_at,last_login) SELECT ?,?,?,'admin',?,?,1,?,?,? WHERE EXISTS(SELECT 1 FROM vault WHERE id=1 AND users_enabled=0 AND version=? AND generation=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)").bind(id,nameHash,nameCipher,salt,await pinHash(data.code,salt,env),now,now,now,data.version,session.generation,session.hash),
-      env.DB.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=?,owner_user_id=? WHERE id=1 AND users_enabled=0 AND version=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(await seal(data.workspace,'WolfGuard users v1:workspace-key',env),id,data.version,id),
-      env.DB.prepare('UPDATE sessions SET user_id=?,user_version=1 WHERE token_hash=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(id,session.hash,id),
-      env.DB.prepare('DELETE FROM sessions WHERE token_hash<>? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(session.hash,id)
+      env.DB.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,code_version,created_at,updated_at,last_login) SELECT ?,?,?,'admin',?,?,1,?,?,? WHERE EXISTS(SELECT 1 FROM vault WHERE id=1 AND users_enabled=0 AND owner_user_id IS NULL AND version=? AND generation=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)").bind(id,nameHash,nameCipher,salt,codeHash,now,now,now,data.version,session.generation,session.hash),
+      env.DB.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=?,owner_user_id=? WHERE id=1 AND users_enabled=0 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND name_hash=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)').bind(keyCipher,id,data.version,session.generation,id,nameHash,session.hash),
+      env.DB.prepare('UPDATE users SET pin_salt=?,pin_hash=?,last_login=?,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM vault WHERE workspace_key_cipher=?)').bind(salt,codeHash,now,now,id,keyCipher),
+      env.DB.prepare('UPDATE sessions SET user_id=?,user_version=1 WHERE token_hash=? AND EXISTS(SELECT 1 FROM vault WHERE workspace_key_cipher=?)').bind(id,session.hash,keyCipher),
+      env.DB.prepare('DELETE FROM sessions WHERE token_hash<>? AND EXISTS(SELECT 1 FROM vault WHERE workspace_key_cipher=?)').bind(session.hash,keyCipher)
     ]);
     if(Number(result[1]?.meta?.changes)!==1)fail(409,'La configuration a changé. Recharge la connexion.');
     const orphaned=await env.DB.prepare("SELECT DISTINCT owner_hash AS token_hash FROM remote_sessions WHERE status IN ('requested','preparing','active') AND NOT EXISTS(SELECT 1 FROM sessions WHERE token_hash=owner_hash)").all();await stopRemoteOwners(env,orphaned.results,now);

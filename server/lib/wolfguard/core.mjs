@@ -2,7 +2,7 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI,ensureOwnerAccount} from './users.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI,ensureOwnerAccount,provisionOwnerAccount} from './users.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -141,7 +141,7 @@ export async function handleAPI(request,env,clock=Date.now) {
       if(!env.DB||!env.BUCKET||!/^[a-f0-9]{64}$/.test(env.AUTH_PEPPER||'')||!/^[a-f0-9]{64}$/.test(env.STORAGE_KEY||'')||!/^[a-f0-9]{64}$/.test(env.BOOTSTRAP_HASH||''))fail(503,'Stockage partagé indisponible.');
       const path=new URL(request.url).pathname,now=clock();
       if(!path.startsWith('/api/agent/'))await ensureOwnerAccount(env,now);
-      if(path==='/api/status'&&request.method==='GET')response=json({initialized:!!(await state(env))});
+      if(path==='/api/status'&&request.method==='GET'){await provisionOwnerAccount(env,now);response=json({initialized:!!(await state(env))});}
       else if(path==='/api/setup'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
@@ -159,6 +159,10 @@ export async function handleAPI(request,env,clock=Date.now) {
           if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
           await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
           response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:true,workspace:await workspaceMaterial(row,env)});
+        }else if(current?.owner_user_id){
+          const user=await findUser(username,env),row=await verifyPIN(code,env,now,user);
+          if(user.id!==current.owner_user_id||user.disabled_at!==null)fail(403,'Ce compte est indisponible.');
+          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:false});
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
@@ -175,7 +179,7 @@ export async function handleAPI(request,env,clock=Date.now) {
           response=new Response(body,{headers:{'Content-Type':'application/json','Content-Length':String(length),'X-WG-Version':String(row.version)}});
         }else if(path==='/api/vault'&&request.method==='PUT')response=await putSnapshot(request,env,session,now);
         else if(path==='/api/rotation'&&request.method==='POST'){
-          if((await state(env)).users_enabled)fail(409,'Modifie ton code personnel depuis les paramètres de sécurité.');
+          if((await state(env)).owner_user_id)fail(409,'Modifie ton code personnel depuis les paramètres de sécurité.');
           const {oldCode,newCode,version}=await smallJSON(request);if(!codeOK(newCode))fail(400,'Choisis un code de 8 chiffres.');
           const row=await verifyPIN(oldCode,env,now);if(row.version!==version||row.generation!==session.generation)fail(409,'La copie distante a changé. Rouvre WolfGuard.');
           const token=random(32),salt=random(16),hash=await pinHash(newCode,salt,env);

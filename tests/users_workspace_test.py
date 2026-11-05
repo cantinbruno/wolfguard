@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright,expect
 from shared_workspace_test import Quiet,ready,API,CODE
 
 ROOT=Path(__file__).resolve().parents[1]
-ADMIN='09876543'
+ADMIN=CODE
 
 def login(page,name,code):
     ready(page);expect(page.locator('#webUsername')).to_have_value('');page.locator('#webUsername').fill(name);page.locator('#lock').focus();page.keyboard.type(code)
@@ -34,16 +34,14 @@ def run():
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const payload={version:2,items:[{id:'personal-preserved',type:'memo',title:'Fiche conservée',content:'<p>Contenu avant les utilisateurs</p>',tags:[],commandBlocks:[]}],folders:[],settings:[],activity:[]};const result=await c.create(payload,'07942685');payload.items.push({id:'retained-vault',type:'vault',title:'Ancienne donnée',vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({password:'synthetic-retained-secret'}),result.key)});await s.write(await c.seal(payload,result.key,result.salt,1),0)}""")
             first.goto(origin+'/?sync-test&users-test#activate='+('b'*64));ready(first)
             first.locator('#webUsername').fill('cantin.bruno@gmx.fr');first.locator('#lock').focus();first.keyboard.type(CODE)
-            expect(first.locator('#webUserSetupForm')).to_be_visible(timeout=15000);expect(first.locator('#app')).not_to_be_visible()
-            expect(first.locator('#setupUsername')).to_have_value('');first.locator('#setupUsername').fill('cantin.bruno@gmx.fr');first.locator('#setupUserCode').fill(ADMIN);first.locator('#setupUserConfirm').fill(ADMIN)
-            first.locator('#webUserSetupForm').get_by_role('button',name='Créer mon compte').click()
             expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
             assert first.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             assert first.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','retained-vault')).vaultBlobEnc,state.vaultKey)).password")=='synthetic-retained-secret'
+            expect(first.locator('#webUserSetupForm')).to_have_count(0);assert first.evaluate('WolfGuardCloud.hasUsers()') is True
             assert first.evaluate('state.vaultKey.extractable') is False
             assert ADMIN not in first.evaluate('JSON.stringify(sessionStorage)')
             first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000)
-            print('PASS: first admin setup requires a distinct personal code, preserves the encrypted note and vault, and reloads with a non-extractable key')
+            print('PASS: pre-created owner signs in with the existing code without a creation form, preserves the encrypted note and vault, and reloads with a non-extractable key')
 
             def users():
                 first.locator('#settingsBtn').click();first.locator('#settings-tab-users').click()
@@ -79,10 +77,17 @@ def run():
 
             second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(origin+'/?sync-test');login(second,'alice@example.test','12345678')
             assert second.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
-            second.locator('#settingsBtn').click();expect(second.locator('#settings-tab-users,#settings-tab-access')).to_have_count(0);second.locator('#closeSettingsBtn').click()
+            second.locator('#settingsBtn').click()
+            for tab in ['users','access']:expect(second.locator('#settings-tab-'+tab)).to_be_visible();expect(second.locator('#settings-tab-'+tab)).to_be_disabled()
+            second.locator('#settings-tab-interface').click();second.keyboard.press('ArrowRight');expect(second.locator('#settings-tab-history')).to_be_focused()
+            second.evaluate("setSettingsTab('access')");expect(second.locator('#settings-tab-history')).to_have_attribute('aria-selected','true');second.locator('#closeSettingsBtn').click()
+            second.evaluate("async()=>{const note=await get('items','personal-preserved');await put('items',{...note,title:'Modifie par un membre'})}")
+            assert first.evaluate("async()=>{await webWorkspace.refreshShared();return (await get('items','personal-preserved')).title}")=='Modifie par un membre'
+            first.evaluate("async()=>{const note=await get('items','personal-preserved');await put('items',{...note,title:'Modifie par administrateur'})}")
+            assert second.evaluate("async()=>{await webWorkspace.refreshShared();return (await get('items','personal-preserved')).title}")=='Modifie par administrateur'
             assert second.evaluate("async()=>{try{await WolfGuardCloud.agentRequest('users');return false}catch{return true}}")
             second.locator('#agentsBtn').click();expect(second.locator('#wgAgentFleetPanel')).to_be_visible();expect(second.locator('#wgAgentAdd')).to_be_hidden();second.locator('#closeAgentsBtn').click()
-            print('PASS: personal member login reads the same data, hides administrator controls and has a read-only agent management view')
+            print('PASS: personal member login reads the same data, shows disabled access controls and shares edits in both directions and has a read-only agent management view')
 
             users()
             def alice():return first.locator('.user-card').filter(has=first.get_by_text('alice@example.test',exact=True))

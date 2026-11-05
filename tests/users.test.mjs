@@ -118,3 +118,30 @@ test('the previous first admin is renamed once, retaining its code and data; oth
     assert.equal(s.env.DB.db.prepare("SELECT COUNT(*) n FROM users WHERE role='admin'").get().n,1);
   }finally{s.env.DB.db.close();}
 });
+
+test('provisioning creates exactly one owner from the existing verifier; first login binds the shared key without changing the code',async()=>{
+  const s=await setup();try{
+    const before=s.env.DB.db.prepare('SELECT * FROM vault').get();
+    await Promise.all([s.api('status'),s.api('status')]);
+    const rows=s.env.DB.db.prepare('SELECT * FROM users').all();assert.equal(rows.length,1);assert.equal(rows[0].role,'admin');assert.equal(rows[0].pin_hash,before.pin_hash);assert.equal(rows[0].pin_salt,before.pin_salt);
+    assert.equal(s.env.DB.db.prepare('SELECT owner_user_id FROM vault').get().owner_user_id,rows[0].id);
+    assert.equal((await s.api('login',{code:'07942685'})).status,401);s.advance(5001);
+    const owner=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(owner.usersEnabled,false);assert.equal(owner.user.id,rows[0].id);
+    const response=await s.api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'07942685',oldCode:'07942685',workspace:s.material,version:1},owner.token);assert.equal(response.status,200);
+    const active=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(active.usersEnabled,true);assert.deepEqual(active.workspace,s.material);
+    assert.equal((await s.api('touch',{},s.owner.token)).status,401);
+    const after=s.env.DB.db.prepare('SELECT * FROM vault').get();assert.equal(after.object_key,before.object_key);assert.equal(after.version,before.version);assert.equal(after.generation,before.generation);
+    await s.api('status');assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
+  }finally{s.env.DB.db.close();}
+});
+
+test('only one of two concurrent first logins can bind the key; the losing session is revoked',async()=>{
+  const s=await setup();try{
+    await s.api('status');const a=await s.login('cantin.bruno@gmx.fr','07942685'),b=await s.login('cantin.bruno@gmx.fr','07942685');
+    const data={username:'cantin.bruno@gmx.fr',code:'07942685',oldCode:'07942685',workspace:s.material,version:1};
+    const result=await Promise.all([s.api('users/initialize',data,a.token),s.api('users/initialize',data,b.token)]);
+    assert.deepEqual(result.map(r=>r.status).sort(),[200,429]);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,1);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
+  }finally{s.env.DB.db.close();}
+});

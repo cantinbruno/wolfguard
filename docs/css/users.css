@@ -1,14 +1,6 @@
+.web-username-row input {display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px 12px;border:1px solid #405b77;border-radius:8px;background:#101e2e;color:#edf2f7;font:inherit;font-size:14px}
 .web-username-row {display:block;margin:8px 0 16px;font-size:12px;color:#b4c2d4;text-align:left}
-.web-username-row input,.user-setup-form input {display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px 12px;border:1px solid #405b77;border-radius:8px;background:#101e2e;color:#edf2f7;font:inherit;font-size:14px}
 .web-username-row[hidden],.users-form[hidden],[hidden]#wgUserCodeRow,[hidden]#wgUserDisabledRow {display:none!important}
-.user-setup-form {text-align:left;max-height:calc(100dvh - 180px);overflow:auto}
-.user-setup-form h2 {font-size:20px;margin:0 0 10px}
-.user-setup-form p {font-size:12px;line-height:1.6;color:#9aadc3}
-.user-setup-form label {display:block;margin:12px 0;font-size:12px}
-.user-setup-form .actions {flex-wrap:wrap}
-.user-setup-form .user-setup-error {color:#f1b4bf}
-#lock:has(#webUserSetupForm) :is(#keypad,#pinDots,#webUsernameRow,#webKeyHint) {display:none!important}
-#lock:has(#webUserSetupForm) .lock-logo {--brand-mark-size:80px;width:80px!important;height:80px!important;min-width:80px!important}
 .users-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0;font-size:12px;color:var(--muted)}
 .users-form {display:grid;gap:12px;padding:16px;border:1px solid var(--line);border-radius:10px;margin:16px 0}
 .users-form h4 {margin:0;font-size:15px}
@@ -29,3 +21,6 @@
 @media(max-width:640px){.agents-modal .agents-dialog-content{padding:16px}.users-toolbar{align-items:flex-start;flex-direction:column}.users-form{padding:12px}}
 
 .user-card .access-card-heading strong {overflow-wrap:anywhere;min-width:0}
+.settings-tab:disabled {opacity:.4;cursor:not-allowed;filter:grayscale(1)}
+.users-workflow {padding-left:20px;font-size:12px;line-height:1.7;color:var(--muted);margin:16px 0}
+.users-workflow li+li {margin-top:5px}

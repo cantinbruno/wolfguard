@@ -88,7 +88,7 @@ function setSettingsTab(name, focus = false) {
   const dialog = $('.settings-modal');
   if (!dialog) return;
   const button = dialog.querySelector(`[data-settings-tab="${name}"]`);
-  if (!button) return;
+  if (!button || button.disabled) return;
   dialog.querySelectorAll('[data-settings-tab]').forEach(tab => {
     const selected = tab === button;
     tab.classList.toggle('active', selected);
@@ -137,7 +137,8 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
-          ${admin?'<button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1">'+settingsIcon('key-round')+'<span>Utilisateurs</span></button><button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1">'+settingsIcon('shield-check')+'<span>Accès</span></button>':''}
+          <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${admin?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('key-round')}<span>Utilisateurs</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${admin?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Accès</span></button>
           <button type="button" class="settings-tab" id="settings-tab-history" data-settings-tab="history" role="tab" aria-controls="settings-history" aria-selected="false" tabindex="-1">${settingsIcon('history')}<span>Historique</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
         </nav>
@@ -247,7 +248,7 @@ async function openSettings(initialTab = 'security') {
   wrap.onclick = e => {
     if (e.target === wrap) closeSettings()
   };
-  const tabs = [...dialog.querySelectorAll('[data-settings-tab]')];
+  const tabs = [...dialog.querySelectorAll('[data-settings-tab]:not(:disabled)')];
   tabs.forEach(tab => {
     tab.onclick = () => setSettingsTab(tab.dataset.settingsTab);
     tab.onkeydown = e => {

@@ -7,7 +7,7 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,setupActive=false;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null;
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
@@ -322,7 +322,7 @@ const webWorkspace = (() => {
     return validate(payload);
   }
   function renderKeypad() {
-    if(!$('#webAccessForm')||setupActive)return;
+    if(!$('#webAccessForm'))return;
     $('#webUsernameRow').hidden=!cloud.enabled;
     const exists=gateExists();
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
@@ -431,27 +431,14 @@ const webWorkspace = (() => {
     return result;
   }
   async function configureUsers(password,result){
-    setupActive=true;$('#keypad').hidden=true;$('#pinDots').hidden=true;$('#webUsernameRow').hidden=true;
-    const form=document.createElement('form');form.id='webUserSetupForm';form.className='user-setup-form';
-    form.innerHTML='<h2>Créer le compte administrateur</h2><p>Saisis ton nom d’utilisateur et choisis un nouveau code personnel. Les données et les postes associés sont conservés.</p><label>Nom d’utilisateur<input id="setupUsername" type="text" autocomplete="off" maxlength="254" required></label><label>Nouveau code administrateur<input id="setupUserCode" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le nouveau code<input id="setupUserConfirm" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert"></p><div class="actions"><button type="submit" class="primary">Créer mon compte</button><button type="button" class="secondary" id="cancelUserSetup">Revenir à la connexion</button></div>';
-    $('#lockError').before(form);$('#setupUsername').focus();
-    try{await new Promise((resolve,reject)=>{
-      $('#cancelUserSetup').onclick=()=>reject(new Error('Configuration annulée. Reconnecte-toi pour créer le compte administrateur.'));
-      form.onsubmit=async event=>{
-        event.preventDefault();const error=form.querySelector('[role=alert]'),button=form.querySelector('[type=submit]');let workspace;
-        try{
-          cryptography.checkPassword($('#setupUserCode').value);
-          if($('#setupUserCode').value!==$('#setupUserConfirm').value)throw new Error('Les nouveaux codes ne correspondent pas.');
-          if($('#setupUserCode').value===password)throw new Error('Choisis un code différent de l’ancien code commun.');
-          button.disabled=true;error.textContent='';
-          workspace=await cryptography.workspaceMaterial(password,result.salt);
-          const material=await cryptography.importWorkspaceMaterial(workspace);await cryptography.openWithKey(result.envelope,material.key,material.salt);
-          await cloud.initializeUsers({username:$('#setupUsername').value,code:$('#setupUserCode').value,oldCode:password,workspace});
-          resolve();
-        }catch(failure){error.textContent=failure.message;}
-        finally{if(workspace)workspace.key='';button.disabled=false;}
-      };
-    });}finally{setupActive=false;form.remove();$('#keypad').hidden=false;$('#pinDots').hidden=false;renderKeypad();}
+    await cloud.status();
+    let workspace;
+    try{
+      workspace=await cryptography.workspaceMaterial(password,result.salt);
+      const material=await cryptography.importWorkspaceMaterial(workspace);
+      await cryptography.openWithKey(result.envelope,material.key,material.salt);
+      await cloud.initializeUsers({username:$('#webUsername').value.trim(),code:password,oldCode:password,workspace});
+    }finally{if(workspace)workspace.key='';}
   }
   async function authenticate(event) {
     event.preventDefault(); if (busy || locking || booting || accessBlocked()) {renderKeypad();return;}
