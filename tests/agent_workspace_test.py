@@ -17,7 +17,7 @@ class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
 def ready(page):expect(page.locator('#keypad button').first).to_be_enabled(timeout=20000)
 def unlock(page):
-    ready(page);page.keyboard.type(CODE);expect(page.locator('#app')).to_be_visible(timeout=30000)
+    ready(page);page.locator('#webUsername').fill('cantin.bruno@gmx.fr');page.locator('#lock').focus();page.keyboard.type(CODE);expect(page.locator('#app')).to_be_visible(timeout=30000)
     page.wait_for_function('()=>!document.querySelector("#app").inert')
 def navigate(page,kind):
     page.locator(f'.workspace-section-button[data-section=scan-{kind}]').click();page.wait_for_function('()=>!sectionTransition.active')

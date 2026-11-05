@@ -116,7 +116,7 @@ def run():
             first = a.new_page(); first.on('pageerror', lambda error: errors.append(str(error)))
             first.goto(url); ready(first); seed(first)
             first.goto(url+'?sync-test#activate='+('b'*64)); ready(first); first.keyboard.type(CODE); unlocked(first)
-            second = b.new_page(); second.goto(url+'?sync-test'); ready(second); second.keyboard.type(CODE); unlocked(second)
+            second = b.new_page(); second.goto(url+'?sync-test'); ready(second); second.locator('#webUsername').fill('cantin.bruno@gmx.fr');second.locator('#lock').focus();second.keyboard.type(CODE); unlocked(second)
             second.evaluate("async()=>{const note=await get('items','resume-note');await put('items',{...note,title:'Modifie sur un autre appareil'});}")
             first.evaluate("switchPrimaryWorkspace('scan-active')")
             expect(first.locator('#scanTitle')).to_have_text('Scan actif du réseau')
