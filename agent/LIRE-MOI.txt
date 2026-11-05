@@ -1,14 +1,16 @@
 WolfGuard Agent - Windows 10/11 x64
 
 Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
-La fenetre compacte affiche uniquement l etat de l agent et un bouton
-Demarrer ou Arreter. Les resultats des scans restent sur le site.
+La fenetre compacte affiche l action en cours et la progression du scan.
+Elle permet de demarrer, arreter l agent ou terminer une prise en main.
+La derniere action terminee reste visible au retour en attente.
+Les resultats detailles des scans restent sur le site.
 Aucune extraction d archive ni console n est necessaire.
 
 1. Ouvrir WolfGuard, saisir le code habituel puis Parametres > Agents.
 2. Generer et copier le code temporaire d association.
 3. Le coller dans la fenetre de l agent et cliquer sur Associer ce poste.
-4. Attendre l etat Connecte puis choisir ce poste dans Parametres > Agents.
+4. Attendre l etat Pret puis choisir ce poste dans Parametres > Agents.
    Le meme choix s applique aux quatre sections de scan.
 
 Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
@@ -28,18 +30,22 @@ En cas d echec au demarrage, le message indique le fichier diagnostic
 %LOCALAPPDATA%\WolfGuardAgent\startup-error.log a transmettre au support.
 Cette erreur ne signifie pas que l agent telecharge est obsolete.
 
-Etats : A associer, Connexion, En marche, Arrete, Hors ligne ou erreur.
+Etats : A associer, Connexion, Pret, Scan en cours, Scan termine, Echec du scan,
+Ouverture du bureau, Prise en main active, Arrete, Hors ligne ou erreur.
 La prise en main Windows se connecte directement depuis WolfGuard sur un
 poste deja associe, sans confirmation locale ni popup sur son bureau.
-L icone de l agent indique Prise en main. Son menu Arreter la prise en main
-termine le partage sans arreter l agent ; Deconnecter sur le site l arrete aussi.
-En marche apparait uniquement apres une reponse effective du serveur.
+L icone de l agent indique l action en cours. Une notification Windows signale
+le debut d un scan ou d une prise en main, selon les reglages de notifications.
+Le bouton Arreter la prise en main de la fenetre et le meme choix dans son menu
+terminent le partage sans arreter l agent, y compris pendant sa preparation.
+Deconnecter sur le site termine aussi la session.
+Pret apparait uniquement apres une reponse effective du serveur.
 Arreter l agent suspend sa connexion et annule le scan en cours.
 Demarrer le reconnecte avec l association deja enregistree.
 La croix masque la fenetre ; l agent reste actif pres de l horloge Windows.
 Double-cliquer sur son icone ou relancer l executable rouvre la fenetre.
 Pour arreter completement l agent : clic droit sur l icone > Quitter l agent.
-Le bouton Arreter de la fenetre suspend la connexion sans quitter l application.
+Hors prise en main, le bouton Arreter suspend la connexion sans quitter l application.
 
 Aucun port entrant n est ouvert. Les scans actifs ciblent uniquement des
 adresses privees ou locales : une cible IP/FQDN (256 adresses en cartographie),
@@ -62,7 +68,8 @@ Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résou
 PRISE EN MAIN DU BUREAU
 Dans WolfGuard, ouvre Prise en main puis Demander la connexion.
 Le poste utilise toujours l agent choisi dans Parametres > Agents.
-Une demande locale doit etre acceptee avant toute capture ou action.
+Sous Windows, un poste deja associe se connecte sans confirmation locale.
+Sous Linux et macOS, les autorisations du bureau peuvent etre necessaires.
 Un bouton local permet de terminer le partage ; Arreter l agent le termine aussi.
 La session expire apres 20 minutes, a la fermeture de la rubrique ou si la liaison est perdue.
 La premiere demande telecharge Koffi et jpeg-js depuis npm, avec versions
@@ -76,6 +83,8 @@ Linux : session graphique, zenity ou kdialog (xmessage est un recours sous X11).
 Wayland utilise le portail RemoteDesktop/ScreenCast et PipeWire. Installer
 GStreamer : gstreamer1.0-tools, gstreamer1.0-pipewire et gstreamer1.0-plugins-good
 sur Debian/Ubuntu. Les permissions du portail sont demandees a chaque session.
+Le flux conserve la capture la plus recente pendant les echanges reseau et
+vise jusqu a 15 images par seconde ; la cadence reelle depend du poste et du relais.
 Le bureau est transmis sous forme d images pour l administration, sans audio
 ni transfert de fichiers. Le flux passe en HTTPS par le relais WolfGuard ;
 la derniere image et les actions en attente y sont chiffrees temporairement.

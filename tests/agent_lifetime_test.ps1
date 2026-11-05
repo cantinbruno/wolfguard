@@ -71,6 +71,16 @@ public static class AgentLifetimeTest {
           tray.ContextMenuStrip.Items[1].PerformClick();
           await Task.Delay(100);
           Check(!engine.HasExited&&File.ReadAllText(log)=="started\nremote-stopped\n","Remote Stop must target sharing without quitting the agent");
+          System.Windows.Controls.Button main=(System.Windows.Controls.Button)type.GetField("mainButton",flags).GetValue(window);
+          main.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+          await Task.Delay(100);
+          Check(!main.IsEnabled,"The local stop button must wait for sharing to close");
+          Check(!engine.HasExited&&File.ReadAllText(log)=="started\nremote-stopped\nremote-stopped\n","Window Stop must only stop remote sharing");
+          type.GetMethod("SetState",flags).Invoke(window,new object[]{"remote-preparing","Preparing test",0,0});
+          Check(main.IsEnabled&&tray.ContextMenuStrip.Items[1].Enabled,"Sharing must also be stoppable during preparation");
+          main.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
+          await Task.Delay(100);
+          Check(!engine.HasExited&&File.ReadAllText(log)=="started\nremote-stopped\nremote-stopped\nremote-stopped\n","Stopping preparation must keep the agent running");
           // Exercise the same explicit exit action exposed to the user.
           tray.ContextMenuStrip.Items[tray.ContextMenuStrip.Items.Count-1].PerformClick();
         } catch(Exception error) {
@@ -80,7 +90,7 @@ public static class AgentLifetimeTest {
       };
       app.Run(window);
       if(failure!=null)throw failure;
-      Check(File.ReadAllText(log)=="started\nremote-stopped\nshutdown\n","Quit did not stop the engine gracefully");
+      Check(File.ReadAllText(log)=="started\nremote-stopped\nremote-stopped\nremote-stopped\nshutdown\n","Quit did not stop the engine gracefully");
       Check(type.GetField("child",flags).GetValue(window)==null,"Quit retained the child process");
       Check(type.GetField("tray",flags).GetValue(window)==null,"Quit retained the tray icon");
     } finally {

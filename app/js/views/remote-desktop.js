@@ -56,7 +56,7 @@ const remoteDesktopWorkspace=(()=>{
       }finally{bitmap?.close();drawing=false;}
     }
     async function poll(){
-      if(!live()||polling)return;polling=true;
+      if(!live()||polling)return;polling=true;const started=Date.now();
       try{
         if(session)refreshAgent().catch(()=>{});else await refreshAgent();if(!live())return;
         if(session&&!viewBusy){viewBusy=true;const current=session.id;
@@ -68,7 +68,7 @@ const remoteDesktopWorkspace=(()=>{
           }finally{viewBusy=false;}
         }
       }catch(error){if(live()){if(session)await finish('Connexion interrompue. La session a été arrêtée.',true);else{find('#wgRemoteConnect').disabled=true;status(error.message,true);}}}
-      finally{polling=false;if(live()){clearTimeout(timer);timer=setTimeout(poll,session?120:3500);}}
+      finally{polling=false;if(live()){clearTimeout(timer);timer=setTimeout(poll,session?Math.max(0,40-(Date.now()-started)):3500);}}
     }
     find('#wgRemoteConnect').onclick=async()=>{
       if(!agent||session||ending)return;find('#wgRemoteConnect').disabled=true;status('Envoi de la demande…');

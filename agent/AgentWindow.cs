@@ -32,7 +32,7 @@ namespace WolfGuard {
     readonly string home = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WolfGuardAgent");
     readonly JavaScriptSerializer json = new JavaScriptSerializer();
     readonly Grid root;
-    readonly TextBlock statusTitle, detail;
+    readonly TextBlock statusTitle, detail, progressLabel, lastActivity;
     readonly Ellipse dot;
     readonly ProgressBar progress;
     readonly StackPanel pairing;
@@ -44,6 +44,7 @@ namespace WolfGuard {
     Process child;
     WebClient download;
     string currentState = "preparing", nodePath, agentPath;
+    string lastActivityMessage;
     bool closing, canClose, preparing, preview;
     public bool RequestPair { get; set; }
 
@@ -71,6 +72,8 @@ namespace WolfGuard {
     <StackPanel Orientation='Horizontal'><Ellipse x:Name='StateDot' Width='11' Height='11' Fill='#f6aa5d' Margin='0,0,10,0'/><TextBlock x:Name='StateTitle' Text='Préparation…' FontSize='24' FontWeight='SemiBold'/></StackPanel>
     <TextBlock x:Name='StateDetail' Text='Préparation de l’agent.' FontSize='13' Foreground='#b4c2d4' TextWrapping='Wrap' Margin='0,8,0,0'/>
     <ProgressBar x:Name='StateProgress' Height='6' Margin='0,16,0,0' Minimum='0' Maximum='100' Foreground='#f6aa5d' Background='#263d56' BorderThickness='0' IsIndeterminate='True'/>
+    <TextBlock x:Name='ProgressLabel' FontSize='12' Foreground='#b4c2d4' Margin='0,6,0,0' Visibility='Collapsed'/>
+    <TextBlock x:Name='LastActivity' FontSize='12' Foreground='#9aadc3' TextWrapping='Wrap' Margin='0,12,0,0' Visibility='Collapsed'/>
    </StackPanel>
   </Border>
   <StackPanel x:Name='Pairing' Margin='0,20,0,0' Visibility='Collapsed'>
@@ -85,6 +88,7 @@ namespace WolfGuard {
       root = (Grid)XamlReader.Parse(xaml); Content = root;
       ((Viewbox)root.FindName("LogoHost")).Child = Logo();
       statusTitle = (TextBlock)root.FindName("StateTitle"); detail = (TextBlock)root.FindName("StateDetail");
+      progressLabel = (TextBlock)root.FindName("ProgressLabel"); lastActivity = (TextBlock)root.FindName("LastActivity");
       dot = (Ellipse)root.FindName("StateDot"); progress = (ProgressBar)root.FindName("StateProgress");
       pairing = (StackPanel)root.FindName("Pairing"); code = (TextBox)root.FindName("PairCode");
       pairButton = (Button)root.FindName("PairButton"); mainButton = (Button)root.FindName("MainButton");
@@ -96,6 +100,10 @@ namespace WolfGuard {
       };
       mainButton.Click += async delegate {
         if (child == null || child.HasExited) { await Prepare(); return; }
+        if (currentState == "remote" || currentState == "remote-preparing") {
+          if (Send(new { type = "stop-remote" })) { detail.Text = "Arrêt de la prise en main…"; mainButton.IsEnabled = false; }
+          return;
+        }
         bool start = currentState == "stopped" || currentState == "error";
         if (Send(new { type = start ? "start" : "stop" })) SetState(start ? "connecting" : "stopping", start ? "Connexion à WolfGuard…" : "Arrêt du scan et de la connexion…", 0, 0);
       };
@@ -185,13 +193,15 @@ namespace WolfGuard {
       using (FileStream stream = File.Create(file)) encoder.Save(stream);
     }
     public void Preview(string state, string file) {
-      string message = state == "scanning" ? "Scan actif en cours. Les résultats remontent sur le site." : state == "connected" ? "Prêt à recevoir un scan depuis WolfGuard." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : "Colle le code temporaire généré dans WolfGuard.";
-      SetState(state, message, state == "scanning" ? 37 : 0, state == "scanning" ? 100 : 0);
+      string message = state == "scanning" || state == "scanning-unknown" ? "Scan actif en cours. Les résultats remontent sur le site." : state == "remote" ? "Prise en main active. Le bureau, la souris et le clavier sont partagés." : state == "remote-preparing" ? "Préparation de la prise en main. Chargement du bureau…" : state == "completed" ? "Scan terminé. Les résultats sont disponibles sur le site." : state == "failed" ? "Le scan a échoué. Consulte le rapport sur le site." : state == "cancelled" ? "Scan arrêté." : state == "connected" ? "Prêt à recevoir un scan ou une prise en main depuis WolfGuard." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : "Colle le code temporaire généré dans WolfGuard.";
+      string renderedState = state == "scanning-unknown" ? "scanning" : state;
+      if (state == "connected-after-scan") { SetState("completed", "Scan terminé. Les résultats sont disponibles sur le site.", 100, 100); renderedState = "connected"; message = "Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site."; }
+      SetState(renderedState, message, state == "scanning" ? 37 : 0, state == "scanning" ? 100 : 0);
       int height = state == "pairing" ? 540 : 340;
       SavePng(Render(root, 440, height), file);
       List<string> buttons = new List<string>();
       VisibleButtons(root, buttons);
-      File.WriteAllText(System.IO.Path.ChangeExtension(file, ".json"), json.Serialize(new {state, title = statusTitle.Text, buttons, actionEnabled = mainButton.IsEnabled}), new UTF8Encoding(false));
+      File.WriteAllText(System.IO.Path.ChangeExtension(file, ".json"), json.Serialize(new {state, title = statusTitle.Text, detail = detail.Text, buttons, actionEnabled = mainButton.IsEnabled, progressVisible = progress.Visibility == Visibility.Visible, indeterminate = progress.IsIndeterminate, progress = progress.Value, progressLabel = progressLabel.Text, lastActivity = lastActivity.Text}), new UTF8Encoding(false));
     }
     static void VisibleButtons(DependencyObject parent, List<string> buttons) {
       UIElement element = parent as UIElement;
@@ -201,18 +211,24 @@ namespace WolfGuard {
       for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++) VisibleButtons(VisualTreeHelper.GetChild(parent, index), buttons);
     }
     void SetState(string state, string message, int completed, int total) {
+      string previousState = currentState;
       currentState = state;
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
-        {"remote","Prise en main"},{"connected","En marche"},{"scanning","En marche"},{"completed","En marche"},{"cancelled","En marche"},
-        {"failed","En marche"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
+        {"remote-preparing","Ouverture du bureau"},{"remote","Prise en main active"},{"connected","Prêt"},{"scanning","Scan en cours"},{"completed","Scan terminé"},{"cancelled","Scan arrêté"},
+        {"failed","Échec du scan"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
       if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
-      if (remoteStop != null) remoteStop.Enabled = state == "remote";
-      bool active = state == "remote" || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled" || state == "failed";
-      detail.Text = state == "remote" ? (message.Length > 500 ? message.Substring(0, 500) : message) : active ? "L’agent est actif et reçoit les demandes du site." : state == "stopped" ? "L’agent est arrêté. Aucun scan ne sera exécuté." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : state == "preparing" ? "Préparation de l’agent…" : message.Length > 500 ? message.Substring(0, 500) : message;
-      dot.Fill = Brush(active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" ? "#ff978d" : "#f6aa5d");
+      bool remote = state == "remote" || state == "remote-preparing";
+      if (remoteStop != null) remoteStop.Enabled = remote;
+      bool active = remote || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled";
+      detail.Text = message.Length > 500 ? message.Substring(0, 500) : message;
+      if (state == "completed" || state == "cancelled" || state == "failed" || state == "connected" && (previousState == "remote" || previousState == "remote-preparing")) lastActivityMessage = DateTime.Now.ToString("HH:mm:ss") + " · " + detail.Text;
+      lastActivity.Text = lastActivityMessage ?? "";
+      lastActivity.Visibility = state == "connected" && lastActivityMessage != null ? Visibility.Visible : Visibility.Collapsed;
+      dot.Fill = Brush(state == "remote" || state == "scanning" ? "#f6aa5d" : active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" || state == "failed" ? "#ff978d" : "#f6aa5d");
+      if (!preview && tray != null && state != previousState && (state == "scanning" || state == "remote")) tray.ShowBalloonTip(4000, "WolfGuard · " + statusTitle.Text, detail.Text, System.Windows.Forms.ToolTipIcon.Info);
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
       bool resize = (pairing.Visibility == Visibility.Visible) != pair;
       pairing.Visibility = pair ? Visibility.Visible : Visibility.Collapsed;
@@ -222,11 +238,13 @@ namespace WolfGuard {
       bool start = state == "stopped" || state == "error" || state == "preparing";
       mainButton.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
       mainButton.IsEnabled = state != "preparing" && state != "stopping";
-      mainButton.Content = start ? "Démarrer" : "Arrêter";
+      mainButton.Content = remote ? "Arrêter la prise en main" : start ? "Démarrer" : "Arrêter";
       mainButton.Background = Brush(start ? "#f6aa5d" : "#243b52");
       mainButton.Foreground = Brush(start ? "#132033" : "#edf2f7");
-      progress.Visibility = state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
+      progress.Visibility = state == "scanning" || state == "remote-preparing" || state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
       progress.IsIndeterminate = total <= 0; progress.Maximum = Math.Max(1, total); progress.Value = Math.Max(0, Math.Min(completed, total));
+      progressLabel.Visibility = state == "scanning" && total > 0 ? Visibility.Visible : Visibility.Collapsed;
+      progressLabel.Text = state == "scanning" && total > 0 ? progress.Value + " / " + total + " · " + Math.Round(progress.Value * 100 / total) + " %" : "";
     }
     bool Send(object command) {
       if (preview) return false;
@@ -371,7 +389,7 @@ namespace WolfGuard {
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {
           Directory.CreateDirectory(args[1]);
-          foreach (string state in new string[] { "pairing", "connected", "scanning", "offline", "stopped", "error", "connecting", "completed", "failed" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
+          foreach (string state in new string[] { "pairing", "connected", "scanning", "scanning-unknown", "offline", "stopped", "error", "connecting", "completed", "failed", "cancelled", "remote-preparing", "remote", "connected-after-scan" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
           return 0;
         }
         string sid = WindowsIdentity.GetCurrent().User.Value; bool created;

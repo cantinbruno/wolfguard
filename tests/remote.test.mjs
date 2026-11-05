@@ -114,10 +114,31 @@ test('stale viewers, input delays, refusal, revocation and logout end sharing an
 });
 
 test('agent waits for local consent, validates ordered actions and closes the native adapter on cancellation',async()=>{
-  const cancel=new AbortController(),calls=[],inputs=[];let ready=false,closed=0;
+  const cancel=new AbortController(),calls=[],inputs=[],states=[];let ready=false,closed=0;
   const client={async post(route,data){assert.equal(route,'remote/exchange');calls.push(data);if(data.status==='active'){assert.equal(ready,true);if(!inputs.length)return {status:'active',inputs:[{seq:1,events:[{type:'key',key:'Enter',down:true}]}]};cancel.abort();}return {status:data.status,inputs:[]};}};
-  await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{signal:cancel.signal,intervalMs:2,prepare:async()=>({}),openDesktop:async()=>{await new Promise(resolve=>setTimeout(resolve,8));ready=true;return {capture:async()=>frame,input:async value=>inputs.push(value),close:async()=>closed++};}});
+  await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{signal:cancel.signal,onStatus:(message,detail)=>states.push({message,...detail}),intervalMs:2,prepare:async()=>({}),openDesktop:async()=>{assert.equal(states.at(-1).state,'remote-preparing');await new Promise(resolve=>setTimeout(resolve,8));ready=true;return {capture:async()=>frame,input:async value=>inputs.push(value),close:async()=>closed++};}});
   assert.ok(calls.some(value=>value.status==='preparing'&&!value.frame));assert.equal(inputs.length,1);assert.equal(closed,1);assert.equal(calls.at(-1).status,'closed');assert.equal(calls.at(-1).ack,1);
+  assert.deepEqual(states.map(value=>value.state),['remote-preparing','remote','connected']);
+});
+
+test('a busy relay receives the freshest capture without queueing old desktop frames',async()=>{
+  const cancel=new AbortController(),sent=[];let captures=0,release,closed=0;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const client={async post(_route,data){
+    if(data.frame){sent.push(data.frame.width);if(sent.length===1)await blocked;else cancel.abort();}
+    return {status:data.status,inputs:[]};
+  }};
+  const until=async predicate=>{const end=Date.now()+2000;while(!predicate()){if(Date.now()>end)throw new Error('Fresh frame timeout');await new Promise(resolve=>setTimeout(resolve,2));}};
+  const work=executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{
+    signal:cancel.signal,intervalMs:1,captureIntervalMs:2,prepare:async()=>({}),
+    openDesktop:async()=>({capture:async()=>({...frame,width:++captures}),input:async()=>{},close:async()=>{closed++;}})
+  });
+  try{
+    await until(()=>sent.length===1);await until(()=>captures>=sent[0]+4);
+    const latest=captures;release();await until(()=>sent.length===2);await work;
+    assert.ok(sent[1]>=latest,'The relay received an obsolete queued frame');
+    assert.equal(closed,1);
+  }finally{release();cancel.abort();await work;}
 });
 
 test('real HTTP agent polling connects the desktop relay only after consent, delivers input and stops the adapter',async()=>{

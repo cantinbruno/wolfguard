@@ -26,7 +26,8 @@ def run():
         assert target.is_relative_to(cache.resolve())
         preview=target/'preview';payload=target/'payload'
         subprocess.run([str(exe),'--preview-dir',str(preview)],check=True,timeout=30)
-        for state in ['pairing','connected','scanning','offline','stopped','error','connecting','completed','failed']:
+        titles={'connected':'Prêt','connected-after-scan':'Prêt','scanning':'Scan en cours','scanning-unknown':'Scan en cours','completed':'Scan terminé','cancelled':'Scan arrêté','failed':'Échec du scan','remote-preparing':'Ouverture du bureau','remote':'Prise en main active','stopped':'Arrêté'}
+        for state in ['pairing','connected','scanning','scanning-unknown','offline','stopped','error','connecting','completed','failed','cancelled','remote-preparing','remote','connected-after-scan']:
             data=(preview/(state+'.png')).read_bytes()
             assert data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>4000
             width,height=struct.unpack('>II',data[16:24])
@@ -36,10 +37,20 @@ def run():
                 assert info['buttons']==['Associer ce poste']
             else:
                 assert height<=400
-                assert info['buttons']==(['Démarrer'] if state in ['stopped','error'] else ['Arrêter'])
+                assert info['buttons']==(['Arrêter la prise en main'] if state in ['remote','remote-preparing'] else ['Démarrer'] if state in ['stopped','error'] else ['Arrêter'])
                 assert info['actionEnabled']
-                if state in ['connected','scanning','completed','failed']:assert info['title']=='En marche'
-                if state=='stopped':assert info['title']=='Arrêté'
+                if state in titles:assert info['title']==titles[state]
+                if state in ['scanning','scanning-unknown']:
+                    assert 'Scan actif en cours' in info['detail']
+                    assert info['progressVisible']
+                    assert info['indeterminate']==(state=='scanning-unknown')
+                if state=='scanning':
+                    assert info['progress']==37
+                    assert info['progressLabel']=='37 / 100 · 37 %'
+                if state=='remote-preparing':assert info['progressVisible'] and info['indeterminate']
+                if state=='remote':assert 'souris et le clavier' in info['detail'] and not info['progressVisible']
+                if state=='connected-after-scan':assert 'Scan terminé' in info['lastActivity']
+                if state=='failed':assert 'échoué' in info['detail']
         subprocess.run([str(exe),'--verify-extraction',str(payload)],check=True,timeout=30)
         assert not (target/'outside-test.txt').exists()
         with ZipFile(ROOT/'app/downloads/WolfGuard-Agent-Windows.zip') as archive:
@@ -59,6 +70,6 @@ def run():
     assert startup_value()==startup
     assert (credential.stat().st_mtime_ns if credential.exists() else None)==prior
     assert (installed.read_bytes() if installed.exists() else None)==prior_install
-    print('PASS: compact native window, nine rendered states, safe extraction; no installation, pairing or startup change')
+    print('PASS: fourteen native states, actual activity, scan progress, remote stop button, last result, safe extraction; no installation, pairing or startup change')
 
 if __name__=='__main__':run()
