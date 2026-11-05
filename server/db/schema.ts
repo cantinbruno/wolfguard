@@ -14,7 +14,8 @@ export const sessions = sqliteTable('sessions', {
 export const users = sqliteTable('users', {
   id:text('id').primaryKey(),nameHash:text('name_hash').notNull().unique(),nameCipher:text('name_cipher').notNull(),role:text('role').notNull(),
   pinSalt:text('pin_salt').notNull(),pinHash:text('pin_hash').notNull(),codeVersion:integer('code_version').notNull().default(1),
-  disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login')
+  disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login'),
+  credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at')
 });
 export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),

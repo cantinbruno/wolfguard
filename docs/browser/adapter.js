@@ -7,7 +7,7 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let sharedTimer=null, sharedRefreshing=null, agentChoice=null;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false;
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
@@ -322,7 +322,7 @@ const webWorkspace = (() => {
     return validate(payload);
   }
   function renderKeypad() {
-    if(!$('#webAccessForm'))return;
+    if(!$('#webAccessForm')||accountSetupActive)return;
     $('#webUsernameRow').hidden=!cloud.enabled;
     const exists=gateExists();
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
@@ -377,7 +377,7 @@ const webWorkspace = (() => {
     $('#lock').focus({preventScroll:true});
   }
   async function keypadKey(key) {
-    if (busy || locking || booting || accessBlocked() || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
+    if (busy || locking || booting || accountSetupActive || accessBlocked() || $('#lock').classList.contains('hidden') || document.querySelector('.app-dialog[open]')) return;
     const pressed=$('#keypad').querySelector('[data-key="'+key+'"]');
     if(pressed){pressed.classList.add('is-pressed');setTimeout(()=>pressed.classList.remove('is-pressed'),130);}
     $('#lockError').textContent='';
@@ -429,6 +429,29 @@ const webWorkspace = (() => {
     if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
     await storage.cacheShared(result.envelope,cloud.currentVersion());
     return result;
+  }
+  async function showAccountSetup(){
+    accountSetupActive=true;
+    const form=document.createElement('form');form.id='webAccountSetupForm';form.className='user-setup-form';
+    form.innerHTML='<h2>Définir mon code</h2><p>Choisis ton code personnel pour accéder à l’espace partagé.</p><label>Nom d’utilisateur<input id="webAccountUsername" type="text" autocomplete="off" maxlength="254" required></label><label>Code personnel de 8 chiffres<input id="webAccountCode" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le code<input id="webAccountConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert">Vérification du lien…</p><div class="actions"><button type="submit" class="primary" disabled>Enregistrer mon code</button><button type="button" class="secondary" id="webAccountCancel">Retour à la connexion</button></div>';
+    $('#lockError').before(form);
+    const submit=form.querySelector('[type=submit]'),error=form.querySelector('[role=alert]');
+    $('#webAccountCancel').onclick=()=>{cloud.clearAccountInvitation();form.reset();form.remove();accountSetupActive=false;showGate();};
+    form.onsubmit=async event=>{
+      event.preventDefault();if(submit.disabled)return;
+      let code=$('#webAccountCode').value;const username=$('#webAccountUsername').value.trim();
+      if(code!==$('#webAccountConfirm').value){error.textContent='Les codes ne correspondent pas.';return;}
+      submit.disabled=true;error.textContent='';
+      try{
+        await cloud.completeAccountInvitation(username,code);
+        form.reset();form.remove();accountSetupActive=false;
+        $('#webUsername').value=username;$('#webPassword').value=code;$('#webConfirm').value='';
+        await authenticate({preventDefault(){}});
+      }catch(failure){if(form.isConnected)error.textContent=failure.message;}
+      finally{code='';if(form.isConnected)submit.disabled=false;}
+    };
+    try{await cloud.inspectAccountInvitation();if(form.isConnected){error.textContent='';submit.disabled=false;$('#webAccountUsername').focus();}}
+    catch(failure){if(form.isConnected)error.textContent=failure.message;}
   }
   async function configureUsers(password,result){
     await cloud.status();
@@ -691,8 +714,8 @@ const webWorkspace = (() => {
     $('#keypad').innerHTML=['1','2','3','4','5','6','7','8','9','Backspace','0','C'].map(key=>'<button type="button" class="key" data-key="'+key+'"'+(key==='Backspace'?' aria-label="Effacer le dernier chiffre"':key==='C'?' aria-label="Effacer le code"':'')+'>'+(key==='Backspace'?'⌫':key==='C'?settingsIcon('rotate-ccw'):key)+'</button>').join('');
     $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};
     window.addEventListener('keydown',event=>{
-      if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || document.querySelector('.app-dialog[open]')) return;
-      if(event.target.closest?.('#webUserSetupForm,#webUsernameRow')){if(event.key==='Enter'&&event.target.id==='webUsername'){event.preventDefault();$('#lock').focus();}return;}
+      if (accountSetupActive || $('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || document.querySelector('.app-dialog[open]')) return;
+      if(event.target.closest?.('#webAccountSetupForm,#webUsernameRow')){if(event.key==='Enter'&&event.target.id==='webUsername'){event.preventDefault();$('#lock').focus();}return;}
       // AZERTY reports &, é, etc. on Digit1, Digit2... without Shift. Numpad
       // codes identify the digits even when NumLock reports navigation keys.
       const physical=/^(?:Digit|Numpad)([0-9])$/.exec(event.code || '');
@@ -704,8 +727,8 @@ const webWorkspace = (() => {
       }
     },true);
     document.addEventListener('paste',event=>{
-      if ($('#lock').classList.contains('hidden') || busy || locking || booting || accessBlocked() || document.querySelector('.app-dialog[open]')) return;
-      if(event.target.closest?.('#webUserSetupForm,#webUsernameRow'))return;
+      if (accountSetupActive || $('#lock').classList.contains('hidden') || busy || locking || booting || accessBlocked() || document.querySelector('.app-dialog[open]')) return;
+      if(event.target.closest?.('#webAccountSetupForm,#webUsernameRow'))return;
       const code=event.clipboardData?.getData('text');
       if (!/^[0-9]{8}$/.test(code || '')) {
         // Keep old encrypted spaces accessible by pasting their original secret,
@@ -753,13 +776,16 @@ const webWorkspace = (() => {
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');
     envelope=await storage.read();await loadAttempts();
-    const resumed = await resumeAfterReload();
+    const invited=cloud.enabled&&cloud.hasAccountInvitation();
+    if(invited)await tabSession.forget({tabOnly:true}).catch(()=>{});
+    const resumed = invited?false:await resumeAfterReload();
     if (!resumed) showGate();
     if(cloud.enabled && !resumed){
       try{await cloud.status();showGate();if(!cloud.isInitialized()&&!cloud.canActivate())$('#lockError').textContent='Active le partage avec le lien privé sur ton appareil principal.';}
       catch(error){$('#lockError').textContent=error.message;}
     }
     booting=false;renderKeypad();if(!resumed)$('#lock').focus({preventScroll:true});
+    if(invited)await showAccountSetup();
   }
   return {start,refreshShared};
 })();

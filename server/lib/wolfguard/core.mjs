@@ -2,7 +2,7 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI,ensureOwnerAccount,provisionOwnerAccount} from './users.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount} from './users.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -66,7 +66,7 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name')
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name')
     .bind(now,hash,now,now-IDLE_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   const path=new URL(request.url).pathname;
@@ -111,7 +111,7 @@ async function putSnapshot(request,env,session,now) {
     if(typeof FixedLengthStream==='function'){const fixed=new FixedLengthStream(cipherLength);pump=body.pipeTo(fixed.writable);upload=fixed.readable;}
     await Promise.all([env.BUCKET.put(objectKey,upload,{customMetadata:{format:'1',nonce,size:String(length)},httpMetadata:{contentType:'application/octet-stream'}}),pump]);
     const generation=rotation?session.generation+1:session.generation;
-    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM sessions s WHERE token_hash=? AND (vault.users_enabled=0 OR EXISTS(SELECT 1 FROM users u WHERE u.id=s.user_id AND u.disabled_at IS NULL AND u.code_version=s.user_version))) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING version')
+    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM sessions s WHERE token_hash=? AND (vault.users_enabled=0 OR EXISTS(SELECT 1 FROM users u WHERE u.id=s.user_id AND u.disabled_at IS NULL AND u.credential_pending=0 AND u.code_version=s.user_version))) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING version')
       .bind(objectKey,generation,rotation?.pin_salt||row.pin_salt,rotation?.pin_hash||row.pin_hash,expected,session.generation,session.hash,session.access.hash||'').first();
     if(!changed){await env.BUCKET.delete(objectKey);await authorize(request,env,now);fail(409,'Une autre copie a changé. Verrouille puis rouvre WolfGuard pour la récupérer.');}
     // Previous immutable objects remain available as encrypted recovery history.
@@ -142,7 +142,10 @@ export async function handleAPI(request,env,clock=Date.now) {
       const path=new URL(request.url).pathname,now=clock();
       if(!path.startsWith('/api/agent/'))await ensureOwnerAccount(env,now);
       if(path==='/api/status'&&request.method==='GET'){await provisionOwnerAccount(env,now);response=json({initialized:!!(await state(env))});}
-      else if(path==='/api/setup'&&request.method==='POST'){
+      else if(path.startsWith('/api/account/')){
+        await assertAddressAllowed(env,await addressContext(request,env),fail);
+        response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
+      }else if(path==='/api/setup'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
         if(!/^[a-f0-9]{64}$/.test(activation)||!equal(await digest(activation),env.BOOTSTRAP_HASH))fail(403,'Lien d’activation invalide.');
@@ -168,7 +171,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
-        if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request),random,pinHash,verifyPIN,issueSession});
+        if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request),random,pinHash,verifyPIN,issueSession,digest});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});

@@ -4,9 +4,10 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlsplit
-import json,os,subprocess
+import json,os,subprocess,hashlib,mimetypes
 from playwright.sync_api import sync_playwright,expect
 from shared_workspace_test import Quiet,ready,API,CODE
+from site_fixture import PRIVATE_ACCESS_FILE
 
 ROOT=Path(__file__).resolve().parents[1]
 ADMIN=CODE
@@ -19,7 +20,7 @@ def run():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MANUAL_USERS':'1'})
+    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MANUAL_USERS':'1','WG_TEST_ENTRY_HASH':hashlib.sha256(json.loads(PRIVATE_ACCESS_FILE.read_text())['key'].encode()).hexdigest()})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     try:
         with sync_playwright() as p:
@@ -48,7 +49,9 @@ def run():
             users();expect(first.locator('#settings-tab-agents,#wgUserRole')).to_have_count(0)
             expect(first.locator('#webUsername')).to_have_attribute('type','text')
             expect(first.locator('#wgUsersList')).to_contain_text('cantin.bruno@gmx.fr')
-            first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice@example.test');first.locator('#wgUserCode').fill('12345678');first.locator('#wgUserSave').click()
+            first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice@example.test');first.screenshot(path=str(ROOT/'.cache/users-add-email-only.png'),animations='disabled');expect(first.locator('#wgUserCode')).to_have_count(0);first.locator('#wgUserSave').click()
+            expect(first.locator('#wgUserInvitation')).to_be_visible();initial_link=first.locator('#wgUserInvitationLink').input_value();assert '#account=' in initial_link
+            expect(first.locator('#wgUsersList')).to_contain_text('Code à définir par l’utilisateur')
             expect(first.locator('#wgUsersList')).to_contain_text('alice@example.test')
             owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Compte protégé')
             owner_row.get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
@@ -75,7 +78,21 @@ def run():
             first.set_viewport_size({'width':1440,'height':1000})
             print('PASS: user creation, protected last administrator, responsive account settings and a dedicated Agents button beside Settings from 320px to desktop')
 
-            second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(origin+'/?sync-test');login(second,'alice@example.test','12345678')
+            def activate(page,link,code,username='alice@example.test'):
+                page.goto('about:blank');page.goto(link)
+                expect(page.locator('#webAccountSetupForm')).to_be_visible(timeout=15000);expect(page.locator('#webAccountSetupForm button[type=submit]')).to_be_enabled()
+                assert '#account=' not in page.url
+                expect(page.locator('#webAccountUsername')).to_have_value('');expect(page.locator('#keypad')).to_be_hidden()
+                for width in [1440,390,320]:
+                    page.set_viewport_size({'width':width,'height':900 if width>640 else 844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                    page.screenshot(path=str(ROOT/f'.cache/user-code-setup-{width}.png'),animations='disabled')
+                page.set_viewport_size({'width':1440,'height':1000})
+                page.locator('#webAccountUsername').fill(username);page.locator('#webAccountCode').fill(code);page.locator('#webAccountConfirm').fill('00000000');page.locator('#webAccountSetupForm button[type=submit]').click()
+                expect(page.locator('#webAccountSetupForm [role=alert]')).to_contain_text('correspondent pas')
+                page.locator('#webAccountConfirm').fill(code);page.locator('#webAccountSetupForm button[type=submit]').click()
+                expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
+                ticket=link.split('#account=')[1];assert ticket not in page.evaluate('JSON.stringify(sessionStorage)')
+            second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));activate(second,initial_link,'12345678')
             assert second.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             second.locator('#settingsBtn').click()
             for tab in ['users','access']:expect(second.locator('#settings-tab-'+tab)).to_be_visible();expect(second.locator('#settings-tab-'+tab)).to_be_disabled()
@@ -97,10 +114,10 @@ def run():
             manage('Désactiver');first.locator('.app-dialog-submit').click();expect(alice()).to_contain_text('Compte désactivé')
             second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible()
             manage('Activer');first.locator('.app-dialog-submit').click();expect(alice()).not_to_contain_text('Compte désactivé');login(second,'alice@example.test','12345678')
-            manage('Réinitialiser le code');first.locator('.app-dialog-input').fill('23456789');first.locator('.app-dialog-submit').click();expect(first.locator('.app-dialog-input')).to_have_count(0)
+            manage('Réinitialiser le code');expect(first.locator('.app-dialog-input')).to_have_count(0)
             with first.expect_response(lambda response:urlsplit(response.url).path=='/api/users/reset-code' and response.status==200):first.locator('.app-dialog-submit').click()
-            expect(first.locator('#wgUsersStatus')).to_contain_text('Action effectuée')
-            second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible();login(second,'alice@example.test','23456789')
+            expect(first.locator('#wgUserInvitation')).to_be_visible();reset_link=first.locator('#wgUserInvitationLink').input_value();assert reset_link!=initial_link
+            second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible();activate(second,reset_link,'23456789')
             first.locator('#closeSettingsBtn').click();first.locator('#settingsBtn').click();first.locator('#changeCodeBtn').click()
             first.locator('#oldAccessCode').fill(ADMIN);first.locator('#newAccessCode').fill('56781234');first.locator('#confirmAccessCode').fill('56781234');first.locator('#webChangePassword').click()
             expect(first.locator('#modalRoot')).to_be_empty();assert second.evaluate('async()=>{await WolfGuardCloud.touch();return true}')
@@ -116,6 +133,24 @@ def run():
             users();manage('Supprimer');first.locator('.app-dialog-submit').click();expect(alice()).to_have_count(0)
             second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible()
             first.locator('#closeSettingsBtn').click();assert first.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
+            # Exercise the real encrypted Pages entry with its strict private query
+            # and one-time fragment, using production origins and synthetic data.
+            invitation=first.evaluate("async()=>await WolfGuardCloud.agentRequest('users/create',{username:'entryuser@example.test'})")['invitation']['ticket']
+            private=context('192.0.2.9')
+            def frontend(route):
+                address=urlsplit(route.request.url)
+                if address.path=='/':route.fulfill(status=200,content_type='text/html',body=(ROOT/'docs/index.html').read_bytes())
+                else:
+                    asset=ROOT/'docs'/address.path.lstrip('/')
+                    route.fulfill(status=200,content_type=mimetypes.guess_type(asset.name)[0] or 'application/octet-stream',body=asset.read_bytes())
+            private.route('https://wolfguard.wavetools.fr/**',frontend)
+            real=private.new_page();real.on('pageerror',lambda error:errors.append(str(error)))
+            key=json.loads(PRIVATE_ACCESS_FILE.read_text())['key']
+            secure_link='https://wolfguard.wavetools.fr/?access='+key+'#account='+invitation
+            activate(real,secure_link,'34567890','entryuser@example.test')
+            assert real.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
+            replay=private.new_page();replay.goto(secure_link);expect(replay.locator('#webAccountSetupForm [role=alert]')).to_contain_text('plus valide',timeout=15000);expect(replay.locator('#app')).not_to_be_visible()
+            print('PASS: email-only creation and reset require user-defined codes; single-use links also work through the real encrypted entry and fail safely on replay')
             assert not errors,errors
             browser.close()
     finally:

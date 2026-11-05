@@ -24,7 +24,8 @@ async function setup(){
   const material=await workspaceMaterial('07942685',encrypted.salt);
   const initialize=()=>api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'09876543',oldCode:'07942685',workspace:material,version:1},owner.token);
   const login=async(username,code)=>{const response=await api('login',{username,code});assert.equal(response.status,200,await response.clone().text());return response.json();};
-  return{env,api,owner,initialize,login,encrypted,payload,material,advance:ms=>{now+=ms;}};
+  const createMember=async(username,code,token)=>{const response=await api('users/create',{username},token);assert.equal(response.status,201,await response.clone().text());const result=await response.json();assert.equal((await api('account/complete',{ticket:result.invitation.ticket,username,code})).status,200);return result;};
+  return{env,api,owner,initialize,login,createMember,encrypted,payload,material,advance:ms=>{now+=ms;}};
 }
 
 test('first admin migration retains the encrypted workspace, requires a distinct code, and closes the shared-code path',async()=>{
@@ -44,7 +45,7 @@ test('first admin migration retains the encrypted workspace, requires a distinct
 test('members have independent credentials and can read the workspace but cannot manage users, sessions or associations',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    assert.equal((await s.api('users/create',{username:'Alice@example.test',code:'12345678',role:'member'},owner.token)).status,201);
+    await s.createMember('Alice@example.test','12345678',owner.token);
     const member=await s.login('alice@example.test','12345678');assert.equal(member.user.username,'alice@example.test');
     assert.equal((await s.api('vault',undefined,member.token)).status,200);assert.equal((await s.api('agents',undefined,member.token)).status,200);
     for(const [path,body]of[['users',undefined],['users/create',{username:'rogue',code:'23456789',role:'admin'}],['access',undefined],['access/block',{ip:'192.0.2.5'}],['agents/pair',{}],['agents/revoke',{id:'a'.repeat(32)}]])assert.equal((await s.api(path,body,member.token)).status,403,path);
@@ -55,13 +56,13 @@ test('members have independent credentials and can read the workspace but cannot
 test('admin can disable, enable, rename, reset and remove a user without changing shared data or other accounts',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    const added=await(await s.api('users/create',{username:'alice@example.test',code:'12345678',role:'member'},owner.token)).json(),id=added.user.id;
+    const added=await s.createMember('alice@example.test','12345678',owner.token),id=added.user.id;
     const member=await s.login('alice@example.test','12345678');
     assert.equal((await s.api('users/update',{id,username:'alice@example.test',role:'member',disabled:true},owner.token)).status,200);
     assert.equal((await s.api('touch',{},member.token)).status,401);assert.equal((await s.api('login',{username:'alice@example.test',code:'12345678'})).status,403);
     assert.equal((await s.api('users/update',{id,username:'alicia@example.test',role:'member',disabled:false},owner.token)).status,200);
     const active=await s.login('alicia@example.test','12345678');
-    assert.equal((await s.api('users/reset-code',{id,code:'23456789'},owner.token)).status,200);assert.equal((await s.api('touch',{},active.token)).status,401);
+    const reset=await(await s.api('users/reset-code',{id},owner.token)).json();assert.equal((await s.api('touch',{},active.token)).status,401);assert.equal((await s.api('account/complete',{ticket:reset.invitation.ticket,username:'alicia@example.test',code:'23456789'})).status,200);
     await s.login('alicia@example.test','23456789');assert.equal((await s.api('touch',{},owner.token)).status,200);
     assert.equal(s.env.DB.db.prepare('SELECT version FROM vault').get().version,1);
     assert.equal((await s.api('users/delete',{id},owner.token)).status,200);assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
@@ -71,7 +72,7 @@ test('admin can disable, enable, rename, reset and remove a user without changin
 test('personal code changes retain the non-extractable workspace key and revoke only that account sessions',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    await s.api('users/create',{username:'alice@example.test',code:'12345678',role:'member'},owner.token);
+    await s.createMember('alice@example.test','12345678',owner.token);
     const a=await s.login('alice@example.test','12345678'),b=await s.login('alice@example.test','12345678');
     const response=await s.api('users/change-code',{oldCode:'12345678',code:'23456789'},a.token);assert.equal(response.status,200);const changed=await response.json();
     assert.equal((await s.api('touch',{},a.token)).status,401);assert.equal((await s.api('touch',{},b.token)).status,401);
@@ -93,7 +94,7 @@ test('the owner is the sole immutable administrator and every other account rema
     assert.equal((await s.api('users/create',{username:'second@example.test',code:'87654321',role:'admin'},owner.token)).status,403);
     assert.equal((await s.api('users/create',{username:'cantin.bruno@gmx.fr',code:'87654321'},owner.token)).status,409);
     assert.equal((await s.api('users/create',{username:'not-an-email',code:'87654321'},owner.token)).status,400);
-    const member=await(await s.api('users/create',{username:'second@example.test',code:'87654321'},owner.token)).json();assert.equal(member.user.role,'member');
+    const member=await(await s.api('users/create',{username:'second@example.test'},owner.token)).json();assert.equal(member.user.role,'member');
     assert.equal((await s.api('users/update',{id:member.user.id,username:'second@example.test',role:'admin',disabled:false},owner.token)).status,403);
     assert.equal((await s.api('users/update',{id:member.user.id,username:'cantin.bruno@gmx.fr',role:'member',disabled:false},owner.token)).status,403);
     for(const change of [{username:'other@example.test',role:'admin',disabled:false},{username:'cantin.bruno@gmx.fr',role:'member',disabled:false},{username:'cantin.bruno@gmx.fr',role:'admin',disabled:true}])assert.equal((await s.api('users/update',{id,...change},owner.token)).status,409);
@@ -143,5 +144,55 @@ test('only one of two concurrent first logins can bind the key; the losing sessi
     assert.deepEqual(result.map(r=>r.status).sort(),[200,429]);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,1);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
+  }finally{s.env.DB.db.close();}
+});
+
+test('admin supplies only an email; a one-time invitation lets its user choose the code and unlock the common base',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    assert.equal((await s.api('users/create',{username:'new@example.test',code:'12345678'},owner.token)).status,400);
+    const response=await s.api('users/create',{username:'new@example.test'},owner.token);assert.equal(response.status,201);const added=await response.json(),ticket=added.invitation.ticket;
+    assert.equal(added.user.credentialPending,true);assert.match(ticket,/^[a-f0-9]{64}$/);
+    assert.ok(!JSON.stringify(s.env.DB.db.prepare('SELECT * FROM users').all()).includes(ticket));
+    const inspection=await(await s.api('account/inspect',{ticket})).json();assert.deepEqual(Object.keys(inspection),['expiresAt']);
+    assert.equal((await s.api('login',{username:'new@example.test',code:'12345678'})).status,401);s.advance(5001);
+    assert.equal((await s.api('account/complete',{ticket,username:'wrong@example.test',code:'12345678'})).status,400);
+    assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'short'})).status,400);
+    assert.deepEqual(await(await s.api('account/complete',{ticket,username:'new@example.test',code:'12345678'})).json(),{ok:true});
+    assert.equal((await s.api('account/inspect',{ticket})).status,410);assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'23456789'})).status,410);
+    const member=await s.login('new@example.test','12345678');assert.deepEqual(member.workspace,s.material);assert.equal(member.user.role,'member');assert.equal(member.user.credentialPending,false);
+    assert.equal((await s.api('access',undefined,member.token)).status,403);
+    assert.equal(s.env.DB.db.prepare('SELECT version FROM vault').get().version,1);
+  }finally{s.env.DB.db.close();}
+});
+
+test('reset immediately revokes sessions and the old code, invalidates previous links, and requires a new user-chosen code',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543'),added=await s.createMember('alice@example.test','12345678',owner.token),id=added.user.id;
+    const member=await s.login('alice@example.test','12345678');
+    assert.equal((await s.api('users/reset-code',{id,code:'23456789'},owner.token)).status,400);
+    const reset=await(await s.api('users/reset-code',{id},owner.token)).json();assert.match(reset.invitation.ticket,/^[a-f0-9]{64}$/);
+    assert.equal((await s.api('touch',{},member.token)).status,401);
+    assert.equal((await s.api('login',{username:'alice@example.test',code:'12345678'})).status,401);s.advance(5001);
+    const next=await(await s.api('users/reset-code',{id},owner.token)).json();assert.equal((await s.api('account/inspect',{ticket:reset.invitation.ticket})).status,410);
+    assert.equal((await s.api('account/complete',{ticket:next.invitation.ticket,username:'alice@example.test',code:'23456789'})).status,200);
+    const active=await s.login('alice@example.test','23456789');assert.deepEqual(active.workspace,s.material);assert.equal((await s.api('touch',{},owner.token)).status,200);
+    assert.equal((await s.api('users/reset-code',{id:owner.user.id},owner.token)).status,409);
+  }finally{s.env.DB.db.close();}
+});
+
+test('expired, disabled, deleted or concurrently consumed invitations never grant access',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const add=async name=>(await(await s.api('users/create',{username:name},owner.token)).json());
+    const disabled=await add('disabled@example.test');await s.api('users/update',{id:disabled.user.id,username:'disabled@example.test',disabled:true},owner.token);
+    assert.equal((await s.api('account/inspect',{ticket:disabled.invitation.ticket})).status,410);
+    assert.equal((await s.api('account/complete',{ticket:disabled.invitation.ticket,username:'disabled@example.test',code:'12345678'})).status,410);
+    const deleted=await add('deleted@example.test');await s.api('users/delete',{id:deleted.user.id},owner.token);assert.equal((await s.api('account/inspect',{ticket:deleted.invitation.ticket})).status,410);
+    const race=await add('race@example.test'),codes=['12345678','23456789'];
+    const responses=await Promise.all(codes.map(code=>s.api('account/complete',{ticket:race.invitation.ticket,username:'race@example.test',code})));
+    assert.deepEqual(responses.map(r=>r.status).sort(),[200,410]);await s.login('race@example.test',codes[responses.findIndex(r=>r.status===200)]);
+    const expired=await add('expired@example.test');s.advance(24*60*60000+1);assert.equal((await s.api('account/inspect',{ticket:expired.invitation.ticket})).status,410);
+    assert.equal((await s.api('account/complete',{ticket:expired.invitation.ticket,username:'expired@example.test',code:'12345678'})).status,410);
   }finally{s.env.DB.db.close();}
 });

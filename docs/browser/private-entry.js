@@ -9,7 +9,7 @@
   // The production address is exact: aliases, other paths and extra parameters
   // must not become alternate working links, even with the correct fragment.
   const local = ['localhost','127.0.0.1'].includes(location.hostname);
-  if ((!local && location.origin !== 'https://wolfguard.wavetools.fr') || location.pathname !== '/' || location.hash) return missing();
+  if ((!local && location.origin !== 'https://wolfguard.wavetools.fr') || location.pathname !== '/' || (location.hash&&!/^#account=[a-f0-9]{64}$/.test(location.hash))) return missing();
   const keyHex = /^\?access=([a-f0-9]{64})$/.exec(location.search)?.[1];
   if (!keyHex) return missing();
   const message = document.getElementById('entry-message');

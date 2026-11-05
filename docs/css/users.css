@@ -24,3 +24,17 @@
 .settings-tab:disabled {opacity:.4;cursor:not-allowed;filter:grayscale(1)}
 .users-workflow {padding-left:20px;font-size:12px;line-height:1.7;color:var(--muted);margin:16px 0}
 .users-workflow li+li {margin-top:5px}
+.users-invitation {padding:16px;border:1px solid var(--line);border-radius:10px;margin:16px 0}
+.users-invitation h4 {margin:0 0 8px}
+.users-invitation p {font-size:12px;color:var(--muted);line-height:1.6}
+.users-invitation textarea {display:block;width:100%;box-sizing:border-box;resize:vertical;min-height:72px;margin:12px 0;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:10px;font:12px monospace;overflow-wrap:anywhere}
+.users-invitation[hidden] {display:none!important}
+.user-setup-form {text-align:left;max-height:calc(100dvh - 180px);overflow:auto}
+.user-setup-form h2 {font-size:20px;margin:0 0 10px}
+.user-setup-form p {font-size:12px;line-height:1.6;color:#9aadc3}
+.user-setup-form label {display:block;margin:12px 0;font-size:12px}
+.user-setup-form input {display:block;width:100%;box-sizing:border-box;margin-top:6px;padding:10px 12px;border:1px solid #405b77;border-radius:8px;background:#101e2e;color:#edf2f7;font:14px sans-serif}
+.user-setup-form .actions {flex-wrap:wrap}
+.user-setup-form .user-setup-error {color:#f1b4bf}
+#lock:has(#webAccountSetupForm) :is(#keypad,#pinDots,#webUsernameRow,#webKeyHint) {display:none!important}
+#lock:has(#webAccountSetupForm) .lock-logo {--brand-mark-size:80px;width:80px!important;height:80px!important;min-width:80px!important}

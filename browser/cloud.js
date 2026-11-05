@@ -2,12 +2,12 @@
 export const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 export const enabled = location.hostname==='wolfguard.wavetools.fr' || (local && new URLSearchParams(location.search).has('sync-test'));
-let token='',version=0,initialized=null,activation='',user=null,usersEnabled=false;
+let token='',version=0,initialized=null,activation='',user=null,usersEnabled=false,accountTicket='';
 function captureActivation(){
   const match=/^#activate=([a-f0-9]{64})$/.exec(location.hash);
   if(match){activation=match[1];history.replaceState(null,'',location.pathname+location.search);}
 }
-if(enabled){captureActivation();window.addEventListener('hashchange',captureActivation);}
+if(enabled){const match=/^#account=([a-f0-9]{64})$/.exec(location.hash);if(match){accountTicket=match[1];history.replaceState(null,'',location.pathname+location.search);}captureActivation();window.addEventListener('hashchange',captureActivation);}
 export const isInitialized = () => initialized;
 export const canActivate = () => !!activation;
 export const hasSession = () => !!token;
@@ -57,6 +57,10 @@ function acceptIdentity(data){
   if(Object.hasOwn(data,'usersEnabled'))usersEnabled=!!data.usersEnabled;
   window.dispatchEvent?.(new CustomEvent('wolfguard-user-changed'));
 }
+export const hasAccountInvitation=()=>!!accountTicket;
+export function clearAccountInvitation(){accountTicket='';}
+export async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
+export async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 export async function login(code,username){
   const data=await post('login',{code,username},{anonymous:true});token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }

@@ -3,12 +3,12 @@ const WolfGuardCloud = (() => {
 const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 const enabled = location.hostname==='wolfguard.wavetools.fr' || (local && new URLSearchParams(location.search).has('sync-test'));
-let token='',version=0,initialized=null,activation='',user=null,usersEnabled=false;
+let token='',version=0,initialized=null,activation='',user=null,usersEnabled=false,accountTicket='';
 function captureActivation(){
   const match=/^#activate=([a-f0-9]{64})$/.exec(location.hash);
   if(match){activation=match[1];history.replaceState(null,'',location.pathname+location.search);}
 }
-if(enabled){captureActivation();window.addEventListener('hashchange',captureActivation);}
+if(enabled){const match=/^#account=([a-f0-9]{64})$/.exec(location.hash);if(match){accountTicket=match[1];history.replaceState(null,'',location.pathname+location.search);}captureActivation();window.addEventListener('hashchange',captureActivation);}
 const isInitialized = () => initialized;
 const canActivate = () => !!activation;
 const hasSession = () => !!token;
@@ -58,6 +58,10 @@ function acceptIdentity(data){
   if(Object.hasOwn(data,'usersEnabled'))usersEnabled=!!data.usersEnabled;
   window.dispatchEvent?.(new CustomEvent('wolfguard-user-changed'));
 }
+const hasAccountInvitation=()=>!!accountTicket;
+function clearAccountInvitation(){accountTicket='';}
+async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
+async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 async function login(code,username){
   const data=await post('login',{code,username},{anonymous:true});token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
@@ -101,5 +105,5 @@ function clear(){
   token='';version=0;user=null;usersEnabled=false;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,sessionState,restoreSession,detach,status,login,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,clear});
 })();

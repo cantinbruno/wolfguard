@@ -40,7 +40,23 @@ export async function ensureOwnerAccount(env,now){
 }
 export async function usernameHash(name,env){const key=await crypto.subtle.importKey('raw',bytes(env.AUTH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);return hex(await crypto.subtle.sign('HMAC',key,encoder.encode('WolfGuard username v1:'+name)));}
 export async function findUser(name,env){const normalized=normalizeUsername(name);return normalized?env.DB.prepare('SELECT * FROM users WHERE name_hash=?').bind(await usernameHash(normalized,env)).first():null;}
-export async function publicUser(row,env){return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,createdAt:row.created_at,lastLogin:row.last_login};}
+export async function publicUser(row,env){return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login};}
+export async function handleAccountAPI(request,env,now,h){
+  const {fail,json,body,digest,pinHash,random}=h,path=new URL(request.url).pathname;
+  if(request.method!=='POST'||!['/api/account/inspect','/api/account/complete'].includes(path))fail(404,'Adresse inconnue.');
+  const data=await body();
+  if(!data||typeof data!=='object')fail(400,'Requête invalide.');
+  if(typeof data.ticket!=='string'||!/^[a-f0-9]{64}$/.test(data.ticket))fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
+  const hash=await digest(data.ticket),user=await env.DB.prepare('SELECT * FROM users WHERE invite_hash=? AND invite_expires_at>? AND credential_pending=1 AND disabled_at IS NULL AND (SELECT users_enabled FROM vault WHERE id=1)=1').bind(hash,now).first();
+  if(!user)fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
+  if(path.endsWith('/inspect'))return json({expiresAt:user.invite_expires_at});
+  if(!codeOK(data.code))fail(400,'Choisis un code personnel de 8 chiffres.');
+  const name=normalizeUsername(data.username);
+  if(!name||await usernameHash(name,env)!==user.name_hash)fail(400,'Vérifie ton nom d’utilisateur.');
+  const salt=random(16),changed=await env.DB.prepare('UPDATE users SET pin_salt=?,pin_hash=?,code_version=code_version+1,credential_pending=0,invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=? AND invite_hash=? AND invite_expires_at>? AND credential_pending=1 AND disabled_at IS NULL AND code_version=? RETURNING id').bind(salt,await pinHash(data.code,salt,env),now,user.id,hash,now,user.code_version).first();
+  if(!changed)fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
+  return json({ok:true});
+}
 export async function workspaceMaterial(row,env){return row.users_enabled?open(row.workspace_key_cipher,'WolfGuard users v1:workspace-key',env):null;}
 export async function revokeUserSessions(env,id,now){
   const rows=await env.DB.prepare('DELETE FROM sessions WHERE user_id=? RETURNING token_hash').bind(id).all();
@@ -49,7 +65,7 @@ export async function revokeUserSessions(env,id,now){
 }
 function validMaterial(value){try{return value&&typeof value.key==='string'&&typeof value.salt==='string'&&btoa(atob(value.key))===value.key&&atob(value.key).length===32&&btoa(atob(value.salt))===value.salt&&atob(value.salt).length===16;}catch{return false;}}
 export async function handleUsersAPI(request,env,now,session,h){
-  const {fail,json,body,random,pinHash,verifyPIN}=h,path=new URL(request.url).pathname;
+  const {fail,json,body,random,pinHash,verifyPIN,digest}=h,path=new URL(request.url).pathname;
   const vault=await env.DB.prepare('SELECT * FROM vault WHERE id=1').first();
   if(path==='/api/me'&&request.method==='GET')return json({user:session.user,usersEnabled:!!vault.users_enabled});
   if(path==='/api/users/initialize'&&request.method==='POST'){
@@ -97,11 +113,12 @@ export async function handleUsersAPI(request,env,now,session,h){
     const name=normalizeUsername(data.username),role='member';
     if(data.role!==undefined&&data.role!=='member')fail(403,'Seul '+OWNER_EMAIL+' est administrateur.');
     if(name===OWNER_EMAIL)fail(409,'Cette adresse est réservée au compte administrateur.');
-    if(!name||!codeOK(data.code))fail(400,'Vérifie l’adresse mail et le code de 8 chiffres.');
+    if(!name)fail(400,'Vérifie l’adresse mail.');
+    if(data.code!==undefined)fail(400,'Le code doit être choisi par l’utilisateur à sa première connexion.');
     if(await findUser(name,env))fail(409,'Ce nom d’utilisateur est déjà utilisé.');
-    const id=random(16),salt=random(16);
-    const added=await env.DB.prepare('INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING RETURNING *').bind(id,await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+id,env),role,salt,await pinHash(data.code,salt,env),now,now).first();
-    if(!added)fail(409,'Ce nom est déjà utilisé ou la limite de 100 comptes est atteinte.');return json({user:await publicUser(added,env)},201);
+    const id=random(16),ticket=random(32),expiresAt=now+24*60*60000;
+    const added=await env.DB.prepare('INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at,credential_pending,invite_hash,invite_expires_at) SELECT ?,?,?,?,?,?,?,?,1,?,? WHERE (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING RETURNING *').bind(id,await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+id,env),role,random(16),random(32),now,now,await digest(ticket),expiresAt).first();
+    if(!added)fail(409,'Ce nom est déjà utilisé ou la limite de 100 comptes est atteinte.');return json({user:await publicUser(added,env),invitation:{ticket,expiresAt}},201);
   }
   if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Utilisateur invalide.');
   const target=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(data.id).first();if(!target)fail(404,'Utilisateur introuvable.');
@@ -118,8 +135,10 @@ export async function handleUsersAPI(request,env,now,session,h){
     return json({user:await publicUser(updated,env),reconnect:target.id===session.user.id&&(disabled||target.role!==role)});
   }
   if(path==='/api/users/reset-code'){
-    if(!codeOK(data.code))fail(400,'Le code doit contenir 8 chiffres.');
-    const salt=random(16);await env.DB.prepare('UPDATE users SET pin_salt=?,pin_hash=?,code_version=code_version+1,updated_at=? WHERE id=?').bind(salt,await pinHash(data.code,salt,env),now,target.id).run();await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});
+    if(target.id===session.user.id)fail(409,'Pour ton propre compte, modifie ton code dans les paramètres de sécurité.');
+    if(data.code!==undefined)fail(400,'Le nouveau code doit être choisi par l’utilisateur.');
+    const ticket=random(32),expiresAt=now+24*60*60000;
+    await env.DB.prepare('UPDATE users SET pin_salt=?,pin_hash=?,code_version=code_version+1,credential_pending=1,invite_hash=?,invite_expires_at=?,updated_at=? WHERE id=?').bind(random(16),random(32),await digest(ticket),expiresAt,now,target.id).run();await revokeUserSessions(env,target.id,now);return json({ok:true,invitation:{ticket,expiresAt}});
   }
   if(path==='/api/users/disconnect'){await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});}
   if(path==='/api/users/delete'){
