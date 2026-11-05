@@ -7,10 +7,10 @@ La derniere action terminee reste visible au retour en attente.
 Les resultats detailles des scans restent sur le site.
 Aucune extraction d archive ni console n est necessaire.
 
-1. Ouvrir WolfGuard, saisir le code habituel puis Parametres > Agents.
+1. Ouvrir WolfGuard, saisir le code habituel puis Agents.
 2. Generer et copier le code temporaire d association.
 3. Le coller dans la fenetre de l agent et cliquer sur Associer ce poste.
-4. Attendre l etat Pret puis choisir ce poste dans Parametres > Agents.
+4. Attendre l etat Pret puis choisir ce poste dans Agents.
    Le meme choix s applique aux quatre sections de scan.
 
 Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
@@ -67,7 +67,7 @@ Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résou
 
 PRISE EN MAIN DU BUREAU
 Dans WolfGuard, ouvre Prise en main puis Demander la connexion.
-Le poste utilise toujours l agent choisi dans Parametres > Agents.
+Le poste utilise toujours l agent choisi dans Agents.
 Sous Windows, un poste deja associe se connecte sans confirmation locale.
 Sous Linux et macOS, les autorisations du bureau peuvent etre necessaires.
 Un bouton local permet de terminer le partage ; Arreter l agent le termine aussi.

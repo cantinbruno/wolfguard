@@ -29,7 +29,7 @@
 .wgscan-badge[data-status="notchecked"]{color:#d4dce8;background:#344151}
 .wgscan-badge[data-status="info"]{color:#b8d2ef;background:#263b53}
 @media(max-width:1150px){
- .topbar{--logo-column:40px;--settings-size:36px;grid-template-columns:var(--logo-column) minmax(0,1fr) var(--settings-size)!important;grid-template-areas:"brand search settings" "sections sections sections"!important;grid-template-rows:44px 44px!important;padding:10px 12px!important;gap:6px!important}
+ .topbar{--logo-column:40px;--settings-size:36px;grid-template-columns:var(--logo-column) minmax(0,1fr) var(--settings-size) var(--settings-size)!important;grid-template-areas:"brand search agents settings" "sections sections sections sections"!important;grid-template-rows:44px 44px!important;padding:10px 12px!important;gap:6px!important}
  .topbar .top-actions{max-width:100%;overflow:hidden!important}
  .topbar .global-tabs.section-navigation{width:100%!important;max-width:100%;overflow-x:auto!important;overflow-y:hidden!important;justify-content:flex-start!important;scrollbar-width:thin;overscroll-behavior-x:contain}
  .topbar .section-navigation .workspace-section-button{flex:0 0 auto!important;min-width:max-content;padding:0 12px!important;font-size:12px!important}

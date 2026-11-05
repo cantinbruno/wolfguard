@@ -7,7 +7,8 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let sharedTimer=null, sharedRefreshing=null, agentChoice=null;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,setupActive=false;
+  const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
   function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
@@ -20,8 +21,8 @@ const webWorkspace = (() => {
     session = result; envelope = result.envelope; pendingBackup = null; db = new BrowserDatabase();
     if(cloud.enabled){
       session.cloudVersion=cloud.currentVersion();
-      try{agentChoice=sessionStorage.getItem('wolfguard-agent-choice-v1');}catch{}
-      if(agentChoice===null){agentChoice=result.payload.settings.find(row=>row.key==='scanAgentId')?.value||'';try{sessionStorage.setItem('wolfguard-agent-choice-v1',agentChoice);}catch{}}
+      try{agentChoice=sessionStorage.getItem(agentChoiceKey());}catch{}
+      if(agentChoice===null){agentChoice=result.payload.settings.find(row=>row.key==='scanAgentId')?.value||'';try{sessionStorage.setItem(agentChoiceKey(),agentChoice);}catch{}}
       clearInterval(sharedTimer);sharedTimer=setInterval(()=>refreshShared(),10000);
     }
     const wall = Date.now(), mono = performance.now();
@@ -41,6 +42,7 @@ const webWorkspace = (() => {
       let latest = envelope;
       if (cloud.enabled) {
         cloud.restoreSession(saved.cloud);
+        const identity=await cloud.me();if(!identity.usersEnabled)throw new Error('Crée le compte administrateur à la connexion.');
         latest = cryptography.validateEnvelope(await cloud.load());
       }
       const result = await cryptography.openWithKey(latest, saved.key, saved.salt);
@@ -261,7 +263,7 @@ const webWorkspace = (() => {
       const records = structuredClone(operations).filter(operation=>{
         if(cloud.enabled&&operation.store==='settings'&&(operation.record?.key==='scanAgentId'||operation.id==='scanAgentId')){
           const choice=operation.action==='delete'?'':String(operation.record?.value||'');
-          sessionStorage.setItem('wolfguard-agent-choice-v1',choice);agentChoice=choice;settingsCache.set('scanAgentId',choice);return false;
+          sessionStorage.setItem(agentChoiceKey(),choice);agentChoice=choice;settingsCache.set('scanAgentId',choice);return false;
         }
         return true;
       });
@@ -320,7 +322,8 @@ const webWorkspace = (() => {
     return validate(payload);
   }
   function renderKeypad() {
-    if(!$('#webAccessForm'))return;
+    if(!$('#webAccessForm')||setupActive)return;
+    $('#webUsernameRow').hidden=!cloud.enabled;
     const exists=gateExists();
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
     $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
@@ -407,17 +410,48 @@ const webWorkspace = (() => {
       result.payload=await upgrade(result);
       await cloud.initialize(password);
     }else{
-      const info=await cloud.login(password);
-      if(info.exists){result=await cryptography.open(cryptography.validateEnvelope(await cloud.load()),password);remote=true;}
+      const info=await cloud.login(password,$('#webUsername').value.trim());
+      if(info.exists){
+        const latest=cryptography.validateEnvelope(await cloud.load());
+        if(info.workspace){try{const material=await cryptography.importWorkspaceMaterial(info.workspace);result=await cryptography.openWithKey(latest,material.key,material.salt);}finally{info.workspace.key='';}}
+        else result=await cryptography.open(latest,password);
+        remote=true;
+      }
       else if(previous)result=await cryptography.open(previous,password);
       else throw new Error('Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
       result.payload=await upgrade(result);
     }
     if(result.envelope.version!==cryptography.WORKSPACE_VERSION){result.envelope=await cryptography.seal(result.payload,result.key,result.salt,result.envelope.revision+1);remote=false;}
     if(!remote)await cloud.save(result.envelope);
+    const identity=await cloud.me();
+    if(!identity.usersEnabled)await configureUsers(password,result);
+    try{localStorage.setItem('wolfguard-username-v1',cloud.currentUser().username);}catch{}
     if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
     await storage.cacheShared(result.envelope,cloud.currentVersion());
     return result;
+  }
+  async function configureUsers(password,result){
+    setupActive=true;$('#keypad').hidden=true;$('#pinDots').hidden=true;$('#webUsernameRow').hidden=true;
+    const form=document.createElement('form');form.id='webUserSetupForm';form.className='user-setup-form';
+    form.innerHTML='<h2>Créer le compte administrateur</h2><p>Choisis un nom et un nouveau code personnel. Les données et les postes associés sont conservés.</p><label>Nom d’utilisateur<input id="setupUsername" autocomplete="username" minlength="3" maxlength="32" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" required></label><label>Nouveau code administrateur<input id="setupUserCode" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le nouveau code<input id="setupUserConfirm" type="password" autocomplete="new-password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert"></p><div class="actions"><button type="submit" class="primary">Créer mon compte</button><button type="button" class="secondary" id="cancelUserSetup">Revenir à la connexion</button></div>';
+    $('#lockError').before(form);$('#setupUsername').value=$('#webUsername').value.trim()||'admin';$('#setupUsername').focus();
+    try{await new Promise((resolve,reject)=>{
+      $('#cancelUserSetup').onclick=()=>reject(new Error('Configuration annulée. Reconnecte-toi pour créer le compte administrateur.'));
+      form.onsubmit=async event=>{
+        event.preventDefault();const error=form.querySelector('[role=alert]'),button=form.querySelector('[type=submit]');let workspace;
+        try{
+          cryptography.checkPassword($('#setupUserCode').value);
+          if($('#setupUserCode').value!==$('#setupUserConfirm').value)throw new Error('Les nouveaux codes ne correspondent pas.');
+          if($('#setupUserCode').value===password)throw new Error('Choisis un code différent de l’ancien code commun.');
+          button.disabled=true;error.textContent='';
+          workspace=await cryptography.workspaceMaterial(password,result.salt);
+          const material=await cryptography.importWorkspaceMaterial(workspace);await cryptography.openWithKey(result.envelope,material.key,material.salt);
+          await cloud.initializeUsers({username:$('#setupUsername').value,code:$('#setupUserCode').value,oldCode:password,workspace});
+          $('#webUsername').value=cloud.currentUser().username;resolve();
+        }catch(failure){error.textContent=failure.message;}
+        finally{if(workspace)workspace.key='';button.disabled=false;}
+      };
+    });}finally{setupActive=false;form.remove();$('#keypad').hidden=false;$('#pinDots').hidden=false;renderKeypad();}
   }
   async function authenticate(event) {
     event.preventDefault(); if (busy || locking || booting || accessBlocked()) {renderKeypad();return;}
@@ -505,7 +539,18 @@ const webWorkspace = (() => {
   async function exportWorkspace() {
     assertFreshSession();
     const current=session; if (!current) return;
-    await queue; if (session===current) { download(current.envelope); appNotify('Sauvegarde chiffrée exportée.'); }
+    await queue;
+    if(session!==current)return;
+    if(cloud.enabled&&cloud.hasUsers()){
+      let code=await appPrompt('Ton code personnel protège cette copie exportée.','',{title:'Exporter une sauvegarde',inputType:'password',confirmLabel:'Exporter'});if(code===null)return;
+      try{
+        await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
+        const payload=structuredClone(current.payload),backup=await cryptography.create(payload,code,current.envelope.revision);
+        for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
+        backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,current.envelope.revision);if(session===current)download(backup.envelope);
+      }finally{code='';}
+    }else download(current.envelope);
+    appNotify('Sauvegarde chiffrée exportée.');
   }
   async function importWorkspace(files) {
     const file=files?.[0]; if (!file || busy || locking) return;
@@ -538,6 +583,10 @@ const webWorkspace = (() => {
       if (!current) throw new Error('Espace verrouillé.');
       cryptography.checkPassword(password);
       if (password !== $('#confirmAccessCode').value) throw new Error('Les codes ne correspondent pas.');
+      if(cloud.enabled&&cloud.hasUsers()){
+        await queue;await cloud.changePersonalCode(oldPassword,password);if(session!==current||epoch!==generation)return;
+        await rememberSession();closeModal();appNotify('Ton code personnel a été modifié. Tes autres sessions ont été déconnectées.');return;
+      }
       await cryptography.open(current.envelope,oldPassword);
       const work=queue.then(async () => {
         if (session!==current || epoch!==generation) throw new Error('Espace verrouillé.');
@@ -601,9 +650,9 @@ const webWorkspace = (() => {
     if (!session) { closeModal(); return; }
     $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');
-    security.querySelector('.settings-row-title').textContent='Code d’accès';
-    security.querySelector('.settings-row-desc').textContent='8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Le même code ouvre ton espace sur tous tes appareils. Conserve-le : il ne peut pas être récupéré.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
+    security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton nom d’utilisateur et ton code sont personnels. Un administrateur peut réinitialiser ton code sans modifier les données partagées.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
@@ -639,6 +688,8 @@ const webWorkspace = (() => {
   async function start() {
     if(window.top!==window.self)throw new Error('Ouvre WolfGuard directement dans son propre onglet.');
     [cryptography,storage,cloud,tabSessions,shared]=[WolfGuardCrypto,WolfGuardStorage,WolfGuardCloud,WolfGuardTabSession,WolfGuardSharedWorkspace];
+    try{$('#webUsername').value=localStorage.getItem('wolfguard-username-v1')||'admin';}catch{}
+    $('#webUsername').oninput=()=>{enteredCode='';creationCode='';renderKeypad();};
     window.addEventListener('focus',()=>refreshShared());
     window.addEventListener('wolfguard-access-revoked',event=>{if(session&&!locking){const message=String(event.detail||'Session déconnectée.');lock().then(()=>{$('#lockError').textContent=message;});}});
     tabSession = tabSessions.createTabSession(storage);
@@ -653,6 +704,7 @@ const webWorkspace = (() => {
     $('#keypad').onclick=event=>{const button=event.target.closest('[data-key]');if(button)keypadKey(button.dataset.key);};
     window.addEventListener('keydown',event=>{
       if ($('#lock').classList.contains('hidden') || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || document.querySelector('.app-dialog[open]')) return;
+      if(event.target.closest?.('#webUserSetupForm,#webUsernameRow')){if(event.key==='Enter'&&event.target.id==='webUsername'){event.preventDefault();$('#lock').focus();}return;}
       // AZERTY reports &, é, etc. on Digit1, Digit2... without Shift. Numpad
       // codes identify the digits even when NumLock reports navigation keys.
       const physical=/^(?:Digit|Numpad)([0-9])$/.exec(event.code || '');
@@ -665,6 +717,7 @@ const webWorkspace = (() => {
     },true);
     document.addEventListener('paste',event=>{
       if ($('#lock').classList.contains('hidden') || busy || locking || booting || accessBlocked() || document.querySelector('.app-dialog[open]')) return;
+      if(event.target.closest?.('#webUserSetupForm,#webUsernameRow'))return;
       const code=event.clipboardData?.getData('text');
       if (!/^[0-9]{8}$/.test(code || '')) {
         // Keep old encrypted spaces accessible by pasting their original secret,
@@ -690,7 +743,7 @@ const webWorkspace = (() => {
     $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
     const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status');status.innerHTML='<span id="webSaveLabel"></span><button type="button" id="webSharedRefresh" aria-label="Actualiser l’espace partagé" hidden>Actualiser</button>';document.body.append(status);
     $('#webSharedRefresh').onclick=()=>refreshShared({manual:true});
-    topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
+    topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();$('#agentsBtn').onclick=()=>openAgentsInterface();
     document.addEventListener('click',event => { if (!event.target.closest('.search')) hideSearch(); });
     applyExplorerWidth(getExplorerWidth()); registerActivityForAutoLock();
     // Rich clipboard HTML must be sanitized before it enters the live editor.

@@ -39,6 +39,21 @@ async function deriveKey(password, salt) {
     return await crypto.subtle.deriveKey({name: 'PBKDF2', hash: 'SHA-256', salt, iterations: ITERATIONS}, material, {name: 'AES-GCM', length: 256}, false, ['encrypt', 'decrypt']);
   } finally { bytes.fill(0); }
 }
+async function workspaceMaterial(password,salt){
+  const input=encoder.encode(password);let raw;
+  try{
+    const source=await crypto.subtle.importKey('raw',input,'PBKDF2',false,['deriveBits']);
+    raw=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:ITERATIONS},source,256));
+    return {key:base64(raw),salt:base64(salt)};
+  }finally{input.fill(0);raw?.fill(0);}
+}
+async function importWorkspaceMaterial(value){
+  const raw=unbase64(value?.key,32),salt=unbase64(value?.salt,16);
+  try{
+    if(raw.length!==32||salt.length!==16)throw new Error('Clé de l’espace partagé invalide.');
+    return {key:await crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']),salt};
+  }finally{raw.fill(0);}
+}
 async function seal(payload, key, salt, revision) {
   if (!(salt instanceof Uint8Array) || salt.length !== 16 || !Number.isSafeInteger(revision) || revision < 1) throw new Error('Paramètres de chiffrement invalides.');
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -88,5 +103,5 @@ function generatePassword(length = 24) {
   return result;
 }
 
-return Object.freeze({ITERATIONS,WORKSPACE_VERSION,MAX_BYTES,validateEnvelope,checkPassword,deriveKey,seal,open,openWithKey,create,generatePassword});
+return Object.freeze({ITERATIONS,WORKSPACE_VERSION,MAX_BYTES,validateEnvelope,checkPassword,deriveKey,workspaceMaterial,importWorkspaceMaterial,seal,open,openWithKey,create,generatePassword});
 })();

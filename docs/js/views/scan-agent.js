@@ -36,7 +36,7 @@ const webScanAgent = (() => {
       if (!live()) return;
       const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):agent?.capabilities?.includes('network-scan-v3');
       find('#wgAgentName').textContent = agent ? agent.name + ' · ' + workspaceAgents.platformName(agent.platform) : 'Aucun agent sélectionné';
-      if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis Paramètres → Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
+      if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis la fenêtre Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
       running = jobs.find(job => ['queued', 'running'].includes(job.status));
       const matching = jobs.filter(job => (job.workspace || job.strategy) === kind);
       // Resume a running scan or a scan chosen in this session; archives require an explicit choice.
@@ -53,7 +53,7 @@ const webScanAgent = (() => {
       find('#wgAgentStop').textContent = 'Arrêter';
       find('#wgAgentLaunch').title=otherScan?'Poste occupé : '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan')+'. Son arrêt se fait depuis sa propre rubrique.':'';
       if(otherScan)find('#wgAgentPresence').textContent='● Occupé · '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan');
-      const hint=!agent?'Choisis un agent dans Paramètres → Agents pour lancer le scan.':!agent.online?'Démarre l’agent sur le poste choisi.':!validTarget?(kind==='map'?'Renseigne le réseau ou la plage à explorer.':'Renseigne l’adresse IP ou le nom d’hôte de la cible.'):'';
+      const hint=!agent?'Choisis un agent dans la fenêtre Agents pour lancer le scan.':!agent.online?'Démarre l’agent sur le poste choisi.':!validTarget?(kind==='map'?'Renseigne le réseau ou la plage à explorer.':'Renseigne l’adresse IP ou le nom d’hôte de la cible.'):'';
       find('#wgAgentLaunchHint').textContent=hint;find('#wgAgentLaunchHint').hidden=!hint||launching;
       if(hint)find('#wgAgentLaunch').setAttribute('aria-describedby','wgAgentLaunchHint');else find('#wgAgentLaunch').removeAttribute('aria-describedby');
       find('#wgAgentHistory').disabled = launching || !!(running && !otherScan);

@@ -34,11 +34,11 @@ async function addressHash(ip,env){
   return hex(await crypto.subtle.sign('HMAC',key,encoder.encode('WolfGuard access IP v1:'+ip)));
 }
 async function recordKey(env){return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']);}
-async function seal(value,context,env){
+export async function seal(value,context,env){
   const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode(context)},await recordKey(env),encoder.encode(JSON.stringify(value))));
   return hex(iv)+':'+btoa(String.fromCharCode(...cipher));
 }
-async function open(value,context,env){
+export async function open(value,context,env){
   if(!value)return null;const [iv,data]=value.split(':');
   return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes(iv),additionalData:encoder.encode(context)},await recordKey(env),Uint8Array.from(atob(data),char=>char.charCodeAt(0)))));
 }
@@ -56,7 +56,7 @@ export async function connectionStatement(env,request,tokenHash,now,context){
     .bind(tokenHash,random(),now,context.hash,context.ip?await seal(context.ip,'WolfGuard access v1:ip:'+context.hash,env):null,await seal(deviceName(request),'WolfGuard access v1:device:'+tokenHash,env),tokenHash);
 }
 export async function rememberConnection(env,request,tokenHash,now,context){await (await connectionStatement(env,request,tokenHash,now,context)).run();}
-async function stopRemoteOwners(env,owners,now){
+export async function stopRemoteOwners(env,owners,now){
   for(const owner of owners){
     const rows=await env.DB.prepare("SELECT id FROM remote_sessions WHERE owner_hash=? AND status IN ('requested','preparing','active')").bind(owner.token_hash).all();
     for(const row of rows.results)await closeRemote(env,row.id,'closed',now,'Session déconnectée depuis la gestion des accès.',{seal:(value,aad)=>seal(value,'WolfGuard agent v1:'+aad,env)});
@@ -64,9 +64,10 @@ async function stopRemoteOwners(env,owners,now){
 }
 export async function handleAccessAPI(request,env,now,session,h){
   const path=new URL(request.url).pathname,{fail,json,body}=h;
+  if(session.user?.role!=='admin')fail(403,'Cette gestion est réservée aux administrateurs.');
   if(path==='/api/access'&&request.method==='GET'){
     await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND expires_at>? AND active_at>?)').bind(now,now-IDLE_MS).run();
-    const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash WHERE s.generation=? AND s.expires_at>? AND s.active_at>? ORDER BY s.active_at DESC').bind(session.generation,now,now-IDLE_MS).all();
+    const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.expires_at>? AND s.active_at>? AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation,now,now-IDLE_MS).all();
     const blocked=await env.DB.prepare('SELECT * FROM access_blocks ORDER BY created_at DESC').all();
     const connections=[];
     for(const row of rows.results){
@@ -74,7 +75,7 @@ export async function handleAccessAPI(request,env,now,session,h){
         const inserted=await env.DB.prepare('INSERT INTO access_connections (token_hash,id,created_at,device_cipher) VALUES (?,?,0,?) ON CONFLICT(token_hash) DO NOTHING RETURNING id').bind(row.token_hash,random(),await seal('Session antérieure','WolfGuard access v1:device:'+row.token_hash,env)).first();
         row.id=inserted?.id||(await env.DB.prepare('SELECT id FROM access_connections WHERE token_hash=?').bind(row.token_hash).first())?.id;
       }
-      connections.push({id:row.id||null,current:row.token_hash===session.hash,ip:await open(row.ip_cipher,'WolfGuard access v1:ip:'+row.ip_hash,env),device:await open(row.device_cipher,'WolfGuard access v1:device:'+row.token_hash,env)||'Session antérieure',createdAt:row.created_at||null,lastSeen:row.active_at,expiresAt:row.expires_at,online:row.active_at>now-90000,sameIP:!!session.access.hash&&session.access.hash===row.ip_hash});
+      connections.push({id:row.id||null,current:row.token_hash===session.hash,username:row.user_id?await open(row.user_name,'WolfGuard users v1:name:'+row.user_id,env):'Ancienne session',role:row.user_role||null,ip:await open(row.ip_cipher,'WolfGuard access v1:ip:'+row.ip_hash,env),device:await open(row.device_cipher,'WolfGuard access v1:device:'+row.token_hash,env)||'Session antérieure',createdAt:row.created_at||null,lastSeen:row.active_at,expiresAt:row.expires_at,online:row.active_at>now-90000,sameIP:!!session.access.hash&&session.access.hash===row.ip_hash});
     }
     const blocks=[];for(const row of blocked.results)blocks.push({id:row.id,ip:await open(row.ip_cipher,'WolfGuard access v1:ip:'+row.ip_hash,env),createdAt:row.created_at});
     return json({connections,blocks,currentIP:session.access.ip});

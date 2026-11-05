@@ -52,7 +52,7 @@ const settingsFile=path.join(output,'js/views/settings.js');
 let settings=readFileSync(settingsFile,'utf8');
 settings=settings.replace(/<button\b[^>]*data-settings-tab="modules"[^>]*>[\s\S]*?<\/button>/g,'');
 settings=settings.replace(/<section\b[^>]*id="settings-modules"[^>]*>[\s\S]*?<\/section>/g,'');
-settings=settings.replace("['security', 'data', 'interface', 'modules', 'agents', 'access', 'history']","['security', 'data', 'interface', 'agents', 'access', 'history']");
+settings=settings.replace("['security', 'data', 'interface', 'modules', 'users', 'access', 'history']","['security', 'data', 'interface', 'users', 'access', 'history']");
 if (/data-settings-tab="modules"|id="settings-modules"|\$\{moduleManagerHTML\(\)\}/.test(settings)) throw new Error('L’import des sections Windows doit être absent des paramètres web.');
 writeFileSync(settingsFile,settings);
 let html = readFileSync(path.join(output, 'index.html'), 'utf8');

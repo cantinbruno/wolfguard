@@ -57,11 +57,13 @@ export async function handleAgentAPI(request,env,now,h){
     const agents=[];for(const row of rows.results){const metadata=await open(row.name_cipher,row.id+':name');agents.push({id:row.id,...metadata,online:row.last_seen>now-ONLINE_MS,lastSeen:row.last_seen});}return json({agents});
   }
   if(path==='/api/agents/pair'&&request.method==='POST'){
+    if(session.user.role!=='admin')fail(403,'Seul un administrateur peut associer un poste.');
     const code=random(16);await env.DB.prepare('DELETE FROM scan_pairings WHERE expires_at<=? OR generation<>?').bind(now,session.generation).run();
     const pending=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_pairings WHERE generation=?').bind(session.generation).first();if(pending.count>=3)fail(429,'Trois codes sont déjà valides. Attends leur expiration.');
     await env.DB.prepare('INSERT INTO scan_pairings (token_hash,generation,expires_at) VALUES (?,?,?)').bind(await digest(code),session.generation,now+5*60000).run();return json({code,expiresAt:now+5*60000});
   }
   if(path==='/api/agents/revoke'&&request.method==='POST'){
+    if(session.user.role!=='admin')fail(403,'Seul un administrateur peut révoquer un poste.');
     const {id}=await body();if(!validId(id))fail(400,'Agent invalide.');
     const row=await env.DB.prepare('UPDATE scan_agents SET revoked_at=? WHERE id=? AND generation=? AND revoked_at IS NULL RETURNING id').bind(now,id,session.generation).first();if(!row)fail(404,'Agent introuvable.');
     await expireRemote(env,now,remoteHelpers);

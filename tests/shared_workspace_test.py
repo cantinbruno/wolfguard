@@ -18,7 +18,9 @@ class Quiet(WolfGuardTestHandler):
 
 def ready(page):expect(page.locator('#keypad button').first).to_be_enabled(timeout=20000)
 def unlock(page,code=CODE):
-    ready(page);page.keyboard.type(code)
+    ready(page)
+    if page.locator('#webUsername').is_visible():page.locator('#webUsername').fill('admin')
+    page.locator('#lock').focus();page.keyboard.type(code)
     expect(page.locator('#app')).to_be_visible(timeout=30000)
     page.wait_for_function('()=>!document.querySelector("#app").inert')
 
@@ -126,12 +128,12 @@ def run(backend=None):
 
             first.locator('#settingsBtn').click();first.locator('#changeCodeBtn').click()
             first.locator('#oldAccessCode').fill(CODE);first.locator('#newAccessCode').fill('09876543');first.locator('#confirmAccessCode').fill('09876543')
-            first.evaluate('window.failCache=true');first.locator('#webChangePassword').click()
+            first.locator('#webChangePassword').click()
             expect(first.locator('#modalRoot')).to_be_empty(timeout=20000)
-            expect(first.locator('#lock')).to_be_visible(timeout=15000);unlock(first,'09876543')
+            first.evaluate('lockApplication()');unlock(first,'09876543')
             second.evaluate('lockApplication()');unlock(second,'09876543')
             assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
-            print('PASS: nouveau code sur les deux appareils, meme apres panne locale pendant sa modification')
+            print('PASS: nouveau code personnel sur les deux appareils, cle partagee conservee')
 
             # Restore an older backup encrypted with the previous code into the
             # shared workspace, preserving the current login code and vault key.

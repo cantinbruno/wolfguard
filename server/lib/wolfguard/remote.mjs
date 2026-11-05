@@ -27,7 +27,7 @@ export async function handleRemoteAPI(request,env,now,h){
     const {agentId}=await body();if(!validId(agentId))fail(400,'Poste invalide.');
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(agentId,auth.generation).first();
     if(!agent)fail(404,'Poste introuvable.');if(agent.last_seen<=now-20000)fail(409,'Démarre l’agent sur le poste distant.');
-    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes('remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour utiliser la prise en main.');
+    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes('remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser la prise en main.');
     const id=h.random(16);
     const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until) SELECT ?,?,?,?,'requested',?,?,?,0 WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+15000,agent.id).first();
     if(!inserted)fail(409,'Le poste exécute déjà un scan ou une prise en main. Termine cette opération avant de te connecter.');

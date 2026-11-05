@@ -4,11 +4,17 @@ export const vault = sqliteTable('vault', {
   id: integer('id').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
   generation: integer('generation').notNull(), version: integer('version').notNull(), objectKey: text('object_key'),
   failures: integer('failures').notNull(), blockedUntil: integer('blocked_until').notNull(),
-  lease: text('lease'), leaseUntil: integer('lease_until').notNull()
+  lease: text('lease'), leaseUntil: integer('lease_until').notNull(),
+  usersEnabled:integer('users_enabled').notNull().default(0),workspaceKeyCipher:text('workspace_key_cipher')
 });
 export const sessions = sqliteTable('sessions', {
   tokenHash: text('token_hash').primaryKey(), generation: integer('generation').notNull(),
-  expiresAt: integer('expires_at').notNull(), activeAt: integer('active_at').notNull()
+  expiresAt: integer('expires_at').notNull(), activeAt: integer('active_at').notNull(),userId:text('user_id'),userVersion:integer('user_version').notNull().default(0)
+});
+export const users = sqliteTable('users', {
+  id:text('id').primaryKey(),nameHash:text('name_hash').notNull().unique(),nameCipher:text('name_cipher').notNull(),role:text('role').notNull(),
+  pinSalt:text('pin_salt').notNull(),pinHash:text('pin_hash').notNull(),codeVersion:integer('code_version').notNull().default(1),
+  disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login')
 });
 export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),

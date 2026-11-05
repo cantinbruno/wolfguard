@@ -29,6 +29,13 @@
       "when": 1793881204465,
       "tag": "0003_graceful_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793893635958,
+      "tag": "0004_talented_guardian",
+      "breakpoints": true
     }
   ]
 }

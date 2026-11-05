@@ -105,14 +105,14 @@ def run():
                 expect(page.locator('#settings-tab-security')).to_have_attribute('aria-selected','true')
                 page.locator('.settings-modal').evaluate('async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))}')
                 baseline=page.locator('.settings-modal').bounding_box()
-                for tab in ['security','data','interface','agents','access','history']:
+                for tab in ['security','data','interface','users','access','history']:
                     page.locator('#settings-tab-'+tab).click()
                     expect(page.locator('#settings-tab-'+tab)).to_have_attribute('aria-selected','true')
                     box=page.locator('.settings-modal').bounding_box()
                     assert abs(box['width']-baseline['width'])<.5 and abs(box['height']-baseline['height'])<.5,(width,tab,baseline,box)
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,tab)
                     assert page.locator('.settings-main').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,tab)
-                    if width in [1440,390] and tab in ['security','agents','history']:
+                    if width in [1440,390] and tab in ['security','users','history']:
                         page.screenshot(path=str(ROOT/f'.cache/settings-fixed-{tab}-{width}.png'),animations='disabled')
                 page.locator('#closeSettingsBtn').click()
             assert not errors,errors

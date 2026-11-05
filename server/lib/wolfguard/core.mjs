@@ -2,6 +2,8 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI} from './users.mjs';
+import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
 const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 15 * 60000;
@@ -21,14 +23,14 @@ async function smallJSON(request) {
   try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(all));}catch{fail(400,'Requête invalide.');}
 }
 const codeOK = code => typeof code==='string' && /^[0-9]{8}$/.test(code);
-async function pinHash(code,salt,env) {
+export async function pinHash(code,salt,env) {
   const pepper=await crypto.subtle.importKey('raw',bytes(env.AUTH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const input=await crypto.subtle.sign('HMAC',pepper,encoder.encode('WolfGuard PIN v1:'+code));
   const material=await crypto.subtle.importKey('raw',input,'PBKDF2',false,['deriveBits']);
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:bytes(salt),iterations:100000},material,256));
 }
 async function state(env) { return env.DB.prepare('SELECT * FROM vault WHERE id = 1').first(); }
-async function verifyPIN(code,env,now) {
+async function verifyPIN(code,env,now,verifier) {
   if(!codeOK(code))fail(400,'Saisis les 8 chiffres du code.');
   const lease=random(16);
   // Count attempts before expensive verification, including crashed requests.
@@ -40,21 +42,21 @@ async function verifyPIN(code,env,now) {
     fail(429,'Patiente avant de réessayer.',{retryAfter:Math.max(1,Math.ceil((until-now)/1000))});
   }
   let valid=false;
-  try { valid=equal(await pinHash(code,row.pin_salt,env),row.pin_hash); }
+  try { valid=equal(await pinHash(code,verifier===undefined?row.pin_salt:verifier?.pin_salt||'0'.repeat(32),env),verifier===undefined?row.pin_hash:verifier?.pin_hash||'0'.repeat(64)); }
   finally {
     const deadline=now+row.failures*5000;
     await env.DB.prepare('UPDATE vault SET failures=?, blocked_until=?, lease=NULL, lease_until=0 WHERE id=1 AND lease=?')
       .bind(valid?0:row.failures,valid?0:deadline,lease).run();
   }
-  if(!valid)fail(401,'Code incorrect.',{retryAfter:row.failures*5});
+  if(!valid)fail(401,verifier===undefined?'Code incorrect.':'Nom d’utilisateur ou code incorrect.',{retryAfter:row.failures*5});
   return row;
 }
-async function issueSession(env,generation,now,request) {
+async function issueSession(env,generation,now,request,user=null) {
   const token=random(32), hash=await digest(token);
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expires_at<=? OR active_at<=? OR generation<>?').bind(now,now-IDLE_MS,generation),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at) VALUES (?,?,?,?)').bind(hash,generation,now+SESSION_MS,now),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) VALUES (?,?,?,?,?,?)').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0),
     await connectionStatement(env,request,hash,now,context)
   ]);
   try{await assertAddressAllowed(env,context,fail);}catch(error){await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash),env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash)]);throw error;}
@@ -64,12 +66,13 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING *')
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name')
     .bind(now,hash,now,now-IDLE_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   const path=new URL(request.url).pathname;
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
-  return {...session,hash,access:context};
+  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role}:{id:null,username:'Configuration initiale',role:'admin'};
+  return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
@@ -108,7 +111,7 @@ async function putSnapshot(request,env,session,now) {
     if(typeof FixedLengthStream==='function'){const fixed=new FixedLengthStream(cipherLength);pump=body.pipeTo(fixed.writable);upload=fixed.readable;}
     await Promise.all([env.BUCKET.put(objectKey,upload,{customMetadata:{format:'1',nonce,size:String(length)},httpMetadata:{contentType:'application/octet-stream'}}),pump]);
     const generation=rotation?session.generation+1:session.generation;
-    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING version')
+    const changed=await env.DB.prepare('UPDATE vault SET object_key=?,version=version+1,generation=?,pin_salt=?,pin_hash=? WHERE id=1 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM sessions s WHERE token_hash=? AND (vault.users_enabled=0 OR EXISTS(SELECT 1 FROM users u WHERE u.id=s.user_id AND u.disabled_at IS NULL AND u.code_version=s.user_version))) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) RETURNING version')
       .bind(objectKey,generation,rotation?.pin_salt||row.pin_salt,rotation?.pin_hash||row.pin_hash,expected,session.generation,session.hash,session.access.hash||'').first();
     if(!changed){await env.BUCKET.delete(objectKey);await authorize(request,env,now);fail(409,'Une autre copie a changé. Verrouille puis rouvre WolfGuard pour la récupérer.');}
     // Previous immutable objects remain available as encrypted recovery history.
@@ -149,15 +152,21 @@ export async function handleAPI(request,env,clock=Date.now) {
         response=json({token:await issueSession(env,1,now,request),version:0,exists:false});
       }else if(path==='/api/login'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
-        const {code}=await smallJSON(request);const row=await verifyPIN(code,env,now);
-        response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key});
+        const {code,username}=await smallJSON(request),current=await state(env);
+        if(current?.users_enabled){
+          const user=await findUser(username,env),row=await verifyPIN(code,env,now,user);
+          if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
+          await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
+          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:true,workspace:await workspaceMaterial(row,env)});
+        }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
-        if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
+        if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request),random,pinHash,verifyPIN,issueSession});
+        else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
-        else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true});
+        else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});
         else if(path==='/api/vault'&&request.method==='GET'){
           const row=await state(env);if(!row.object_key)fail(404,'Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
           const object=await env.BUCKET.get(row.object_key);if(!object?.body)fail(503,'Copie distante indisponible.');
@@ -165,6 +174,7 @@ export async function handleAPI(request,env,clock=Date.now) {
           response=new Response(body,{headers:{'Content-Type':'application/json','Content-Length':String(length),'X-WG-Version':String(row.version)}});
         }else if(path==='/api/vault'&&request.method==='PUT')response=await putSnapshot(request,env,session,now);
         else if(path==='/api/rotation'&&request.method==='POST'){
+          if((await state(env)).users_enabled)fail(409,'Modifie ton code personnel depuis les paramètres de sécurité.');
           const {oldCode,newCode,version}=await smallJSON(request);if(!codeOK(newCode))fail(400,'Choisis un code de 8 chiffres.');
           const row=await verifyPIN(oldCode,env,now);if(row.version!==version||row.generation!==session.generation)fail(409,'La copie distante a changé. Rouvre WolfGuard.');
           const token=random(32),salt=random(16),hash=await pinHash(newCode,salt,env);

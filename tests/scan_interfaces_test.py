@@ -40,7 +40,7 @@ def run():
                 expect(page.locator('#wgAgentTimeout')).to_have_count(1 if kind in ['active','map'] else 0)
                 expect(page.locator('.scan-setup')).to_have_count(1)
                 expect(page.locator('.scan-output')).to_be_hidden()
-                expect(page.locator('#wgAgentLaunchHint')).to_contain_text('Paramètres → Agents')
+                expect(page.locator('#wgAgentLaunchHint')).to_contain_text('Agents')
                 # The first screen has a single card, with one launch action after its fields.
                 placement=page.evaluate('''()=>{const box=s=>document.querySelector(s).getBoundingClientRect();
                   const card=box('.scan-setup'),fields=box('.scan-setup-fields'),agent=box('#wgScanAgentHost');
@@ -51,9 +51,9 @@ def run():
                 page.screenshot(path=str(ROOT/f'.cache/scan-setup-{kind}-mobile.png'),animations='disabled')
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),kind
                 page.set_viewport_size({'width':1440,'height':1000})
-            page.locator('#settingsBtn').click();page.locator('#settings-tab-agents').click()
+            page.locator('#agentsBtn').click()
             expect(page.locator('#wgAgentSelect')).to_be_visible()
-            page.locator('#closeSettingsBtn').click()
+            page.locator('#closeAgentsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
 
             navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');feed_report(page,json.dumps(PASSIVE),'Réseau passif')

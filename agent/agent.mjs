@@ -111,7 +111,7 @@ async function main(){
   try{credential=await store.load();if(credential&&(credential.api!==API||!/^[a-f0-9]{64}$/.test(credential.token)))throw new Error('Association invalide.');}catch(error){if(!process.argv.includes('--pair'))throw error;}
   const client=new AgentClient();
   if(!credential||process.argv.includes('--pair')){
-    console.log('Ouvre WolfGuard > Paramètres > Agents, puis génère un code temporaire.');
+    console.log('Ouvre WolfGuard > Agents, puis génère un code temporaire.');
     const prompt=createInterface({input:process.stdin,output:process.stdout});let code;try{code=(await prompt.question('Colle le code d’association : ')).trim();}finally{prompt.close();}
     if(!/^[a-f0-9]{32}$/.test(code))throw new Error('Code d’association invalide.');
     credential={api:API,...await client.post('enroll',{code,name:hostname().slice(0,100),platform:process.platform})};

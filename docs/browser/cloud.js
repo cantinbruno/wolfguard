@@ -2,7 +2,7 @@
 export const API_ORIGIN = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 const local = ['127.0.0.1','localhost'].includes(location.hostname);
 export const enabled = location.hostname==='wolfguard.wavetools.fr' || (local && new URLSearchParams(location.search).has('sync-test'));
-let token='',version=0,initialized=null,activation='';
+let token='',version=0,initialized=null,activation='',user=null,usersEnabled=false;
 function captureActivation(){
   const match=/^#activate=([a-f0-9]{64})$/.exec(location.hash);
   if(match){activation=match[1];history.replaceState(null,'',location.pathname+location.search);}
@@ -12,12 +12,16 @@ export const isInitialized = () => initialized;
 export const canActivate = () => !!activation;
 export const hasSession = () => !!token;
 export const currentVersion = () => version;
-export function sessionState() { return token ? {token, version} : null; }
+export const currentUser=()=>user;
+export const hasUsers=()=>usersEnabled;
+export const isAdmin=()=>!enabled||user?.role==='admin';
+export function sessionState() { return token ? {token, version,user,usersEnabled} : null; }
 export function restoreSession(value) {
   if (!enabled || !/^[a-f0-9]{64}$/.test(value?.token || '') || !Number.isSafeInteger(value.version) || value.version < 1) throw new Error('Session de reprise invalide.');
   token = value.token; version = value.version; initialized = true;
+  user=value.user||null;usersEnabled=!!value.usersEnabled;
 }
-export function detach() { token = ''; version = 0; }
+export function detach() { token = ''; version = 0;user=null;usersEnabled=false; }
 async function request(path,{method='GET',body,headers={},anonymous=false,signal,skipVersion}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
   const cancel=()=>controller.abort();
@@ -30,7 +34,7 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
-      error.code=response.status===409?'CLOUD_CONFLICT':response.status===401||response.status===403&&data.code==='ACCESS_BLOCKED'?'CLOUD_ACCESS':'CLOUD_ERROR';
+      error.code=response.status===409?'CLOUD_CONFLICT':response.status===401||response.status===403&&['ACCESS_BLOCKED','ACCOUNT_DISABLED'].includes(data.code)?'CLOUD_ACCESS':'CLOUD_ERROR';
       if(data.retryAfter)error.retryAfter=Number(data.retryAfter);
       if(error.code==='CLOUD_ACCESS'&&credential&&!anonymous)window.dispatchEvent?.(new CustomEvent('wolfguard-access-revoked',{detail:error.message}));
       throw error;
@@ -48,8 +52,13 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
 }
 const post = async(path,value,options={}) => (await request(path,{...options,method:'POST',body:JSON.stringify(value),headers:{'Content-Type':'application/json',...options.headers}})).data;
 export async function status(){const {data}=await request('status',{anonymous:true});initialized=!!data.initialized;return initialized;}
-export async function login(code){
-  const data=await post('login',{code},{anonymous:true});token=data.token;version=data.version;initialized=true;return data;
+function acceptIdentity(data){
+  if(Object.hasOwn(data,'user'))user=data.user;
+  if(Object.hasOwn(data,'usersEnabled'))usersEnabled=!!data.usersEnabled;
+  window.dispatchEvent?.(new CustomEvent('wolfguard-user-changed'));
+}
+export async function login(code,username){
+  const data=await post('login',{code,username},{anonymous:true});token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 export async function initialize(code){
   if(!activation)throw new Error('Le partage doit être activé une seule fois depuis le lien privé sur ton appareil principal.');
@@ -77,13 +86,16 @@ export async function save(envelope,rotation){
   version=data.version;if(data.token)token=data.token;
 }
 export async function prepareRotation(oldCode,newCode){return (await post('rotation',{oldCode,newCode,version})).rotation;}
-export async function touch(){if(token)await post('touch',{});}
+export async function me(){const data=(await request('me')).data;acceptIdentity(data);return data;}
+export async function initializeUsers(value){const data=await post('users/initialize',{...value,version});acceptIdentity(data);return data;}
+export async function changePersonalCode(oldCode,code){const data=await post('users/change-code',{oldCode,code});token=data.token;acceptIdentity(data);return data;}
+export async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:users(?:\/(?:create|update|reset-code|delete|disconnect|verify-code))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 export function clear(){
   if(token)request('logout',{method:'POST'}).catch(()=>{});
-  token='';version=0;
+  token='';version=0;user=null;usersEnabled=false;
 }
