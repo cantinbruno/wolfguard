@@ -30,7 +30,7 @@ def run():
                 return result
             owner=context('192.0.2.1');guest=context('192.0.2.2');owner.add_init_script("localStorage.setItem('wolfguard-username-v1','previous@example.test')");first=owner.new_page();first.on('pageerror',lambda error:errors.append(str(error)))
             first.goto(origin+'/?sync-test');ready(first)
-            expect(first.locator('#webUsername')).to_have_value('');assert first.evaluate("localStorage.getItem('wolfguard-username-v1')") is None
+            expect(first.locator('#webUsername')).to_have_value('');expect(first.locator('#webUsername')).to_have_accessible_name('Nom d’utilisateur');assert first.evaluate("localStorage.getItem('wolfguard-username-v1')") is None
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const payload={version:2,items:[{id:'personal-preserved',type:'memo',title:'Fiche conservée',content:'<p>Contenu avant les utilisateurs</p>',tags:[],commandBlocks:[]}],folders:[],settings:[],activity:[]};const result=await c.create(payload,'07942685');payload.items.push({id:'retained-vault',type:'vault',title:'Ancienne donnée',vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({password:'synthetic-retained-secret'}),result.key)});await s.write(await c.seal(payload,result.key,result.salt,1),0)}""")
             first.goto(origin+'/?sync-test&users-test#activate='+('b'*64));ready(first)
             first.locator('#webUsername').fill('cantin.bruno@gmx.fr');first.locator('#lock').focus();first.keyboard.type(CODE)
@@ -48,7 +48,7 @@ def run():
             def users():
                 first.locator('#settingsBtn').click();first.locator('#settings-tab-users').click()
             users();expect(first.locator('#settings-tab-agents,#wgUserRole')).to_have_count(0)
-            expect(first.locator('#webUsername')).to_have_attribute('type','email')
+            expect(first.locator('#webUsername')).to_have_attribute('type','text')
             expect(first.locator('#wgUsersList')).to_contain_text('cantin.bruno@gmx.fr')
             first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice@example.test');first.locator('#wgUserCode').fill('12345678');first.locator('#wgUserSave').click()
             expect(first.locator('#wgUsersList')).to_contain_text('alice@example.test')
