@@ -32,12 +32,17 @@ namespace WolfGuard {
     readonly string home = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WolfGuardAgent");
     readonly JavaScriptSerializer json = new JavaScriptSerializer();
     readonly Grid root;
-    readonly TextBlock statusTitle, detail, progressLabel, lastActivity;
+    readonly TextBlock statusTitle, detail, progressLabel, lastActivity, stateBadge, actionHint, scanStatus, remoteStatus, machineName, footerHint;
     readonly Ellipse dot;
+    readonly Border stateCard, badgeSurface, activitySection;
+    readonly Grid capabilities;
+    readonly StackPanel activityList;
+    readonly List<ActivityEntry> activity = new List<ActivityEntry>();
     readonly ProgressBar progress;
     readonly StackPanel pairing;
     readonly TextBox code;
-    readonly Button pairButton, mainButton;
+    readonly Button pairButton, mainButton, hideButton, optionsButton, pasteButton;
+    readonly MenuItem repairMenu;
     System.Windows.Forms.NotifyIcon tray;
     System.Windows.Forms.ToolStripMenuItem remoteStop;
     System.Drawing.Icon trayIcon;
@@ -47,44 +52,68 @@ namespace WolfGuard {
     string lastActivityMessage;
     bool closing, canClose, preparing, preview;
     public bool RequestPair { get; set; }
+    sealed class ActivityEntry { public string Time, Message, Color; }
 
     public AgentWindow(bool previewMode) : this(previewMode, true) { }
     internal AgentWindow(bool previewMode, bool prepareEngine) {
       preview = previewMode;
       Title = "WolfGuard Agent";
-      Width = 440; Height = 340; MinWidth = 360; MinHeight = 280;
+      Width = 720; Height = 680; MinWidth = 600; MinHeight = 560;
       WindowStartupLocation = WindowStartupLocation.CenterScreen;
-      Background = Brush("#0e1928"); Foreground = Brush("#edf2f7");
+      Background = Brush("#0b111c"); Foreground = Brush("#edf3fb");
       FontFamily = new FontFamily("Segoe UI");
-      string xaml = @"<Grid xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' Background='#0e1928'>
+      UseLayoutRounding = true; SnapsToDevicePixels = true;
+      string xaml = @"<Grid xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml' Background='#0b111c'>
 <Grid.Resources>
- <Style TargetType='TextBlock'><Setter Property='Foreground' Value='#edf2f7'/></Style>
- <Style TargetType='Button'><Setter Property='Foreground' Value='#e7edf6'/><Setter Property='Background' Value='#21344a'/><Setter Property='Padding' Value='18,11'/><Setter Property='Margin' Value='0,0,8,0'/><Setter Property='BorderThickness' Value='0'/><Setter Property='Cursor' Value='Hand'/><Setter Property='FontSize' Value='13'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border Background='{TemplateBinding Background}' Padding='{TemplateBinding Padding}' CornerRadius='8'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></Border><ControlTemplate.Triggers><Trigger Property='IsMouseOver' Value='True'><Setter Property='Opacity' Value='0.82'/></Trigger><Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.45'/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ <Style TargetType='TextBlock'><Setter Property='Foreground' Value='#edf3fb'/><Setter Property='FontSize' Value='13'/></Style>
+ <Style TargetType='Button'><Setter Property='Foreground' Value='#dce7f5'/><Setter Property='Background' Value='#1a293c'/><Setter Property='BorderBrush' Value='#364961'/><Setter Property='BorderThickness' Value='1'/><Setter Property='Padding' Value='18,11'/><Setter Property='MinHeight' Value='44'/><Setter Property='Cursor' Value='Hand'/><Setter Property='FontSize' Value='13'/><Setter Property='FontWeight' Value='SemiBold'/><Setter Property='FocusVisualStyle' Value='{x:Null}'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='Button'><Border x:Name='Surface' Background='{TemplateBinding Background}' BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}' Padding='{TemplateBinding Padding}' CornerRadius='8'><ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center' RecognizesAccessKey='True'/></Border><ControlTemplate.Triggers><Trigger Property='IsMouseOver' Value='True'><Setter TargetName='Surface' Property='BorderBrush' Value='#a6c4e3'/></Trigger><Trigger Property='IsPressed' Value='True'><Setter TargetName='Surface' Property='Opacity' Value='0.72'/></Trigger><Trigger Property='IsKeyboardFocused' Value='True'><Setter TargetName='Surface' Property='BorderBrush' Value='#ffffff'/><Setter TargetName='Surface' Property='BorderThickness' Value='2'/></Trigger><Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.4'/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ <Style TargetType='TextBox'><Setter Property='Foreground' Value='#edf3fb'/><Setter Property='Background' Value='#0b1320'/><Setter Property='CaretBrush' Value='#c8e1fa'/><Setter Property='BorderBrush' Value='#425a77'/><Setter Property='BorderThickness' Value='1'/><Setter Property='Padding' Value='12,11'/><Setter Property='VerticalContentAlignment' Value='Center'/><Setter Property='SelectionBrush' Value='#385a7d'/><Style.Triggers><Trigger Property='IsKeyboardFocused' Value='True'><Setter Property='BorderBrush' Value='#bed7ef'/><Setter Property='BorderThickness' Value='2'/></Trigger><Trigger Property='IsEnabled' Value='False'><Setter Property='Opacity' Value='0.5'/></Trigger></Style.Triggers></Style>
+ <Style TargetType='ProgressBar'><Setter Property='Height' Value='6'/><Setter Property='Foreground' Value='#bed7ef'/><Setter Property='Background' Value='#26374c'/><Setter Property='BorderThickness' Value='0'/></Style>
+ <Style TargetType='ScrollBar'><Setter Property='Width' Value='8'/><Setter Property='Background' Value='#0b111c'/><Setter Property='Template'><Setter.Value><ControlTemplate TargetType='ScrollBar'><Grid Background='{TemplateBinding Background}'><Track x:Name='PART_Track' Orientation='Vertical' IsDirectionReversed='True' Minimum='{TemplateBinding Minimum}' Maximum='{TemplateBinding Maximum}' Value='{TemplateBinding Value}' ViewportSize='{TemplateBinding ViewportSize}'><Track.DecreaseRepeatButton><RepeatButton Command='ScrollBar.PageUpCommand' Opacity='0' IsTabStop='False'/></Track.DecreaseRepeatButton><Track.Thumb><Thumb Background='#405570'><Thumb.Template><ControlTemplate TargetType='Thumb'><Border Background='{TemplateBinding Background}' CornerRadius='3' Margin='2,0'/></ControlTemplate></Thumb.Template></Thumb></Track.Thumb><Track.IncreaseRepeatButton><RepeatButton Command='ScrollBar.PageDownCommand' Opacity='0' IsTabStop='False'/></Track.IncreaseRepeatButton></Track></Grid></ControlTemplate></Setter.Value></Setter></Style>
 </Grid.Resources>
-<ScrollViewer VerticalScrollBarVisibility='Auto' HorizontalScrollBarVisibility='Disabled'>
- <StackPanel Margin='24'>
-  <StackPanel Orientation='Horizontal' Margin='0,0,0,20'>
-   <Viewbox x:Name='LogoHost' Height='32' Width='32' Margin='0,0,10,0'/>
-   <TextBlock Text='WolfGuard Agent' FontSize='18' FontWeight='SemiBold' VerticalAlignment='Center'/>
+<Grid Margin='28'>
+ <Grid.RowDefinitions><RowDefinition Height='Auto'/><RowDefinition Height='*'/><RowDefinition Height='Auto'/></Grid.RowDefinitions>
+ <Grid Margin='0,0,0,20'>
+  <Grid.ColumnDefinitions><ColumnDefinition Width='Auto'/><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions>
+  <Border Width='52' Height='52' Background='#142236' CornerRadius='12' Margin='0,0,14,0'><Viewbox x:Name='LogoHost' Width='38' Height='38'/></Border>
+  <StackPanel Grid.Column='1' VerticalAlignment='Center'><TextBlock Text='WolfGuard' FontSize='23' FontWeight='SemiBold'/><TextBlock Text='Agent de poste' FontSize='12' Foreground='#95a8c0' Margin='0,2,0,0'/></StackPanel>
+  <Button x:Name='OptionsButton' Grid.Column='2' Content='•••' Width='44' Padding='8' Background='Transparent' BorderBrush='#2a3b51' FontSize='16' AutomationProperties.Name='Options de l’agent' ToolTip='Options de l’agent'/>
+ </Grid>
+ <ScrollViewer Grid.Row='1' VerticalScrollBarVisibility='Auto' HorizontalScrollBarVisibility='Disabled' Padding='0,0,4,0' CanContentScroll='False'>
+  <StackPanel>
+   <Border x:Name='StateCard' Background='#132032' BorderBrush='#30445e' BorderThickness='1' CornerRadius='14' Padding='20'>
+    <StackPanel>
+     <Grid Margin='0,0,0,12'><Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions><TextBlock Text='CONNEXION À WOLFGUARD' FontSize='10' FontWeight='SemiBold' Foreground='#93a9c2' VerticalAlignment='Center'/><Border x:Name='BadgeSurface' Grid.Column='1' Background='#26374b' CornerRadius='6' Padding='8,5'><StackPanel Orientation='Horizontal'><Ellipse x:Name='StateDot' Width='6' Height='6' Fill='#bed7ef' Margin='0,0,7,0'/><TextBlock x:Name='StateBadge' Text='EN COURS' FontSize='9' FontWeight='SemiBold'/></StackPanel></Border></Grid>
+     <TextBlock x:Name='StateTitle' Text='Préparation…' FontSize='30' FontWeight='SemiBold' TextWrapping='Wrap'/>
+     <TextBlock x:Name='StateDetail' Text='Préparation de l’agent.' FontSize='13' LineHeight='20' Foreground='#b2c2d6' TextWrapping='Wrap' Margin='0,8,0,0'/>
+     <ProgressBar x:Name='StateProgress' Margin='0,14,0,0' Minimum='0' Maximum='100' IsIndeterminate='True'/>
+     <TextBlock x:Name='ProgressLabel' FontSize='12' Foreground='#bed7ef' Margin='0,6,0,0' Visibility='Collapsed'/>
+     <TextBlock x:Name='ActionHint' FontSize='11' LineHeight='18' Foreground='#8fa6bf' TextWrapping='Wrap' Margin='0,14,0,0'/>
+     <StackPanel x:Name='Pairing' Margin='0,18,0,0' Visibility='Collapsed'>
+      <Border BorderBrush='#2e435e' BorderThickness='0,1,0,0' Padding='0,16,0,0'><StackPanel>
+       <TextBlock Text='Code temporaire d’association' FontSize='12' FontWeight='SemiBold'/>
+       <Grid Margin='0,9,0,0'><Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions><TextBox x:Name='PairCode' MaxLength='64' FontFamily='Consolas' FontSize='14' SpellCheck.IsEnabled='False' AutomationProperties.Name='Code temporaire d’association'/><Button x:Name='PasteButton' Grid.Column='1' Content='Coller' Margin='8,0,0,0' Padding='13,8' AutomationProperties.Name='Coller le code d’association'/></Grid>
+       <Button x:Name='PairButton' Content='Associer ce poste' Background='#bed7ef' Foreground='#102033' BorderBrush='#bed7ef' HorizontalAlignment='Left' Margin='0,12,0,0'/>
+       <TextBlock Text='Code à usage unique généré dans le site · Agents → Ajouter un poste.' FontSize='11' Foreground='#8fa6bf' TextWrapping='Wrap' Margin='0,8,0,0'/>
+      </StackPanel></Border>
+     </StackPanel>
+    </StackPanel>
+   </Border>
+   <Grid x:Name='Capabilities' Margin='0,14,0,0'>
+    <Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='16'/><ColumnDefinition Width='*'/></Grid.ColumnDefinitions>
+    <Border Background='#101b2a' BorderBrush='#25364b' BorderThickness='1' CornerRadius='10' Padding='16'><Grid><Grid.ColumnDefinitions><ColumnDefinition Width='Auto'/><ColumnDefinition Width='*'/></Grid.ColumnDefinitions><Border Background='#1d3045' CornerRadius='7' Width='32' Height='32' VerticalAlignment='Top' Margin='0,0,11,0'><Path Stroke='#bed7ef' StrokeThickness='1.3' Stretch='Uniform' Width='17' Height='17' Data='M 3,2 L 13,2 13,8 3,8 Z M 8,8 L 8,12 M 2,15 L 2,12 14,12 14,15 M 0,15 L 4,15 4,18 0,18 Z M 6,15 L 10,15 10,18 6,18 Z M 12,15 L 16,15 16,18 12,18 Z'/></Border><StackPanel Grid.Column='1'><TextBlock Text='Scans et audit' FontWeight='SemiBold' FontSize='12'/><TextBlock x:Name='ScanStatus' Text='En attente' Foreground='#9fb4cb' FontSize='12' TextWrapping='Wrap' Margin='0,5,0,0'/><TextBlock Text='Réseau et sécurité du poste' FontSize='10' Foreground='#738ca8' TextWrapping='Wrap' Margin='0,5,0,0'/></StackPanel></Grid></Border>
+    <Border Grid.Column='2' Background='#101b2a' BorderBrush='#25364b' BorderThickness='1' CornerRadius='10' Padding='16'><Grid><Grid.ColumnDefinitions><ColumnDefinition Width='Auto'/><ColumnDefinition Width='*'/></Grid.ColumnDefinitions><Border Background='#1d3045' CornerRadius='7' Width='32' Height='32' VerticalAlignment='Top' Margin='0,0,11,0'><Path Stroke='#bed7ef' StrokeThickness='1.3' Stretch='Uniform' Width='17' Height='17' Data='M 1,1 L 17,1 17,12 1,12 Z M 9,12 L 9,16 M 5,16 L 13,16 M 12,6 L 17,6 M 15,4 L 17,6 15,8'/></Border><StackPanel Grid.Column='1'><TextBlock Text='Prise en main' FontWeight='SemiBold' FontSize='12'/><TextBlock x:Name='RemoteStatus' Text='Inactive' Foreground='#9fb4cb' FontSize='12' TextWrapping='Wrap' Margin='0,5,0,0'/><TextBlock Text='Bureau, souris et clavier' FontSize='10' Foreground='#738ca8' TextWrapping='Wrap' Margin='0,5,0,0'/></StackPanel></Grid></Border>
+   </Grid>
+   <Border x:Name='ActivitySection' BorderBrush='#243449' BorderThickness='0,1,0,0' Margin='0,16,0,0' Padding='0,12,0,0'>
+    <StackPanel><TextBlock Text='ACTIVITÉ RÉCENTE' FontSize='10' Foreground='#829bb6' FontWeight='SemiBold' Margin='0,0,0,10'/><TextBlock x:Name='LastActivity' FontSize='12' Text='Aucune opération depuis cette ouverture.' Foreground='#9dafc5' TextTrimming='CharacterEllipsis'/><StackPanel x:Name='ActivityList'/></StackPanel>
+   </Border>
   </StackPanel>
-  <Border Background='#17273b' BorderBrush='#30465e' BorderThickness='1' CornerRadius='12' Padding='18'>
-   <StackPanel>
-    <StackPanel Orientation='Horizontal'><Ellipse x:Name='StateDot' Width='11' Height='11' Fill='#f6aa5d' Margin='0,0,10,0'/><TextBlock x:Name='StateTitle' Text='Préparation…' FontSize='24' FontWeight='SemiBold'/></StackPanel>
-    <TextBlock x:Name='StateDetail' Text='Préparation de l’agent.' FontSize='13' Foreground='#b4c2d4' TextWrapping='Wrap' Margin='0,8,0,0'/>
-    <ProgressBar x:Name='StateProgress' Height='6' Margin='0,16,0,0' Minimum='0' Maximum='100' Foreground='#f6aa5d' Background='#263d56' BorderThickness='0' IsIndeterminate='True'/>
-    <TextBlock x:Name='ProgressLabel' FontSize='12' Foreground='#b4c2d4' Margin='0,6,0,0' Visibility='Collapsed'/>
-    <TextBlock x:Name='LastActivity' FontSize='12' Foreground='#9aadc3' TextWrapping='Wrap' Margin='0,12,0,0' Visibility='Collapsed'/>
-   </StackPanel>
-  </Border>
-  <StackPanel x:Name='Pairing' Margin='0,20,0,0' Visibility='Collapsed'>
-   <TextBlock Text='Code temporaire d’association' FontSize='13' FontWeight='SemiBold'/>
-   <TextBlock Text='Sur le site : Agents → Générer un code.' FontSize='12' Foreground='#9aadc3' TextWrapping='Wrap' Margin='0,5,0,10'/>
-   <TextBox x:Name='PairCode' MaxLength='32' FontFamily='Consolas' FontSize='17' Padding='11' Foreground='#edf2f7' Background='#0b1420' BorderBrush='#405b77' SelectionBrush='#936037' AutomationProperties.Name='Code temporaire d’association'/>
-   <Button x:Name='PairButton' Content='Associer ce poste' Background='#f6aa5d' Foreground='#132033' FontWeight='SemiBold' HorizontalAlignment='Left' Margin='0,10,0,0'/>
-  </StackPanel>
-  <Button x:Name='MainButton' Content='Démarrer' FontWeight='SemiBold' Height='44' Margin='0,18,0,0' IsEnabled='False'/>
+ </ScrollViewer>
+ <StackPanel Grid.Row='2' Margin='0,20,0,0'>
+  <Border BorderBrush='#243449' BorderThickness='0,1,0,0' Padding='0,16,0,0'><Grid><Grid.ColumnDefinitions><ColumnDefinition Width='*'/><ColumnDefinition Width='Auto'/></Grid.ColumnDefinitions><StackPanel VerticalAlignment='Center' Margin='0,0,12,0'><TextBlock x:Name='MachineName' FontSize='12' FontWeight='SemiBold' TextTrimming='CharacterEllipsis'/><TextBlock Text='Cet ordinateur · Windows' Foreground='#738ca8' FontSize='10' Margin='0,4,0,0'/></StackPanel><StackPanel Grid.Column='1' Orientation='Horizontal'><Button x:Name='HideButton' Content='Masquer' Background='Transparent' BorderBrush='#2d4058' Padding='14,10' Margin='0,0,8,0' ToolTip='Garder l’agent près de l’horloge Windows'/><Button x:Name='MainButton' Content='Démarrer' MinWidth='138' IsEnabled='False'/></StackPanel></Grid></Border>
+  <TextBlock x:Name='FooterHint' Text='Fermer cette fenêtre garde l’agent près de l’horloge Windows.' FontSize='10' Foreground='#738ca8' TextWrapping='Wrap' Margin='0,11,0,0'/>
  </StackPanel>
-</ScrollViewer></Grid>";
+</Grid></Grid>";
       root = (Grid)XamlReader.Parse(xaml); Content = root;
       ((Viewbox)root.FindName("LogoHost")).Child = Logo();
       statusTitle = (TextBlock)root.FindName("StateTitle"); detail = (TextBlock)root.FindName("StateDetail");
@@ -92,6 +121,25 @@ namespace WolfGuard {
       dot = (Ellipse)root.FindName("StateDot"); progress = (ProgressBar)root.FindName("StateProgress");
       pairing = (StackPanel)root.FindName("Pairing"); code = (TextBox)root.FindName("PairCode");
       pairButton = (Button)root.FindName("PairButton"); mainButton = (Button)root.FindName("MainButton");
+      stateBadge = (TextBlock)root.FindName("StateBadge"); actionHint = (TextBlock)root.FindName("ActionHint");
+      scanStatus = (TextBlock)root.FindName("ScanStatus"); remoteStatus = (TextBlock)root.FindName("RemoteStatus");
+      machineName = (TextBlock)root.FindName("MachineName"); footerHint = (TextBlock)root.FindName("FooterHint");
+      stateCard = (Border)root.FindName("StateCard"); badgeSurface = (Border)root.FindName("BadgeSurface");
+      capabilities = (Grid)root.FindName("Capabilities"); activityList = (StackPanel)root.FindName("ActivityList");
+      activitySection = (Border)root.FindName("ActivitySection");
+      hideButton = (Button)root.FindName("HideButton"); optionsButton = (Button)root.FindName("OptionsButton"); pasteButton = (Button)root.FindName("PasteButton");
+      machineName.Text = preview ? "POSTE-WINDOWS" : Environment.MachineName;
+      ContextMenu options = new ContextMenu { Background = Brush("#132032"), Foreground = Brush("#edf3fb"), BorderBrush = Brush("#3b516b"), BorderThickness = new Thickness(1), Padding = new Thickness(5), FontSize = 13 };
+      repairMenu = new MenuItem { Header = "Associer à nouveau ce poste" };
+      repairMenu.Click += delegate { if (MessageBox.Show(this, "La nouvelle association interrompt les scans et la prise en main en cours. Continuer ?", "Associer ce poste", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes) Send(new {type = "repair"}); };
+      options.Items.Add(repairMenu); options.Items.Add(new Separator());
+      MenuItem quitMenu = new MenuItem { Header = "Quitter l’agent", Foreground = Brush("#efb4b0") }; quitMenu.Click += async delegate { await Quit(); }; options.Items.Add(quitMenu);
+      optionsButton.ContextMenu = options;
+      optionsButton.Click += delegate { options.PlacementTarget = optionsButton; options.IsOpen = true; };
+      hideButton.Click += delegate { if (!preview) { ShowInTaskbar = false; Hide(); } };
+      pasteButton.Click += delegate { try { if (Clipboard.ContainsText()) { string pasted = Clipboard.GetText().Trim(); if (!System.Text.RegularExpressions.Regex.IsMatch(pasted, "^[a-fA-F0-9]{32}$")) { detail.Text = "Copie le code temporaire de 32 caractères depuis la fenêtre Agents du site."; code.Focus(); return; } code.Text = pasted; code.Focus(); code.CaretIndex = code.Text.Length; } } catch { detail.Text = "Le presse-papiers est indisponible. Colle le code avec Ctrl+V."; } };
+      code.KeyDown += delegate(object sender, System.Windows.Input.KeyEventArgs e) { if (e.Key == System.Windows.Input.Key.Enter && pairButton.IsEnabled) { e.Handled = true; pairButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); } };
+      code.TextChanged += delegate { pairButton.IsEnabled = currentState != "enrolling" && ValidPairCode(); };
       Icon = LogoBitmap(64);
       pairButton.Click += delegate {
         string value = code.Text.Trim().ToLowerInvariant();
@@ -117,7 +165,11 @@ namespace WolfGuard {
         SourceInitialized += delegate { HwndSource.FromHwnd(new WindowInteropHelper(this).Handle).AddHook(WindowMessage); };
         Closed += delegate { DisposeTray(); if (Application.Current != null) Application.Current.SessionEnding -= SessionEnding; };
         if (Application.Current != null) Application.Current.SessionEnding += SessionEnding;
-        if (prepareEngine) Loaded += async delegate { Height = Math.Min(Height, SystemParameters.WorkArea.Height - 32); await Prepare(); };
+        if (prepareEngine) Loaded += async delegate {
+          double availableHeight = Math.Max(320, SystemParameters.WorkArea.Height - 32), availableWidth = Math.Max(440, SystemParameters.WorkArea.Width - 32);
+          MinHeight = Math.Min(MinHeight, availableHeight); MinWidth = Math.Min(MinWidth, availableWidth);
+          Height = Math.Min(Height, availableHeight); Width = Math.Min(Width, availableWidth); await Prepare();
+        };
       }
     }
 
@@ -192,16 +244,34 @@ namespace WolfGuard {
       PngBitmapEncoder encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));
       using (FileStream stream = File.Create(file)) encoder.Save(stream);
     }
-    public void Preview(string state, string file) {
-      string message = state == "scanning" || state == "scanning-unknown" ? "Scan actif en cours. Les résultats remontent sur le site." : state == "remote" ? "Prise en main active. Le bureau, la souris et le clavier sont partagés." : state == "remote-preparing" ? "Préparation de la prise en main. Chargement du bureau…" : state == "completed" ? "Scan terminé. Les résultats sont disponibles sur le site." : state == "failed" ? "Le scan a échoué. Consulte le rapport sur le site." : state == "cancelled" ? "Scan arrêté." : state == "connected" ? "Prêt à recevoir un scan ou une prise en main depuis WolfGuard." : state == "offline" ? "Connexion interrompue. Nouvelle tentative automatique." : "Colle le code temporaire généré dans WolfGuard.";
+    public void Preview(string state, string file) { Preview(state, file, 720, 640); }
+    public void Preview(string state, string file, int width, int height) {
+      Dictionary<string, string> messages = new Dictionary<string, string> {
+        {"preparing", "Premier lancement : préparation des composants nécessaires."}, {"pairing", "Associe cet ordinateur à ton espace WolfGuard."}, {"enrolling", "Vérification du code temporaire et association du poste…"}, {"revoked", "L’association de ce poste n’est plus valide. Génère un nouveau code."},
+        {"connecting", "Connexion sécurisée à WolfGuard…"}, {"connected", "Le poste est connecté et disponible pour tes opérations."}, {"scanning", "Scan actif en cours. Les résultats remontent sur le site."}, {"scanning-unknown", "Scan actif en cours. Les résultats remontent sur le site."},
+        {"completed", "Scan terminé. Les résultats sont disponibles sur le site."}, {"failed", "Le scan a échoué. Consulte le rapport sur le site."}, {"cancelled", "Scan arrêté. Les observations reçues restent disponibles sur le site."}, {"remote-preparing", "Préparation de la prise en main. Chargement du bureau…"}, {"remote", "Le bureau, la souris et le clavier sont partagés."},
+        {"offline", "Connexion interrompue. Nouvelle tentative automatique."}, {"stopping", "Arrêt des opérations et suspension de la connexion…"}, {"stopped", "La connexion est suspendue. Reprends-la pour rendre ce poste disponible."}, {"error", "La connexion n’a pas pu démarrer. Vérifie ton accès à Internet puis réessaie."}
+      };
+      string message = messages.ContainsKey(state) ? messages[state] : "";
       string renderedState = state == "scanning-unknown" ? "scanning" : state;
       if (state == "connected-after-scan") { SetState("completed", "Scan terminé. Les résultats sont disponibles sur le site.", 100, 100); renderedState = "connected"; message = "Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site."; }
       SetState(renderedState, message, state == "scanning" ? 37 : 0, state == "scanning" ? 100 : 0);
-      int height = state == "pairing" ? 540 : 340;
-      SavePng(Render(root, 440, height), file);
+      SavePng(Render(root, width, height), file);
       List<string> buttons = new List<string>();
       VisibleButtons(root, buttons);
-      File.WriteAllText(System.IO.Path.ChangeExtension(file, ".json"), json.Serialize(new {state, title = statusTitle.Text, detail = detail.Text, buttons, actionEnabled = mainButton.IsEnabled, progressVisible = progress.Visibility == Visibility.Visible, indeterminate = progress.IsIndeterminate, progress = progress.Value, progressLabel = progressLabel.Text, lastActivity = lastActivity.Text}), new UTF8Encoding(false));
+      File.WriteAllText(System.IO.Path.ChangeExtension(file, ".json"), json.Serialize(new {state, title = statusTitle.Text, detail = detail.Text, buttons, actionEnabled = mainButton.IsEnabled, progressVisible = progress.Visibility == Visibility.Visible, indeterminate = progress.IsIndeterminate, progress = progress.Value, progressLabel = progressLabel.Text, lastActivity = lastActivity.Text, badge = stateBadge.Text, scan = scanStatus.Text, remote = remoteStatus.Text, pairingVisible = pairing.Visibility == Visibility.Visible, pairEnabled = pairButton.IsEnabled, activityCount = activity.Count, primaryBounds = Bounds(mainButton), pairBounds = Bounds(pairButton), footerBounds = Bounds(footerHint)}), new UTF8Encoding(false));
+    }
+    object Bounds(FrameworkElement element) { Point point = element.TranslatePoint(new Point(0, 0), root); return new { x = point.X, y = point.Y, width = element.ActualWidth, height = element.ActualHeight, visible = element.Visibility == Visibility.Visible && element.ActualWidth > 0 && element.ActualHeight > 0 }; }
+    bool ValidPairCode() { return System.Text.RegularExpressions.Regex.IsMatch(code.Text.Trim(), "^[a-fA-F0-9]{32}$"); }
+    void RememberActivity(string message, string color) {
+      activity.Insert(0, new ActivityEntry { Time = preview ? "14:32" : DateTime.Now.ToString("HH:mm"), Message = message, Color = color });
+      if (activity.Count > 3) activity.RemoveAt(activity.Count - 1);
+      lastActivityMessage = activity[0].Time + "  ·  " + activity[0].Message;
+      lastActivity.Text = lastActivityMessage; lastActivity.ToolTip = activity[0].Message;
+      lastActivity.Foreground = Brush(activity[0].Color); activityList.Children.Clear();
+      for (int index = 1; index < activity.Count; index++) {
+        ActivityEntry entry = activity[index]; activityList.Children.Add(new TextBlock { Text = entry.Time + "  ·  " + entry.Message, FontSize = 11, Foreground = Brush("#8097b1"), TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 7, 0, 0), ToolTip = entry.Message });
+      }
     }
     static void VisibleButtons(DependencyObject parent, List<string> buttons) {
       UIElement element = parent as UIElement;
@@ -216,7 +286,7 @@ namespace WolfGuard {
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
         {"remote-preparing","Ouverture du bureau"},{"remote","Prise en main active"},{"connected","Prêt"},{"scanning","Scan en cours"},{"completed","Scan terminé"},{"cancelled","Scan arrêté"},
-        {"failed","Échec du scan"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","Arrêté"},{"error","Action nécessaire"}
+        {"failed","Échec du scan"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","En pause"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
       if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
@@ -224,24 +294,40 @@ namespace WolfGuard {
       if (remoteStop != null) remoteStop.Enabled = remote;
       bool active = remote || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled";
       detail.Text = message.Length > 500 ? message.Substring(0, 500) : message;
-      if (state == "completed" || state == "cancelled" || state == "failed" || state == "connected" && (previousState == "remote" || previousState == "remote-preparing")) lastActivityMessage = DateTime.Now.ToString("HH:mm:ss") + " · " + detail.Text;
-      lastActivity.Text = lastActivityMessage ?? "";
-      lastActivity.Visibility = state == "connected" && lastActivityMessage != null ? Visibility.Visible : Visibility.Collapsed;
-      dot.Fill = Brush(state == "remote" || state == "scanning" ? "#f6aa5d" : active ? "#6bd5ac" : state == "stopped" ? "#8fa5bd" : state == "offline" || state == "error" || state == "revoked" || state == "failed" ? "#ff978d" : "#f6aa5d");
+      string color = remote ? "#e7b97e" : state == "scanning" ? "#bed7ef" : active ? "#91cbb2" : state == "offline" || state == "error" || state == "failed" ? "#ef9e9c" : "#a4b9cf";
+      dot.Fill = Brush(color); stateBadge.Foreground = Brush(color);
+      stateBadge.Text = remote ? (state == "remote" ? "BUREAU PARTAGÉ" : "OUVERTURE") : state == "scanning" ? "SCAN EN COURS" : active ? "EN LIGNE" : state == "stopped" ? "EN PAUSE" : state == "offline" ? "RECONNEXION" : state == "error" || state == "failed" ? "À VÉRIFIER" : state == "pairing" || state == "revoked" ? "À ASSOCIER" : "EN COURS";
+      badgeSurface.Background = Brush(remote ? "#3a3025" : active && state != "scanning" ? "#20372f" : state == "offline" || state == "error" || state == "failed" ? "#3b2930" : "#22344a");
+      stateCard.BorderBrush = Brush(remote ? "#8d7049" : state == "offline" || state == "error" || state == "failed" ? "#78505a" : "#30445e");
+      scanStatus.Text = state == "scanning" ? "Collecte en cours" : remote ? "Poste occupé" : state == "connected" || state == "completed" || state == "cancelled" ? "Disponible depuis le site" : state == "stopped" ? "Suspendus" : "En attente de connexion";
+      remoteStatus.Text = state == "remote" ? "Partage en cours" : state == "remote-preparing" ? "Ouverture du bureau…" : "Aucun partage actif";
+      scanStatus.Foreground = Brush(state == "scanning" ? "#bed7ef" : active && !remote ? "#91cbb2" : "#9fb4cb");
+      remoteStatus.Foreground = Brush(remote ? "#e7b97e" : "#9fb4cb");
+      actionHint.Text = remote ? "Termine le partage avec le bouton ci-dessous. L’agent restera connecté." : state == "connected" || state == "completed" || state == "cancelled" ? "Lance les scans ou la prise en main depuis le site WolfGuard." : state == "offline" ? "L’agent réessaie automatiquement. Tu peux le mettre en pause." : state == "stopped" ? "Les opérations sont suspendues, ton association reste enregistrée." : state == "failed" ? "Le rapport et les observations disponibles restent consultables sur le site." : state == "error" ? "Vérifie ta connexion puis réessaie avec le bouton ci-dessous." : "";
+      actionHint.Visibility = actionHint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+      string activityDetail = detail.Text.StartsWith(statusTitle.Text, StringComparison.CurrentCultureIgnoreCase) ? detail.Text.Substring(statusTitle.Text.Length).TrimStart(' ', '.', '…', '·', ':') : detail.Text;
+      if (state != previousState && (state == "scanning" || state == "remote" || state == "completed" || state == "cancelled" || state == "failed" || state == "offline" || state == "error" || state == "stopped")) RememberActivity(statusTitle.Text + (activityDetail.Length > 0 ? " · " + activityDetail : ""), color);
+      else if (state == "connected" && (previousState == "connecting" || previousState == "offline" || previousState == "preparing" || previousState == "enrolling" || previousState == "stopped")) RememberActivity(previousState == "offline" ? "Connexion rétablie" : "Connexion établie avec WolfGuard", "#91cbb2");
+      else if (state == "connected" && (previousState == "remote" || previousState == "remote-preparing")) RememberActivity("Prise en main terminée · Le poste est à nouveau disponible.", "#91cbb2");
       if (!preview && tray != null && state != previousState && (state == "scanning" || state == "remote")) tray.ShowBalloonTip(4000, "WolfGuard · " + statusTitle.Text, detail.Text, System.Windows.Forms.ToolTipIcon.Info);
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
-      bool resize = (pairing.Visibility == Visibility.Visible) != pair;
       pairing.Visibility = pair ? Visibility.Visible : Visibility.Collapsed;
-      if (resize) { MinHeight = pair ? 460 : 280; Height = Math.Min(pair ? 540 : 340, SystemParameters.WorkArea.Height - 32); }
-      pairButton.IsEnabled = state != "enrolling";
+      capabilities.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
+      activitySection.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
+      pairButton.IsEnabled = state != "enrolling" && ValidPairCode(); pairButton.Content = state == "enrolling" ? "Association…" : "Associer ce poste";
       code.IsEnabled = state != "enrolling";
+      pasteButton.IsEnabled = state != "enrolling";
+      repairMenu.IsEnabled = !pair && state != "preparing" && state != "stopping" && !closing;
       bool start = state == "stopped" || state == "error" || state == "preparing";
       mainButton.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
       mainButton.IsEnabled = state != "preparing" && state != "stopping";
-      mainButton.Content = remote ? "Arrêter la prise en main" : start ? "Démarrer" : "Arrêter";
-      mainButton.Background = Brush(start ? "#f6aa5d" : "#243b52");
-      mainButton.Foreground = Brush(start ? "#132033" : "#edf2f7");
+      mainButton.Content = remote ? "Arrêter la prise en main" : state == "error" ? "Réessayer" : state == "stopped" ? "Reprendre" : state == "preparing" ? "Préparation…" : "Mettre en pause";
+      mainButton.Background = Brush(remote ? "#693f40" : start ? "#bed7ef" : "#1a293c");
+      mainButton.BorderBrush = Brush(remote ? "#b77978" : start ? "#bed7ef" : "#3b516b");
+      mainButton.Foreground = Brush(start ? "#102033" : "#edf3fb");
+      mainButton.ToolTip = remote ? "Arrêter le partage du bureau sans déconnecter l’agent" : start ? "Reconnecter ce poste avec son association enregistrée" : "Suspendre la connexion et interrompre le scan en cours";
       progress.Visibility = state == "scanning" || state == "remote-preparing" || state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
+      progress.Foreground = Brush(remote ? "#e7b97e" : "#bed7ef");
       progress.IsIndeterminate = total <= 0; progress.Maximum = Math.Max(1, total); progress.Value = Math.Max(0, Math.Min(completed, total));
       progressLabel.Visibility = state == "scanning" && total > 0 ? Visibility.Visible : Visibility.Collapsed;
       progressLabel.Text = state == "scanning" && total > 0 ? progress.Value + " / " + total + " · " + Math.Round(progress.Value * 100 / total) + " %" : "";
@@ -249,7 +335,7 @@ namespace WolfGuard {
     bool Send(object command) {
       if (preview) return false;
       try { if (child == null || child.HasExited) throw new IOException(); child.StandardInput.WriteLine(json.Serialize(command)); child.StandardInput.Flush(); return true; }
-      catch { SetState("error", "Le moteur n’est pas disponible. Clique sur Démarrer pour réessayer.", 0, 0); return false; }
+      catch { SetState("error", "Le moteur n’est pas disponible. Clique sur Réessayer pour le relancer.", 0, 0); return false; }
     }
     static bool RuntimeReady(string executable) {
       if (!File.Exists(executable)) return false;
@@ -310,6 +396,8 @@ namespace WolfGuard {
           using (download = new WebClient()) {
             download.DownloadProgressChanged += delegate(object sender, DownloadProgressChangedEventArgs e) {
               progress.IsIndeterminate = e.TotalBytesToReceive <= 0; progress.Maximum = 100; progress.Value = e.ProgressPercentage;
+              progressLabel.Visibility = e.TotalBytesToReceive > 0 ? Visibility.Visible : Visibility.Collapsed;
+              progressLabel.Text = e.TotalBytesToReceive > 0 ? "Téléchargement des composants · " + e.ProgressPercentage + " %" : "";
             };
             await download.DownloadFileTaskAsync(new Uri(NodeUrl), archive);
           }
@@ -349,7 +437,7 @@ namespace WolfGuard {
         }));
       };
       process.ErrorDataReceived += delegate { /* Never display raw process output or credentials. */ };
-      process.Exited += delegate { Dispatcher.BeginInvoke(new Action(delegate { if (!closing && child == process) SetState("error", "Le moteur s’est arrêté. Clique sur Démarrer pour le relancer.", 0, 0); })); };
+      process.Exited += delegate { Dispatcher.BeginInvoke(new Action(delegate { if (!closing && child == process) SetState("error", "Le moteur s’est arrêté. Clique sur Réessayer pour le relancer.", 0, 0); })); };
       try { process.Start(); process.StandardInput.AutoFlush = true; process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
       catch { if (child == process) child = null; process.Dispose(); throw; }
       if (RequestPair) { RequestPair = false; Send(new {type = "repair"}); }
@@ -389,7 +477,8 @@ namespace WolfGuard {
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {
           Directory.CreateDirectory(args[1]);
-          foreach (string state in new string[] { "pairing", "connected", "scanning", "scanning-unknown", "offline", "stopped", "error", "connecting", "completed", "failed", "cancelled", "remote-preparing", "remote", "connected-after-scan" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
+          foreach (string state in new string[] { "preparing", "pairing", "enrolling", "revoked", "stopping", "connected", "scanning", "scanning-unknown", "offline", "stopped", "error", "connecting", "completed", "failed", "cancelled", "remote-preparing", "remote", "connected-after-scan" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + ".png"));
+          foreach (string state in new string[] { "pairing", "connected", "remote" }) new AgentWindow(true).Preview(state, System.IO.Path.Combine(args[1], state + "-narrow.png"), 600, 560);
           return 0;
         }
         string sid = WindowsIdentity.GetCurrent().User.Value; bool created;

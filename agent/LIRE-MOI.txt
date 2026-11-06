@@ -1,9 +1,10 @@
 WolfGuard Agent - Windows 10/11 x64
 
 Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
-La fenetre compacte affiche l action en cours et la progression du scan.
-Elle permet de demarrer, arreter l agent ou terminer une prise en main.
-La derniere action terminee reste visible au retour en attente.
+La fenetre affiche le statut du poste, les scans et le partage du bureau.
+La progression indique le compteur et le pourcentage disponibles.
+Les trois dernieres activites restent horodatees pendant cette ouverture.
+Les commandes restent accessibles en bas, meme avec une petite fenetre.
 Les resultats detailles des scans restent sur le site.
 Aucune extraction d archive ni console n est necessaire.
 
@@ -17,7 +18,8 @@ Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
 Fermer la console de l ancien agent avant d ouvrir cette version graphique.
 Une association existante est reutilisee pour le meme utilisateur Windows.
 La saisie du code apparait uniquement si une association est necessaire.
-Pour refaire une association volontairement, utiliser Associer-agent.cmd.
+Pour refaire une association, ouvrir le menu ... de la fenetre puis
+Associer a nouveau ce poste, ou utiliser Associer-agent.cmd.
 
 Au premier lancement, le moteur Node.js est telecharge depuis nodejs.org ;
 son SHA-256 est verifie avant extraction et execution. Les fichiers de
@@ -31,7 +33,7 @@ En cas d echec au demarrage, le message indique le fichier diagnostic
 Cette erreur ne signifie pas que l agent telecharge est obsolete.
 
 Etats : A associer, Connexion, Pret, Scan en cours, Scan termine, Echec du scan,
-Ouverture du bureau, Prise en main active, Arrete, Hors ligne ou erreur.
+Ouverture du bureau, Prise en main active, En pause, Hors ligne ou erreur.
 La prise en main Windows se connecte directement depuis WolfGuard sur un
 poste deja associe, sans confirmation locale ni popup sur son bureau.
 L icone de l agent indique l action en cours. Une notification Windows signale
@@ -40,12 +42,12 @@ Le bouton Arreter la prise en main de la fenetre et le meme choix dans son menu
 terminent le partage sans arreter l agent, y compris pendant sa preparation.
 Deconnecter sur le site termine aussi la session.
 Pret apparait uniquement apres une reponse effective du serveur.
-Arreter l agent suspend sa connexion et annule le scan en cours.
-Demarrer le reconnecte avec l association deja enregistree.
-La croix masque la fenetre ; l agent reste actif pres de l horloge Windows.
+Mettre en pause suspend la connexion et annule le scan en cours.
+Reprendre reconnecte le poste avec l association deja enregistree.
+La croix ou Masquer garde l agent actif pres de l horloge Windows.
 Double-cliquer sur son icone ou relancer l executable rouvre la fenetre.
-Pour arreter completement l agent : clic droit sur l icone > Quitter l agent.
-Hors prise en main, le bouton Arreter suspend la connexion sans quitter l application.
+Pour arreter completement l agent : menu ... > Quitter l agent,
+ou clic droit sur l icone > Quitter l agent.
 
 Aucun port entrant n est ouvert. Les scans actifs ciblent uniquement des
 adresses privees ou locales : une cible IP/FQDN (256 adresses en cartographie),
