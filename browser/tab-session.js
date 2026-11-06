@@ -1,6 +1,6 @@
 // A reload ticket is scoped to this tab. PINs and clear workspace data are never
 // stored here; IndexedDB holds only a temporary, non-extractable CryptoKey.
-export const IDLE_MS = 15 * 60000;
+export const IDLE_MS = 60 * 60000;
 export const SESSION_MS = 8 * 60 * 60000;
 const HANDLE = 'wolfguard-tab-session-v1';
 const PREFIX = 'tab-session:';

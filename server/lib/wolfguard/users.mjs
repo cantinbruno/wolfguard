@@ -1,5 +1,6 @@
 import {seal,open,stopRemoteOwners} from './access.mjs';
 import {handleOTP} from './otp.mjs';
+import {handlePushSettings} from './push.mjs';
 const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -130,6 +131,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(!vault.users_enabled)fail(409,'Crée d’abord le compte administrateur à la connexion.');
   if(path==='/api/users/otp'||path.startsWith('/api/users/otp/'))return handleOTP(request,env,now,session,{...h,revokeOthers});
+  if(path==='/api/users/push'||path.startsWith('/api/users/push/'))return handlePushSettings(request,env,now,session,{...h,revokeOthers});
   if(path==='/api/users/change-code'&&request.method==='POST'){
     const data=await body(),row=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
     if(!codeOK(data.code))fail(400,'Le nouveau code doit contenir 8 chiffres.');
@@ -147,7 +149,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(session.user.role!=='admin')fail(403,'Cette gestion est réservée aux administrateurs.');
   if(path==='/api/users'&&request.method==='GET'){
     const rows=await env.DB.prepare('SELECT * FROM users ORDER BY created_at,id').all(),users=[];
-    for(const row of rows.results){const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM sessions WHERE user_id=? AND user_version=? AND expires_at>? AND active_at>? AND generation=?').bind(row.id,row.code_version,now,now-15*60000,session.generation).first();users.push({...await publicUser(row,env),current:row.id===session.user.id,sessions:count.count});}
+    for(const row of rows.results){const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM sessions WHERE user_id=? AND user_version=? AND expires_at>? AND active_at>? AND generation=?').bind(row.id,row.code_version,now,now-60*60000,session.generation).first();users.push({...await publicUser(row,env),current:row.id===session.user.id,sessions:count.count});}
     const invitations=await env.DB.prepare('SELECT id,created_at AS createdAt,expires_at AS expiresAt FROM user_invitations WHERE expires_at>? ORDER BY created_at DESC,id').bind(now).all();
     return json({users,invitations:invitations.results});
   }
@@ -199,13 +201,16 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/reset-otp'){
     if(isOwner)fail(409,'Désactive ton Authenticator dans Sécurité avec ton code OTP.');
     await env.DB.prepare('UPDATE users SET otp_secret_cipher=NULL,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=-1,otp_recovery_cipher=NULL,code_version=code_version+1 WHERE id=?').bind(target.id).run();
+    await env.DB.batch([env.DB.prepare('DELETE FROM push_requests WHERE user_id=?').bind(target.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(target.id)]);
     await revokeUserSessions(env,target.id,now);return json({ok:true});
   }
   if(path==='/api/users/disconnect'){await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});}
   if(path==='/api/users/delete'){
     if(isOwner)fail(409,'Le compte administrateur '+OWNER_EMAIL+' est protégé.');
     const removed=await env.DB.prepare('DELETE FROM users WHERE id=? AND id<>(SELECT owner_user_id FROM vault WHERE id=1) RETURNING id').bind(target.id).first();
-    if(!removed)fail(409,'Il faut conserver au moins un administrateur actif.');await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});
+    if(!removed)fail(409,'Il faut conserver au moins un administrateur actif.');
+    await env.DB.batch([env.DB.prepare('DELETE FROM push_requests WHERE user_id=?').bind(target.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(target.id)]);
+    await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});
   }
   fail(404,'Adresse utilisateur inconnue.');
 }

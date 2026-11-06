@@ -7,9 +7,9 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false;
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
-  const IDLE_MS = 15 * 60000, SESSION_MS = 8 * 60 * 60000;
+  const IDLE_MS = 60 * 60000, SESSION_MS = 8 * 60 * 60000;
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
   function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
   async function rememberSession() {
@@ -396,6 +396,26 @@ const webWorkspace = (() => {
     $('#webConfirm').value=exists ? '' : enteredCode;
     await authenticate({preventDefault(){}});
   }
+  function waitForPhone(info){
+    return new Promise((resolve,reject)=>{
+      const dialog=document.createElement('dialog');dialog.className='app-dialog web-push-dialog';dialog.setAttribute('aria-labelledby','webPushTitle');
+      dialog.innerHTML='<h2 id="webPushTitle">Valide sur ton téléphone</h2><p>Une notification WolfGuard a été envoyée. Vérifie ce numéro avant d’approuver :</p><strong class="web-push-number">'+esc(info.displayCode)+'</strong><p role="status">En attente de ton approbation…</p><div class="app-dialog-actions"><button type="button" id="webPushRecovery">Code de secours</button><button type="button" id="webPushCancel">Annuler</button></div>';
+      document.body.append(dialog);dialog.showModal();let done=false,timer;
+      const finish=(value,error)=>{if(done)return;done=true;clearTimeout(timer);dialog.close();dialog.remove();if(error)reject(error);else resolve(value);};
+      const cancel=recovery=>{cloud.cancelPush(info.ticket).catch(()=>{});finish(recovery?{recovery:true}:null,recovery?null:new Error('Connexion annulée.'));};
+      dialog.querySelector('#webPushCancel').onclick=()=>cancel(false);dialog.querySelector('#webPushRecovery').onclick=()=>cancel(true);dialog.oncancel=event=>{event.preventDefault();cancel(false);};
+      const poll=async()=>{
+        if(done)return;
+        try{
+          if(Date.now()>=info.expiresAt)throw new Error('La demande a expiré. Recommence la connexion.');
+          const result=await cloud.pollPush(info.ticket);if(done){if(!result.pending)cloud.clear();return;}
+          if(!result.pending){finish(result);return;}
+          timer=setTimeout(poll,2000);
+        }catch(error){finish(null,error);}
+      };
+      poll();
+    });
+  }
   async function openShared(password) {
     if(!/^[0-9]{8}$/.test(password))throw new Error('Le partage utilise ton code de 8 chiffres.');
     await cloud.status();
@@ -413,10 +433,17 @@ const webWorkspace = (() => {
     }else{
       let info=await cloud.login(password);
       if(info.otpRequired){
+        mfaWaiting=true;
         let otp=await appPrompt('Saisis les 6 chiffres affichés dans ton application Authenticator, ou un code de secours.','',{title:'Vérification OTP',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
         if(otp===null)throw new Error('Connexion annulée.');
         try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}
       }
+      if(info.pushRequired){
+        mfaWaiting=true;info=await waitForPhone(info);
+        if(info.recovery){let recovery=await appPrompt('Saisis l’un de tes codes de secours à usage unique.','',{title:'Récupérer mon accès',confirmLabel:'Vérifier'});if(recovery===null)throw new Error('Connexion annulée.');try{info=await cloud.login(password,undefined,recovery.trim());}finally{recovery='';}}
+      }
+      if(document.hidden&&mfaWaiting)await new Promise(resolve=>{const visible=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',visible);resolve();}};document.addEventListener('visibilitychange',visible);});
+      mfaWaiting=false;
       if(info.exists){
         const latest=cryptography.validateEnvelope(await cloud.load());
         if(info.workspace){try{const material=await cryptography.importWorkspaceMaterial(info.workspace);result=await cryptography.openWithKey(latest,material.key,material.salt);}finally{info.workspace.key='';}}
@@ -520,7 +547,7 @@ const webWorkspace = (() => {
       $('#lockError').textContent=error.message;
     }
     finally {
-      password=''; busy=false; $('#webUnlock').disabled=false;
+      password=''; busy=false;mfaWaiting=false; $('#webUnlock').disabled=false;
       enteredCode=''; creationCode=''; $('#webPassword').value=''; $('#webConfirm').value='';
       if (!retained) release();
       if(!retained && cloud?.enabled)cloud.clear();
@@ -695,6 +722,49 @@ const webWorkspace = (() => {
     }
     try{enabled=(await request('')).enabled;render();}catch(error){if(live())root.textContent=error.message;}
   }
+  async function mountPhoneSettings(){
+    const current=session,root=document.createElement('section');root.id='webPhoneSettings';root.className='web-otp-settings';$('#settings-security').append(root);
+    const live=()=>session===current&&root.isConnected,request=(path,value)=>cloud.agentRequest('users/push'+path,value);
+    try{
+      const info=await request('');if(!live())return;
+      root.innerHTML='<h4>Validation sur téléphone · Push</h4><p>'+(info.device?'Un téléphone est associé. Après les six chiffres OTP, approuve la notification pour ouvrir ton espace.':'Associe ton téléphone pour recevoir une notification avec Approuver / Refuser après les six chiffres OTP.')+'</p><p>Sur iPhone : ajoute d’abord ton lien privé WolfGuard à l’écran d’accueil avec le menu Partager, puis ouvre cette icône pour associer le téléphone. Sur Android : ouvre WolfGuard dans Chrome et autorise les notifications.</p><p class="web-phone-status" role="status"></p>';
+      const status=root.querySelector('[role=status]');
+      if(!info.configured){status.textContent='Le service de notifications n’est pas disponible pour le moment.';return;}
+      if(!info.otpEnabled){status.textContent='Active d’abord Authenticator ci-dessus, puis rouvre les paramètres.';return;}
+      const supported='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+      const form=document.createElement('form');form.innerHTML='<label>Code personnel actuel<input id="webPhoneCode" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Code OTP actuel ou code de secours<input id="webPhoneOTP" type="text" autocomplete="one-time-code" maxlength="16" required></label><div class="actions">'+(supported?'<button type="submit" class="settings-btn primary" id="webPhoneRegister">'+(info.device?'Associer ce téléphone à la place':'Associer ce téléphone')+'</button>':'')+(info.device?'<button type="button" class="settings-btn" id="webPhoneRemove">Retirer le téléphone associé</button>':'')+'</div>';
+      root.append(form);if(!supported)status.textContent='Ce navigateur ne permet pas les notifications. Sur iPhone, ouvre WolfGuard depuis son icône sur l’écran d’accueil.';
+      let working=false;
+      const setBusy=value=>{working=value;form.querySelectorAll('button').forEach(button=>button.disabled=value);};
+      form.onsubmit=async event=>{
+        event.preventDefault();if(working||!supported)return;
+        // Request permission in the actual button gesture, before network work.
+        const permission=Notification.requestPermission();setBusy(true);status.textContent='Association du téléphone…';
+        let code=form.querySelector('#webPhoneCode').value,otp=form.querySelector('#webPhoneOTP').value.trim();
+        try{
+          if(await permission!=='granted')throw new Error('Autorise les notifications dans les réglages du navigateur pour associer ce téléphone.');
+          const registration=await navigator.serviceWorker.register('/push-worker.js',{scope:'/',updateViaCache:'none'});await navigator.serviceWorker.ready;
+          let subscription=await registration.pushManager.getSubscription();if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:WolfGuardPhone.bytes(info.publicKey)});
+          const keys=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']),publicKey=await crypto.subtle.exportKey('jwk',keys.publicKey),id=[...crypto.getRandomValues(new Uint8Array(16))].map(n=>n.toString(16).padStart(2,'0')).join('');
+          // Persist before registration so a network interruption cannot lose
+          // the private key of an enrollment that committed on the server.
+          await WolfGuardPhone.save({id,key:keys.privateKey});
+          await request('/register',{deviceId:id,subscription:subscription.toJSON(),publicKey,code,otp});
+          if(!live())return;status.textContent='Téléphone associé. Les prochaines connexions demanderont les six chiffres et ton approbation.';
+          form.remove();
+        }catch(error){if(live())status.textContent=error.message;}
+        finally{code='';otp='';setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
+      };
+      const remove=form.querySelector('#webPhoneRemove');if(remove)remove.onclick=async()=>{
+        if(working||!form.reportValidity())return;
+        if(!await appConfirm('Retirer le téléphone associé ? Les six chiffres OTP resteront demandés.',{title:'Validation sur téléphone',confirmLabel:'Retirer'}))return;
+        setBusy(true);
+        try{await request('/remove',{code:form.querySelector('#webPhoneCode').value,otp:form.querySelector('#webPhoneOTP').value.trim()});if(!live())return;form.remove();status.textContent='Téléphone retiré. Authenticator reste activé.';}
+        catch(error){if(live())status.textContent=error.message;}
+        finally{setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
+      };
+    }catch(error){if(live())root.textContent=error.message;}
+  }
   openSettings=async initialTab => {
     assertFreshSession();
     if (!session) return;
@@ -705,12 +775,12 @@ const webWorkspace = (() => {
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
     const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton code personnel suffit pour te connecter. Ton adresse e-mail identifie ton compte pour les invitations et les réinitialisations.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
-    if(cloud.enabled&&cloud.hasUsers())mountOTPSettings();
+    if(cloud.enabled&&cloud.hasUsers()){mountOTPSettings();mountPhoneSettings();}
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
-    idle.replaceChildren(new Option('15 minutes','15',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='15 minutes d’inactivité · Rafraîchissement conservé dans cet onglet · Session limitée à 8 heures';
+    idle.replaceChildren(new Option('1 heure','60',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 heure d’inactivité · Rafraîchissement conservé dans cet onglet · Session limitée à 8 heures';
     const recovery=await storage.readRecovery().catch(()=>null);
     if(recovery && session && $('#settings-data')){
       const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
@@ -808,7 +878,7 @@ const webWorkspace = (() => {
     },true);
     document.addEventListener('visibilitychange',() => {
       if(session){if(sessionExpired())lock();else updateReloadTicket();if(document.hidden)secretClipboard.clear();}
-      else if(document.hidden)epoch++;
+      else if(document.hidden&&!mfaWaiting)epoch++;
       else if(storage && !session)loadAttempts().then(renderKeypad);
     });
     if(attemptChannel)attemptChannel.onmessage=event=>{

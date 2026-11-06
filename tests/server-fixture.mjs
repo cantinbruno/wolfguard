@@ -20,9 +20,16 @@ class Bucket {
 }
 const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
+const pushMessages=[];
+if(process.env.WG_TEST_PUSH==='1'){
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  env.PUSH_VAPID_PUBLIC_KEY=Buffer.from(await crypto.subtle.exportKey('raw',pair.publicKey)).toString('base64url');
+  env.PUSH_TEST_SEND=async message=>{pushMessages.push(message);};
+}
 let offset=0,fixtureCode='';
 const server=createServer(async(req,res)=>{
   try{
+    if(req.url==='/__test/push-messages'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(pushMessages));return;}
     if(req.url==='/__test/fail-upload'){env.BUCKET.failNext=true;res.end('ok');return;}
     if(req.url.startsWith('/__test/advance/')){offset+=Number(req.url.split('/').pop());res.end('ok');return;}
     const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});

@@ -1,5 +1,5 @@
 import {closeRemote} from './remote.mjs';
-const encoder=new TextEncoder(),IDLE_MS=15*60000;
+const encoder=new TextEncoder(),IDLE_MS=60*60000;
 const hex=value=>[...new Uint8Array(value)].map(n=>n.toString(16).padStart(2,'0')).join('');
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
 const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));

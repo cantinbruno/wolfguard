@@ -22,6 +22,12 @@ export const userInvitations = sqliteTable('user_invitations', {
   id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),
   createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
 });
+export const pushDevices=sqliteTable('push_devices',{
+  id:text('id').primaryKey(),userId:text('user_id').notNull().unique(),subscriptionCipher:text('subscription_cipher').notNull(),publicKey:text('public_key').notNull(),createdAt:integer('created_at').notNull()
+});
+export const pushRequests=sqliteTable('push_requests',{
+  id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),userId:text('user_id').notNull(),userVersion:integer('user_version').notNull(),deviceId:text('device_id').notNull(),generation:integer('generation').notNull(),nonce:text('nonce').notNull(),state:text('state').notNull(),displayCode:text('display_code').notNull(),detailsCipher:text('details_cipher').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+},table=>[uniqueIndex('push_requests_one_pending_user').on(table.userId).where(sql`${table.state} = 'pending'`)]);
 export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
   generation: integer('generation').notNull(), version: integer('version').notNull(), expiresAt: integer('expires_at').notNull()

@@ -57,8 +57,9 @@ export async function handleOTP(request,env,now,session,h){
     return json({enabled:true,recoveryCodes});
   }
   if(path==='/api/users/otp/disable'){
+    if(await env.DB.prepare('SELECT id FROM push_devices WHERE user_id=?').bind(user.id).first())fail(409,'Retire d’abord le téléphone associé dans Validation sur téléphone.');
     await verifyPIN(data.code,env,now,()=>consumeOTP(user,data.otp,env,now),user);
-    const changed=await env.DB.prepare('UPDATE users SET otp_secret_cipher=NULL,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=-1,otp_recovery_cipher=NULL WHERE id=? AND otp_secret_cipher=? AND code_version=? RETURNING id').bind(user.id,user.otp_secret_cipher,user.code_version).first();
+    const changed=await env.DB.prepare('UPDATE users SET otp_secret_cipher=NULL,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=-1,otp_recovery_cipher=NULL WHERE id=? AND otp_secret_cipher=? AND code_version=? AND NOT EXISTS(SELECT 1 FROM push_devices WHERE user_id=users.id) RETURNING id').bind(user.id,user.otp_secret_cipher,user.code_version).first();
     if(!changed)fail(409,'Ce compte a changé. Recharge les paramètres.');
     await h.revokeOthers(env,user.id,session.hash,now);
     return json({enabled:false});

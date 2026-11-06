@@ -8,6 +8,8 @@ import {create,workspaceMaterial,importWorkspaceMaterial,openWithKey} from '../b
 import {normalizeUsername,usernameHash} from '../server/lib/wolfguard/users.mjs';
 import {seal} from '../server/lib/wolfguard/access.mjs';
 import {encodeSecret,otpAt,matchingStep} from '../server/lib/wolfguard/otp.mjs';
+import {validSubscription,decisionMessage,inspectMessage} from '../server/lib/wolfguard/push.mjs';
+import {buildPushPayload} from '../server/vendor/webpush.mjs';
 
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
@@ -353,5 +355,77 @@ test('resetting a member password retains OTP; only the owner can explicitly res
     const logged=await(await s.api('login',{code:'23456789'})).json();assert.equal(logged.user.username,'alice@example.test');
     assert.equal((await s.api('users/otp',undefined,logged.token)).status,200);
     assert.equal((await s.api('users/otp',undefined,alice.token)).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
+const b64=value=>Buffer.from(value).toString('base64url');
+async function phoneSetup(s){
+  await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+  const otpSetup=await(await s.api('users/otp/setup',{code:'09876543'},owner.token)).json();
+  const enabled=await(await s.api('users/otp/enable',{code:'09876543',otp:await otpAt(otpSetup.secret,Math.floor(s.clock()/30000))},owner.token)).json();
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+  const encryption=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+  const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/synthetic',expirationTime:null,keys:{p256dh:b64(await crypto.subtle.exportKey('raw',encryption.publicKey)),auth:b64(crypto.getRandomValues(new Uint8Array(16)))}};
+  const publicKey=await crypto.subtle.exportKey('jwk',pair.publicKey),deviceId='d'.repeat(32),messages=[];
+  s.env.LOCAL_TEST_ORIGIN='http://localhost';s.env.PUSH_TEST_SEND=async message=>messages.push(message);
+  s.advance(30000);
+  const register=await s.api('users/push/register',{code:'09876543',otp:await otpAt(otpSetup.secret,Math.floor(s.clock()/30000)),publicKey,subscription,deviceId},owner.token);
+  assert.equal(register.status,200,await register.clone().text());
+  const sign=async message=>b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(message)));
+  const login=async()=>{s.advance(30000);const r=await s.api('login',{code:'09876543',otp:await otpAt(otpSetup.secret,Math.floor(s.clock()/30000))});assert.equal(r.status,200,await r.clone().text());return r.json();};
+  return{owner,deviceId,messages,sign,login,secret:otpSetup.secret,recoveryCodes:enabled.recoveryCodes,subscription};
+}
+
+test('OTP plus signed phone approval gates sessions and gives each request one use',async()=>{
+  const s=await setup();try{
+    const p=await phoneSetup(s),request=await p.login();assert.equal(request.pushRequired,true);assert.equal(request.token,undefined);assert.equal(request.workspace,undefined);
+    assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
+    const row=s.env.DB.db.prepare('SELECT * FROM push_requests').get();
+    assert.equal((await s.api('push/poll',{ticket:'0'.repeat(64)})).status,410);
+    assert.equal((await(await s.api('push/poll',{ticket:request.ticket})).json()).pending,true);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:'A'.repeat(86)})).status,403);
+    const inspected=await s.api('push/inspect',{id:row.id,deviceId:p.deviceId,signature:await p.sign(inspectMessage(row.id))});assert.equal(inspected.status,200);
+    assert.equal((await inspected.json()).displayCode,request.displayCode);
+    const decision={id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))};
+    assert.equal((await s.api('push/decision',decision)).status,200);
+    assert.equal((await s.api('push/decision',decision)).status,410);
+    const polled=await s.api('push/poll',{ticket:request.ticket});assert.equal(polled.status,200);const logged=await polled.json();assert.ok(logged.token);assert.deepEqual(logged.workspace,s.material);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+    assert.equal((await s.api('vault',undefined,logged.token)).status,200);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_requests').all())+JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_devices').all());
+    assert.ok(!disk.includes(request.ticket));assert.ok(!disk.includes(p.subscription.endpoint));
+    assert.ok(!disk.includes(p.subscription.keys.auth));
+  }finally{s.env.DB.db.close();}
+});
+
+test('phone refusals, cancellation, expiry, throttling, revocation and recovery remain fail closed',async()=>{
+  const s=await setup();try{
+    const p=await phoneSetup(s);let request=await p.login(),row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'deny',signature:await p.sign(decisionMessage(row,'deny'))})).status,200);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,403);
+    request=await p.login();row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    s.advance(30000);const repeat=await s.api('login',{code:'09876543',otp:await otpAt(p.secret,Math.floor(s.clock()/30000))});assert.equal(repeat.status,429);
+    assert.equal(p.messages.filter(message=>message.type==='login').length,2);
+    assert.equal((await s.api('push/cancel',{ticket:request.ticket})).status,200);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))})).status,410);
+    request=await p.login();s.advance(120001);assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+    const recovered=await s.api('login',{code:'09876543',otp:p.recoveryCodes[0]});assert.equal(recovered.status,200);assert.ok((await recovered.json()).token);
+    request=await p.login();row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    await s.api('users/change-code',{oldCode:'09876543',code:'87654321'},p.owner.token);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))})).status,410);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+  }finally{s.env.DB.db.close();}
+});
+
+test('push enrollment requires OTP and fixed push-service endpoints; the encrypted payload contains no plaintext',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    assert.equal((await s.api('users/push/register',{code:'09876543'},owner.token)).status,409);
+    for(const endpoint of ['http://fcm.googleapis.com/a','https://127.0.0.1/a','https://fcm.googleapis.com.evil.test/a','https://fcm.googleapis.com:8443/a','https://user@fcm.googleapis.com/a'])assert.equal(validSubscription({endpoint,keys:{}}),false);
+    const encryption=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+    const vapid=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+    const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/synthetic',expirationTime:null,keys:{p256dh:b64(await crypto.subtle.exportKey('raw',encryption.publicKey)),auth:b64(crypto.getRandomValues(new Uint8Array(16)))}};
+    const payload=await buildPushPayload({data:{message:'confidential approval nonce'},options:{ttl:120}},subscription,{subject:'mailto:test@example.test',publicKey:b64(await crypto.subtle.exportKey('raw',vapid.publicKey)),privateKey:(await crypto.subtle.exportKey('jwk',vapid.privateKey)).d});
+    assert.equal(payload.headers['Content-Encoding']||payload.headers['content-encoding'],'aes128gcm');assert.ok(!new TextDecoder().decode(payload.body).includes('confidential approval nonce'));
   }finally{s.env.DB.db.close();}
 });

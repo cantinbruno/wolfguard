@@ -85,7 +85,7 @@ def run():
               Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'));
             }""")
             active = page.evaluate("JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.active")
-            page.evaluate("active=>sessionStorage.setItem('resume-test-offset',String(active+14*60000-Date.now()))",active)
+            page.evaluate("active=>sessionStorage.setItem('resume-test-offset',String(active+59*60000-Date.now()))",active)
             page.reload(); unlocked(page)
             page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+61000))")
             assert page.evaluate("async()=>{try{await all('items');return false}catch{return true}}")
@@ -103,7 +103,7 @@ def run():
             expect(page.locator('.settings-modal')).not_to_be_visible(timeout=15000)
             page.reload(); unlocked(page)
             assert page.evaluate("async()=>!!await get('items','resume-note')")
-            print('PASS: new tabs stay locked, changing tab preserves the session, refresh does not reset the 15-minute timeout, and manual locking clears the ticket')
+            print('PASS: new tabs stay locked, changing tab preserves the session, refresh does not reset the one-hour timeout, and manual locking clears the ticket')
             local.close()
 
             a = browser.new_context(reduced_motion='reduce'); b = browser.new_context(reduced_motion='reduce')

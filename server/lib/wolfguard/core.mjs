@@ -4,10 +4,11 @@ import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
 import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode} from './users.mjs';
 import {consumeOTP} from './otp.mjs';
+import {pushDevice,startPush,handlePushLogin} from './push.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
-const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 15 * 60000;
+const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 60 * 60000;
 const hex = bytes => [...new Uint8Array(bytes)].map(x => x.toString(16).padStart(2,'0')).join('');
 const bytes = value => Uint8Array.from(value.match(/../g) || [], x => parseInt(x,16));
 const random = length => hex(crypto.getRandomValues(new Uint8Array(length)));
@@ -55,14 +56,14 @@ async function verifyPIN(code,env,now,verifier,pinVerifier) {
       .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
   }
   if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
-  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial}:{})};
+  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.pushRequired,pushRequired:!!result.pushRequired,pushDevice:result.device}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
   const token=random(32), hash=await digest(token);
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   const issued=await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expires_at<=? OR active_at<=? OR generation<>?').bind(now,now-IDLE_MS,generation),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) SELECT ?,?,?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ?)').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) SELECT ?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
     await connectionStatement(env,request,hash,now,context)
   ]);
   if(Number(issued[1]?.meta?.changes)!==1){await env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash).run();fail(401,'Ce compte a changé. Reconnecte-toi.');}
@@ -82,6 +83,13 @@ async function authorize(request,env,now) {
   return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
+async function finishLogin(request,env,now,row,user){
+  if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
+  if(!row.users_enabled&&user.id!==row.owner_user_id)fail(403,'Ce compte est indisponible.');
+  const token=await issueSession(env,row.generation,now,request,user);
+  await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
+  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await workspaceMaterial(row,env)}:{})});
+}
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
 // Fixed-sized frames keep the Worker below its memory limit even for attachments.
 async function* blocks(stream,size) {
@@ -152,6 +160,9 @@ export async function handleAPI(request,env,clock=Date.now) {
       else if(path.startsWith('/api/account/')){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
+      }else if(path.startsWith('/api/push/')){
+        await assertAddressAllowed(env,await addressContext(request,env),fail);
+        response=await handlePushLogin(request,env,now,{fail,json,body:()=>smallJSON(request),finish:async(user,deviceId,generation)=>{const current=await state(env);if(current.generation!==generation)fail(401,'Ce compte a changé. Reconnecte-toi.');user.push_device_id=deviceId;return finishLogin(request,env,now,current,user);}});
       }else if(path==='/api/setup'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
@@ -172,15 +183,17 @@ export async function handleAPI(request,env,clock=Date.now) {
             else {const found=await usersMatchingCode(code,env,pinHash);lookup=found.lookup;if(found.matches.length!==1)return false;user=found.matches[0];}
             if(user.otp_secret_cipher&&otp===undefined)return {user,partial:true};
             if(user.disabled_at===null&&!await consumeOTP(user,otp,env,now))return false;
+            const device=await pushDevice(env,user.id);user.push_device_id=device?.id||null;
             if(lookup&&!user.pin_lookup)await env.DB.prepare('UPDATE users SET pin_lookup=? WHERE id=? AND pin_lookup IS NULL').bind(lookup,user.id).run();
+            // A single-use recovery code can recover a lost phone. Ordinary OTPs
+            // always require the enrolled phone's separate signed approval.
+            if(user.disabled_at===null&&device&&!(typeof otp==='string'&&/^[a-f0-9]{16}$/.test(otp)))return {user,partial:true,pushRequired:true,device};
             return {user};
           }),user=row.loginUser;
           if(row.otpRequired){response=json({otpRequired:true});}
+          else if(row.pushRequired){response=await startPush(request,env,now,row,user,row.pushDevice,{fail,json});}
           else {
-          if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
-          if(!current.users_enabled&&user.id!==current.owner_user_id)fail(403,'Ce compte est indisponible.');
-          await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
-          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!current.users_enabled,...(current.users_enabled?{workspace:await workspaceMaterial(row,env)}:{})});
+          response=await finishLogin(request,env,now,row,user);
           }
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
