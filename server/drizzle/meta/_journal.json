@@ -78,6 +78,13 @@
       "when": 1793996110756,
       "tag": "0010_certfr_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794002143192,
+      "tag": "0011_remote_terminal",
+      "breakpoints": true
     }
   ]
 }

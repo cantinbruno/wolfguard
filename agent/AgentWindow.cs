@@ -148,7 +148,7 @@ namespace WolfGuard {
       };
       mainButton.Click += async delegate {
         if (child == null || child.HasExited) { await Prepare(); return; }
-        if (currentState == "remote" || currentState == "remote-preparing") {
+        if (currentState == "remote" || currentState == "remote-preparing" || currentState == "terminal" || currentState == "terminal-preparing") {
           if (Send(new { type = "stop-remote" })) { detail.Text = "Arrêt de la prise en main…"; mainButton.IsEnabled = false; }
           return;
         }
@@ -285,31 +285,31 @@ namespace WolfGuard {
       currentState = state;
       Dictionary<string, string> names = new Dictionary<string, string> {
         {"preparing","Préparation…"},{"pairing","À associer"},{"enrolling","Association…"},{"connecting","Connexion…"},
-        {"remote-preparing","Ouverture du bureau"},{"remote","Prise en main active"},{"connected","Prêt"},{"scanning","Scan en cours"},{"completed","Scan terminé"},{"cancelled","Scan arrêté"},
+        {"terminal-preparing","Ouverture du terminal"},{"terminal","Terminal distant actif"},{"remote-preparing","Ouverture du bureau"},{"remote","Prise en main active"},{"connected","Prêt"},{"scanning","Scan en cours"},{"completed","Scan terminé"},{"cancelled","Scan arrêté"},
         {"failed","Échec du scan"},{"offline","Hors ligne"},{"revoked","Association requise"},{"stopping","Arrêt en cours…"},{"stopped","En pause"},{"error","Action nécessaire"}
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
       if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
-      bool remote = state == "remote" || state == "remote-preparing";
+      bool remote = state == "remote" || state == "remote-preparing" || state == "terminal" || state == "terminal-preparing";
       if (remoteStop != null) remoteStop.Enabled = remote;
       bool active = remote || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled";
       detail.Text = message.Length > 500 ? message.Substring(0, 500) : message;
       string color = remote ? "#e7b97e" : state == "scanning" ? "#bed7ef" : active ? "#91cbb2" : state == "offline" || state == "error" || state == "failed" ? "#ef9e9c" : "#a4b9cf";
       dot.Fill = Brush(color); stateBadge.Foreground = Brush(color);
-      stateBadge.Text = remote ? (state == "remote" ? "BUREAU PARTAGÉ" : "OUVERTURE") : state == "scanning" ? "SCAN EN COURS" : active ? "EN LIGNE" : state == "stopped" ? "EN PAUSE" : state == "offline" ? "RECONNEXION" : state == "error" || state == "failed" ? "À VÉRIFIER" : state == "pairing" || state == "revoked" ? "À ASSOCIER" : "EN COURS";
+      stateBadge.Text = remote ? (state == "terminal" ? "TERMINAL ACTIF" : state == "remote" ? "BUREAU PARTAGÉ" : "OUVERTURE") : state == "scanning" ? "SCAN EN COURS" : active ? "EN LIGNE" : state == "stopped" ? "EN PAUSE" : state == "offline" ? "RECONNEXION" : state == "error" || state == "failed" ? "À VÉRIFIER" : state == "pairing" || state == "revoked" ? "À ASSOCIER" : "EN COURS";
       badgeSurface.Background = Brush(remote ? "#3a3025" : active && state != "scanning" ? "#20372f" : state == "offline" || state == "error" || state == "failed" ? "#3b2930" : "#22344a");
       stateCard.BorderBrush = Brush(remote ? "#8d7049" : state == "offline" || state == "error" || state == "failed" ? "#78505a" : "#30445e");
       scanStatus.Text = state == "scanning" ? "Collecte en cours" : remote ? "Poste occupé" : state == "connected" || state == "completed" || state == "cancelled" ? "Disponible depuis le site" : state == "stopped" ? "Suspendus" : "En attente de connexion";
-      remoteStatus.Text = state == "remote" ? "Partage en cours" : state == "remote-preparing" ? "Ouverture du bureau…" : "Aucun partage actif";
+      remoteStatus.Text = state == "terminal" ? "Terminal actif" : state == "terminal-preparing" ? "Ouverture du terminal…" : state == "remote" ? "Partage en cours" : state == "remote-preparing" ? "Ouverture du bureau…" : "Aucun partage actif";
       scanStatus.Foreground = Brush(state == "scanning" ? "#bed7ef" : active && !remote ? "#91cbb2" : "#9fb4cb");
       remoteStatus.Foreground = Brush(remote ? "#e7b97e" : "#9fb4cb");
-      actionHint.Text = remote ? "Termine le partage avec le bouton ci-dessous. L’agent restera connecté." : state == "connected" || state == "completed" || state == "cancelled" ? "Lance les scans ou la prise en main depuis le site WolfGuard." : state == "offline" ? "L’agent réessaie automatiquement. Tu peux le mettre en pause." : state == "stopped" ? "Les opérations sont suspendues, ton association reste enregistrée." : state == "failed" ? "Le rapport et les observations disponibles restent consultables sur le site." : state == "error" ? "Vérifie ta connexion puis réessaie avec le bouton ci-dessous." : "";
+      actionHint.Text = remote ? "Termine la session avec le bouton ci-dessous. L’agent restera connecté." : state == "connected" || state == "completed" || state == "cancelled" ? "Lance les scans ou la prise en main depuis le site WolfGuard." : state == "offline" ? "L’agent réessaie automatiquement. Tu peux le mettre en pause." : state == "stopped" ? "Les opérations sont suspendues, ton association reste enregistrée." : state == "failed" ? "Le rapport et les observations disponibles restent consultables sur le site." : state == "error" ? "Vérifie ta connexion puis réessaie avec le bouton ci-dessous." : "";
       actionHint.Visibility = actionHint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
       string activityDetail = detail.Text.StartsWith(statusTitle.Text, StringComparison.CurrentCultureIgnoreCase) ? detail.Text.Substring(statusTitle.Text.Length).TrimStart(' ', '.', '…', '·', ':') : detail.Text;
-      if (state != previousState && (state == "scanning" || state == "remote" || state == "completed" || state == "cancelled" || state == "failed" || state == "offline" || state == "error" || state == "stopped")) RememberActivity(statusTitle.Text + (activityDetail.Length > 0 ? " · " + activityDetail : ""), color);
+      if (state != previousState && (state == "scanning" || state == "remote" || state == "terminal" || state == "completed" || state == "cancelled" || state == "failed" || state == "offline" || state == "error" || state == "stopped")) RememberActivity(statusTitle.Text + (activityDetail.Length > 0 ? " · " + activityDetail : ""), color);
       else if (state == "connected" && (previousState == "connecting" || previousState == "offline" || previousState == "preparing" || previousState == "enrolling" || previousState == "stopped")) RememberActivity(previousState == "offline" ? "Connexion rétablie" : "Connexion établie avec WolfGuard", "#91cbb2");
-      else if (state == "connected" && (previousState == "remote" || previousState == "remote-preparing")) RememberActivity("Prise en main terminée · Le poste est à nouveau disponible.", "#91cbb2");
-      if (!preview && tray != null && state != previousState && (state == "scanning" || state == "remote")) tray.ShowBalloonTip(4000, "WolfGuard · " + statusTitle.Text, detail.Text, System.Windows.Forms.ToolTipIcon.Info);
+      else if (state == "connected" && (previousState == "remote" || previousState == "remote-preparing" || previousState == "terminal" || previousState == "terminal-preparing")) RememberActivity("Prise en main terminée · Le poste est à nouveau disponible.", "#91cbb2");
+      if (!preview && tray != null && state != previousState && (state == "scanning" || state == "remote" || state == "terminal")) tray.ShowBalloonTip(4000, "WolfGuard · " + statusTitle.Text, detail.Text, System.Windows.Forms.ToolTipIcon.Info);
       bool pair = state == "pairing" || state == "revoked" || state == "enrolling";
       pairing.Visibility = pair ? Visibility.Visible : Visibility.Collapsed;
       capabilities.Visibility = pair ? Visibility.Collapsed : Visibility.Visible;
@@ -325,8 +325,8 @@ namespace WolfGuard {
       mainButton.Background = Brush(remote ? "#693f40" : start ? "#bed7ef" : "#1a293c");
       mainButton.BorderBrush = Brush(remote ? "#b77978" : start ? "#bed7ef" : "#3b516b");
       mainButton.Foreground = Brush(start ? "#102033" : "#edf3fb");
-      mainButton.ToolTip = remote ? "Arrêter le partage du bureau sans déconnecter l’agent" : start ? "Reconnecter ce poste avec son association enregistrée" : "Suspendre la connexion et interrompre le scan en cours";
-      progress.Visibility = state == "scanning" || state == "remote-preparing" || state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
+      mainButton.ToolTip = remote ? "Arrêter la session distante sans déconnecter l’agent" : start ? "Reconnecter ce poste avec son association enregistrée" : "Suspendre la connexion et interrompre le scan en cours";
+      progress.Visibility = state == "scanning" || state == "terminal-preparing" || state == "remote-preparing" || state == "preparing" || state == "enrolling" || state == "connecting" || state == "stopping" ? Visibility.Visible : Visibility.Collapsed;
       progress.Foreground = Brush(remote ? "#e7b97e" : "#bed7ef");
       progress.IsIndeterminate = total <= 0; progress.Maximum = Math.Max(1, total); progress.Value = Math.Max(0, Math.Min(completed, total));
       progressLabel.Visibility = state == "scanning" && total > 0 ? Visibility.Visible : Visibility.Collapsed;

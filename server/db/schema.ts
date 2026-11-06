@@ -59,8 +59,11 @@ export const scanJobs = sqliteTable('scan_jobs', {
 export const remoteSessions = sqliteTable('remote_sessions', {
   id:text('id').primaryKey(),agentId:text('agent_id').notNull(),generation:integer('generation').notNull(),ownerHash:text('owner_hash').notNull(),status:text('status').notNull(),
   createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),viewerUntil:integer('viewer_until').notNull(),agentUntil:integer('agent_until').notNull(),
-  leaseHash:text('lease_hash'),frameRevision:integer('frame_revision').notNull().default(0),inputSeq:integer('input_seq').notNull().default(0),inputAck:integer('input_ack').notNull().default(0),messageCipher:text('message_cipher')
+  leaseHash:text('lease_hash'),frameRevision:integer('frame_revision').notNull().default(0),inputSeq:integer('input_seq').notNull().default(0),inputAck:integer('input_ack').notNull().default(0),messageCipher:text('message_cipher'),mode:text('mode').notNull().default('desktop'),terminalCipher:text('terminal_cipher')
 },table=>[uniqueIndex('remote_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('requested','preparing','active')`)]);
 export const remoteInputs = sqliteTable('remote_inputs', {
   sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),inputCipher:text('input_cipher').notNull()
 },table=>[primaryKey({columns:[table.sessionId,table.seq]})]);
+export const terminalCommands=sqliteTable('terminal_commands',{
+  sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),status:text('status').notNull(),specCipher:text('spec_cipher').notNull(),resultCipher:text('result_cipher'),revision:integer('revision').notNull().default(0),cancelRequested:integer('cancel_requested').notNull().default(0)
+},table=>[primaryKey({columns:[table.sessionId,table.seq]}),uniqueIndex('terminal_one_pending_command').on(table.sessionId).where(sql`${table.status} IN ('queued','running')`)]);

@@ -1,10 +1,12 @@
 import {REMOTE_LIVE,desktopInput,desktopFrame} from './remote-spec.mjs';
+import {terminalView,handleTerminalAPI} from './terminal.mjs';
 const liveSQL="('requested','preparing','active')";
 const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
 const key=id=>'remote/'+id+'/frame';
 export async function closeRemote(env,id,status,now,message,h){
   await env.DB.prepare('UPDATE remote_sessions SET status=?,message_cipher=? WHERE id=? AND status IN '+liveSQL).bind(status,await h.seal(String(message||'').slice(0,500),id+':remote-message'),id).run();
   await env.DB.prepare('DELETE FROM remote_inputs WHERE session_id=?').bind(id).run();
+  await env.DB.prepare('DELETE FROM terminal_commands WHERE session_id=?').bind(id).run();
   await env.BUCKET.delete(key(id));
 }
 export async function expireRemote(env,now,h){
@@ -16,20 +18,20 @@ export async function claimRemote(env,agent,now,h){
   await expireRemote(env,now,h);
   const lease=h.random(32),candidate=await env.DB.prepare("SELECT id FROM remote_sessions WHERE agent_id=? AND generation=? AND status='requested' AND viewer_until>? AND expires_at>? LIMIT 1").bind(agent.id,agent.generation,now,now).first();
   if(!candidate)return null;
-  const row=await env.DB.prepare("UPDATE remote_sessions SET status='preparing',lease_hash=?,agent_until=? WHERE id=? AND status='requested' RETURNING id,expires_at").bind(await h.digest(lease),now+15000,candidate.id).first();
-  return row?{id:row.id,lease,expiresAt:row.expires_at}:null;
+  const row=await env.DB.prepare("UPDATE remote_sessions SET status='preparing',lease_hash=?,agent_until=? WHERE id=? AND status='requested' RETURNING id,expires_at,mode").bind(await h.digest(lease),now+15000,candidate.id).first();
+  return row?{id:row.id,lease,expiresAt:row.expires_at,...(row.mode==='terminal'?{mode:'terminal'}:{})}:null;
 }
 export async function handleRemoteAPI(request,env,now,h){
   const {fail,json,body,seal,open}=h,path=new URL(request.url).pathname;
   const agentRoute=path.startsWith('/api/agent/remote/'),auth=agentRoute?await h.agentAuth():await h.authorize(request,env,now);
   await expireRemote(env,now,h);
   if(path==='/api/remote/start'&&request.method==='POST'){
-    const {agentId}=await body();if(!validId(agentId))fail(400,'Poste invalide.');
+    const {agentId,mode='desktop'}=await body();if(!validId(agentId)||!['desktop','terminal'].includes(mode))fail(400,'Poste ou mode invalide.');
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(agentId,auth.generation).first();
     if(!agent)fail(404,'Poste introuvable.');if(agent.last_seen<=now-20000)fail(409,'Démarre l’agent sur le poste distant.');
-    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes('remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser la prise en main.');
+    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes(mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser cette prise en main.');
     const id=h.random(16);
-    const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until) SELECT ?,?,?,?,'requested',?,?,?,0 WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+15000,agent.id).first();
+    const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until,mode) SELECT ?,?,?,?,'requested',?,?,?,0,? WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+15000,mode,agent.id).first();
     if(!inserted)fail(409,'Le poste exécute déjà un scan ou une prise en main. Termine cette opération avant de te connecter.');
     return json({id,status:'requested',expiresAt:now+20*60000},201);
   }
@@ -41,12 +43,15 @@ export async function handleRemoteAPI(request,env,now,h){
   const describe=async value=>({id:value.id,status:value.status,revision:value.frame_revision,expiresAt:value.expires_at,message:await open(value.message_cipher,value.id+':remote-message')||''});
   if(path==='/api/remote/session'&&request.method==='GET'){
     if(REMOTE_LIVE.includes(row.status))await env.DB.prepare('UPDATE remote_sessions SET viewer_until=? WHERE id=? AND status IN '+liveSQL).bind(now+15000,row.id).run();
+    if(row.mode==='terminal')return json({...await describe(row),...await terminalView(env,row,h)});
     const object=row.status==='active'?await env.BUCKET.get(key(row.id)):null;
     return json({...await describe(row),frame:object?await open(await object.text(),row.id+':remote-frame'):null});
   }
   if(path==='/api/remote/stop'&&request.method==='POST'){
     await closeRemote(env,row.id,'closed',now,'Session terminée depuis WolfGuard.',h);return json({ok:true});
   }
+  if(path.includes('/terminal/')&&request.method==='POST')return handleTerminalAPI(path,data,env,row,now,{...h,closeRemote});
+  if(row.mode==='terminal')fail(409,'Cette session utilise le terminal.');
   if(path==='/api/remote/input'&&request.method==='POST'){
     if(row.status!=='active')fail(409,'La session n’est pas active.');
     if(!Number.isSafeInteger(data.seq)||data.seq<1||!Array.isArray(data.events)||!data.events.length||data.events.length>32)fail(400,'Lot de contrôle invalide.');

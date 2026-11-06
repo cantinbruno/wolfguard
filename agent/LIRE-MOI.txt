@@ -67,6 +67,21 @@ L actif analyse les services TCP de la seule cible IP ou FQDN indiquee
 
 Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résout pas les noms sur le réseau : fichier hosts ou cache DNS Windows uniquement. Si aucune association locale n’existe, le rapport explique l’absence de résultat. Les réseaux et plages restent réservés à la cartographie.
 
+TERMINAL DISTANT
+Dans Prise en main, choisir Terminal puis Se connecter.
+PowerShell execute les commandes avec les droits de la session de l agent,
+sans ouvrir de console. Le dossier courant est conserve entre commandes ;
+les variables et les autres etats du shell ne sont pas conserves.
+Les sorties et erreurs arrivent au fil de l execution. Interrompre arrete
+la commande et son arbre de processus. Une seule commande a la fois,
+60 secondes et 65 536 caracteres de sortie au maximum.
+Les programmes interactifs ne sont pas pris en charge.
+Deconnecter, quitter la rubrique ou arreter localement la prise en main
+ferme le terminal et interrompt la commande. La session dure au plus 20 minutes.
+Les commandes et leurs sorties sont chiffrees sur le relais et supprimees
+de la session a sa fermeture. Aucun port entrant supplementaire n est ouvert.
+Le terminal necessite cette nouvelle version de l agent.
+
 PRISE EN MAIN DU BUREAU
 Dans WolfGuard, ouvre Prise en main puis Demander la connexion.
 Le poste utilise toujours l agent choisi dans Agents.
