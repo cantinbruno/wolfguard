@@ -142,6 +142,25 @@ test('one enrollment on each supported OS can execute all four scoped workspaces
     }
   }finally{s.env.DB.db.close();}
 });
+
+test('CERT-FR analysis is authenticated, cached and encrypted separately from immutable agent evidence',async()=>{
+  const s=await setup();try{
+    const a=await s.pair('CERT-FR fixture');await s.api('agent/poll',{capabilities:['network-scan-v3','network-target-v1']},a.auth);
+    const created=await(await s.api('scans',{agentId:a.id,workspace:'active',strategy:'active',target:'127.0.0.1',ports:'22',mode:'tcp'},s.user)).json();
+    assert.equal((await s.api('scans/intelligence',{id:created.id},s.user)).status,409);
+    const job=(await(await s.api('agent/poll',{},a.auth)).json()).job;
+    const report={strategy:'active',workspace:'active',results:[{address:'127.0.0.1',port:22,transport:'TCP',status:'open',product:'OpenSSH',version:'9.7p1'}],warnings:[]};
+    await s.api('agent/update',{id:job.id,lease:job.lease,revision:job.revision+1,status:'completed',completed:1,total:1,report},a.auth);
+    const before=s.env.DB.db.prepare('SELECT result_cipher FROM scan_jobs WHERE id=?').get(job.id).result_cipher;
+    let calls=0;s.env.LOCAL_TEST_ORIGIN='http://localhost';s.env.CERTFR_FETCH=async url=>{calls++;if(url.endsWith('/avis/json/'))return Response.json([{reference:'CERTFR-2026-AVI-0001',title:'OpenSSH',last_revision_date:'2026-11-06'}]);if(url.endsWith('/alerte/json/'))return Response.json([]);return Response.json({reference:'CERTFR-2026-AVI-0001',title:'OpenSSH security',affected_systems:[{product:{name:'OpenSSH'},description:'versions antérieures à 9.8p1'}],cves:[{name:'CVE-2024-6387'}],summary:'Evidence',content:'Update OpenSSH'});};
+    assert.equal((await s.api('scans/intelligence',{id:job.id})).status,401);assert.equal((await s.api('scans/intelligence',{id:job.id},a.auth)).status,401);
+    const response=await s.api('scans/intelligence',{id:job.id},s.user);assert.equal(response.status,200,await response.clone().text());const value=await response.json();assert.equal(value.intelligence.findings[0].reference,'CERTFR-2026-AVI-0001');
+    const count=calls;assert.equal((await s.api('scans/intelligence',{id:job.id},s.user)).status,200);assert.equal(calls,count);
+    const disk=s.env.DB.db.prepare('SELECT result_cipher FROM scan_intelligence WHERE job_id=?').get(job.id).result_cipher;assert.ok(!disk.includes('CVE-2024-6387'));assert.equal(s.env.DB.db.prepare('SELECT result_cipher FROM scan_jobs WHERE id=?').get(job.id).result_cipher,before);
+    const loaded=await(await s.api('scans/result?id='+job.id,undefined,s.user)).json();assert.equal(loaded.intelligence.findings[0].url,'https://cert.cyber.gouv.fr/avis/CERTFR-2026-AVI-0001/');assert.deepEqual(loaded.report,report);
+    assert.equal((await s.api('scans/delete',{id:job.id},s.user)).status,200);assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) AS n FROM scan_intelligence').get().n,0);
+  }finally{s.env.DB.db.close();}
+});
 test('agent pairing is one-use, scoped, encrypted, revocable and separate from vault sessions',async()=>{
   const s=await setup();assert.equal((await s.api('agents')).status,401);
   const a=await s.pair('Poste confidentiel');assert.equal((await s.api('agent/enroll',{code:a.code,name:'Replay',platform:'win32'})).status,403);

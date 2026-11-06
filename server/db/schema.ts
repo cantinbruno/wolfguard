@@ -46,6 +46,9 @@ export const scanAgents = sqliteTable('scan_agents', {
 export const scanPairings = sqliteTable('scan_pairings', {
   tokenHash: text('token_hash').primaryKey(), generation: integer('generation').notNull(), expiresAt: integer('expires_at').notNull()
 });
+export const scanIntelligence=sqliteTable('scan_intelligence',{
+  jobId:text('job_id').primaryKey(),reportRevision:integer('report_revision').notNull(),resultCipher:text('result_cipher').notNull(),checkedAt:integer('checked_at').notNull()
+});
 export const scanJobs = sqliteTable('scan_jobs', {
   id: text('id').primaryKey(), agentId: text('agent_id').notNull(), generation: integer('generation').notNull(), strategy: text('strategy').notNull(),
   status: text('status').notNull(), specCipher: text('spec_cipher').notNull(), resultCipher: text('result_cipher'),

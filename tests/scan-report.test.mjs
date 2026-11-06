@@ -63,6 +63,15 @@ test('PDF fields stay literal text without links, scripts or attachments',()=>{
   walk(definition);assert.ok(JSON.stringify(definition).includes(attack.replaceAll('"','\\"')));
 });
 
+test('CERT-FR evidence, CVEs and safe source links survive PDF export without trusting supplied URLs',()=>{
+  const intelligence={provider:'CERT-FR',status:'partial',checkedAt:'2026-11-06T12:00:00Z',message:'Version concernée à vérifier',bulletinsExamined:20,candidates:25,products:[{name:'OpenSSH',version:'9.7p1'}],productsTotal:1,findings:[{reference:'CERTFR-2026-AVI-0001',url:'javascript:alert(1)',kind:'avis',title:'OpenSSH security',product:'OpenSSH',version:'9.7p1',applicability:'version-in-range',evidence:'SSH-2.0-OpenSSH_9.7p1',source:'192.0.2.1:22',affected:['versions antérieures à 9.8p1'],cves:['CVE-2024-6387','javascript:alert(1)'],solution:'Mettre à jour',summary:'Conditions à vérifier'},{reference:'../../private',url:'https://evil.invalid/',product:'Injected'}]};
+  const result=document(model('active',{...report,intelligence})),serialized=JSON.stringify(result),links=[];
+  const walk=value=>{if(!value||typeof value!=='object')return;if(value.link)links.push(value.link);for(const child of Object.values(value))walk(child);};walk(result);
+  assert.equal(links.length,2);assert.ok(links.includes('https://cert.cyber.gouv.fr/avis/CERTFR-2026-AVI-0001/'));assert.ok(links.includes('https://www.cve.org/CVERecord?id=CVE-2024-6387'));
+  for(const value of ['Version dans la plage publiée','SSH-2.0-OpenSSH_9.7p1','20 bulletin(s)','CVE-2024-6387'])assert.ok(serialized.includes(value),value);
+  assert.ok(!serialized.includes('javascript:'));assert.ok(!serialized.includes('evil.invalid'));
+});
+
 test('PDF audit retains controls and prioritizes high risks, evidence and failures',()=>{
   const value=model('vulnerability',{...report,jobStatus:'failed',error:'Agent interrompu',warnings:['Cache ancien'],rows:[
     {...row,checkId:'ok',title:'Pare-feu actif',status:'passed',transport:'AUDIT'},

@@ -145,7 +145,8 @@ export function evaluatePosixSecurity(data = {}, now = Date.now()) {
   const updates = data.updates, fresh = Number.isFinite(updates?.checkedAt) && now >= updates.checkedAt && now - updates.checkedAt < 7 * 86400000;
   if (updates?.items?.length) add('updates-cache', 'Mises à jour disponibles (cache local)', 'issue', updates.items.slice(0, 30).join('\n'), 'Actualiser le gestionnaire de mises à jour et examiner les correctifs applicables.');
   else add('updates-cache', 'Mises à jour disponibles (cache local)', fresh ? 'passed' : 'notchecked', 'Aucune mise à jour listée dans le cache consulté. ' + (fresh ? 'Cache daté de moins de sept jours.' : 'Fraîcheur du cache non confirmée.'), 'Effectuer une recherche récente depuis le gestionnaire de mises à jour.', 'info');
-  return {results, warnings: ['Audit local en lecture seule, adapté à ' + (mac ? 'macOS' : 'Linux') + '. Aucune modification appliquée ; les caches de mises à jour ne constituent pas un inventaire exhaustif des CVE.']};
+  const software=[{name:mac?'macOS':String(data.os||'Linux'),version:mac?String(data.os||''):'',source:'Inventaire système',evidence:(data.os||'')+' '+(data.release||'')},...(data.software||[])].slice(0,200);
+  return {results,software, warnings: ['Audit local en lecture seule, adapté à ' + (mac ? 'macOS' : 'Linux') + '. Aucune modification appliquée ; les caches de mises à jour ne constituent pas un inventaire exhaustif des CVE.']};
 }
 
 export async function collectPosixSecurity(signal, {platform = process.platform, run, read = name => readText(name, 'utf8'), stat = fileStat} = {}) {
@@ -165,6 +166,10 @@ export async function collectPosixSecurity(signal, {platform = process.platform,
     const updates = await observe(run, '/usr/bin/plutil', ['-convert', 'json', '-o', '-', '/Library/Preferences/com.apple.SoftwareUpdate.plist'], signal);
     if (updates.available) try { const parsed = JSON.parse(updates.output); data.updates = {checkedAt: Date.parse(parsed.LastSuccessfulDate || ''), items: (parsed.RecommendedUpdates || []).map(item => String(item.DisplayName || item.Identifier || 'Mise à jour'))}; } catch {}
   } else if (platform === 'linux') {
+    const packages=['openssh-server','nginx','apache2','httpd','openssl','curl','firefox','chromium','postgresql','mariadb-server','mysql-server','redis-server','docker.io','containerd','git','sudo','tomcat'];
+    let inventory=await observe(run,'dpkg-query',['-W','-f=${binary:Package}\t${Version}\n',...packages],signal,[0,1]);
+    if(!inventory.available)inventory=await observe(run,'rpm',['-q','--qf','%{NAME}\t%{VERSION}\n',...packages],signal,[0,1]);
+    if(inventory.available)data.software=inventory.output.split(/\r?\n/).map(line=>line.split('\t')).filter(([name,version])=>name&&version&&/^[a-zA-Z0-9+_.:-]+$/.test(name)).slice(0,100).map(([name,version])=>({name,version,source:'Gestionnaire de paquets local',evidence:name+' '+version}));
     try { data.os = /^PRETTY_NAME=["']?([^\r\n"']+)/m.exec(await read('/etc/os-release'))?.[1] || ''; } catch {}
     for (const [field, file] of [['aslr', '/proc/sys/kernel/randomize_va_space'], ['kptr', '/proc/sys/kernel/kptr_restrict'], ['dmesg', '/proc/sys/kernel/dmesg_restrict']]) {
       try { const value = (await read(file)).trim(); if (/^[0-9]+$/.test(value)) data[field] = Number(value); } catch {}

@@ -111,6 +111,18 @@ const webScanWorkspace = (() => {
     if(!view.report)view.tab='overview';
     const visibleRows=filtered(view);
     summary(view,passive,visibleRows);drawRows(view,passive,visibleRows);changes(view);
+    $('#wgScanIntelligence').innerHTML=scanInsights.certfr(view.report);
+    const certRefresh=$('#wgScanRefreshCERTFR');
+    if(certRefresh){
+      certRefresh.disabled=!view.reportJob||view.report?.intelligence?.status==='loading'||!WolfGuardCloud.hasSession();
+      certRefresh.onclick=async()=>{
+        const selected=view.reportJob,current=view.report,token=generation,id=selected.split(':')[0];
+        current.intelligence={provider:'CERT-FR',status:'loading'};draw(view,passive);
+        try{const result=await WolfGuardCloud.agentRequest('scans/intelligence',{id});if(!alive(view.kind,view,token)||view.report!==current||view.reportJob!==selected)return;if(result.id+':'+result.revision!==selected)throw new Error('Le rapport a changé. Recharge-le.');current.intelligence=scanInsights.certfrData(result.intelligence);}
+        catch(error){if(!alive(view.kind,view,token)||view.report!==current)return;current.intelligence={provider:'CERT-FR',status:'unavailable',message:error.message};}
+        draw(view,passive);
+      };
+    }
     if(view.kind==='passive'){
       const refresh=focus=>{view.page=0;draw(view,passive);if(focus)document.getElementById(focus)?.focus({preventScroll:true});};
       const reset=()=>{resetPassiveFilters(view);view.query='';view.filter='all';refresh('wgPassiveSearch');};
@@ -169,7 +181,7 @@ const webScanWorkspace = (() => {
     const kind=view.kind,passive=kind==='passive',controls=preparation(view);
     const agent='<div id="wgScanAgentHost"></div>',metrics='<div id="wgScanMetrics" class="wgscan-metrics"></div>',status='<p id="wgScanStatus" class="wgscan-status" role="status" aria-live="polite"></p>';
     const execution='<section id="wgScanExecution" class="scan-execution" role="status" aria-live="polite" aria-atomic="true" aria-labelledby="wgScanExecutionTitle" hidden><span class="scan-execution-symbol" aria-hidden="true"></span><h2 id="wgScanExecutionTitle"></h2><p id="wgScanExecutionText"></p><progress id="wgScanExecutionProgress" max="1" aria-label="Progression du scan"></progress><span id="wgScanExecutionCount"></span><button type="button" id="wgScanCancel" hidden>Arrêter le scan</button></section>';
-    const panels=`<section id="wgScanBrief" class="scan-report-brief" aria-label="Synthèse du scan"></section>${execution}<nav class="wgscan-tabs" role="tablist" aria-label="Analyse du relevé">${['overview','rows','changes'].map((id,index)=>'<button type="button" role="tab" id="wgScanTab-'+id+'" aria-controls="wgScanPanel-'+id+'" data-wg-tab="'+id+'">'+definition.tabs[index]+'</button>').join('')}</nav><section id="wgScanPanel-overview" role="tabpanel" aria-labelledby="wgScanTab-overview" data-wg-panel="overview"><div id="wgScanOverview"></div></section><section id="wgScanPanel-rows" role="tabpanel" aria-labelledby="wgScanTab-rows" data-wg-panel="rows"><div id="wgScanRows"></div></section><section id="wgScanPanel-changes" role="tabpanel" aria-labelledby="wgScanTab-changes" data-wg-panel="changes"><div class="wgscan-reference-bar"><span id="wgScanReferenceLabel"></span><button type="button" id="wgScanReference">Définir comme référence</button></div><div id="wgScanChanges"></div></section>`;
+    const panels=`<section id="wgScanBrief" class="scan-report-brief" aria-label="Synthèse du scan"></section>${execution}<div id="wgScanIntelligence"></div><nav class="wgscan-tabs" role="tablist" aria-label="Analyse du relevé">${['overview','rows','changes'].map((id,index)=>'<button type="button" role="tab" id="wgScanTab-'+id+'" aria-controls="wgScanPanel-'+id+'" data-wg-tab="'+id+'">'+definition.tabs[index]+'</button>').join('')}</nav><section id="wgScanPanel-overview" role="tabpanel" aria-labelledby="wgScanTab-overview" data-wg-panel="overview"><div id="wgScanOverview"></div></section><section id="wgScanPanel-rows" role="tabpanel" aria-labelledby="wgScanTab-rows" data-wg-panel="rows"><div id="wgScanRows"></div></section><section id="wgScanPanel-changes" role="tabpanel" aria-labelledby="wgScanTab-changes" data-wg-panel="changes"><div class="wgscan-reference-bar"><span id="wgScanReferenceLabel"></span><button type="button" id="wgScanReference">Définir comme référence</button></div><div id="wgScanChanges"></div></section>`;
     const heading=`<header class="wgscan-heading"><div class="wgscan-title-group"><span class="wgscan-title-icon">${workspaceSectionIcon('scan-'+kind)}</span><div><span class="wgscan-kicker">${definition.kicker}</span><h1 id="scanTitle">${definition.title}</h1><p>${definition.description}</p></div></div><button type="button" id="wgScanNew" hidden>${networkToolIcon('reset')}Nouveau scan</button></header>`;
     const report=`<section class="scan-report-strip" aria-label="Rapport de scan"><div id="wgScanReportStamp"></div><div class="wgscan-report-actions"><button type="button" id="wgScanExport" title="Télécharger le rapport PDF complet">${networkToolIcon('download')}Exporter PDF</button></div><details id="wgScanDossier" class="scan-report-dossier"></details></section>`;
     const setupTitles={passive:'Quelle machine observer ?',active:'Quelle machine scanner ?',map:'Quel réseau explorer ?',vulnerability:'Vérifier la sécurité du poste'};

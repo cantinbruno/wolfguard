@@ -10,6 +10,11 @@ function RegistryValue($path,$name) {
 }
 Observe 'host' { $os=Get-CimInstance Win32_OperatingSystem; @{available=$true;hostname=[Environment]::MachineName;os=[string]$os.Caption;version=[string]$os.Version;build=[string]$os.BuildNumber} }
 Observe 'hotfixes' { @{available=$true;items=@(Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 5 | ForEach-Object { @{id=[string]$_.HotFixID;date=[string]$_.InstalledOn} })} }
+Observe 'software' {
+  $paths=@('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')
+  $items=@(Get-ItemProperty -Path $paths -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -and $_.DisplayVersion } | Sort-Object DisplayName,DisplayVersion -Unique | Select-Object -First 200 | ForEach-Object { @{name=[string]$_.DisplayName;version=[string]$_.DisplayVersion;vendor=[string]$_.Publisher} })
+  @{available=$true;items=$items}
+}
 Observe 'firewall' { @{available=$true;profiles=@(Get-NetFirewallProfile -PolicyStore ActiveStore | ForEach-Object { @{name=[string]$_.Name;enabled=$(if([string]$_.Enabled -eq 'True'){$true}elseif([string]$_.Enabled -eq 'False'){$false}else{$null})} })} }
 Observe 'defender' { $d=Get-MpComputerStatus; @{available=$true;mode=[string]$d.AMRunningMode;realtime=$d.RealTimeProtectionEnabled;signatureAge=$d.AntivirusSignatureAge} }
 Observe 'smb' { $s=Get-SmbServerConfiguration; @{available=$true;enabled=$s.EnableSMB1Protocol} }

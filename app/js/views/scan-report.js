@@ -67,7 +67,7 @@ const webScanReport = (() => {
     const definition=scanInsights.definitions[kind];if(!definition||!report)throw new Error('Aucun relevé à exporter.');
     const safe=kind==='passive'?webScanModel.networkReport(report):report;
     if(kind==='passive'&&reference)reference=webScanModel.networkReport(reference);
-    return {kind,title:definition.title,short:definition.short,kicker:definition.kicker,name:String(report.name||definition.short),accent:themes[kind],target:report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie'),source:report.source||'Non fournie',captured:date(report.capturedAt||report.importedAt),generated:date(new Date()),...reading(kind,safe),rows:safe.rows,metrics:metrics(kind,safe.rows),reference:reference?{name:reference.name,date:date(reference.capturedAt||reference.importedAt),changes:webScanModel.compare(safe,reference)}:null};
+    return {kind,title:definition.title,short:definition.short,kicker:definition.kicker,name:String(report.name||definition.short),accent:themes[kind],target:report.target||(kind==='vulnerability'?'Poste de l’agent':'Non fournie'),source:report.source||'Non fournie',captured:date(report.capturedAt||report.importedAt),generated:date(new Date()),...reading(kind,safe),intelligence:scanInsights.certfrData(report.intelligence),rows:safe.rows,metrics:metrics(kind,safe.rows),reference:reference?{name:reference.name,date:date(reference.capturedAt||reference.importedAt),changes:webScanModel.compare(safe,reference)}:null};
   }
   async function file(kind,report,reference){
     const stamp=new Date(report.capturedAt||report.importedAt),day=Number.isNaN(stamp.getTime())?new Date().toISOString().slice(0,10):stamp.toISOString().slice(0,10);

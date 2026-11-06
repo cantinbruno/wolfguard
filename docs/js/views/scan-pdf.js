@@ -103,6 +103,14 @@ const webScanPDF = (() => {
     ];
     if(model.kind==='map')content.push(heading('02','Carte du périmètre'),...map(model));
     content.push({...heading(model.kind==='map'?'03':'02',model.kind==='vulnerability'?'Preuves & recommandations':model.kind==='passive'?'Observations réseau locales':model.kind==='map'?'Hôtes & preuves':'Services & réponses'),...(model.kind==='vulnerability'?{pageBreak:'before'}:{})},{text:'Toutes les observations reçues · Filtres de l’écran non appliqués',fontSize:7.5,color:muted,margin:[0,0,0,10]},...results(model));
+    if(model.intelligence){
+      const intel=model.intelligence;
+      content.push({...heading('CERT-FR','Avis, CVE et applicabilité'),pageBreak:'before'},note(intel.message||'La consultation CERT-FR n’est pas disponible pour ce rapport.',model.accent),{text:'État : '+intel.status+' · Consultation : '+(intel.checkedAt||'Non fournie')+' · '+intel.bulletinsExamined+' bulletin(s) examiné(s) / '+intel.candidates+' candidat(s)',fontSize:8,color:muted,margin:[0,8,0,12]});
+      for(const finding of intel.findings){
+        content.push({text:finding.product+' '+finding.version+' · '+(finding.applicability==='version-in-range'?'Version dans la plage publiée':'Applicabilité à vérifier'),fontSize:11,bold:true,margin:[0,12,0,6]},{text:finding.title,fontSize:9,bold:true},{text:finding.summary,fontSize:8,lineHeight:1.35,margin:[0,5,0,5]},{text:'Observation : '+finding.evidence+' · '+finding.source,fontSize:8,color:muted},{text:'Versions concernées : '+finding.affected.join(' ; '),fontSize:8,lineHeight:1.35,margin:[0,5,0,5]},{text:finding.solution,fontSize:8,lineHeight:1.35},{text:finding.reference+' · '+finding.url,link:finding.url,fontSize:8,color:'#236589',margin:[0,7,0,4]},...finding.cves.map(cve=>({text:cve,link:'https://www.cve.org/CVERecord?id='+cve,fontSize:7.5,color:'#236589',margin:[0,2,0,2]})));
+      }
+      content.push(note('Vérifier les conditions d’exploitation et les correctifs rétroportés dans les bulletins. Consultation limitée à 20 produits et 20 bulletins, non exhaustive. Une absence de correspondance ne confirme pas l’absence de vulnérabilité.',model.accent));
+    }
     if(model.reference){
       const names={added:'Nouvelle',removed:'Absente',changed:'Modifiée'},describe=row=>[label(row.status),row.macAddress,row.service,row.product,row.version,row.detail].filter(Boolean).join(' · ');
       content.push(heading(model.kind==='map'?'04':'03','Évolution du relevé'),note('Référence : '+model.reference.name+' · '+model.reference.date+'. Comparer le même périmètre et les mêmes options. Une absence ne confirme pas une disparition réelle.',model.accent));

@@ -81,6 +81,16 @@ export async function activeTargetAddress(target,{lookup=dnsLookup,signal}={}){
     return records.map(record=>localAddress(record.address))[0];
   }finally{clearTimeout(timeout);signal?.removeEventListener('abort',abort);}
 }
+export function serviceFingerprint(content){
+  const ssh=/\bOpenSSH[_ /-](\d+(?:\.\d+)+(?:p\d+)?)/i.exec(content);if(ssh)return {service:'SSH',product:'OpenSSH',version:ssh[1]};
+  const server=/^server:\s*([^\r\n]+)/im.exec(content)?.[1]||content.split(/\r?\n/,1)[0];
+  const match=/\b(nginx|Apache|OpenSSL|Tomcat|PostgreSQL|Redis|Microsoft-IIS)[/ ](\d+(?:\.\d+)+(?:p\d+)?)/i.exec(server);
+  return {service:/^HTTP\//.test(content)?'HTTP':'',product:match?.[1]||server.slice(0,400),version:match?.[2]||''};
+}
+function bannerEvidence(content){
+  if(/^HTTP\//.test(content))return [content.split(/\r?\n/,1)[0],/^server:[^\r\n]*/im.exec(content)?.[0]].filter(Boolean).join('\n').slice(0,600);
+  return content.split(/\r?\n/,1)[0].slice(0,400);
+}
 function probe(address,port,timeout,signal,identify,hostname=address){
   localAddress(address);
   return new Promise(resolve=>{
@@ -95,12 +105,13 @@ function probe(address,port,timeout,signal,identify,hostname=address){
       if(!identify){finish('open','Connexion TCP établie. Le nom du service est une association de port, non une identification.',{service:SERVICES[port]?SERVICES[port]+' (port usuel)':''});return;}
       let stream=socket,content='';
       if([443,465,636,853,993,995,5986,8443].includes(port)){
-        stream=tls.connect({socket,host:hostname,...(hostname!==address?{servername:hostname}:{}),rejectUnauthorized:true},()=>{const cert=stream.getPeerCertificate();finish('open','Négociation TLS validée. Certificat : '+String(cert.subject?.CN||'')+' ; expiration : '+String(cert.valid_to||''),{service:stream.getProtocol()||'TLS'});stream.destroy();});
+        stream=tls.connect({socket,host:hostname,...(hostname!==address?{servername:hostname}:{}),rejectUnauthorized:true},()=>{const cert=stream.getPeerCertificate();if([443,8443].includes(port)){stream.write('HEAD / HTTP/1.0\r\nHost: '+(hostname.includes(':')?'['+hostname+']':hostname)+'\r\nConnection: close\r\n\r\n');return;}finish('open','Négociation TLS validée. Certificat : '+String(cert.subject?.CN||'')+' ; expiration : '+String(cert.valid_to||''),{service:stream.getProtocol()||'TLS'});stream.destroy();});
+        if([443,8443].includes(port)){stream.on('data',chunk=>{content+=chunk.toString('utf8');if(content.length>=4096||content.includes('\r\n\r\n'))finish('open','En-têtes HTTPS reçus : '+bannerEvidence(content),serviceFingerprint(content));});stream.once('end',()=>finish('open',content?'En-têtes HTTPS reçus : '+bannerEvidence(content):'TLS établi ; aucun en-tête reçu.',content?serviceFingerprint(content):{service:'HTTPS'}));}
         stream.once('error',error=>{finish('open','Port ouvert ; validation TLS non aboutie : '+String(error.code||'erreur'));stream.destroy();});
       }else{
-        stream.on('data',chunk=>{content+=chunk.toString('utf8');if(content.length>=4096||content.includes('\n')){const line=content.split(/\r?\n/,1)[0].slice(0,400);finish('open','Bannière reçue : '+line,{service:line.startsWith('SSH-')?'SSH':line.startsWith('HTTP/')?'HTTP':SERVICES[port]||'',product:line});}});
+        stream.on('data',chunk=>{content+=chunk.toString('utf8');if(content.length>=4096||(/^HTTP\//.test(content)?content.includes('\r\n\r\n'):content.includes('\n'))){finish('open','Bannière reçue : '+bannerEvidence(content),serviceFingerprint(content));}});
         if([80,8000,8080,8081,9090].includes(port))stream.write('HEAD / HTTP/1.0\r\nHost: '+(hostname.includes(':')?'['+hostname+']':hostname)+'\r\nConnection: close\r\n\r\n');
-        stream.once('end',()=>finish('open',content?'Bannière reçue : '+content.slice(0,400):'Port ouvert ; aucune bannière reçue.'));
+        stream.once('end',()=>finish('open',content?'Bannière reçue : '+bannerEvidence(content):'Port ouvert ; aucune bannière reçue.',content?serviceFingerprint(content):{}));
       }
     });
   });
@@ -113,11 +124,12 @@ async function ping(address,timeout,signal){
   try{const output=await fixedProcess(file,args,{signal,timeout:timeout+1500,maxBytes:16000});const replied=windows?/(?:Reply from|R.ponse de)[^\r\n]*(?:TTL=|temps[=<]|time[=<])/i.test(output):/\bbytes from\b/i.test(output);return {address,port:null,transport:'ICMP',status:replied?'reachable':'no-response',latencyMs:Math.round(performance.now()-started),detail:replied?'Réponse ICMP reçue.':'Aucune réponse ICMP identifiable.',source:'agent-icmp'};}catch{return {address,port:null,transport:'ICMP',status:'no-response',detail:'Aucune réponse ICMP ; cela ne prouve pas l’absence de la machine.',source:'agent-icmp'};}
 }
 export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity,lookup=dnsLookup,cacheOptions={}}={}){
-  const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false;
-  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings});
+  const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false,software=[];
+  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings,...(software.length?{software}:{})});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
   if(spec.strategy==='passive'){
     const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);
+    if(spec.passiveScope==='security')software=(Array.isArray(snapshot.software)?snapshot.software:[]).slice(0,200).map(item=>({name:String(item.name||'').slice(0,160),version:String(item.version||'').slice(0,100),source:String(item.source||'Inventaire local').slice(0,160),evidence:String(item.evidence||'').slice(0,400)}));
     let matches=null;
     if(spec.passiveScope!=='security'){
       const addresses=spec.target.includes(':')||/^[\d.]+$/.test(spec.target)?[spec.target]:await cachedTargetAddresses(spec.target,snapshot.results,{...cacheOptions,signal});

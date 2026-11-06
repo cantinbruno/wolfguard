@@ -1,4 +1,5 @@
 import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
+import {cachedAnalysis,analyzeScan} from './certfr.mjs';
 const encode=new TextEncoder();
 const MAX_RESULT=1024*1024,LEASE_MS=30000,ONLINE_MS=20000;
 export async function handleAgentAPI(request,env,now,h){
@@ -98,7 +99,15 @@ export async function handleAgentAPI(request,env,now,h){
     const rows=await env.DB.prepare('SELECT * FROM scan_jobs WHERE agent_id=? AND generation=? ORDER BY created_at DESC LIMIT 12').bind(agentId,session.generation).all();const jobs=[];for(const row of rows.results)jobs.push(await publicJob(row));return json({jobs});
   }
   if(path==='/api/scans/result'&&request.method==='GET'){
-    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json(await publicJob(row,true));
+    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json({...await publicJob(row,true),intelligence:await cachedAnalysis(env,row)});
+  }
+  if(path==='/api/scans/intelligence'&&request.method==='POST'){
+    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');
+    const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');
+    if(['queued','running'].includes(row.status)||!row.result_cipher)fail(409,'Attends la réception du rapport avant de consulter le CERT-FR.');
+    const report=await open(row.result_cipher,row.id+':result'),intelligence=await analyzeScan(env,row,report,now);
+    await authorize(request,env,now);
+    return json({id,revision:row.revision,intelligence});
   }
   if(path==='/api/scans/cancel'&&request.method==='POST'){
     const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND generation=? AND status IN ('queued','running') RETURNING id").bind(now,id,session.generation).first();if(!row)fail(409,'Ce scan est déjà terminé.');return json({ok:true});
@@ -111,6 +120,7 @@ export async function handleAgentAPI(request,env,now,h){
       if(!row)fail(404,'Scan introuvable.');
       fail(409,'Arrête le scan avant de le supprimer de l’historique.');
     }
+    await env.DB.prepare('DELETE FROM scan_intelligence WHERE job_id=?').bind(id).run();
     return json({ok:true});
   }
   fail(404,'Adresse inconnue.');

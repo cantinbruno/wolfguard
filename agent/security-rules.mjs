@@ -30,5 +30,9 @@ export function evaluateSecurity(data={},now=Date.now()) {
     if(pending.length>200)warnings.push('Seuls les 200 premiers correctifs applicables sont détaillés.');
   }else unknown('updates-cache','Correctifs de sécurité (cache Windows Update)');
   warnings.push('Audit local de configuration et du cache Windows Update. Aucun correctif installé, aucune exploitation ni recherche de CVE réseau.');
-  return {results,warnings};
+  const software=[];
+  if(data.host?.available)software.push({name:String(data.host.os||'Windows'),version:String(data.host.version||''),source:'Inventaire système Windows',evidence:[data.host.os,data.host.version,'Build '+data.host.build].filter(Boolean).join(' · ')});
+  for(const item of (Array.isArray(data.software?.items)?data.software.items:[]).slice(0,200))if(item?.name&&item?.version)software.push({name:String(item.name).slice(0,160),version:String(item.version).slice(0,100),vendor:String(item.vendor||'').slice(0,120),source:'Registre des applications installées',evidence:String(item.name+' '+item.version).slice(0,400)});
+  if(!data.software?.available)warnings.push('Inventaire des applications indisponible : les correspondances CERT-FR seront limitées aux produits identifiables.');
+  return {results,warnings,software};
 }

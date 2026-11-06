@@ -20,6 +20,13 @@ class Bucket {
 }
 const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
+// Existing browser regressions remain deterministic and never contact CERT-FR.
+env.CERTFR_FETCH=async()=>Response.json([]);
+if(process.env.WG_TEST_CERTFR==='1')env.CERTFR_FETCH=async url=>{
+  if(url.endsWith('/avis/json/'))return Response.json([{reference:'CERTFR-2026-AVI-0001',title:'Vulnérabilité dans OpenSSH',last_revision_date:'2026-11-06'}]);
+  if(url.endsWith('/alerte/json/'))return Response.json([]);
+  return Response.json({reference:'CERTFR-2026-AVI-0001',title:'Vulnérabilité dans OpenSSH',summary:'Conditions de configuration à vérifier.',content:'Installer le correctif de l’éditeur.',affected_systems:[{product:{name:'OpenSSH'},description:'OpenSSH versions 8.5p1 à 9.7p1'}],cves:[{name:'CVE-2024-6387'}],risks:[{description:'Exécution de code à distance'}]});
+};
 const pushMessages=[];
 if(process.env.WG_TEST_PUSH==='1'){
   const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);

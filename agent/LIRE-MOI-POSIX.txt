@@ -58,3 +58,5 @@ Le bureau est transmis sous forme d images pour l administration, sans audio
 ni transfert de fichiers. Le flux passe en HTTPS par le relais WolfGuard ;
 la derniere image et les actions en attente y sont chiffrees temporairement.
 Le relais les dechiffre : ce n est pas un chiffrement de bout en bout.
+
+Le serveur WolfGuard rapproche les produits et versions observes des avis et alertes CERT-FR. Sous Linux, un inventaire cible de paquets est lu sans installation ni recherche de mises a jour reseau. Les correctifs retroportes par la distribution doivent etre verifies. Les liens CERT-FR et CVE sont conserves dans le rapport web et le PDF.

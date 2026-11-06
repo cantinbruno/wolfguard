@@ -994,3 +994,5 @@
     justify-content: flex-start
   }
 }
+.certfr-panel{margin:18px 0;padding:18px;border:1px solid #5c759166;border-radius:12px;background:#0d192655;min-width:0}
+.certfr-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.certfr-panel h2{font-size:17px;margin:6px 0}.certfr-panel p{line-height:1.6;font-size:12px;overflow-wrap:anywhere}.certfr-panel a{color:#a8d4ff;font-size:12px;overflow-wrap:anywhere}.certfr-coverage{color:#a9bbd1}.certfr-products{display:flex;flex-wrap:wrap;gap:6px}.certfr-products span,.certfr-kind,.certfr-applicability{border:1px solid #60799166;border-radius:6px;padding:4px 7px;font-size:10px}.certfr-finding{margin-top:12px;border:1px solid #637e9866;border-radius:8px;min-width:0}.certfr-finding summary{cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px}.certfr-finding strong{flex:1;font-size:13px;min-width:120px}.certfr-body{padding:0 14px 14px}.certfr-body h3{font-size:14px}.certfr-links{display:flex;flex-wrap:wrap;gap:9px}.certfr-panel[data-certfr-state="unavailable"],.certfr-panel[data-certfr-state="stale"]{border-color:#ac875a88}

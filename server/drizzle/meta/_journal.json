@@ -71,6 +71,13 @@
       "when": 1793994158352,
       "tag": "0009_phone_push",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793996110756,
+      "tag": "0010_certfr_intelligence",
+      "breakpoints": true
     }
   ]
 }
