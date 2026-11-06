@@ -20,6 +20,18 @@ async function client(run){
   }
 }
 
+test('invitation creation and cancellation pass through the authenticated client',()=>client(async cloud=>{
+  const calls=[];
+  globalThis.fetch=async(url,options)=>{calls.push({url,options});return {ok:true,headers:new Headers(),json:async()=>({ok:true})};};
+  await cloud.agentRequest('users/invite',{});
+  await cloud.agentRequest('users/revoke-invitation',{id:'b'.repeat(32)});
+  assert.deepEqual(calls.map(call=>new URL(call.url).pathname),['/api/users/invite','/api/users/revoke-invitation']);
+  for(const {options}of calls){assert.equal(options.method,'POST');assert.equal(options.headers.Authorization,'Bearer '+'a'.repeat(64));}
+  assert.deepEqual(JSON.parse(calls[1].options.body),{id:'b'.repeat(32)});
+  await assert.rejects(cloud.agentRequest('users/arbitrary',{}),/Adresse agent invalide/);
+  assert.equal(calls.length,2);
+}));
+
 test('cloud deadline covers a response whose headers arrive but body stalls',()=>client(async(cloud,deadlines)=>{
   let reading;
   const started=new Promise(resolve=>reading=resolve);

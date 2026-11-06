@@ -10,8 +10,8 @@ import {seal} from '../server/lib/wolfguard/access.mjs';
 
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
-  prepare(sql){const statement=this.db.prepare(sql);let args=[];return{bind(...values){args=values;return this;},async first(){return statement.get(...args)||null;},async all(){return{results:statement.all(...args)};},async run(){return{meta:{changes:Number(statement.run(...args).changes)}};}};}
-  async batch(statements){this.db.exec('BEGIN');try{const result=[];for(const statement of statements)result.push(await statement.run());this.db.exec('COMMIT');return result;}catch(error){this.db.exec('ROLLBACK');throw error;}}
+  prepare(sql){const statement=this.db.prepare(sql);let args=[];return{bind(...values){args=values;return this;},async first(){return statement.get(...args)||null;},async all(){return{results:statement.all(...args)};},run(){return{meta:{changes:Number(statement.run(...args).changes)}};}};}
+  async batch(statements){this.db.exec('BEGIN');try{const result=[];for(const statement of statements)result.push(statement.run());this.db.exec('COMMIT');return result;}catch(error){this.db.exec('ROLLBACK');throw error;}}
 }
 async function setup(){
   let now=Date.now();const objects=new Map();
@@ -194,5 +194,63 @@ test('expired, disabled, deleted or concurrently consumed invitations never gran
     assert.deepEqual(responses.map(r=>r.status).sort(),[200,410]);await s.login('race@example.test',codes[responses.findIndex(r=>r.status===200)]);
     const expired=await add('expired@example.test');s.advance(24*60*60000+1);assert.equal((await s.api('account/inspect',{ticket:expired.invitation.ticket})).status,410);
     assert.equal((await s.api('account/complete',{ticket:expired.invitation.ticket,username:'expired@example.test',code:'12345678'})).status,410);
+  }finally{s.env.DB.db.close();}
+});
+
+test('an unbound invitation creates a member with their chosen email and code exactly once',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    assert.equal((await s.api('users/invite',{})).status,401);
+    const response=await s.api('users/invite',{},owner.token);assert.equal(response.status,201);
+    const {invitation}=await response.json(),ticket=invitation.ticket;
+    assert.match(ticket,/^[a-f0-9]{64}$/);assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
+    assert.ok(!JSON.stringify(s.env.DB.db.prepare('SELECT * FROM user_invitations').all()).includes(ticket));
+    const listed=await(await s.api('users',undefined,owner.token)).json();assert.equal(listed.invitations[0].id,invitation.id);assert.ok(!JSON.stringify(listed).includes(ticket));
+    for(let i=0;i<2;i++)assert.deepEqual(await(await s.api('account/inspect',{ticket})).json(),{expiresAt:invitation.expiresAt});
+    for(const data of [{username:'invalid',code:'12345678'},{username:'member@example.test',code:'short'}])assert.equal((await s.api('account/complete',{ticket,...data})).status,400);
+    assert.equal((await s.api('account/complete',{ticket,username:'cantin.bruno@gmx.fr',code:'12345678'})).status,409);
+    assert.equal((await s.api('account/inspect',{ticket})).status,200);
+    assert.equal((await s.api('account/complete',{ticket,username:' MEMBER@EXAMPLE.TEST ',code:'12345678',role:'admin'})).status,200);
+    const member=await s.login('member@example.test','12345678');assert.equal(member.user.role,'member');assert.deepEqual(member.workspace,s.material);
+    assert.equal((await s.api('users/invite',{},member.token)).status,403);
+    assert.equal((await s.api('users/revoke-invitation',{id:invitation.id},member.token)).status,403);
+    assert.equal((await s.api('account/inspect',{ticket})).status,410);
+    assert.equal((await s.api('account/complete',{ticket,username:'other@example.test',code:'23456789'})).status,410);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,2);
+    assert.equal((await(await s.api('users',undefined,owner.token)).json()).invitations.length,0);
+  }finally{s.env.DB.db.close();}
+});
+
+test('unbound invitations reject replay races, cancellation and expiry and roll back on failure',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const invite=async()=>(await(await s.api('users/invite',{},owner.token)).json()).invitation;
+    const race=await invite(),emails=['race-a@example.test','race-b@example.test'];
+    const responses=await Promise.all(emails.map(username=>s.api('account/complete',{ticket:race.ticket,username,code:'12345678'})));
+    assert.deepEqual(responses.map(row=>row.status).sort(),[200,410]);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,2);
+    await s.login(emails[responses.findIndex(row=>row.status===200)],'12345678');
+    const rollback=await invite();s.env.DB.db.exec("CREATE TRIGGER fail_invite_consume BEFORE DELETE ON user_invitations BEGIN SELECT RAISE(ABORT,'synthetic failure'); END");
+    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'12345678'})).status,503);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,2);
+    s.env.DB.db.exec('DROP TRIGGER fail_invite_consume');assert.equal((await s.api('account/inspect',{ticket:rollback.ticket})).status,200);
+    assert.equal((await s.api('users/revoke-invitation',{id:rollback.id},owner.token)).status,200);
+    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'12345678'})).status,410);
+    const expired=await invite();s.advance(24*60*60000+1);
+    assert.equal((await s.api('account/inspect',{ticket:expired.ticket})).status,410);
+    assert.equal((await s.api('account/complete',{ticket:expired.ticket,username:'expired@example.test',code:'12345678'})).status,410);
+  }finally{s.env.DB.db.close();}
+});
+
+test('unbound invitation issuance and redemption respect the account limit',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const {invitation}=await(await s.api('users/invite',{},owner.token)).json();
+    const seed=s.env.DB.db.prepare("INSERT INTO users(id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) VALUES (?,?,'synthetic','member','salt','hash',0,0)");
+    for(let i=0;i<99;i++)seed.run('synthetic-'+i,'synthetic-'+i);
+    assert.equal((await s.api('users/invite',{},owner.token)).status,409);
+    assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'full@example.test',code:'12345678'})).status,409);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,100);
+    assert.equal((await s.api('account/inspect',{ticket:invitation.ticket})).status,200);
   }finally{s.env.DB.db.close();}
 });

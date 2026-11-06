@@ -17,6 +17,10 @@ export const users = sqliteTable('users', {
   disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login'),
   credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at')
 });
+export const userInvitations = sqliteTable('user_invitations', {
+  id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),
+  createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+});
 export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
   generation: integer('generation').notNull(), version: integer('version').notNull(), expiresAt: integer('expires_at').notNull()

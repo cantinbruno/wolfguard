@@ -53,6 +53,10 @@ def run():
             expect(first.locator('#wgUserInvitation')).to_be_visible();initial_link=first.locator('#wgUserInvitationLink').input_value();assert '#account=' in initial_link
             expect(first.locator('#wgUsersList')).to_contain_text('Code à définir par l’utilisateur')
             expect(first.locator('#wgUsersList')).to_contain_text('alice@example.test')
+            first.locator('#wgUsersSearch').fill('alice');expect(first.locator('.user-card')).to_have_count(1)
+            first.locator('#wgUsersFilter').select_option('active');expect(first.locator('.user-card')).to_have_count(0)
+            first.locator('#wgUsersFilter').select_option('pending');expect(first.locator('.user-card')).to_have_count(1)
+            first.locator('#wgUsersSearch').fill('');first.locator('#wgUsersFilter').select_option('all')
             owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Compte protégé')
             owner_row.get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
             for width in [1440,1150,1050,900,640,390,320]:
@@ -135,7 +139,20 @@ def run():
             first.locator('#closeSettingsBtn').click();assert first.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             # Exercise the real encrypted Pages entry with its strict private query
             # and one-time fragment, using production origins and synthetic data.
-            invitation=first.evaluate("async()=>await WolfGuardCloud.agentRequest('users/create',{username:'entryuser@example.test'})")['invitation']['ticket']
+            users();first.locator('#wgUserInvite').click();expect(first.locator('#wgUserInvitation')).to_be_visible()
+            revoked_link=first.locator('#wgUserInvitationLink').input_value();expect(first.locator('#wgPendingInvitations')).to_be_visible()
+            first.locator('#wgPendingInvitations button').click();first.locator('.app-dialog-submit').click()
+            expect(first.locator('#wgPendingInvitations')).to_be_hidden();expect(first.locator('#wgUserInvitation')).to_be_hidden()
+            canceled=guest.new_page();canceled.goto(revoked_link);expect(canceled.locator('#webAccountSetupForm [role=alert]')).to_contain_text('plus valide',timeout=15000);canceled.close()
+            first.locator('#wgUserInvite').click();expect(first.locator('#wgUserInvitation')).to_be_visible()
+            invitation=first.locator('#wgUserInvitationLink').input_value().split('#account=')[1]
+            expect(first.locator('#wgPendingInvitations')).to_contain_text('Usage unique')
+            for width in [1440,390,320]:
+                first.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
+                assert first.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
+                assert first.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
+                first.locator('#wgUserInvite').scroll_into_view_if_needed();first.screenshot(path=str(ROOT/f'.cache/users-invite-link-{width}.png'),animations='disabled')
+            first.set_viewport_size({'width':1440,'height':1000})
             private=context('192.0.2.9')
             def frontend(route):
                 address=urlsplit(route.request.url)
@@ -150,7 +167,8 @@ def run():
             activate(real,secure_link,'34567890','entryuser@example.test')
             assert real.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             replay=private.new_page();replay.goto(secure_link);expect(replay.locator('#webAccountSetupForm [role=alert]')).to_contain_text('plus valide',timeout=15000);expect(replay.locator('#app')).not_to_be_visible()
-            print('PASS: email-only creation and reset require user-defined codes; single-use links also work through the real encrypted entry and fail safely on replay')
+            first.locator('#wgUsersRefresh').click();expect(first.locator('#wgPendingInvitations')).to_be_hidden();expect(first.locator('#wgUsersList')).to_contain_text('entryuser@example.test')
+            print('PASS: search, filters, invitation creation and cancellation; self-chosen email and code through the real encrypted entry; consumed links fail on replay')
             assert not errors,errors
             browser.close()
     finally:

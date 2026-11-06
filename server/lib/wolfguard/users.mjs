@@ -47,12 +47,33 @@ export async function handleAccountAPI(request,env,now,h){
   const data=await body();
   if(!data||typeof data!=='object')fail(400,'Requête invalide.');
   if(typeof data.ticket!=='string'||!/^[a-f0-9]{64}$/.test(data.ticket))fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
-  const hash=await digest(data.ticket),user=await env.DB.prepare('SELECT * FROM users WHERE invite_hash=? AND invite_expires_at>? AND credential_pending=1 AND disabled_at IS NULL AND (SELECT users_enabled FROM vault WHERE id=1)=1').bind(hash,now).first();
+  const hash=await digest(data.ticket);
+  const invitation=await env.DB.prepare('SELECT * FROM user_invitations WHERE ticket_hash=? AND expires_at>? AND (SELECT users_enabled FROM vault WHERE id=1)=1').bind(hash,now).first();
+  if(invitation){
+    if(path.endsWith('/inspect'))return json({expiresAt:invitation.expires_at});
+    if(!codeOK(data.code))fail(400,'Choisis un code personnel de 8 chiffres.');
+    const name=normalizeUsername(data.username);
+    if(!name)fail(400,'Vérifie ton adresse e-mail.');
+    const id=random(16),salt=random(16),nameHash=await usernameHash(name,env);
+    // D1 batches are transactional: insertion and consumption succeed together.
+    // A second redemption cannot insert after the first has removed the ticket.
+    const result=await env.DB.batch([
+      env.DB.prepare("INSERT INTO users(id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) SELECT ?,?,?,'member',?,?,?,? WHERE EXISTS(SELECT 1 FROM user_invitations WHERE ticket_hash=? AND expires_at>?) AND (SELECT users_enabled FROM vault WHERE id=1)=1 AND (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING").bind(id,nameHash,await seal(name,'WolfGuard users v1:name:'+id,env),salt,await pinHash(data.code,salt,env),now,now,hash,now),
+      env.DB.prepare('DELETE FROM user_invitations WHERE ticket_hash=? AND EXISTS(SELECT 1 FROM users WHERE id=?)').bind(hash,id)
+    ]);
+    if(Number(result[0]?.meta?.changes)!==1){
+      const valid=await env.DB.prepare('SELECT id FROM user_invitations WHERE ticket_hash=? AND expires_at>?').bind(hash,now).first();
+      if(valid)fail(409,'Cette adresse e-mail est déjà utilisée ou la limite de 100 comptes est atteinte.');
+      fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
+    }
+    return json({ok:true});
+  }
+  const user=await env.DB.prepare('SELECT * FROM users WHERE invite_hash=? AND invite_expires_at>? AND credential_pending=1 AND disabled_at IS NULL AND (SELECT users_enabled FROM vault WHERE id=1)=1').bind(hash,now).first();
   if(!user)fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
   if(path.endsWith('/inspect'))return json({expiresAt:user.invite_expires_at});
   if(!codeOK(data.code))fail(400,'Choisis un code personnel de 8 chiffres.');
   const name=normalizeUsername(data.username);
-  if(!name||await usernameHash(name,env)!==user.name_hash)fail(400,'Vérifie ton nom d’utilisateur.');
+  if(!name||await usernameHash(name,env)!==user.name_hash)fail(400,'Vérifie ton adresse e-mail.');
   const salt=random(16),changed=await env.DB.prepare('UPDATE users SET pin_salt=?,pin_hash=?,code_version=code_version+1,credential_pending=0,invite_hash=NULL,invite_expires_at=NULL,updated_at=? WHERE id=? AND invite_hash=? AND invite_expires_at>? AND credential_pending=1 AND disabled_at IS NULL AND code_version=? RETURNING id').bind(salt,await pinHash(data.code,salt,env),now,user.id,hash,now,user.code_version).first();
   if(!changed)fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
   return json({ok:true});
@@ -105,10 +126,23 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users'&&request.method==='GET'){
     const rows=await env.DB.prepare('SELECT * FROM users ORDER BY created_at,id').all(),users=[];
     for(const row of rows.results){const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM sessions WHERE user_id=? AND user_version=? AND expires_at>? AND active_at>? AND generation=?').bind(row.id,row.code_version,now,now-15*60000,session.generation).first();users.push({...await publicUser(row,env),current:row.id===session.user.id,sessions:count.count});}
-    return json({users});
+    const invitations=await env.DB.prepare('SELECT id,created_at AS createdAt,expires_at AS expiresAt FROM user_invitations WHERE expires_at>? ORDER BY created_at DESC,id').bind(now).all();
+    return json({users,invitations:invitations.results});
   }
   if(request.method!=='POST')fail(404,'Adresse utilisateur inconnue.');
   const data=await body();
+  if(path==='/api/users/invite'){
+    const id=random(16),ticket=random(32),expiresAt=now+24*60*60000;
+    await env.DB.prepare('DELETE FROM user_invitations WHERE expires_at<=?').bind(now).run();
+    const added=await env.DB.prepare('INSERT INTO user_invitations(id,ticket_hash,created_at,expires_at) SELECT ?,?,?,? WHERE (SELECT COUNT(*) FROM users)+(SELECT COUNT(*) FROM user_invitations)<100 RETURNING id').bind(id,await digest(ticket),now,expiresAt).first();
+    if(!added)fail(409,'La limite de 100 comptes et invitations en attente est atteinte.');
+    return json({invitation:{id,ticket,expiresAt}},201);
+  }
+  if(path==='/api/users/revoke-invitation'){
+    if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Invitation invalide.');
+    await env.DB.prepare('DELETE FROM user_invitations WHERE id=?').bind(data.id).run();
+    return json({ok:true});
+  }
   if(path==='/api/users/create'){
     const name=normalizeUsername(data.username),role='member';
     if(data.role!==undefined&&data.role!=='member')fail(403,'Seul '+OWNER_EMAIL+' est administrateur.');

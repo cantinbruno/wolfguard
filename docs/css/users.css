@@ -38,3 +38,39 @@
 .user-setup-form .user-setup-error {color:#f1b4bf}
 #lock:has(#webAccountSetupForm) :is(#keypad,#pinDots,#webUsernameRow,#webKeyHint) {display:none!important}
 #lock:has(#webAccountSetupForm) .lock-logo {--brand-mark-size:80px;width:80px!important;height:80px!important;min-width:80px!important}
+.users-invite-hero {display:flex;align-items:center;gap:16px;padding:22px;margin:20px 0 12px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(120deg,rgba(69,136,234,.13),rgba(69,136,234,.02))}
+.users-invite-hero>div:nth-child(2) {flex:1;min-width:0}
+.users-invite-hero h4 {margin:0 0 8px;font-size:16px}
+.users-invite-hero p {margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.6}
+.users-invite-hero .settings-btn {display:inline-flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0}
+.users-invite-hero .settings-btn svg {width:16px;height:16px}
+.users-invite-icon {display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;background:rgba(69,136,234,.15);border-radius:12px;color:var(--accent,var(--text))}
+.users-invite-icon svg {width:22px;height:22px}
+.users-invite-rule,.user-setup-badge {display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+.users-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0}
+.users-summary>div {display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.users-summary strong {font-size:23px;font-variant-numeric:tabular-nums}
+.users-summary span {color:var(--muted);font-size:12px}
+.users-toolbar h4 {margin:0;font-size:14px;color:var(--text)}
+.users-toolbar h4 span,.users-pending h4 span {margin-left:6px;color:var(--muted);font-size:12px;font-weight:400}
+.users-filters {display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.users-search {display:flex;align-items:center;flex:1;gap:9px;min-width:0;border:1px solid var(--line);border-radius:9px;padding:0 12px;background:var(--bg);color:var(--muted)}
+.users-search svg {width:16px;height:16px;flex-shrink:0}
+.users-search input {border:0;background:transparent;min-width:0;width:100%;padding:12px 0;color:var(--text);font:inherit;font-size:12px}
+.users-filter-label {display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.users-filter-label select {min-width:0;max-width:100%;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--bg);color:var(--text);font:inherit}
+.users-filters :is(input,select):focus-visible,.users-invitation textarea:focus-visible {outline:2px solid var(--accent,#69a3ff);outline-offset:3px}
+.user-avatar {display:inline-grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;background:rgba(69,136,234,.08);font-size:11px;font-weight:600;flex-shrink:0}
+.users-invitation {border-color:var(--accent,#568ae0);background:rgba(69,136,234,.05)}
+.users-invitation h4 {margin-top:8px}
+.users-invitation small {display:block;margin-top:12px;line-height:1.6;font-size:11px;color:var(--muted)}
+.users-pending {margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:12px}
+.users-pending[hidden] {display:none!important}
+.users-pending h4 {margin:0 0 8px;font-size:13px}
+.users-pending-row {display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0}
+.users-pending-row+.users-pending-row {border-top:1px solid var(--line)}
+.users-pending-row strong {font-size:12px;font-weight:500}
+.users-pending-row p {font-size:11px;color:var(--muted);line-height:1.6;margin:4px 0 0}
+.users-pending-row .settings-btn {flex-shrink:0}
+.user-setup-badge {color:#a9c9ff;background:rgba(85,149,244,.12);padding:6px 10px;border:1px solid #405b77;border-radius:20px;margin:0 0 14px}
+@media(max-width:760px){.users-invite-hero{flex-wrap:wrap;padding:16px}.users-invite-hero>.settings-btn{width:100%}.users-summary>div{flex-direction:column;align-items:flex-start;gap:4px;padding:12px}.users-filters{flex-direction:column;align-items:stretch}.users-search{flex:none}.users-filter-label{justify-content:space-between}.users-pending-row{align-items:flex-start;flex-direction:column}}
