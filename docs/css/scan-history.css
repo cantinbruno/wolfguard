@@ -18,7 +18,7 @@
 .scan-history-refine .settings-btn{min-height:35px;font-size:10px;justify-content:center}
 .scan-history-export-progress{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-sidebar);margin-bottom:14px}
 .scan-history-export-progress>div{display:flex;gap:10px;align-items:center;flex:1;min-width:0}
-.scan-history-export-progress progress{width:100%;min-width:0;height:5px;accent-color:#78cdbb}
+.scan-history-export-progress progress{width:100%;min-width:0;height:5px;accent-color:var(--workspace-passive)}
 .scan-history-export-progress span{font-size:10px;color:var(--ui-muted);white-space:nowrap}
 .scan-history-export-progress .settings-btn{font-size:10px;white-space:nowrap}
 .scan-history-list:focus{outline:2px solid #a8c8e8;outline-offset:3px}
@@ -32,14 +32,14 @@
 .scan-history-item{display:grid;grid-template-columns:32px minmax(0,1fr) 110px auto;align-items:center;gap:12px;padding:17px 0;border-bottom:1px solid var(--ui-border);min-width:0}
 .scan-history-icon{display:grid;place-items:center;align-self:start;width:32px;height:36px;border:1px solid var(--ui-border);background:var(--ui-sidebar);border-radius:8px;color:#9fc4db}
 .scan-history-icon svg{width:19px;height:19px}
-.scan-history-item[data-kind=passive] .scan-history-icon,.scan-history-item[data-kind=map] .scan-history-icon{color:#78cdbb}
-.scan-history-item[data-kind=active] .scan-history-icon,.scan-history-item[data-kind=vulnerability] .scan-history-icon{color:#e8ad82}
+.scan-history-item[data-kind=passive] .scan-history-icon,.scan-history-item[data-kind=map] .scan-history-icon{color:var(--workspace-passive)}
+.scan-history-item[data-kind=active] .scan-history-icon,.scan-history-item[data-kind=vulnerability] .scan-history-icon{color:var(--workspace-audit)}
 .scan-history-copy{min-width:0}.scan-history-copy>div{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .scan-history-copy strong{font-size:12px;font-weight:600;color:var(--ui-text)}
 .scan-history-copy p{font:11px/1.7 Consolas,monospace;color:#c7d7e6;margin:5px 0 3px;overflow-wrap:anywhere}
 .scan-history-copy small{display:block;font-size:9px;color:var(--ui-muted);overflow-wrap:anywhere}
 .scan-history-state{color:var(--ui-muted);font-size:8px;padding:2px 5px;border-radius:4px;background:var(--ui-raised)}
-.scan-history-state[data-status=completed]{color:#9bd1bd;background:#78cdbb0d}.scan-history-state[data-status=running]{color:#f1c28f}.scan-history-state[data-status=failed],.scan-history-state[data-status=lost]{color:#e2b0a1}
+.scan-history-state[data-status=completed]{color:#9bd1bd;background:color-mix(in srgb, var(--workspace-passive) 5.1%, transparent)}.scan-history-state[data-status=running]{color:#f1c28f}.scan-history-state[data-status=failed],.scan-history-state[data-status=lost]{color:#e2b0a1}
 .scan-history-item time{font-size:9px;color:var(--ui-muted);line-height:1.8}
 .scan-history-item .settings-btn{font-size:10px;min-height:32px;padding:6px 9px;white-space:nowrap}
 .scan-history-item .settings-btn svg{width:13px;height:13px}

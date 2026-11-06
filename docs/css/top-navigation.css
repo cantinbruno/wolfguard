@@ -34,17 +34,17 @@
   --ui-accent: var(--workspace-library);
 }
 
-#app[data-primary-section="scan-passive"] {--workspace-accent:#8cbae8;--ui-accent:#8cbae8}
-#app[data-primary-section="scan-active"] {--workspace-accent:#b8a0eb;--ui-accent:#b8a0eb}
+#app[data-primary-section="scan-passive"] {--workspace-accent:var(--workspace-passive);--ui-accent:var(--workspace-passive)}
+#app[data-primary-section="scan-active"] {--workspace-accent:var(--workspace-active);--ui-accent:var(--workspace-active)}
 
 /* Dialogs live outside #app and inherit the active workspace colours here. */
 :root:has(#app[data-primary-section="tools"]:not(.hidden)) {
   --ui-accent: var(--workspace-tools);
-  --ui-accent-hover: #f0bed8;
-  --ui-accent-soft: #3a2b40;
+  --ui-accent-hover: #ffcae8;
+  --ui-accent-soft: #4b3046;
   --ui-highlight: var(--workspace-tools);
-  --ui-highlight-hover: #f0bed8;
-  --ui-highlight-soft: #3a2b40;
+  --ui-highlight-hover: #ffcae8;
+  --ui-highlight-soft: #4b3046;
   --protocol: var(--workspace-tools);
   --vault: var(--workspace-tools);
 }
@@ -56,10 +56,10 @@
 
 :root:has(#app[data-primary-section="vault"]:not(.hidden)) {
   --ui-accent: var(--workspace-vault);
-  --ui-accent-hover: #a1ddbd;
+  --ui-accent-hover: #b5f5d2;
   --ui-accent-soft: #203b34;
   --ui-highlight: var(--workspace-vault);
-  --ui-highlight-hover: #a1ddbd;
+  --ui-highlight-hover: #b5f5d2;
   --ui-highlight-soft: #203b34;
   --vault: var(--workspace-vault);
 }
@@ -237,7 +237,7 @@
   bottom: -1px;
   left: 0;
   width: var(--tab-indicator-width, 0px);
-  height: 2px;
+  height: 3px;
   border-radius: 2px;
   background: var(--workspace-accent);
   transform: translateX(var(--tab-indicator-x, 0px));
@@ -260,8 +260,8 @@
   padding: 0 14px !important;
   border: 0 !important;
   border-radius: 6px 6px 0 0 !important;
-  background: transparent !important;
-  color: var(--ui-muted) !important;
+  background: color-mix(in srgb, var(--button-accent) 7%, transparent) !important;
+  color: var(--button-accent) !important;
   font-weight: 600;
   font-size: 13px !important;
   white-space: nowrap;
@@ -277,7 +277,7 @@
   flex: none;
   width: 16px;
   height: 16px;
-  opacity: .7;
+  opacity: .95;
 }
 
 .workspace-section-icon svg {
@@ -297,21 +297,21 @@
   --button-accent: var(--workspace-tools);
 }
 
-.workspace-section-button[data-section="scan-passive"] {--button-accent:#8cbae8}
-.workspace-section-button[data-section="scan-active"] {--button-accent:#b8a0eb}
+.workspace-section-button[data-section="scan-passive"] {--button-accent:var(--workspace-passive)}
+.workspace-section-button[data-section="scan-active"] {--button-accent:var(--workspace-active)}
 
 .workspace-section-button[data-section="vault"] {
   --button-accent: var(--workspace-vault);
 }
 
 .topbar .section-navigation .workspace-section-button:hover {
-  background: color-mix(in srgb, var(--ui-text) 4%, transparent) !important;
-  color: var(--ui-text) !important;
+  background: color-mix(in srgb, var(--button-accent) 17%, transparent) !important;
+  color: color-mix(in srgb, var(--button-accent) 80%, white) !important;
 }
 
 .topbar .section-navigation .workspace-section-button.active {
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--button-accent) 8%, transparent)) !important;
-  color: var(--button-accent) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--button-accent) 16%, transparent), color-mix(in srgb, var(--button-accent) 25%, transparent)) !important;
+  color: color-mix(in srgb, var(--button-accent) 85%, white) !important;
 }
 
 .topbar .workspace-section-button:focus-visible {

@@ -1,24 +1,24 @@
-#app[data-primary-section="scan-map"]{--workspace-accent:#73c7ba;--ui-accent:#73c7ba}
-#app[data-primary-section="scan-vulnerability"]{--workspace-accent:#e8ad82;--ui-accent:#e8ad82}
-.workspace-section-button[data-section="scan-map"]{--button-accent:#73c7ba}
-.workspace-section-button[data-section="scan-vulnerability"]{--button-accent:#e8ad82}
-.wgscan[data-kind="map"]{--ws-accent:#73c7ba}
-.wgscan[data-kind="vulnerability"]{--ws-accent:#e8ad82}
+#app[data-primary-section="scan-map"]{--workspace-accent:var(--workspace-map);--ui-accent:var(--workspace-map)}
+#app[data-primary-section="scan-vulnerability"]{--workspace-accent:var(--workspace-audit);--ui-accent:var(--workspace-audit)}
+.workspace-section-button[data-section="scan-map"]{--button-accent:var(--workspace-map)}
+.workspace-section-button[data-section="scan-vulnerability"]{--button-accent:var(--workspace-audit)}
+.wgscan[data-kind="map"]{--ws-accent:var(--workspace-map)}
+.wgscan[data-kind="vulnerability"]{--ws-accent:var(--workspace-audit)}
 .wgscan-special-empty,.wgscan-map-overview,.wgscan-audit-overview{padding:24px;border:1px solid var(--ui-border);border-radius:9px;background:var(--ui-surface);min-width:0}
 .wgscan-special-empty h2{margin:0 0 12px;font-size:22px}
 .wgscan-special-empty p{max-width:760px;line-height:1.8;color:var(--ui-muted)}
 .wgscan-network-canvas{max-width:100%;max-height:560px;overflow:auto;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-page)}
 .wgscan-network-canvas svg{display:block;width:100%;min-width:620px;max-height:650px}
 .wgscan-network-links line{stroke:#4b6976;stroke-width:1;stroke-dasharray:4 5}
-.wgscan-network-origin circle{fill:#183d42;stroke:#73c7ba;stroke-width:2}
+.wgscan-network-origin circle{fill:#183d42;stroke:var(--workspace-map);stroke-width:2}
 .wgscan-network-origin text,.wgscan-network-node text{fill:var(--ui-text);font:12px system-ui,sans-serif}
 .wgscan-network-node{cursor:pointer;outline:none}
-.wgscan-network-node circle{fill:#264a4d;stroke:#73c7ba;stroke-width:2}
+.wgscan-network-node circle{fill:#264a4d;stroke:var(--workspace-map);stroke-width:2}
 .wgscan-network-node:hover circle,.wgscan-network-node:focus-visible circle{fill:#3e7273;stroke:#d5fff4;stroke-width:4}
 .wgscan-audit-list{display:grid;gap:12px;margin-top:18px}
 .wgscan-audit-item{padding:18px;border:1px solid var(--ui-border);border-left:3px solid #64768c;border-radius:7px;background:var(--ui-page);overflow-wrap:anywhere}
-.wgscan-audit-item[data-audit-status="issue"]{border-left-color:#e8ad82}
-.wgscan-audit-item[data-audit-status="passed"]{border-left-color:#73c7ba}
+.wgscan-audit-item[data-audit-status="issue"]{border-left-color:var(--workspace-audit)}
+.wgscan-audit-item[data-audit-status="passed"]{border-left-color:var(--workspace-map)}
 .wgscan-audit-item>div{display:flex;align-items:center;gap:10px}
 .wgscan-audit-item h3{font-size:15px;margin:12px 0 8px}
 .wgscan-audit-item p{font-size:13px;line-height:1.8;margin:6px 0;color:var(--ui-muted)}
@@ -133,10 +133,10 @@
 .wgscan-network-node text{font-size:11px;font-weight:600}
 .wgscan-network-origin text{font-size:10px;letter-spacing:1px}
 .wgscan-map-legend{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;font-size:9px;color:var(--ws-muted);margin-top:12px}
-.wgscan-map-legend i,.wgscan-map-host-list i{width:6px;height:6px;display:inline-block;border-radius:50%;background:#73c7ba;margin-right:6px;flex-shrink:0}
+.wgscan-map-legend i,.wgscan-map-host-list i{width:6px;height:6px;display:inline-block;border-radius:50%;background:var(--workspace-map);margin-right:6px;flex-shrink:0}
 .wgscan-map-host-list{max-height:255px;overflow:auto;border:1px solid var(--ws-border);border-radius:8px}
 .wgscan-map-host-list button{display:flex;align-items:center;gap:8px;width:100%;border:0;border-bottom:1px solid var(--ws-border);border-radius:0;background:transparent;padding:11px 9px;text-align:left}
-.wgscan-map-host-list button[aria-pressed="true"]{background:#73c7ba13;box-shadow:inset 2px 0 var(--ws-accent)}
+.wgscan-map-host-list button[aria-pressed="true"]{background:color-mix(in srgb, var(--workspace-map) 7.5%, transparent);box-shadow:inset 2px 0 var(--ws-accent)}
 .wgscan-map-host-list button>span:nth-child(2){flex:1;min-width:0}
 .wgscan-map-host-list strong{font-size:11px;font-weight:500;display:block;overflow-wrap:anywhere}
 .wgscan-map-host-list small{font-size:9px;color:var(--ws-muted);display:block;overflow-wrap:anywhere}
@@ -155,7 +155,7 @@
 .wgscan-audit-filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:17px}
 .wgscan-audit-filters button{display:flex;gap:9px;align-items:center;font-size:11px;padding:7px 11px}
 .wgscan-audit-filters button span{background:#ffffff08;border-radius:4px;font-size:10px;padding:0 5px}
-.wgscan-audit-filters button[aria-pressed="true"]{background:#e8ad8212;border-color:#e8ad8277;color:#f3c9a9}
+.wgscan-audit-filters button[aria-pressed="true"]{background:color-mix(in srgb, var(--workspace-audit) 7.1%, transparent);border-color:color-mix(in srgb, var(--workspace-audit) 46.7%, transparent);color:#f3c9a9}
 .wgscan-audit-search-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.55fr);gap:12px}
 .wgscan-audit-group{margin-top:24px;min-width:0}
 .wgscan-audit-group .wgscan-card-heading{margin-bottom:12px}
@@ -170,8 +170,8 @@
 .wgscan-audit-check-title small{display:block;font-size:9px;color:var(--ws-muted);margin-top:2px}
 .wgscan-audit-item>.wgscan-audit-proof{display:block;padding:0 17px 17px;font-size:11px}
 .wgscan-audit-proof p{font-size:11px;margin:5px 0 16px;white-space:pre-wrap;overflow-wrap:anywhere}
-.wgscan-audit-action{display:block!important;padding:14px;background:#e8ad8207;border:1px solid #e8ad8222;border-radius:6px}
-.wgscan-audit-action strong{font-size:11px;color:#e8ad82}
+.wgscan-audit-action{display:block!important;padding:14px;background:color-mix(in srgb, var(--workspace-audit) 2.7%, transparent);border:1px solid color-mix(in srgb, var(--workspace-audit) 13.3%, transparent);border-radius:6px}
+.wgscan-audit-action strong{font-size:11px;color:var(--workspace-audit)}
 .wgscan-audit-action button{font-size:10px}
 .wgscan-audit-passed>summary{display:flex;justify-content:space-between;padding:13px 15px;border:1px solid var(--ws-border);border-radius:8px;cursor:pointer;font-size:12px;color:#a8ead2}
 .wgscan-audit-passed>summary>span{font-size:10px}.wgscan-audit-passed[open]>.wgscan-audit-list{margin-top:12px}

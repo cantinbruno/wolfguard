@@ -1,6 +1,6 @@
 /* Browser workspaces: agent reports, exports and comparisons. */
 .wgscan {
-  --ws-accent: #78cdbb;
+  --ws-accent: var(--workspace-passive);
   --ws-text: #e6edf6;
   --ws-bg: #101b2b;
   --ws-panel: #142235;
@@ -13,7 +13,7 @@
   font-size: 13px;
   line-height: 1.6;
 }
-.wgscan[data-kind=active] { --ws-accent: #f1b16b; }
+.wgscan[data-kind=active] { --ws-accent: var(--workspace-active); }
 .wgscan *, .wgscan *::before, .wgscan *::after { box-sizing: border-box; }
 .wgscan [hidden] { display: none !important; }
 .wgscan h1, .wgscan h2, .wgscan h3, .wgscan p { margin: 0; }
