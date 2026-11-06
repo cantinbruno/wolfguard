@@ -7,6 +7,7 @@ import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import {create,workspaceMaterial,importWorkspaceMaterial,openWithKey} from '../browser/crypto.js';
 import {normalizeUsername,usernameHash} from '../server/lib/wolfguard/users.mjs';
 import {seal} from '../server/lib/wolfguard/access.mjs';
+import {encodeSecret,otpAt,matchingStep} from '../server/lib/wolfguard/otp.mjs';
 
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
@@ -25,7 +26,7 @@ async function setup(){
   const initialize=()=>api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'09876543',oldCode:'07942685',workspace:material,version:1},owner.token);
   const login=async(username,code)=>{const response=await api('login',{username,code});assert.equal(response.status,200,await response.clone().text());return response.json();};
   const createMember=async(username,code,token)=>{const response=await api('users/create',{username},token);assert.equal(response.status,201,await response.clone().text());const result=await response.json();assert.equal((await api('account/complete',{ticket:result.invitation.ticket,username,code})).status,200);return result;};
-  return{env,api,owner,initialize,login,createMember,encrypted,payload,material,advance:ms=>{now+=ms;}};
+  return{env,api,owner,initialize,login,createMember,encrypted,payload,material,clock:()=>now,advance:ms=>{now+=ms;}};
 }
 
 test('first admin migration retains the encrypted workspace, requires a distinct code, and closes the shared-code path',async()=>{
@@ -35,7 +36,7 @@ test('first admin migration retains the encrypted workspace, requires a distinct
     const login=await s.login('CANTIN.BRUNO@GMX.FR','09876543');const imported=await importWorkspaceMaterial(login.workspace);
     assert.equal(imported.key.extractable,false);assert.deepEqual((await openWithKey(s.encrypted.envelope,imported.key,imported.salt)).payload,s.payload);
     assert.equal((await s.api('touch',{},old.token)).status,401);
-    assert.equal((await s.api('login',{code:'07942685'})).status,401);s.advance(5001);
+    assert.equal((await s.api('login',{code:'07942685'})).status,401);
     assert.equal((await s.api('users/initialize',{username:'takeover'},login.token)).status,409);
     const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM users').all())+JSON.stringify(s.env.DB.db.prepare('SELECT workspace_key_cipher FROM vault').get());
     for(const value of ['cantin.bruno@gmx.fr','09876543',s.material.key])assert.ok(!disk.includes(value));
@@ -126,7 +127,7 @@ test('provisioning creates exactly one owner from the existing verifier; first l
     await Promise.all([s.api('status'),s.api('status')]);
     const rows=s.env.DB.db.prepare('SELECT * FROM users').all();assert.equal(rows.length,1);assert.equal(rows[0].role,'admin');assert.equal(rows[0].pin_hash,before.pin_hash);assert.equal(rows[0].pin_salt,before.pin_salt);
     assert.equal(s.env.DB.db.prepare('SELECT owner_user_id FROM vault').get().owner_user_id,rows[0].id);
-    assert.equal((await s.api('login',{code:'07942685'})).status,401);s.advance(5001);
+    assert.equal((await s.api('login',{code:'07942685'})).status,200);
     const owner=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(owner.usersEnabled,false);assert.equal(owner.user.id,rows[0].id);
     const response=await s.api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'07942685',oldCode:'07942685',workspace:s.material,version:1},owner.token);assert.equal(response.status,200);
     const active=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(active.usersEnabled,true);assert.deepEqual(active.workspace,s.material);
@@ -231,11 +232,11 @@ test('unbound invitations reject replay races, cancellation and expiry and roll 
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,2);
     await s.login(emails[responses.findIndex(row=>row.status===200)],'12345678');
     const rollback=await invite();s.env.DB.db.exec("CREATE TRIGGER fail_invite_consume BEFORE DELETE ON user_invitations BEGIN SELECT RAISE(ABORT,'synthetic failure'); END");
-    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'12345678'})).status,503);
+    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'23456789'})).status,503);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,2);
     s.env.DB.db.exec('DROP TRIGGER fail_invite_consume');assert.equal((await s.api('account/inspect',{ticket:rollback.ticket})).status,200);
     assert.equal((await s.api('users/revoke-invitation',{id:rollback.id},owner.token)).status,200);
-    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'12345678'})).status,410);
+    assert.equal((await s.api('account/complete',{ticket:rollback.ticket,username:'rollback@example.test',code:'23456789'})).status,410);
     const expired=await invite();s.advance(24*60*60000+1);
     assert.equal((await s.api('account/inspect',{ticket:expired.ticket})).status,410);
     assert.equal((await s.api('account/complete',{ticket:expired.ticket,username:'expired@example.test',code:'12345678'})).status,410);
@@ -252,5 +253,105 @@ test('unbound invitation issuance and redemption respect the account limit',asyn
     assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'full@example.test',code:'12345678'})).status,409);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,100);
     assert.equal((await s.api('account/inspect',{ticket:invitation.ticket})).status,200);
+  }finally{s.env.DB.db.close();}
+});
+
+test('code-only login identifies each account, migrates legacy verifiers and rejects duplicate codes atomically',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    await s.createMember('alice@example.test','12345678',owner.token);
+    const alice=await(await s.api('login',{code:'12345678'})).json();assert.equal(alice.user.username,'alice@example.test');
+    const vault=await(await s.api('login',{code:'09876543'})).json();assert.equal(vault.user.role,'admin');
+    s.env.DB.db.exec('UPDATE users SET pin_lookup=NULL');
+    assert.equal((await s.api('login',{code:'12345678'})).status,200);
+    assert.ok(s.env.DB.db.prepare('SELECT pin_lookup FROM users WHERE id=?').get(alice.user.id).pin_lookup);
+    const invitation=(await(await s.api('users/create',{username:'bob@example.test'},owner.token)).json()).invitation;
+    assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'bob@example.test',code:'12345678'})).status,409);
+    assert.equal((await s.api('account/inspect',{ticket:invitation.ticket})).status,200);
+    assert.equal((await s.api('users/change-code',{oldCode:'09876543',code:'12345678'},owner.token)).status,409);
+    assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'bob@example.test',code:'23456789'})).status,200);
+    // Two pre-migration accounts with the same old code must never pick one.
+    s.env.DB.db.exec('UPDATE users SET pin_lookup=NULL');
+    s.env.DB.db.prepare('UPDATE users SET pin_salt=(SELECT pin_salt FROM users WHERE id=?),pin_hash=(SELECT pin_hash FROM users WHERE id=?) WHERE id=?').run(alice.user.id,alice.user.id,owner.user.id);
+    assert.equal((await s.api('login',{code:'12345678'})).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
+test('TOTP matches RFC 6238 SHA-1 vectors including dates beyond 2038, with limited clock drift',async()=>{
+  const secret=encodeSecret(new TextEncoder().encode('12345678901234567890'));
+  for(const [seconds,code]of [[59,'287082'],[1111111109,'081804'],[1111111111,'050471'],[1234567890,'005924'],[2000000000,'279037'],[20000000000,'353130']])assert.equal(await otpAt(secret,Math.floor(seconds/30)),code);
+  const step=1000000,code=await otpAt(secret,step);
+  assert.equal(await matchingStep(secret,code,(step+1)*30000),step);
+  assert.equal(await matchingStep(secret,code,(step+2)*30000),null);
+  assert.equal(await matchingStep(secret,code,step*30000,step),null);
+});
+
+test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection and recovery codes',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const other=await s.login('cantin.bruno@gmx.fr','09876543');
+    const setupResponse=await s.api('users/otp/setup',{code:'09876543'},owner.token);assert.equal(setupResponse.status,200);
+    const enrollment=await setupResponse.json();assert.match(enrollment.secret,/^[A-Z2-7]{32}$/);assert.match(enrollment.uri,/^otpauth:\/\/totp\//);
+    let step=Math.floor(s.clock()/30000),otp=await otpAt(enrollment.secret,step);
+    const enabled=await s.api('users/otp/enable',{code:'09876543',otp},owner.token);assert.equal(enabled.status,200);
+    const {recoveryCodes}=await enabled.json();assert.equal(recoveryCodes.length,8);assert.equal(new Set(recoveryCodes).size,8);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM users').all());assert.ok(!disk.includes(enrollment.secret));for(const code of recoveryCodes)assert.ok(!disk.includes(code));
+    assert.equal((await s.api('touch',{},other.token)).status,401);
+    assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
+    // A password-only success never clears failures from wrong OTP attempts.
+    assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);
+    assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
+    assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);
+    assert.equal(s.env.DB.db.prepare('SELECT failures FROM vault').get().failures,2);s.advance(10001);
+    s.advance(60000);step=Math.floor(s.clock()/30000);otp=await otpAt(enrollment.secret,step);
+    const good=await s.api('login',{code:'09876543',otp});assert.equal(good.status,200);const logged=await good.json();assert.ok(logged.token);assert.deepEqual(logged.workspace,s.material);
+    assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);
+    const recovery=await s.api('login',{code:'09876543',otp:recoveryCodes[0]});assert.equal(recovery.status,200);
+    assert.equal((await s.api('login',{code:'09876543',otp:recoveryCodes[0]})).status,401);s.advance(5001);
+    assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:recoveryCodes[1]},logged.token)).status,200);
+    assert.equal((await s.api('login',{code:'09876543'})).status,200);
+  }finally{s.env.DB.db.close();}
+});
+
+test('OTP setup expires, rejects wrong passwords and cannot be managed for another user',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    await s.createMember('alice@example.test','12345678',owner.token);const member=await s.login('alice@example.test','12345678');
+    assert.equal((await s.api('users/otp/setup',{code:'00000000'},member.token)).status,401);s.advance(5001);
+    const enrollment=await(await s.api('users/otp/setup',{code:'12345678',id:owner.user.id},member.token)).json();
+    assert.equal(s.env.DB.db.prepare('SELECT otp_pending_cipher FROM users WHERE id=?').get(owner.user.id).otp_pending_cipher,null);
+    s.advance(600001);const otp=await otpAt(enrollment.secret,Math.floor(s.clock()/30000));
+    assert.equal((await s.api('users/otp/enable',{code:'12345678',otp},member.token)).status,401);s.advance(5001);
+    assert.equal((await s.api('users/reset-otp',{id:owner.user.id},member.token)).status,403);
+    assert.equal((await s.api('users/reset-otp',{id:owner.user.id},owner.token)).status,409);
+  }finally{s.env.DB.db.close();}
+});
+
+test('concurrent invitations cannot assign the same code to separate accounts',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const invitations=[];for(const username of ['alice@example.test','bob@example.test'])invitations.push({username,...await(await s.api('users/create',{username},owner.token)).json()});
+    const results=await Promise.all(invitations.map(({username,invitation})=>s.api('account/complete',{username,ticket:invitation.ticket,code:'12345678'})));
+    assert.deepEqual(results.map(response=>response.status).sort(),[200,409]);
+    const loser=invitations[results.findIndex(response=>response.status===409)];
+    assert.equal((await s.api('account/inspect',{ticket:loser.invitation.ticket})).status,200);
+    assert.equal((await s.api('account/complete',{username:loser.username,ticket:loser.invitation.ticket,code:'23456789'})).status,200);
+    assert.equal((await s.api('login',{code:'12345678'})).status,200);
+  }finally{s.env.DB.db.close();}
+});
+
+test('resetting a member password retains OTP; only the owner can explicitly reset their Authenticator',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    await s.createMember('alice@example.test','12345678',owner.token);const alice=await s.login('alice@example.test','12345678');
+    const setup=await(await s.api('users/otp/setup',{code:'12345678'},alice.token)).json();
+    assert.equal((await s.api('users/otp/enable',{code:'12345678',otp:await otpAt(setup.secret,Math.floor(s.clock()/30000))},alice.token)).status,200);
+    const reset=await(await s.api('users/reset-code',{id:alice.user.id},owner.token)).json();
+    assert.equal((await s.api('account/complete',{ticket:reset.invitation.ticket,username:'alice@example.test',code:'23456789'})).status,200);
+    assert.deepEqual(await(await s.api('login',{code:'23456789'})).json(),{otpRequired:true});
+    assert.equal((await s.api('users/reset-otp',{id:alice.user.id},owner.token)).status,200);
+    const logged=await(await s.api('login',{code:'23456789'})).json();assert.equal(logged.user.username,'alice@example.test');
+    assert.equal((await s.api('users/otp',undefined,logged.token)).status,200);
+    assert.equal((await s.api('users/otp',undefined,alice.token)).status,401);
   }finally{s.env.DB.db.close();}
 });

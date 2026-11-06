@@ -62,8 +62,10 @@ const hasAccountInvitation=()=>!!accountTicket;
 function clearAccountInvitation(){accountTicket='';}
 async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
-async function login(code,username){
-  const data=await post('login',{code,username},{anonymous:true});token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
+async function login(code,username,otp){
+  const data=await post('login',{code,...(username===undefined?{}:{username}),...(otp===undefined?{}:{otp})},{anonymous:true});
+  if(data.otpRequired){detach();return data;}
+  token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 async function initialize(code){
   if(!activation)throw new Error('Le partage doit être activé une seule fois depuis le lien privé sur ton appareil principal.');
@@ -97,7 +99,7 @@ async function changePersonalCode(oldCode,code){const data=await post('users/cha
 async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|delete|disconnect|verify-code))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|cancel|delete))?|remote\/(?:start|session|input|stop))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 function clear(){

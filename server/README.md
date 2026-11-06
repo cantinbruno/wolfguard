@@ -1,7 +1,15 @@
 # WolfGuard shared storage
 
 Managed server for the GitHub Pages frontend at https://wolfguard.wavetools.fr/.
-Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the user's email address and personal eight-digit code.
+Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the personal eight-digit code and, when enabled, an Authenticator OTP. Email remains mandatory on each account, but is not entered at login.
+
+## Code-only login and Authenticator
+
+Personal codes are unique across accounts, including disabled accounts. A peppered HMAC lookup accelerates identification while the independently salted PBKDF2 verifier remains mandatory. Old accounts are checked against their existing verifiers until their lookup is populated on login; no existing code, workspace key or agent credential is changed. Ambiguous legacy codes fail closed and require the administrator to reset one member's code. Code creation and changes reject collisions; a unique database index also handles races. Older clients can still submit an email alongside the code.
+
+Settings → Security offers optional TOTP enrollment with a locally displayed configuration key. The implementation follows [RFC 6238](https://www.rfc-editor.org/rfc/rfc6238): SHA-1, six digits, 30-second periods and one adjacent step of clock tolerance. Setup requires the current personal code, expires after ten minutes and is activated only after a valid OTP. Secrets and pending secrets are encrypted under STORAGE_KEY with dedicated contexts. Each OTP counter is consumed atomically and cannot be reused. Eight random, single-use recovery codes are shown once at activation; only their hashes, encrypted with a separate context, are retained. Activating or disabling OTP revokes the account's other sessions.
+
+Password-only login for an OTP-enabled account returns only `otpRequired`, without a session, identity or workspace key. It does not reset the shared failure count. The second request checks both factors under the existing global attempt lease and throttling. Recovery codes can replace an OTP. Disabling requires the personal code and an OTP or recovery code. An administrator may reset a member's Authenticator, revoking their sessions; the owner uses Security or a recovery code. Password reset preserves the second factor. The frontend prepares invitation/reset emails through the user's mail application; delivery remains manual and no SMTP provider is configured.
 
 ## Deployment
 

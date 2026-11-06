@@ -13,7 +13,7 @@ ROOT=Path(__file__).resolve().parents[1]
 ADMIN=CODE
 
 def login(page,name,code):
-    ready(page);expect(page.locator('#webUsername')).to_have_value('');page.locator('#webUsername').fill(name);page.locator('#lock').focus();page.keyboard.type(code)
+    ready(page);expect(page.locator('#webUsername')).to_be_hidden();page.locator('#lock').focus();page.keyboard.type(code)
     expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
 
 def run():
@@ -31,10 +31,10 @@ def run():
                 return result
             owner=context('192.0.2.1');guest=context('192.0.2.2');owner.add_init_script("localStorage.setItem('wolfguard-username-v1','previous@example.test')");first=owner.new_page();first.on('pageerror',lambda error:errors.append(str(error)))
             first.goto(origin+'/?sync-test');ready(first)
-            expect(first.locator('#webUsername')).to_have_value('');expect(first.locator('#webUsername')).to_have_accessible_name('Nom d’utilisateur');assert first.evaluate("localStorage.getItem('wolfguard-username-v1')") is None
+            expect(first.locator('#webUsername')).to_have_value('');expect(first.locator('#webUsername')).to_be_hidden();assert first.evaluate("localStorage.getItem('wolfguard-username-v1')") is None
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const payload={version:2,items:[{id:'personal-preserved',type:'memo',title:'Fiche conservée',content:'<p>Contenu avant les utilisateurs</p>',tags:[],commandBlocks:[]}],folders:[],settings:[],activity:[]};const result=await c.create(payload,'07942685');payload.items.push({id:'retained-vault',type:'vault',title:'Ancienne donnée',vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({password:'synthetic-retained-secret'}),result.key)});await s.write(await c.seal(payload,result.key,result.salt,1),0)}""")
             first.goto(origin+'/?sync-test&users-test#activate='+('b'*64));ready(first)
-            first.locator('#webUsername').fill('cantin.bruno@gmx.fr');first.locator('#lock').focus();first.keyboard.type(CODE)
+            first.locator('#lock').focus();first.keyboard.type(CODE)
             expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
             assert first.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'
             assert first.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','retained-vault')).vaultBlobEnc,state.vaultKey)).password")=='synthetic-retained-secret'

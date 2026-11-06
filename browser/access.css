@@ -84,3 +84,9 @@
   #lock .web-key-hint {margin-top:12px}
 }
 @media(prefers-reduced-motion:reduce) {#lock .dot,#lock .key {transition:none!important}}
+.web-otp-settings {margin-top:24px;padding-top:20px;border-top:1px solid var(--border,#344256);min-width:0}
+.web-otp-settings p {line-height:1.6;margin:12px 0}
+.web-otp-settings label {display:grid;gap:8px;margin:12px 0;font-size:13px}
+.web-otp-settings input,.web-otp-settings textarea {box-sizing:border-box;width:100%;min-width:0;padding:10px 12px;border:1px solid #60748c;border-radius:8px;background:#111c2c;color:#e7efff;font:inherit}
+.web-otp-settings #webOTPSecret,.web-otp-recovery textarea {font-family:monospace;font-size:13px;letter-spacing:1px}
+.web-otp-recovery {padding:12px;border:1px solid #637d9a;border-radius:8px;margin-top:16px}

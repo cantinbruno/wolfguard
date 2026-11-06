@@ -15,7 +15,8 @@ export const users = sqliteTable('users', {
   id:text('id').primaryKey(),nameHash:text('name_hash').notNull().unique(),nameCipher:text('name_cipher').notNull(),role:text('role').notNull(),
   pinSalt:text('pin_salt').notNull(),pinHash:text('pin_hash').notNull(),codeVersion:integer('code_version').notNull().default(1),
   disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login'),
-  credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at')
+  credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at'),
+  pinLookup:text('pin_lookup').unique(),otpSecretCipher:text('otp_secret_cipher'),otpPendingCipher:text('otp_pending_cipher'),otpPendingUntil:integer('otp_pending_until'),otpLastStep:integer('otp_last_step').notNull().default(-1),otpRecoveryCipher:text('otp_recovery_cipher')
 });
 export const userInvitations = sqliteTable('user_invitations', {
   id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),

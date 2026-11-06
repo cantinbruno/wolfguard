@@ -78,6 +78,14 @@ test('shared refresh cancels an unchanged body and accepts the caller snapshot v
   assert.deepEqual(await cloud.refresh(1),{format:'newer'});
 }));
 
+test('OTP login sends no username and cannot accept a session before the second factor',()=>client(async cloud=>{
+  const requests=[];
+  globalThis.fetch=async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,headers:new Headers(),json:async()=>requests.length===1?{otpRequired:true}:{token:'c'.repeat(64),version:4,usersEnabled:true,user:{id:'user',username:'alice@example.test',role:'member'}}};};
+  assert.deepEqual(await cloud.login('12345678'),{otpRequired:true});assert.equal(cloud.hasSession(),false);assert.equal(cloud.currentUser(),null);
+  await cloud.login('12345678',undefined,'123456');assert.equal(cloud.hasSession(),true);
+  assert.deepEqual(requests,[{code:'12345678'},{code:'12345678',otp:'123456'}]);
+}));
+
 test('revoked sessions and blocked IPs notify the app, while a wrong login code does not',()=>client(async cloud=>{
   const events=[];window.dispatchEvent=event=>events.push(event.type);
   globalThis.fetch=async()=>({ok:false,status:403,json:async()=>({error:'IP bloquée',code:'ACCESS_BLOCKED'})});

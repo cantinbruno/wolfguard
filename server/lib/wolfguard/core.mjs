@@ -2,7 +2,8 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount} from './users.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode} from './users.mjs';
+import {consumeOTP} from './otp.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -30,7 +31,7 @@ export async function pinHash(code,salt,env) {
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:bytes(salt),iterations:100000},material,256));
 }
 async function state(env) { return env.DB.prepare('SELECT * FROM vault WHERE id = 1').first(); }
-async function verifyPIN(code,env,now,verifier) {
+async function verifyPIN(code,env,now,verifier,pinVerifier) {
   if(!codeOK(code))fail(400,'Saisis les 8 chiffres du code.');
   const lease=random(16);
   // Count attempts before expensive verification, including crashed requests.
@@ -41,24 +42,30 @@ async function verifyPIN(code,env,now,verifier) {
     const until=Math.max(current.blocked_until,current.lease_until);
     fail(429,'Patiente avant de réessayer.',{retryAfter:Math.max(1,Math.ceil((until-now)/1000))});
   }
-  let valid=false;
-  try { valid=equal(await pinHash(code,verifier===undefined?row.pin_salt:verifier?.pin_salt||'0'.repeat(32),env),verifier===undefined?row.pin_hash:verifier?.pin_hash||'0'.repeat(64)); }
+  let valid=false,result;
+  try {
+    if(typeof verifier==='function'){
+      const pinValid=!pinVerifier||equal(await pinHash(code,pinVerifier.pin_salt,env),pinVerifier.pin_hash);
+      result=pinValid?await verifier():false;valid=!!result;
+    }else valid=equal(await pinHash(code,verifier===undefined?row.pin_salt:verifier?.pin_salt||'0'.repeat(32),env),verifier===undefined?row.pin_hash:verifier?.pin_hash||'0'.repeat(64));
+  }
   finally {
     const deadline=now+row.failures*5000;
     await env.DB.prepare('UPDATE vault SET failures=?, blocked_until=?, lease=NULL, lease_until=0 WHERE id=1 AND lease=?')
-      .bind(valid?0:row.failures,valid?0:deadline,lease).run();
+      .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
   }
-  if(!valid)fail(401,verifier===undefined?'Code incorrect.':'Nom d’utilisateur ou code incorrect.',{retryAfter:row.failures*5});
-  return row;
+  if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
+  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
   const token=random(32), hash=await digest(token);
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
-  await env.DB.batch([
+  const issued=await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expires_at<=? OR active_at<=? OR generation<>?').bind(now,now-IDLE_MS,generation),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) VALUES (?,?,?,?,?,?)').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) SELECT ?,?,?,?,?,? WHERE ? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ?)').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null),
     await connectionStatement(env,request,hash,now,context)
   ]);
+  if(Number(issued[1]?.meta?.changes)!==1){await env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash).run();fail(401,'Ce compte a changé. Reconnecte-toi.');}
   try{await assertAddressAllowed(env,context,fail);}catch(error){await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash),env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash)]);throw error;}
   return token;
 }
@@ -156,16 +163,25 @@ export async function handleAPI(request,env,clock=Date.now) {
         response=json({token:await issueSession(env,1,now,request),version:0,exists:false});
       }else if(path==='/api/login'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
-        const {code,username}=await smallJSON(request),current=await state(env);
-        if(current?.users_enabled){
-          const user=await findUser(username,env),row=await verifyPIN(code,env,now,user);
+        const {code,username,otp}=await smallJSON(request),current=await state(env);
+        if(current?.users_enabled||current?.owner_user_id){
+          const row=await verifyPIN(code,env,now,async()=>{
+            // Keep legacy clients compatible; new clients send only the code.
+            let user,lookup;
+            if(username!==undefined){user=await findUser(username,env);if(!user||user.credential_pending||!equal(await pinHash(code,user.pin_salt,env),user.pin_hash))return false;}
+            else {const found=await usersMatchingCode(code,env,pinHash);lookup=found.lookup;if(found.matches.length!==1)return false;user=found.matches[0];}
+            if(user.otp_secret_cipher&&otp===undefined)return {user,partial:true};
+            if(user.disabled_at===null&&!await consumeOTP(user,otp,env,now))return false;
+            if(lookup&&!user.pin_lookup)await env.DB.prepare('UPDATE users SET pin_lookup=? WHERE id=? AND pin_lookup IS NULL').bind(lookup,user.id).run();
+            return {user};
+          }),user=row.loginUser;
+          if(row.otpRequired){response=json({otpRequired:true});}
+          else {
           if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
+          if(!current.users_enabled&&user.id!==current.owner_user_id)fail(403,'Ce compte est indisponible.');
           await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
-          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:true,workspace:await workspaceMaterial(row,env)});
-        }else if(current?.owner_user_id){
-          const user=await findUser(username,env),row=await verifyPIN(code,env,now,user);
-          if(user.id!==current.owner_user_id||user.disabled_at!==null)fail(403,'Ce compte est indisponible.');
-          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:false});
+          response=json({token:await issueSession(env,row.generation,now,request,user),version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!current.users_enabled,...(current.users_enabled?{workspace:await workspaceMaterial(row,env)}:{})});
+          }
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
@@ -191,7 +207,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         }else fail(404,'Adresse inconnue.');
       }
     }
-  } catch(error){response=json({error:error instanceof Failure?error.message:'Stockage partagé temporairement indisponible.',...(error instanceof Failure?error.extra:{})},error instanceof Failure?error.status:503);}
+  } catch(error){const duplicate=/UNIQUE constraint failed: users.pin_lookup/.test(String(error?.message));response=json({error:duplicate?'Ce code personnel n’est pas disponible. Choisis-en un autre.':error instanceof Failure?error.message:'Stockage partagé temporairement indisponible.',...(error instanceof Failure?error.extra:{})},duplicate?409:error instanceof Failure?error.status:503);}
   const headers=new Headers(response.headers);
   headers.set('Cache-Control','no-store, max-age=0');headers.set('Pragma','no-cache');headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('Vary','Origin');
   headers.set('X-Robots-Tag','noindex, nofollow, noarchive, nosnippet');

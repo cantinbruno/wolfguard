@@ -323,7 +323,7 @@ const webWorkspace = (() => {
   }
   function renderKeypad() {
     if(!$('#webAccessForm')||accountSetupActive)return;
-    $('#webUsernameRow').hidden=!cloud.enabled;
+    $('#webUsernameRow').hidden=true;
     const exists=gateExists();
     $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
     $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
@@ -411,7 +411,12 @@ const webWorkspace = (() => {
       result.payload=await upgrade(result);
       await cloud.initialize(password);
     }else{
-      const info=await cloud.login(password,$('#webUsername').value.trim());
+      let info=await cloud.login(password);
+      if(info.otpRequired){
+        let otp=await appPrompt('Saisis les 6 chiffres affichés dans ton application Authenticator, ou un code de secours.','',{title:'Vérification OTP',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
+        if(otp===null)throw new Error('Connexion annulée.');
+        try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}
+      }
       if(info.exists){
         const latest=cryptography.validateEnvelope(await cloud.load());
         if(info.workspace){try{const material=await cryptography.importWorkspaceMaterial(info.workspace);result=await cryptography.openWithKey(latest,material.key,material.salt);}finally{info.workspace.key='';}}
@@ -460,7 +465,7 @@ const webWorkspace = (() => {
       workspace=await cryptography.workspaceMaterial(password,result.salt);
       const material=await cryptography.importWorkspaceMaterial(workspace);
       await cryptography.openWithKey(result.envelope,material.key,material.salt);
-      await cloud.initializeUsers({username:$('#webUsername').value.trim(),code:password,oldCode:password,workspace});
+      await cloud.initializeUsers({username:cloud.currentUser()?.id?cloud.currentUser().username:'cantin.bruno@gmx.fr',code:password,oldCode:password,workspace});
     }finally{if(workspace)workspace.key='';}
   }
   async function authenticate(event) {
@@ -653,6 +658,43 @@ const webWorkspace = (() => {
     $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
     $('#webChangePassword').onclick=rotatePassword;
   };
+  async function mountOTPSettings(){
+    const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
+    $('#settings-security').append(root);
+    const live=()=>session===current&&root.isConnected;
+    const request=(path,value)=>cloud.agentRequest('users/otp'+path,value);
+    let enabled=false,pending=false;
+    function render(){
+      if(!live())return;
+      root.innerHTML='<h4>Double authentification · OTP</h4><p>'+(enabled?'Authenticator est activé. Le code OTP est demandé après ton code personnel.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p><form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
+      root.querySelector('form').onsubmit=async event=>{
+        event.preventDefault();if(pending)return;pending=true;
+        const button=root.querySelector('[type=submit]');button.disabled=true;
+        let code=root.querySelector('#webOTPPassword').value;
+        try{
+          if(enabled){await request('/disable',{code,otp:root.querySelector('#webOTPCode').value.trim()});if(!live())return;enabled=false;render();root.querySelector('[role=status]').textContent='Authenticator est désactivé.';}
+          else{
+            const setup=await request('/setup',{code});if(!live())return;
+            root.innerHTML='<h4>Associer Authenticator</h4><p>Dans ton application, ajoute un compte avec une clé de configuration : <strong>clé temporelle (TOTP)</strong>.</p><label>Clé à saisir dans Authenticator<input id="webOTPSecret" readonly value="'+esc(setup.secret)+'" spellcheck="false"></label><button type="button" class="settings-btn" id="webOTPCopy">Copier la clé</button><p>Nom du compte : WolfGuard. Puis saisis le code affiché pour confirmer.</p><form><label>Code OTP de 6 chiffres<input id="webOTPCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><button type="submit" class="settings-btn primary">Activer Authenticator</button><button type="button" class="settings-btn" id="webOTPCancel">Annuler</button></form><p role="status"></p>';
+            root.querySelector('#webOTPCopy').onclick=async()=>{await copyText(setup.secret);};
+            root.querySelector('#webOTPCancel').onclick=()=>{code='';setup.secret='';render();};
+            root.querySelector('form').onsubmit=async submitEvent=>{
+              submitEvent.preventDefault();if(pending)return;pending=true;const submit=root.querySelector('[type=submit]');submit.disabled=true;
+              try{
+                const result=await request('/enable',{code,otp:root.querySelector('#webOTPCode').value});if(!live())return;
+                code='';setup.secret='';enabled=true;render();
+                const message=document.createElement('div');message.className='web-otp-recovery';message.innerHTML='<p><strong>Authenticator est activé.</strong> Conserve ces codes de secours dans un endroit sûr. Chacun peut remplacer un OTP une seule fois si tu perds ton téléphone.</p><textarea readonly rows="8" aria-label="Codes de secours">'+result.recoveryCodes.join('\n')+'</textarea><p>Pour la prochaine connexion, utilise un nouveau code Authenticator.</p>';root.append(message);
+              }catch(error){if(live())root.querySelector('[role=status]').textContent=error.message;}
+              finally{pending=false;if(submit.isConnected)submit.disabled=false;}
+            };
+            root.querySelector('#webOTPCode').focus();
+          }
+        }catch(error){if(live())root.querySelector('[role=status]').textContent=error.message;}
+        finally{pending=false;if(button.isConnected)button.disabled=false;if(enabled)code='';}
+      };
+    }
+    try{enabled=(await request('')).enabled;render();}catch(error){if(live())root.textContent=error.message;}
+  }
   openSettings=async initialTab => {
     assertFreshSession();
     if (!session) return;
@@ -662,7 +704,8 @@ const webWorkspace = (() => {
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse mail est ton identifiant. Ton code est personnel. Un administrateur peut réinitialiser ton code sans modifier les données partagées.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton code personnel suffit pour te connecter. Ton adresse e-mail identifie ton compte pour les invitations et les réinitialisations.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    if(cloud.enabled&&cloud.hasUsers())mountOTPSettings();
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
