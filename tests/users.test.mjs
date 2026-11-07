@@ -8,6 +8,8 @@ import {create,workspaceMaterial,importWorkspaceMaterial,openWithKey} from '../b
 import {normalizeUsername,usernameHash} from '../server/lib/wolfguard/users.mjs';
 import {seal} from '../server/lib/wolfguard/access.mjs';
 import {encodeSecret,otpAt,matchingStep} from '../server/lib/wolfguard/otp.mjs';
+import {validSubscription,decisionMessage,inspectMessage} from '../server/lib/wolfguard/push.mjs';
+import {buildPushPayload} from '../server/vendor/webpush.mjs';
 
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
@@ -313,28 +315,6 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
   }finally{s.env.DB.db.close();}
 });
 
-test('Authenticator alone completes MFA even for a previously push-enrolled account; obsolete approval routes cannot issue sessions',async()=>{
-  const s=await setup();try{
-    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    const setup=await(await s.api('users/otp/setup',{code:'09876543'},owner.token)).json();
-    await s.api('users/otp/enable',{code:'09876543',otp:await otpAt(setup.secret,Math.floor(s.clock()/30000))},owner.token);
-    s.env.MFA_REQUIRED='1';
-    // Preserve a synthetic old phone record to exercise the migration path.
-    s.env.DB.db.prepare('INSERT INTO push_devices(id,user_id,subscription_cipher,public_key,created_at) VALUES (?,?,?,?,?)').run('d'.repeat(32),owner.user.id,'obsolete','obsolete',s.clock());
-    assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
-    s.advance(30000);
-    const login=await(await s.api('login',{code:'09876543',otp:await otpAt(setup.secret,Math.floor(s.clock()/30000))})).json();
-    assert.ok(login.token&&!login.pushRequired);assert.deepEqual(login.user.mfa,{authenticator:true,complete:true,required:true});
-    assert.deepEqual((await(await s.api('me',undefined,login.token)).json()).user.mfa,login.user.mfa);
-    const before=s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n;
-    for(const path of ['push/poll','push/decision','push/inspect','push/cancel'])assert.equal((await s.api(path,{})).status,410);
-    assert.equal((await s.api('users/push/register',{},login.token)).status,410);
-    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,before);
-    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM push_requests').get().n,0);
-    assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:'000000'},login.token)).status,409);
-  }finally{s.env.DB.db.close();}
-});
-
 test('mandatory MFA enrolls every account before issuing a session and each new session verifies its own factor',async()=>{
   const s=await setup();try{
     await s.initialize();const legacy=await s.login('cantin.bruno@gmx.fr','09876543');
@@ -346,7 +326,7 @@ test('mandatory MFA enrolls every account before issuing a session and each new 
     assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);s.advance(5001);
     const activated=await s.api('login',{code:'09876543',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))});assert.equal(activated.status,200);
     const owner=await activated.json();assert.ok(owner.token);assert.equal(owner.recoveryCodes.length,8);
-    assert.deepEqual(owner.user.mfa,{authenticator:true,complete:true,required:true});
+    assert.deepEqual(owner.user.mfa,{authenticator:true,phone:false,complete:false,required:true,primary:'push',backup:'authenticator'});
     assert.deepEqual((await(await s.api('me',undefined,owner.token)).json()).user.mfa,owner.user.mfa);
     assert.deepEqual((await(await s.api('touch',{},owner.token)).json()).user.mfa,owner.user.mfa);
     assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:owner.recoveryCodes[0]},owner.token)).status,409);
@@ -410,5 +390,105 @@ test('resetting a member password retains OTP; only the owner can explicitly res
     const logged=await(await s.api('login',{code:'23456789'})).json();assert.equal(logged.user.username,'alice@example.test');
     assert.equal((await s.api('users/otp',undefined,logged.token)).status,200);
     assert.equal((await s.api('users/otp',undefined,alice.token)).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
+const b64=value=>Buffer.from(value).toString('base64url');
+test('mandatory push enrollment cannot access the workspace, cannot replace a phone and binds approval to its own account',async()=>{
+  const s=await setup();try{
+    const ownerPhone=await phoneSetup(s);s.env.MFA_REQUIRED='1';s.env.MFA_PUSH_PRIMARY='1';
+    await s.createMember('push-user@example.test','12345678',ownerPhone.owner.token);
+    const challenge=await(await s.api('login',{code:'12345678'})).json();assert.equal(challenge.otpSetupRequired,true);
+    const start=await(await s.api('login',{code:'12345678',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))})).json();
+    assert.ok(start.phoneSetupRequired&&start.enrollmentTicket&&!start.token&&!start.workspace);assert.equal(start.recoveryCodes.length,8);
+    assert.equal((await s.api('vault',undefined,start.enrollmentTicket)).status,401);
+    const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']),publicKey=await crypto.subtle.exportKey('jwk',pair.publicKey),deviceId='e'.repeat(32);
+    const material={enrollmentTicket:start.enrollmentTicket,subscription:ownerPhone.subscription,publicKey,deviceId};
+    const [payload,sig]=start.enrollmentTicket.split('.'),wrong=payload+'.'+(sig[0]==='0'?'1':'0')+sig.slice(1);
+    assert.equal((await s.api('mfa/phone/register',{...material,enrollmentTicket:wrong})).status,410);
+    const registration=await(await s.api('mfa/phone/register',material)).json();assert.ok(registration.registered&&!registration.token);
+    assert.equal((await s.api('mfa/phone/register',material)).status,409);
+    const request=await(await s.api('login',{code:'12345678'})).json();assert.ok(request.pushRequired&&!request.otpRequired&&!request.token);
+    const row=s.env.DB.db.prepare('SELECT * FROM push_requests WHERE device_id=?').get(deviceId);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId,decision:'approve',signature:await ownerPhone.sign(decisionMessage(row,'approve'))})).status,403);
+    const signature=b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(decisionMessage(row,'approve'))));
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId,decision:'approve',signature})).status,200);
+    const login=await(await s.api('push/poll',{ticket:request.ticket})).json();assert.ok(login.token);assert.equal(login.user.username,'push-user@example.test');assert.equal(login.user.mfa.complete,true);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+    s.advance(30001);s.env.PUSH_TEST_SEND=async()=>{throw new Error('Synthetic unavailable phone');};
+    const unavailable=await(await s.api('login',{code:'12345678'})).json();assert.ok(unavailable.pushRequired&&unavailable.deliveryFailed&&!unavailable.token);
+    const fallback=await(await s.api('login',{code:'12345678',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))})).json();assert.ok(fallback.token&&!fallback.pushRequired);
+    assert.equal((await s.api('login',{code:'12345678',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))})).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
+async function phoneSetup(s){
+  await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+  const otpSetup=await(await s.api('users/otp/setup',{code:'09876543'},owner.token)).json();
+  const enabled=await(await s.api('users/otp/enable',{code:'09876543',otp:await otpAt(otpSetup.secret,Math.floor(s.clock()/30000))},owner.token)).json();
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+  const encryption=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+  const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/synthetic',expirationTime:null,keys:{p256dh:b64(await crypto.subtle.exportKey('raw',encryption.publicKey)),auth:b64(crypto.getRandomValues(new Uint8Array(16)))}};
+  const publicKey=await crypto.subtle.exportKey('jwk',pair.publicKey),deviceId='d'.repeat(32),messages=[];
+  s.env.LOCAL_TEST_ORIGIN='http://localhost';s.env.PUSH_TEST_SEND=async message=>messages.push(message);
+  s.advance(30000);
+  const register=await s.api('users/push/register',{code:'09876543',otp:await otpAt(otpSetup.secret,Math.floor(s.clock()/30000)),publicKey,subscription,deviceId},owner.token);
+  assert.equal(register.status,200,await register.clone().text());
+  const sign=async message=>b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(message)));
+  const login=async()=>{s.advance(30000);const r=await s.api('login',{code:'09876543'});assert.equal(r.status,200,await r.clone().text());return r.json();};
+  return{owner,deviceId,messages,sign,login,secret:otpSetup.secret,recoveryCodes:enabled.recoveryCodes,subscription};
+}
+
+test('Push approval is primary without a preceding OTP and gates sessions and gives each request one use',async()=>{
+  const s=await setup();try{
+    const p=await phoneSetup(s),request=await p.login();assert.equal(request.pushRequired,true);assert.equal(request.token,undefined);assert.equal(request.workspace,undefined);
+    assert.equal((await(await s.api('login',{code:'09876543'})).json()).pushRequired,true);
+    const row=s.env.DB.db.prepare('SELECT * FROM push_requests').get();
+    assert.equal((await s.api('push/poll',{ticket:'0'.repeat(64)})).status,410);
+    assert.equal((await(await s.api('push/poll',{ticket:request.ticket})).json()).pending,true);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:'A'.repeat(86)})).status,403);
+    const inspected=await s.api('push/inspect',{id:row.id,deviceId:p.deviceId,signature:await p.sign(inspectMessage(row.id))});assert.equal(inspected.status,200);
+    assert.equal((await inspected.json()).displayCode,request.displayCode);
+    const decision={id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))};
+    assert.equal((await s.api('push/decision',decision)).status,200);
+    assert.equal((await s.api('push/decision',decision)).status,410);
+    const polled=await s.api('push/poll',{ticket:request.ticket});assert.equal(polled.status,200);const logged=await polled.json();assert.ok(logged.token);assert.deepEqual(logged.workspace,s.material);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+    assert.equal((await s.api('vault',undefined,logged.token)).status,200);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_requests').all())+JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_devices').all());
+    assert.ok(!disk.includes(request.ticket));assert.ok(!disk.includes(p.subscription.endpoint));
+    assert.ok(!disk.includes(p.subscription.keys.auth));
+  }finally{s.env.DB.db.close();}
+});
+
+test('phone refusals, cancellation, expiry, throttling, revocation and recovery remain fail closed',async()=>{
+  const s=await setup();try{
+    const p=await phoneSetup(s);let request=await p.login(),row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'deny',signature:await p.sign(decisionMessage(row,'deny'))})).status,200);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,403);
+    request=await p.login();row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    s.advance(30000);const repeat=await s.api('login',{code:'09876543',otp:await otpAt(p.secret,Math.floor(s.clock()/30000))});assert.equal((await repeat.json()).token!==undefined,true);
+    assert.equal(p.messages.filter(message=>message.type==='login').length,2);
+    assert.equal((await s.api('push/cancel',{ticket:request.ticket})).status,200);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))})).status,410);
+    request=await p.login();s.advance(120001);assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+    const recovered=await s.api('login',{code:'09876543',otp:p.recoveryCodes[0]});assert.equal(recovered.status,200);assert.ok((await recovered.json()).token);
+    request=await p.login();row=s.env.DB.db.prepare("SELECT * FROM push_requests WHERE state='pending'").get();
+    await s.api('users/change-code',{oldCode:'09876543',code:'87654321'},p.owner.token);
+    assert.equal((await s.api('push/decision',{id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))})).status,410);
+    assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
+  }finally{s.env.DB.db.close();}
+});
+
+test('push enrollment requires OTP and fixed push-service endpoints; the encrypted payload contains no plaintext',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    assert.equal((await s.api('users/push/register',{code:'09876543'},owner.token)).status,409);
+    for(const endpoint of ['http://fcm.googleapis.com/a','https://127.0.0.1/a','https://fcm.googleapis.com.evil.test/a','https://fcm.googleapis.com:8443/a','https://user@fcm.googleapis.com/a'])assert.equal(validSubscription({endpoint,keys:{}}),false);
+    const encryption=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+    const vapid=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+    const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/synthetic',expirationTime:null,keys:{p256dh:b64(await crypto.subtle.exportKey('raw',encryption.publicKey)),auth:b64(crypto.getRandomValues(new Uint8Array(16)))}};
+    const payload=await buildPushPayload({data:{message:'confidential approval nonce'},options:{ttl:120}},subscription,{subject:'mailto:test@example.test',publicKey:b64(await crypto.subtle.exportKey('raw',vapid.publicKey)),privateKey:(await crypto.subtle.exportKey('jwk',vapid.privateKey)).d});
+    assert.equal(payload.headers['Content-Encoding']||payload.headers['content-encoding'],'aes128gcm');assert.ok(!new TextDecoder().decode(payload.body).includes('confidential approval nonce'));
   }finally{s.env.DB.db.close();}
 });

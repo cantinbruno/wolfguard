@@ -9,6 +9,32 @@ const hash=async value=>hex(await crypto.subtle.digest('SHA-256',encoder.encode(
 const context=id=>'WolfGuard push subscription v1:'+id;
 const detailsContext=id=>'WolfGuard push request v1:'+id;
 export const pushDevice=(env,userId)=>env.DB.prepare('SELECT * FROM push_devices WHERE user_id=?').bind(userId).first();
+export const requiresPhone=env=>env.MFA_PUSH_PRIMARY==='1';
+async function enrollmentKey(env){return crypto.subtle.importKey('raw',Uint8Array.from(env.AUTH_PEPPER.match(/../g),value=>parseInt(value,16)),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
+export async function phoneEnrollment(env,user,generation,now){
+  const payload=btoa(JSON.stringify({purpose:'push-enrollment',userId:user.id,version:user.code_version,generation,expiresAt:now+600000,binding:await hash(user.otp_secret_cipher)})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const signature=hex(await crypto.subtle.sign('HMAC',await enrollmentKey(env),encoder.encode(payload)));
+  return {phoneSetupRequired:true,enrollmentTicket:payload+'.'+signature,expiresAt:now+600000,publicKey:env.PUSH_VAPID_PUBLIC_KEY||null,configured:!!(env.PUSH_VAPID_PUBLIC_KEY&&env.PUSH_VAPID_PRIVATE_KEY)||!!(env.LOCAL_TEST_ORIGIN&&env.PUSH_TEST_SEND),username:await open(user.name_cipher,'WolfGuard users v1:name:'+user.id,env)};
+}
+async function enrollmentUser(env,ticket,now,fail){
+  try{
+    if(typeof ticket!=='string'||!/^[-\w]{1,1200}\.[a-f0-9]{64}$/.test(ticket))throw new Error();
+    const [payload,signature]=ticket.split('.');
+    if(!await crypto.subtle.verify('HMAC',await enrollmentKey(env),Uint8Array.from(signature.match(/../g),value=>parseInt(value,16)),encoder.encode(payload)))throw new Error();
+    const data=JSON.parse(new TextDecoder().decode(decode(payload)));
+    if(data.purpose!=='push-enrollment'||!Number.isSafeInteger(data.expiresAt)||data.expiresAt<=now)throw new Error();
+    const user=await env.DB.prepare('SELECT * FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS NOT NULL AND (SELECT generation FROM vault WHERE id=1)=?').bind(data.userId,data.version,data.generation).first();
+    if(!user||data.binding!==await hash(user.otp_secret_cipher))throw new Error();return user;
+  }catch{fail(410,'La configuration a expiré ou le compte a changé. Recommence la connexion.');}
+}
+export async function handlePhoneEnrollment(request,env,now,h){
+  const {fail,json,body}=h,path=new URL(request.url).pathname;
+  if(request.method!=='POST'||path!=='/api/mfa/phone/register')fail(404,'Adresse inconnue.');
+  const data=await body(),user=await enrollmentUser(env,data.enrollmentTicket,now,fail);
+  if(await pushDevice(env,user.id))fail(409,'Un téléphone est déjà associé. Recommence la connexion pour recevoir la notification.');
+  const result=await enrollDevice(env,user,data,now,fail,{});
+  return json({device:result,registered:true});
+}
 export const decisionMessage=(row,decision)=>'WolfGuard push v1:'+row.id+':'+row.nonce+':'+decision;
 export const inspectMessage=id=>'WolfGuard push inspect v1:'+id;
 export function validSubscription(value){
@@ -39,9 +65,9 @@ export async function startPush(request,env,now,row,user,device,h){
   await env.DB.prepare('DELETE FROM push_requests WHERE created_at<?').bind(now-86400000).run();
   const inserted=await env.DB.prepare("INSERT INTO push_requests(id,ticket_hash,user_id,user_version,device_id,generation,nonce,state,display_code,details_cipher,created_at,expires_at) SELECT ?,?,?,?,?,?,?,'pending',?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM push_requests WHERE user_id=? AND (state='pending' OR created_at>?)) AND (SELECT COUNT(*) FROM push_requests WHERE user_id=? AND created_at>?)<5 AND EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0) AND EXISTS(SELECT 1 FROM push_devices WHERE id=? AND user_id=?) ON CONFLICT DO NOTHING RETURNING id")
     .bind(id,await hash(ticket),user.id,user.code_version,device.id,row.generation,nonce,displayCode,await seal(details,detailsContext(id),env),now,expiresAt,user.id,now-30000,user.id,now-300000,user.id,user.code_version,device.id,user.id).first();
-  if(!inserted)fail(429,'Une demande est déjà en cours ou vient d’être envoyée. Patiente avant de recommencer, ou utilise un code de secours.',{retryAfter:30});
+  if(!inserted)return json({pushRequired:true,deliveryFailed:true,expiresAt,displayCode:'—',message:'Une demande est déjà en cours. Attends son approbation ou utilise un code de secours.'});
   try{await sendNotification(env,device,{type:'login',id,nonce,deviceId:device.id,displayCode,expiresAt});}
-  catch{await env.DB.prepare("UPDATE push_requests SET state='failed' WHERE id=? AND state='pending'").bind(id).run();fail(503,'La notification n’a pas pu être envoyée. Réessaie ou utilise un code de secours.');}
+  catch{await env.DB.prepare("UPDATE push_requests SET state='failed' WHERE id=? AND state='pending'").bind(id).run();return json({pushRequired:true,ticket,displayCode,expiresAt,deliveryFailed:true});}
   return json({pushRequired:true,ticket,displayCode,expiresAt});
 }
 export async function handlePushLogin(request,env,now,h){
@@ -83,13 +109,19 @@ export async function handlePushSettings(request,env,now,session,h){
   if(path==='/api/users/push'&&request.method==='GET')return json({configured,device:device?{id:device.id,createdAt:device.created_at}:null,publicKey:env.PUSH_VAPID_PUBLIC_KEY||null,otpEnabled:!!user.otp_secret_cipher});
   if(request.method!=='POST')fail(404,'Adresse inconnue.');
   const data=await body();
-  if(!user.otp_secret_cipher)fail(409,'Active d’abord Authenticator : la connexion utilisera les six chiffres puis la notification.');
+  if(!user.otp_secret_cipher)fail(409,'Configure d’abord le code Authenticator de secours.');
   if(!['/api/users/push/register','/api/users/push/remove'].includes(path))fail(404,'Adresse inconnue.');
   await verifyPIN(data.code,env,now,()=>consumeOTP(user,data.otp,env,now),user);
   if(path.endsWith('/remove')){
     await env.DB.batch([env.DB.prepare('DELETE FROM push_requests WHERE user_id=?').bind(user.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(user.id)]);
     await h.revokeOthers(env,user.id,session.hash,now);return json({ok:true});
   }
+  const result=await enrollDevice(env,user,data,now,fail,{replace:true,sessionHash:session.hash});
+  await h.revokeOthers(env,user.id,session.hash,now);
+  return json({device:result});
+}
+async function enrollDevice(env,user,data,now,fail,{replace=false,sessionHash=null}){
+  const configured=!!(env.PUSH_VAPID_PUBLIC_KEY&&env.PUSH_VAPID_PRIVATE_KEY)||!!(env.LOCAL_TEST_ORIGIN&&env.PUSH_TEST_SEND);
   if(!configured)fail(503,'Les notifications ne sont pas encore configurées sur le serveur.');
   if(!validSubscription(data.subscription))fail(400,'Abonnement aux notifications invalide.');
   const jwk=data.publicKey;
@@ -101,10 +133,9 @@ export async function handlePushSettings(request,env,now,session,h){
   try{await sendNotification(env,newDevice,{type:'associated',deviceId:id});}catch{fail(503,'Le téléphone n’a pas pu être joint. Son association n’a pas été modifiée.');}
   // Recheck the exact authenticated account version at the enrollment commit.
   const updated=await env.DB.batch([
-    env.DB.prepare('INSERT INTO push_devices(id,user_id,subscription_cipher,public_key,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS NOT NULL) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?) ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,subscription_cipher=excluded.subscription_cipher,public_key=excluded.public_key,created_at=excluded.created_at').bind(id,user.id,newDevice.subscription_cipher,newDevice.public_key,now,user.id,user.code_version,session.hash),
+    env.DB.prepare('INSERT INTO push_devices(id,user_id,subscription_cipher,public_key,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)) AND (?=1 OR NOT EXISTS(SELECT 1 FROM push_devices WHERE user_id=?)) ON CONFLICT(user_id) DO UPDATE SET id=excluded.id,subscription_cipher=excluded.subscription_cipher,public_key=excluded.public_key,created_at=excluded.created_at WHERE ?=1').bind(id,user.id,newDevice.subscription_cipher,newDevice.public_key,now,user.id,user.code_version,user.otp_secret_cipher,sessionHash,sessionHash,replace?1:0,user.id,replace?1:0),
     env.DB.prepare('DELETE FROM push_requests WHERE user_id=? AND EXISTS(SELECT 1 FROM push_devices WHERE id=?)').bind(user.id,id)
   ]);
   if(Number(updated[0]?.meta?.changes)!==1)fail(409,'Le compte a changé. Reconnecte-toi.');
-  await h.revokeOthers(env,user.id,session.hash,now);
-  return json({device:{id,createdAt:now}});
+  return {id,createdAt:now};
 }
