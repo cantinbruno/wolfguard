@@ -96,3 +96,16 @@ export const chatApiConfig=sqliteTable('chat_api_config',{
 export const chatApiUsage=sqliteTable('chat_api_usage',{
   userId:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),windowStart:integer('window_start').notNull(),requests:integer('requests').notNull(),lease:text('lease').notNull(),leaseUntil:integer('lease_until').notNull()
 });
+
+export const endpointStates=sqliteTable('endpoint_states',{
+ agentId:text('agent_id').primaryKey().references(()=>scanAgents.id,{onDelete:'cascade'}),generation:integer('generation').notNull(),collectedAt:integer('collected_at').notNull(),receivedAt:integer('received_at').notNull(),snapshotCipher:text('snapshot_cipher').notNull()
+});
+export const endpointPolicies=sqliteTable('endpoint_policies',{
+ agentId:text('agent_id').primaryKey().references(()=>scanAgents.id,{onDelete:'cascade'}),revision:integer('revision').notNull(),policyCipher:text('policy_cipher').notNull(),updatedBy:text('updated_by').notNull(),updatedAt:integer('updated_at').notNull()
+});
+export const endpointEvents=sqliteTable('endpoint_events',{
+ agentId:text('agent_id').notNull().references(()=>scanAgents.id,{onDelete:'cascade'}),eventKey:text('event_key').notNull(),occurredAt:integer('occurred_at').notNull(),receivedAt:integer('received_at').notNull(),status:text('status').notNull(),severity:text('severity').notNull(),eventCipher:text('event_cipher').notNull(),acknowledgedAt:integer('acknowledged_at'),acknowledgedBy:text('acknowledged_by')
+},table=>[primaryKey({columns:[table.agentId,table.eventKey]}),index('endpoint_events_agent_time').on(table.agentId,table.occurredAt),index('endpoint_events_open').on(table.agentId,table.status,table.acknowledgedAt)]);
+export const endpointCommands=sqliteTable('endpoint_commands',{
+ id:text('id').primaryKey(),agentId:text('agent_id').notNull().references(()=>scanAgents.id,{onDelete:'cascade'}),generation:integer('generation').notNull(),requestedBy:text('requested_by').notNull(),userVersion:integer('user_version').notNull(),action:text('action').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),expiresAt:integer('expires_at').notNull(),leaseHash:text('lease_hash'),resultCipher:text('result_cipher')
+},table=>[index('endpoint_commands_agent_status').on(table.agentId,table.status)]);

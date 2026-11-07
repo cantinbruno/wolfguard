@@ -6,7 +6,7 @@ Le même agent exécute Scan passif, Scan actif, Cartographie et Vulnérabilité
 2. Linux : ouvrir un terminal dans ce dossier et exécuter sh Start-Agent.sh
    macOS : ouvrir Start-Agent.command (ou exécuter sh Start-Agent.sh).
 3. Dans WolfGuard, ouvrir Agents et générer un code temporaire.
-4. Coller ce code dans le terminal. Garder le terminal ouvert pendant les scans.
+4. Coller ce code dans le terminal. Le service utilisateur prend le relais en arrière-plan. Fermer le terminal ensuite.
 5. Choisir ce poste dans Agents : toutes les sections l’utilisent.
 
 Node.js 22+ est utilisé s’il est installé. Sinon, le lanceur prépare un moteur
@@ -14,7 +14,7 @@ officiel vérifié par SHA-256 dans le dossier personnel, sans installation syst
 Architectures prévues : x64 et ARM64 ; Linux avec glibc, macOS Intel et Apple Silicon.
 Sur une autre distribution, installer un Node.js 22+ compatible au préalable.
 
-Ctrl+C arrête l’agent. Pour l’associer de nouveau : sh Start-Agent.sh --pair
+Pour l’associer de nouveau : sh Start-Agent.sh --pair
 Pour retirer son accès : Agents > Révoquer.
 L’agent ne demande jamais le code d’accès WolfGuard.
 
@@ -60,7 +60,7 @@ La session expire apres 20 minutes, a la fermeture de la rubrique ou si la liais
 La premiere demande telecharge Koffi et jpeg-js depuis npm, avec versions
 et empreintes SHA-512 imposees dans remote-dependencies.json. Aucun programme
 d installation n est execute. Les licences sont incluses dans le cache local.
-Windows : nouvel agent graphique, session utilisateur ouverte. Les fenetres
+Windows : nouvel agent en arrière-plan, session utilisateur ouverte. Les fenetres
 elevees, verrouillage et demandes UAC restent soumis aux restrictions Windows.
 macOS : autoriser le processus de l agent ou Terminal/Node dans Accessibilite
 et Enregistrement de l ecran. Relancer l agent apres les autorisations si necessaire.
@@ -74,3 +74,19 @@ la derniere image et les actions en attente y sont chiffrees temporairement.
 Le relais les dechiffre : ce n est pas un chiffrement de bout en bout.
 
 Le serveur WolfGuard rapproche les produits et versions observes des avis et alertes CERT-FR. Sous Linux, un inventaire cible de paquets est lu sans installation ni recherche de mises a jour reseau. Les correctifs retroportes par la distribution doivent etre verifies. Les liens CERT-FR et CVE sont conserves dans le rapport web et le PDF.
+
+PROTECTION EDR
+Les audits restent en lecture seule dans Vulnérabilités. La section EDR
+remonte les protections natives, alertes et blocages confirmés par poste.
+Linux : Defender for Endpoint ou ClamAV/ClamOnAcc déjà configuré.
+macOS : Defender for Endpoint ou informations disponibles XProtect/Gatekeeper.
+La fraîcheur des signatures et l’exhaustivité des événements Apple restent
+non confirmées. ClamOnAcc ne couvre que les chemins configurés.
+WolfGuard ne fournit pas un moteur antivirus indépendant.
+Pour gérer les protections, exécuter la commande --install-protection affichée
+par l’installation avec sudo. Ce service système se limite à la protection ;
+le bureau et le terminal restent dans la session utilisateur.
+Démarrage utilisateur : systemd --user sous Linux, LaunchAgent sous macOS.
+Si systemd est indisponible, le lancement détaché est signalé et le démarrage
+automatique reste à configurer. Arrêt : systemctl --user stop wolfguard-agent
+ou launchctl bootout gui/<uid>/fr.wavetools.wolfguard.agent sous macOS.

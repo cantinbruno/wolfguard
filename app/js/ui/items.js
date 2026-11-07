@@ -64,7 +64,7 @@ async function newVault() {
 }
 
 function normalFolder() {
-  return state.folder || null
+  return state.folder || (state.section==='vault'?window.WolfGuardAccess?.personalVaultHome()?.id:null) || null
 }
 
 /* SAVE */
@@ -125,13 +125,14 @@ async function newFolder(parentOverride = undefined) {
       id: uid(),
       section: state.section,
       name: n,
-      parentId: $('#folderParent').value || null
+      parentId: $('#folderParent').value || (state.section==='vault'?window.WolfGuardAccess?.personalVaultHome()?.id:null) || null
     });
     closeModal();
     await renderWorkspace();
   };
 }
 async function folderMenu(id) {
+  if(typeof WolfGuardPermissions!=='undefined'&&WolfGuardPermissions.isVaultHome(id)){appNotify('Ce dossier personnel est géré automatiquement.');return;}
   const f = await get('folders', id);
   if (!f) return;
   const folders = await foldersForSection(state.section);

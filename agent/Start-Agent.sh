@@ -10,7 +10,8 @@ case "$system" in
 esac
 case "$agent_config" in /*) ;; *) printf '%s\n' 'Le dossier de configuration doit être absolu.' >&2; exit 1 ;; esac
 if command -v node >/dev/null 2>&1 && node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 22 ? 0 : 1)'; then
-  exec node "$agent_root/agent/agent.mjs" "$@"
+  if [ "${1:-}" = "--foreground" ]; then shift; exec node "$agent_root/agent/agent.mjs" "$@"; fi
+  exec node "$agent_root/agent/install-service.mjs" "$@"
 fi
 case "$(uname -m)" in
   x86_64|amd64) architecture=x64 ;;
@@ -40,4 +41,5 @@ if [ ! -x "$runtime/$engine/bin/node" ]; then
   rmdir "$temporary"
   trap - EXIT HUP INT TERM
 fi
-exec "$runtime/$engine/bin/node" "$agent_root/agent/agent.mjs" "$@"
+if [ "${1:-}" = "--foreground" ]; then shift; exec "$runtime/$engine/bin/node" "$agent_root/agent/agent.mjs" "$@"; fi
+exec "$runtime/$engine/bin/node" "$agent_root/agent/install-service.mjs" "$@"

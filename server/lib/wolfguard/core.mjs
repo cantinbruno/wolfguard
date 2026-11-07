@@ -10,6 +10,7 @@ import {userPolicy} from './permission-store.mjs';
 import {handleChatAPI} from './chat-api.mjs';
 import {handleChatHistory} from './chat-history.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
+import {addVaultIdentity,allVaultHomes,withVaultHomes} from './personal-vault.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
 const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 60 * 60000;
@@ -90,6 +91,7 @@ async function authorize(request,env,now) {
   if(requiresPhone(env)&&session.user_id&&!session.user_push)fail(401,'Associe ton téléphone pour terminer la configuration MFA.',{code:'MFA_SETUP_REQUIRED'});
   const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&(!requiresPhone(env)||!!session.user_push),required:requiresMFA(env),primary:requiresPhone(env)||session.user_push?'push':'authenticator',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
   if(session.user_id){const rights=await env.DB.prepare('SELECT id,permissions_cipher,permission_revision FROM users WHERE id=?').bind(session.user_id).first();user.permissions=await userPolicy(rights,env);user.permission_revision=rights.permission_revision;}
+  await addVaultIdentity(user,env,now,!new URL(request.url).pathname.startsWith('/api/edr'));
   return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
@@ -98,7 +100,7 @@ async function finishLogin(request,env,now,row,user,extra={}){
   if(!row.users_enabled&&user.id!==row.owner_user_id)fail(403,'Ce compte est indisponible.');
   const token=await issueSession(env,row.generation,now,request,user);
   await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
-  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await deliveryMaterial(row,user,env)}:{}),...extra});
+  return json({token,version:row.version,exists:!!row.object_key,user:await addVaultIdentity(await publicUser(user,env),env,now),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await deliveryMaterial(row,user,env)}:{}),...extra});
 }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
 // Fixed-sized frames keep the Worker below its memory limit even for attachments.
@@ -132,6 +134,7 @@ async function scopedSnapshot(row,env,user,now){
   const stream=await decryptedStream(object,env);if(stream.length>SCOPED_MAX_BYTES){await stream.body.cancel();fail(413,'La copie partagée dépasse la limite de 8 Mo pour les accès restreints. Le propriétaire peut réduire les pièces jointes.');}
   const envelope=await boundedJSON(stream.body),master=await canonicalMaterial(row,env),delivery=await deliveryMaterial(row,user,env);
   let source;try{source=await openEnvelope(envelope,master);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
+  source=withVaultHomes(source,await allVaultHomes(env));
   let visible;try{visible=await projectWorkspace(source,user,master,delivery,now);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
   return {source,visible,master,delivery,revision:envelope.revision};
 }
@@ -240,7 +243,7 @@ export async function handleAPI(request,env,clock=Date.now) {
           else response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});
           }
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
-      }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')||path==='/api/ai'||path.startsWith('/api/ai/')){
+      }else if(path==='/api/edr'||path.startsWith('/api/edr/')||path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')||path==='/api/ai'||path.startsWith('/api/ai/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);

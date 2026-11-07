@@ -351,8 +351,8 @@ test('unbound invitation issuance and redemption respect the account limit',asyn
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
     const {invitation}=await(await s.api('users/invite',{},owner.token)).json();
-    const seed=s.env.DB.db.prepare("INSERT INTO users(id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) VALUES (?,?,'synthetic','member','salt','hash',0,0)");
-    for(let i=0;i<99;i++)seed.run('synthetic-'+i,'synthetic-'+i);
+    const seed=s.env.DB.db.prepare("INSERT INTO users(id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at) VALUES (?,?,?,'member','salt','hash',0,0)");
+    for(let i=0;i<99;i++){const id=i.toString(16).padStart(32,'0');seed.run(id,'synthetic-'+i,await seal('synthetic-'+i+'@example.test','WolfGuard users v1:name:'+id,s.env));}
     assert.equal((await s.api('users/invite',{},owner.token)).status,409);
     assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'full@example.test',code:'12345678'})).status,409);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,100);

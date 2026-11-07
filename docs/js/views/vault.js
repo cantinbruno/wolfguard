@@ -113,6 +113,8 @@ function vaultCatalogItemHTML(entry) {
     workspaceCatalogMetaHTML(entry) + '<div class="catalog-vault-security">' + settingsIcon('lock') + '<code aria-label="Mot de passe masqu\u00e9">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</code></div>';
 }
 async function renderVaultWorkspace() {
+  const home=window.WolfGuardAccess?.personalVaultHome();
+  if(home){const folders=await all('folders'),selected=folders.find(row=>row.id===state.folder);if(!selected||!WolfGuardPermissions.isInPersonalVault(WolfGuardCloud.currentUser(),selected,'folders',folders))state.folder=home.id;}
   await renderUnifiedExplorer();
   if (state.item) {
     const item = await get('items', state.item);

@@ -1,3 +1,4 @@
+import {handleEndpointAPI} from './endpoints.mjs';
 import {handleAI,claimAI,updateAI} from './ai.mjs';
 import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
 import {cachedAnalysis,analyzeScan} from './certfr.mjs';
@@ -16,6 +17,7 @@ export async function handleAgentAPI(request,env,now,h){
   async function agentAuth(){const token=/^Agent ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];if(!token)fail(401,'Agent non associé.');const row=await env.DB.prepare('UPDATE scan_agents SET last_seen=? WHERE token_hash=? AND revoked_at IS NULL AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(now,await digest(token)).first();if(!row)fail(401,'Association expirée ou agent révoqué.');return row;}
   const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
   const remoteHelpers={...h,body,seal,open,agentAuth};
+  if(path==='/api/edr'||path.startsWith('/api/edr/')||path.startsWith('/api/agent/edr/'))return handleEndpointAPI(request,env,now,remoteHelpers);
   if(path==='/api/ai'||path.startsWith('/api/ai/'))return handleAI(request,env,now,remoteHelpers);
   if(path.startsWith('/api/remote/')||path.startsWith('/api/agent/remote/'))return handleRemoteAPI(request,env,now,remoteHelpers);
   const changed=result=>Number(result?.meta?.changes||0)>0;
@@ -28,8 +30,8 @@ export async function handleAgentAPI(request,env,now,h){
   if(path==='/api/agent/enroll'&&request.method==='POST'){
     const {code,name,platform}=await body();if(typeof code!=='string'||!/^[a-f0-9]{32}$/.test(code)||typeof name!=='string'||!name.trim()||name.length>100||!['win32','linux','darwin'].includes(platform))fail(400,'Association invalide.');
     const ticket=await env.DB.prepare('DELETE FROM scan_pairings WHERE token_hash=? AND expires_at>? AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(await digest(code),now).first();if(!ticket)fail(403,'Code d’association expiré ou déjà utilisé.');
-    const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_agents WHERE revoked_at IS NULL AND generation=?').bind(ticket.generation).first();if(count.count>=6)fail(409,'Maximum six agents. Retire un ancien agent depuis le site.');
-    const id=random(16),token=random(32);const inserted=await env.DB.prepare('INSERT INTO scan_agents (id,name_cipher,token_hash,generation,created_at,last_seen) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM scan_agents WHERE generation=? AND revoked_at IS NULL)<6 RETURNING id').bind(id,await seal({name:name.trim(),platform},id+':name'),await digest(token),ticket.generation,now,now,ticket.generation).first();if(!inserted)fail(409,'Maximum six agents. Retire un ancien agent depuis le site.');return json({id,token,pollSeconds:4});
+    const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_agents WHERE revoked_at IS NULL AND generation=?').bind(ticket.generation).first();if(count.count>=200)fail(409,'Maximum 200 postes associés. Retire un ancien agent depuis le site.');
+    const id=random(16),token=random(32);const inserted=await env.DB.prepare('INSERT INTO scan_agents (id,name_cipher,token_hash,generation,created_at,last_seen) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM scan_agents WHERE generation=? AND revoked_at IS NULL)<200 RETURNING id').bind(id,await seal({name:name.trim(),platform},id+':name'),await digest(token),ticket.generation,now,now,ticket.generation).first();if(!inserted)fail(409,'Maximum 200 postes associés. Retire un ancien agent depuis le site.');return json({id,token,pollSeconds:4});
   }
   if(path.startsWith('/api/agent/')){
     const agent=await agentAuth();await expire();
@@ -37,7 +39,7 @@ export async function handleAgentAPI(request,env,now,h){
     if(path==='/api/agent/poll'&&request.method==='POST'){
       const info=await body();
       if(Array.isArray(info.capabilities)){
-        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1','ai-chat-v1'].filter(value=>info.capabilities.includes(value));
+        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1','ai-chat-v1','endpoint-protection-v1'].filter(value=>info.capabilities.includes(value));
         const metadata=await open(agent.name_cipher,agent.id+':name');
         if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities))await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities},agent.id+':name'),agent.id).run();
       }
@@ -68,7 +70,7 @@ export async function handleAgentAPI(request,env,now,h){
   const permitJob=async(id,action='read')=>{const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');if(!await jobAllowed(row))fail(403,'Ce rapport ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});const spec=await open(row.spec_cipher,row.id+':spec');requirePermission(session.user,'scan.'+(spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy))+'.'+action,fail,now);return row;};
   if(path==='/api/agents'&&request.method==='GET'){
     if(!can(session.user,'agents.read',now))return json({agents:[]});
-    const rows=await env.DB.prepare('SELECT * FROM scan_agents WHERE generation=? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 6').bind(session.generation).all();
+    const rows=await env.DB.prepare('SELECT * FROM scan_agents WHERE generation=? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 200').bind(session.generation).all();
     const agents=[];for(const row of rows.results){if(!canAgent(session.user,row.id,now))continue;const metadata=await open(row.name_cipher,row.id+':name');agents.push({id:row.id,...metadata,online:row.last_seen>now-ONLINE_MS,lastSeen:row.last_seen});}return json({agents});
   }
   if(path==='/api/agents/pair'&&request.method==='POST'){

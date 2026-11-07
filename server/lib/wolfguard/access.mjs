@@ -64,7 +64,8 @@ export async function stopRemoteOwners(env,owners,now){
 }
 export async function handleAccessAPI(request,env,now,session,h){
   const path=new URL(request.url).pathname,{fail,json,body}=h;
-  if(session.user?.role!=='admin'&&!(request.method==='GET'&&session.user?.permissions?.grants?.includes('access.read')&&(session.user.permissions.expiresAt===null||session.user.permissions.expiresAt>now)))fail(403,'Cette gestion est réservée aux administrateurs.');
+  const permission=request.method==='GET'?'access.read':'access.manage';
+  if(session.user?.role!=='admin'&&!(session.user?.permissions?.grants?.includes(permission)&&(session.user.permissions.expiresAt===null||session.user.permissions.expiresAt>now)))fail(403,'Ton profil ne permet pas cette gestion des connexions.');
   if(path==='/api/access'&&request.method==='GET'){
     await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND expires_at>? AND active_at>?)').bind(now,now-IDLE_MS).run();
     const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.expires_at>? AND s.active_at>? AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation,now,now-IDLE_MS).all();
@@ -84,6 +85,7 @@ export async function handleAccessAPI(request,env,now,session,h){
   const data=await body();
   if(path==='/api/access/disconnect'){
     if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Connexion invalide.');
+    if(session.user.role!=='admin'&&await env.DB.prepare('SELECT s.token_hash FROM sessions s JOIN access_connections c ON c.token_hash=s.token_hash WHERE c.id=? AND s.user_id=(SELECT owner_user_id FROM vault WHERE id=1)').bind(data.id).first())fail(403,'Les sessions du propriétaire sont protégées.');
     const owners=await env.DB.prepare('DELETE FROM sessions WHERE token_hash IN (SELECT token_hash FROM access_connections WHERE id=?) AND generation=? RETURNING token_hash').bind(data.id,session.generation).all();
     if(!owners.results.length)fail(404,'Cette connexion est déjà terminée.');
     await stopRemoteOwners(env,owners.results,now);
@@ -93,6 +95,7 @@ export async function handleAccessAPI(request,env,now,session,h){
   if(path==='/api/access/block'){
     const ip=normalizeIP(data.ip);if(!ip||ip==='2a06:98c0:3600::103')fail(400,'Saisis une adresse IPv4 ou IPv6 valide.');
     const hash=await addressHash(ip,env),own=await env.DB.prepare('SELECT ip_hash FROM access_connections WHERE token_hash=?').bind(session.hash).first();
+    if(session.user.role!=='admin'&&await env.DB.prepare('SELECT s.token_hash FROM sessions s JOIN access_connections c ON c.token_hash=s.token_hash WHERE c.ip_hash=? AND s.user_id=(SELECT owner_user_id FROM vault WHERE id=1)').bind(hash).first())fail(403,'Cette adresse IP est utilisée par le propriétaire.');
     if(hash===session.access.hash||hash===own?.ip_hash)fail(409,'Tu ne peux pas bloquer ta propre adresse IP. Déconnecte uniquement la session concernée.');
     const owners=await env.DB.prepare('SELECT s.token_hash FROM sessions s JOIN access_connections c ON c.token_hash=s.token_hash WHERE c.ip_hash=?').bind(hash).all();
     await env.DB.batch([

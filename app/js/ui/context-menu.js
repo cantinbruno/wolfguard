@@ -142,6 +142,7 @@ async function itemContextMenu(e, id) {
 }
 
 async function deleteFolderDirect(id) {
+  if(typeof WolfGuardPermissions!=='undefined'&&WolfGuardPermissions.isVaultHome(id)){appNotify('Ce dossier personnel est géré automatiquement.');return;}
   closeContextMenu();
   const folders = await activeFolders();
   const items = await activeItems();
@@ -163,6 +164,7 @@ async function deleteFolderDirect(id) {
   await renderWorkspace();
 }
 async function folderContextMenu(e, id) {
+  if(typeof WolfGuardPermissions!=='undefined'&&WolfGuardPermissions.isVaultHome(id)){e.preventDefault();return;}
   e.preventDefault();
   e.stopPropagation();
   closeContextMenu();

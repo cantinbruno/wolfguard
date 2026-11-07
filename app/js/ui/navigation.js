@@ -92,6 +92,7 @@ function itemDragStart(e, id) {
 }
 
 function folderDragStart(e, id) {
+  if(typeof WolfGuardPermissions!=='undefined'&&WolfGuardPermissions.isVaultHome(id)){e.preventDefault();return;}
   writeDragPayload(e, 'folder', id);
   e.currentTarget.classList.add('dragging');
 }

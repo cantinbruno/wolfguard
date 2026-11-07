@@ -16,7 +16,7 @@ const workspaceAccess=(()=>{
     const date=value=>value?new Date(value).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'Non renseigné';
     function render(){
       if(!live())return;
-      const disabled=busy||stale||!available()||!cloud()?.isAdmin();
+      const disabled=busy||stale||!available()||!cloud()?.can('access.manage');
       find('#wgAccessBlockSubmit').disabled=disabled;find('#wgAccessBlockIP').disabled=disabled;
       if(!data)return;
       find('#wgAccessCount').textContent=data.connections.length+' session'+(data.connections.length>1?'s':'');

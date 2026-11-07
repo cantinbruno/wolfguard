@@ -36,7 +36,7 @@ test('Windows native JPEG encoder works without a desktop popup and keeps the ev
   }finally{encoder.close();}
 });
 
-test('real Windows mouse clicks and keyboard input work in a dedicated test window',{skip:process.platform!=='win32'},async()=>{
+test('real Windows mouse clicks and keyboard input work in a dedicated test window',{skip:process.platform!=='win32'||process.env.WG_TEST_DESKTOP!=='1'},async()=>{
   const fixture=fileURLToPath(new URL('./remote-input-target.ps1',import.meta.url));
   const target=spawn('powershell.exe',['-STA','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fixture],{windowsHide:true,stdio:['pipe','pipe','pipe']});
   const lines=createInterface({input:target.stdout}),events=[];

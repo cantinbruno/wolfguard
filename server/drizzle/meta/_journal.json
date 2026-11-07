@@ -120,6 +120,13 @@
       "when": 1794067382026,
       "tag": "0016_chat-api",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794079400202,
+      "tag": "0017_endpoint-protection",
+      "breakpoints": true
     }
   ]
 }

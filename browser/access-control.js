@@ -3,9 +3,10 @@ window.WolfGuardAccess=(()=>{
   const cloud=()=>typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud;
   const user=()=>cloud()?.currentUser();
   const restricted=()=>!!(cloud()?.enabled&&cloud()?.hasUsers()&&user()?.role!=='admin');
+  const personalVaultHome=()=>cloud()?.enabled&&cloud()?.hasUsers()&&!can('vault.all')?user()?.vaultHome:null;
   const can=key=>!cloud()?.enabled||!cloud()?.hasUsers()||WolfGuardPermissions.can(user(),key);
   const sectionKey=section=>section==='vault'?'vault.read':section==='remote'?'remote':section.startsWith('scan-')?'scan.'+section.slice(5)+'.read':section==='tools'?'tools.use':'library.read';
-  function allows(section){if(section==='modules')return true;if(section==='edr')return can('agents.read')&&can('scan.vulnerability.read');if(section==='chatbot')return false;const key=sectionKey(section);return key==='remote'?can('remote.desktop')||can('remote.terminal'):can(key);}
+  function allows(section){if(section==='modules')return true;if(section==='edr')return can('edr.read')||can('agents.read')&&can('scan.vulnerability.read');if(section==='chatbot')return false;const key=sectionKey(section);return key==='remote'?can('remote.desktop')||can('remote.terminal'):can(key);}
   const level=(record,kind,folders)=>!restricted()?'write':WolfGuardPermissions.recordLevel(user(),record,kind,folders);
   const action=(record,verb,kind='items',folders=[])=>can(WolfGuardPermissions.recordSection(record,kind)+'.'+verb)&&(verb==='read'?level(record,kind,folders)!=='deny':level(record,kind,folders)==='write');
   const reject=()=>{const error=new Error('Ton compte ne dispose pas du droit nécessaire pour cette action.');error.code='PERMISSION_DENIED';throw error;};
@@ -15,6 +16,7 @@ window.WolfGuardAccess=(()=>{
       const old=new Map(before[kind].map(row=>[row.id,row])),next=new Map(after[kind].map(row=>[row.id,row]));
       for(const id of new Set([...old.keys(),...next.keys()])){
         const a=old.get(id),b=next.get(id);if(WolfGuardSharedWorkspace.sameValue(a,b))continue;
+        if(kind==='folders'&&WolfGuardPermissions.isVaultHome(id))reject();
         const verb=!a?'create':!b||!!a.deletedAt!==!!b.deletedAt?'delete':'edit';
         if(a&&!action(a,verb,kind,before.folders)||b&&!action(b,verb,kind,after.folders))reject();
         if(kind==='items'&&b?.type==='vault'&&!can('vault.secrets')&&['vaultBlobEnc','passwordEnc','password','username','url','notes','custom','host'].some(field=>!WolfGuardSharedWorkspace.sameValue(a?.[field],b[field])))reject();
@@ -48,5 +50,5 @@ window.WolfGuardAccess=(()=>{
     if(expiry)expiryTimer=setTimeout(()=>{if(user()?.id===expiryUser&&Date.now()>=expiry)lockApplication();else watchExpiry();},Math.min(2147483647,expiry-Date.now()+25));
   }
   window.addEventListener('wolfguard-user-changed',()=>{topNavigation.refresh?.();watchExpiry();schedule();});
-  return Object.freeze({can,allows,restricted,level,action,assertChanges,reject,paint});
+  return Object.freeze({can,allows,restricted,personalVaultHome,level,action,assertChanges,reject,paint});
 })();

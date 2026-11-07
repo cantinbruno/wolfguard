@@ -1,4 +1,4 @@
-"""Verify the actual Windows executable without installing or pairing it."""
+"""Verify extraction and the JSON worker without installing or pairing it."""
 from pathlib import Path
 from zipfile import ZipFile
 import json,os,struct,subprocess,tempfile
@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def run():
     if os.name!='nt':
-        print('SKIP: native WPF rendering requires Windows')
+        print('SKIP: native executable extraction requires Windows')
         return
     exe=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
     cache=ROOT/'.cache';cache.mkdir(exist_ok=True)
@@ -24,43 +24,7 @@ def run():
     with tempfile.TemporaryDirectory(prefix='agent-window-test-',dir=cache) as temporary:
         target=Path(temporary).resolve()
         assert target.is_relative_to(cache.resolve())
-        preview=target/'preview';payload=target/'payload'
-        subprocess.run([str(exe),'--preview-dir',str(preview)],check=True,timeout=30)
-        titles={'connected':'Prêt','connected-after-scan':'Prêt','scanning':'Scan en cours','scanning-unknown':'Scan en cours','completed':'Scan terminé','cancelled':'Scan arrêté','failed':'Échec du scan','remote-preparing':'Ouverture du bureau','remote':'Prise en main active','stopped':'En pause'}
-        for state in ['preparing','pairing','enrolling','revoked','stopping','connected','scanning','scanning-unknown','offline','stopped','error','connecting','completed','failed','cancelled','remote-preparing','remote','connected-after-scan']:
-            data=(preview/(state+'.png')).read_bytes()
-            assert data[:8]==b'\x89PNG\r\n\x1a\n' and len(data)>4000
-            width,height=struct.unpack('>II',data[16:24])
-            assert (width,height)==(720,640)
-            info=json.loads((preview/(state+'.json')).read_text(encoding='utf8'))
-            if state in ['pairing','revoked','enrolling']:
-                assert info['buttons']==['•••','Coller','Association…' if state=='enrolling' else 'Associer ce poste','Masquer']
-                assert info['pairingVisible'] and not info['pairEnabled']
-                bounds=info['pairBounds'];assert bounds['visible'] and bounds['y']+bounds['height']<info['footerBounds']['y']
-            else:
-                expected='Arrêter la prise en main' if state in ['remote','remote-preparing'] else 'Reprendre' if state=='stopped' else 'Réessayer' if state=='error' else 'Préparation…' if state=='preparing' else 'Mettre en pause'
-                assert info['buttons']==['•••','Masquer',expected]
-                assert info['actionEnabled']==(state not in ['preparing','stopping'])
-                assert not info['pairingVisible']
-                bounds=info['primaryBounds'];assert bounds['visible'] and bounds['x']>=0 and bounds['x']+bounds['width']<=width and bounds['y']+bounds['height']<height
-                if state in titles:assert info['title']==titles[state]
-                if state in ['scanning','scanning-unknown']:
-                    assert 'Scan actif en cours' in info['detail']
-                    assert info['progressVisible']
-                    assert info['indeterminate']==(state=='scanning-unknown')
-                if state=='scanning':
-                    assert info['progress']==37
-                    assert info['progressLabel']=='37 / 100 · 37 %'
-                if state=='remote-preparing':assert info['progressVisible'] and info['indeterminate']
-                if state=='remote':assert 'souris et le clavier' in info['detail'] and not info['progressVisible'] and info['badge']=='BUREAU PARTAGÉ'
-                if state=='connected-after-scan':assert 'Scan terminé' in info['lastActivity']
-                if state=='failed':assert 'échoué' in info['detail']
-            assert info['activityCount']<=3
-            bounds=info['footerBounds'];assert bounds['y']+bounds['height']<=height
-        for state in ['pairing','connected','remote']:
-            info=json.loads((preview/(state+'-narrow.json')).read_text(encoding='utf8'))
-            bounds=info['pairBounds' if state=='pairing' else 'primaryBounds']
-            assert bounds['visible'] and bounds['x']+bounds['width']<=600 and bounds['y']+bounds['height']<560
+        payload=target/'payload'
         subprocess.run([str(exe),'--verify-extraction',str(payload)],check=True,timeout=30)
         assert not (target/'outside-test.txt').exists()
         with ZipFile(ROOT/'app/downloads/WolfGuard-Agent-Windows.zip') as archive:
@@ -70,16 +34,14 @@ def run():
         assert (payload/'agent/agent.mjs').is_file()
         assert (payload/'server/lib/wolfguard/scan-spec.mjs').is_file()
         node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-        subprocess.run(['powershell.exe','-STA','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(ROOT/'tests/agent_lifetime_test.ps1'),'-Executable',str(exe),'-Node',str(node),'-WorkingDirectory',str(target)],check=True,timeout=30)
-        subprocess.run([str(node),'--test',str(ROOT/'tests/remote-windows-native.mjs')],check=True,timeout=30)
         subprocess.run([str(node),'--check',str(payload/'agent/agent.mjs')],check=True,timeout=10)
-        result=subprocess.run([str(node),str(payload/'agent/agent.mjs'),'--gui'],input='{"type":"shutdown"}\n',env={**os.environ,'LOCALAPPDATA':str(target/'isolated-profile')},capture_output=True,text=True,encoding='utf8',check=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
+        result=subprocess.run([str(node),str(payload/'agent/agent.mjs'),'--gui'],input='{"type":"shutdown"}\n',env={**os.environ,'WOLFGUARD_AGENT_HOME':str(target/'isolated-profile')},capture_output=True,text=True,encoding='utf8',check=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
         events=[json.loads(line) for line in result.stdout.splitlines()]
         assert events and events[0]['state']=='pairing'
         assert all(event['type']=='state' for event in events)
     assert startup_value()==startup
     assert (credential.stat().st_mtime_ns if credential.exists() else None)==prior
     assert (installed.read_bytes() if installed.exists() else None)==prior_install
-    print('PASS: eighteen native states, 600px layout, activity, progress, safe remote stop, keyboard pairing and tray lifecycle; no installation, pairing or startup change')
+    print('PASS: safe extraction, headless JSON worker shutdown; no installation, pairing or startup change')
 
 if __name__=='__main__':run()

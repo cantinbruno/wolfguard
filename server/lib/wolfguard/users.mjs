@@ -3,6 +3,7 @@ import {handleOTP,requiresMFA} from './otp.mjs';
 import {handlePushSettings,requiresPhone,pushDevice} from './push.mjs';
 import {userPolicy,policyCipher,permissionAPI} from './permission-store.mjs';
 import {profilePolicy,requirePermission,canManagePolicy} from './permissions.mjs';
+import {vaultHome,addVaultIdentity} from './personal-vault.mjs';
 const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -58,8 +59,9 @@ async function availableCode(code,id,env,pinHash,fail){
   return lookup;
 }
 export async function publicUser(row,env){
-  const phone=!!await pushDevice(env,row.id);
-  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&(!requiresPhone(env)||phone),required:requiresMFA(env),primary:requiresPhone(env)||phone?'push':'authenticator',backup:'authenticator'}};
+  const phone=Object.hasOwn(row,'has_phone')?!!row.has_phone:!!await pushDevice(env,row.id);
+  const username=await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env);
+  return {id:row.id,username,vaultHome:vaultHome({id:row.id,username}),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&(!requiresPhone(env)||phone),required:requiresMFA(env),primary:requiresPhone(env)||phone?'push':'authenticator',backup:'authenticator'}};
 }
 export async function handleAccountAPI(request,env,now,h){
   const {fail,json,body,digest,pinHash,random}=h,path=new URL(request.url).pathname;
@@ -148,7 +150,7 @@ export async function handleUsersAPI(request,env,now,session,h){
     if(!changed)fail(409,'Ce compte a changé. Reconnecte-toi.');
     await revokeUserSessions(env,row.id,now);
     const token=await h.issueSession(env,session.generation,now,request,changed);
-    return json({token,user:await publicUser(changed,env),usersEnabled:true});
+    return json({token,user:await addVaultIdentity(await publicUser(changed,env),env,now),usersEnabled:true});
   }
   if(path==='/api/users/verify-code'&&request.method==='POST'){
     const data=await body(),row=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();await verifyPIN(data.code,env,now,row);return json({ok:true});
@@ -156,17 +158,24 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/permissions'||path.startsWith('/api/users/permissions/'))return permissionAPI(path,request,env,now,session,vault,{...h,revokeUserSessions});
   requirePermission(session.user,request.method==='GET'?'users.read':'users.manage',fail,now);
   if(path==='/api/users'&&request.method==='GET'){
-    const rows=await env.DB.prepare('SELECT * FROM users ORDER BY created_at,id').all(),users=[];
-    for(const row of rows.results){const count=await env.DB.prepare('SELECT COUNT(*) AS count FROM sessions WHERE user_id=? AND user_version=? AND expires_at>? AND active_at>? AND generation=?').bind(row.id,row.code_version,now,now-60*60000,session.generation).first();users.push({...await publicUser(row,env),current:row.id===session.user.id,sessions:count.count});}
+    const rows=await env.DB.prepare(`SELECT u.*,EXISTS(SELECT 1 FROM push_devices p WHERE p.user_id=u.id) AS has_phone,
+      (SELECT COUNT(*) FROM sessions s WHERE s.user_id=u.id AND s.user_version=u.code_version AND s.expires_at>? AND s.active_at>? AND s.generation=?) AS session_count
+      FROM users u ORDER BY u.created_at,u.id`).bind(now,now-60*60000,session.generation).all(),users=[];
+    for(const row of rows.results)users.push({...await publicUser(row,env),current:row.id===session.user.id,sessions:row.session_count});
     const invitations=await env.DB.prepare('SELECT id,created_at AS createdAt,expires_at AS expiresAt FROM user_invitations WHERE expires_at>? ORDER BY created_at DESC,id').bind(now).all();
     return json({users,invitations:invitations.results});
   }
   if(request.method!=='POST')fail(404,'Adresse utilisateur inconnue.');
   const data=await body();
+  let initialPolicy=profilePolicy('none');
+  if(['/api/users/create','/api/users/invite'].includes(path)&&data.profile!==undefined){
+    try{initialPolicy=profilePolicy(data.profile);}catch(error){fail(400,error.message);}
+    if(data.profile!=='none'){requirePermission(session.user,'users.permissions',fail,now);if(!canManagePolicy(session.user,initialPolicy))fail(403,'Ce profil dépasse tes propres droits.');}
+  }
   if(path==='/api/users/invite'){
     const id=random(16),ticket=random(32),expiresAt=now+24*60*60000;
     await env.DB.prepare('DELETE FROM user_invitations WHERE expires_at<=?').bind(now).run();
-    const added=await env.DB.prepare('INSERT INTO user_invitations(id,ticket_hash,created_at,expires_at,permissions_cipher) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)+(SELECT COUNT(*) FROM user_invitations)<100 RETURNING id').bind(id,await digest(ticket),now,expiresAt,await seal(profilePolicy('none'),'WolfGuard invitation permissions v1:'+id,env)).first();
+    const added=await env.DB.prepare('INSERT INTO user_invitations(id,ticket_hash,created_at,expires_at,permissions_cipher) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)+(SELECT COUNT(*) FROM user_invitations)<100 RETURNING id').bind(id,await digest(ticket),now,expiresAt,await seal(initialPolicy,'WolfGuard invitation permissions v1:'+id,env)).first();
     if(!added)fail(409,'La limite de 100 comptes et invitations en attente est atteinte.');
     return json({invitation:{id,ticket,expiresAt}},201);
   }
@@ -183,7 +192,7 @@ export async function handleUsersAPI(request,env,now,session,h){
     if(data.code!==undefined)fail(400,'Le code doit être choisi par l’utilisateur à sa première connexion.');
     if(await findUser(name,env))fail(409,'Ce nom d’utilisateur est déjà utilisé.');
     const id=random(16),ticket=random(32),expiresAt=now+24*60*60000;
-    const added=await env.DB.prepare('INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at,credential_pending,invite_hash,invite_expires_at,permissions_cipher) SELECT ?,?,?,?,?,?,?,?,1,?,?,? WHERE (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING RETURNING *').bind(id,await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+id,env),role,random(16),random(32),now,now,await digest(ticket),expiresAt,await policyCipher(profilePolicy('none'),id,env)).first();
+    const added=await env.DB.prepare('INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,created_at,updated_at,credential_pending,invite_hash,invite_expires_at,permissions_cipher) SELECT ?,?,?,?,?,?,?,?,1,?,?,? WHERE (SELECT COUNT(*) FROM users)<100 ON CONFLICT(name_hash) DO NOTHING RETURNING *').bind(id,await usernameHash(name,env),await seal(name,'WolfGuard users v1:name:'+id,env),role,random(16),random(32),now,now,await digest(ticket),expiresAt,await policyCipher(initialPolicy,id,env)).first();
     if(!added)fail(409,'Ce nom est déjà utilisé ou la limite de 100 comptes est atteinte.');return json({user:await publicUser(added,env),invitation:{ticket,expiresAt}},201);
   }
   if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Utilisateur invalide.');

@@ -1,3 +1,4 @@
+import {runEndpointProtection} from './endpoint.mjs';
 import {executeAI} from './ai.mjs';
 import {executeRemoteSession} from './remote.mjs';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -34,16 +35,21 @@ const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(20
   const outcome=latest.error?'failed':cancel.signal.aborted||remoteStopped?'cancelled':'completed';
   onStatus(outcome==='failed'?'Le scan a échoué. Consulte le rapport sur le site.':outcome==='cancelled'?'Scan arrêté.':'Scan terminé. Les résultats sont disponibles sur le site.',{state:outcome,completed:latest.completed,total:latest.total});return latest;
 }
-export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,remoteRunner=executeRemoteSession}={}){
+export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,remoteRunner=executeRemoteSession,protectionRunner=runEndpointProtection}={}){
+  const protectionController=new AbortController(),combined=signal?AbortSignal.any([signal,protectionController.signal]):protectionController.signal;
+  const protection=protectionRunner(client,{signal:combined,onStatus}).catch(error=>{if(error.status===401||error.status===403)protectionController.abort();});
+  try{
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
-  while(!signal?.aborted){
-    try{const {job,remote,ai}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1','ai-chat-v1']}, {signal});if(signal?.aborted)break;if(remote)await remoteRunner(client,remote,{signal,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal,onStatus});else if(job)await executeJob(client,job,{signal,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});}
-    catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
-    try{await delay(pollMs,undefined,{signal});}catch{break;}
+  while(!combined.aborted){
+    try{const {job,remote,ai}=await client.post('poll',{capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1','ai-chat-v1','endpoint-protection-v1']}, {signal:combined});if(combined.aborted)break;if(remote)await remoteRunner(client,remote,{signal:combined,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal:combined,onStatus});else if(job)await executeJob(client,job,{signal:combined,onStatus,passiveCollector,securityCollector});else onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});}
+    catch(error){if(combined.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
+    try{await delay(pollMs,undefined,{signal:combined});}catch{break;}
   }
+  }finally{protectionController.abort();await protection;}
 }
 async function protectedData(value,mode){return fixedProcess('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./protect.ps1',import.meta.url)),'-Mode',mode],{input:value,timeout:10000,maxBytes:16000});}
 export function agentDirectory(platform=process.platform,env=process.env,home=homedir()){
+  if(env.WOLFGUARD_AGENT_HOME&&path.isAbsolute(env.WOLFGUARD_AGENT_HOME))return env.WOLFGUARD_AGENT_HOME;
   if(platform==='win32')return path.join(env.LOCALAPPDATA||path.join(home,'AppData','Local'),'WolfGuardAgent');
   if(platform==='darwin')return path.join(home,'Library','Application Support','WolfGuardAgent');
   return path.join(env.XDG_CONFIG_HOME&&path.isAbsolute(env.XDG_CONFIG_HOME)?env.XDG_CONFIG_HOME:path.join(home,'.config'),'WolfGuardAgent');
@@ -51,7 +57,7 @@ export function agentDirectory(platform=process.platform,env=process.env,home=ho
 export function diskCredentialStore(directory=agentDirectory(),{platform=process.platform}={}){
   if(platform!=='win32'){
     const filename=path.join(directory,'credential.json');
-    async function prepare(){await mkdir(directory,{recursive:true,mode:0o700});if(!(await lstat(directory)).isDirectory())throw new Error('Dossier d’association invalide.');await chmod(directory,0o700);}
+    async function prepare(){const mode=process.getuid?.()===0&&process.env.WOLFGUARD_PROTECTION_MARKER?0o755:0o700;await mkdir(directory,{recursive:true,mode});if(!(await lstat(directory)).isDirectory())throw new Error('Dossier d’association invalide.');await chmod(directory,mode);}
     return {
       async load(){try{await prepare();const info=await lstat(filename);if(!info.isFile()||info.isSymbolicLink())throw new Error();await chmod(filename,0o600);return JSON.parse(await readFile(filename,'utf8'));}catch(error){if(error.code==='ENOENT')return null;throw new Error('Association locale illisible. Relance l’agent avec --pair.');}},
       async save(credential){await prepare();const temporary=filename+'.'+randomBytes(12).toString('hex')+'.tmp';await writeFile(temporary,JSON.stringify(credential),{mode:0o600,flag:'wx'});await rename(temporary,filename);}
@@ -64,14 +70,14 @@ export function diskCredentialStore(directory=agentDirectory(),{platform=process
   };
 }
 
-// The native window sends only pairing/control commands over stdin. Status
+// The background launcher sends only pairing/control commands over stdin. Status
 // events on stdout contain no credential, pairing code, target or scan report.
 export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector,remoteRunner=executeRemoteSession}={}){
   let controller=null,remoteController=null,work=null,closing=false;
   const state=(message,detail={})=>emit({type:'state',state:detail.state||'error',message,...detail});
   async function stop(){if(controller)controller.abort();if(work)await work;controller=null;work=null;}
   function connect(credential){
-    client.token=credential.token;controller=new AbortController();
+    client.token=credential.token;client.agentId=credential.id;controller=new AbortController();
     work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,onStatus:state,remoteRunner:async(client,session,options)=>{
       const current=new AbortController();remoteController=current;
       try{await remoteRunner(client,session,{...options,signal:AbortSignal.any([options.signal,current.signal])});}
@@ -119,8 +125,9 @@ async function main(){
     await store.save(credential);
     console.log('Poste associé. Aucun code WolfGuard ni compte GitHub n’est enregistré dans l’agent.');
   }
-  client.token=credential.token;
+  client.token=credential.token;client.agentId=credential.id;
   const cancel=new AbortController();process.once('SIGINT',()=>cancel.abort());process.once('SIGTERM',()=>cancel.abort());
+  if(process.argv.includes('--protection-only')){await runEndpointProtection(client,{signal:cancel.signal,onReport:async()=>{const marker=process.env.WOLFGUARD_PROTECTION_MARKER;if(marker&&path.isAbsolute(marker)){await writeFile(marker,JSON.stringify({agentId:credential.id,at:Date.now()}),{mode:0o644});await chmod(marker,0o644);}}});return;}
   await runAgent(client,{signal:cancel.signal,onStatus:message=>console.log(new Date().toLocaleTimeString('fr-FR')+' · '+message)});
 }
 if(process.argv[1]&&fileURLToPath(import.meta.url)===path.resolve(process.argv[1]))main().catch(error=>{console.error(error.status===401?'Cet agent a été révoqué ou ton code a changé. Associe-le de nouveau.':error.message);process.exitCode=1;});

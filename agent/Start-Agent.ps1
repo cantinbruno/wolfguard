@@ -2,11 +2,17 @@ param([switch]$Pair, [switch]$Headless)
 $ErrorActionPreference = 'Stop'
 $agentRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 if (-not $Headless) {
-  $window = Join-Path $agentRoot 'WolfGuard-Agent.exe'
-  if (-not (Test-Path -LiteralPath $window)) { $window = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/WolfGuard-Agent.exe' }
-  if (-not (Test-Path -LiteralPath $window)) { throw 'Telecharge WolfGuard-Agent-Windows.exe depuis le site pour ouvrir la fenetre de l agent.' }
-  if ($Pair) { Start-Process -FilePath $window -ArgumentList '--pair' -WindowStyle Normal }
-  else { Start-Process -FilePath $window -WindowStyle Normal }
+  $launcher = Join-Path $agentRoot 'WolfGuard-Agent.exe'
+  if (-not (Test-Path -LiteralPath $launcher)) {
+    $record = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/launcher.path'
+    if (Test-Path -LiteralPath $record) { $launcher = (Get-Content -LiteralPath $record -Raw).Trim() }
+  }
+  if (-not (Test-Path -LiteralPath $launcher)) { throw 'Télécharge WolfGuard-Agent-Windows.exe depuis Agents.' }
+  if ($Pair) {
+    $pairCode = (Read-Host 'Code temporaire affiché dans WolfGuard > Agents').Trim()
+    if ($pairCode -notmatch '^[a-fA-F0-9]{32}$') { throw 'Code temporaire invalide.' }
+    Start-Process -FilePath $launcher -ArgumentList @('--pair-code',$pairCode.ToLowerInvariant()) -WindowStyle Hidden
+  } else { Start-Process -FilePath $launcher -ArgumentList '--background' -WindowStyle Hidden }
   exit
 }
 $runtimeDirectory = Join-Path $env:LOCALAPPDATA 'WolfGuardAgent/runtime'

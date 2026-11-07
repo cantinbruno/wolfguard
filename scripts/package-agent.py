@@ -25,7 +25,7 @@ FILES={
 EXE=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
 MANIFEST=ROOT/'agent/windows-build.json'
 POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mjs','agent/network.mjs','agent/posix.mjs','agent/security-rules.mjs','server/lib/wolfguard/scan-spec.mjs']}
-for name in ['ai.mjs','remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
+for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
@@ -34,6 +34,9 @@ FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-s
 POSIX_FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
 POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})
 
+FILES['agent/endpoint.ps1']='agent/endpoint.ps1'
+FILES['server/lib/wolfguard/endpoint-spec.mjs']='server/lib/wolfguard/endpoint-spec.mjs'
+POSIX_FILES['server/lib/wolfguard/endpoint-spec.mjs']='server/lib/wolfguard/endpoint-spec.mjs'
 FILES['server/lib/wolfguard/ai-input.mjs']='server/lib/wolfguard/ai-input.mjs'
 POSIX_FILES['server/lib/wolfguard/ai-input.mjs']='server/lib/wolfguard/ai-input.mjs'
 
@@ -52,7 +55,7 @@ def source_archive(files=FILES):
 
 def executable(payload,check=False):
     digest=hashlib.sha256(payload)
-    for name in ['agent/AgentWindow.cs','agent/DesktopEncoder.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py']:
+    for name in ['agent/AgentWindow.cs','agent/BackgroundAgent.cs','agent/DesktopEncoder.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py']:
         digest.update(name.encode());digest.update((ROOT/name).read_text(encoding='utf8').replace('\r\n','\n').encode())
     source_hash=digest.hexdigest()
     recorded=json.loads(MANIFEST.read_text(encoding='utf8')) if MANIFEST.exists() else {}
@@ -62,7 +65,7 @@ def executable(payload,check=False):
         if check:raise ValueError('Executable agent non conforme aux sources autorisees')
         framework=Path(os.environ.get('WINDIR','C:/Windows'))/'Microsoft.NET/Framework64/v4.0.30319'
         compiler=framework/'csc.exe'
-        if not compiler.is_file():raise ValueError('Recompiler l agent graphique sur Windows avec le compilateur .NET Framework.')
+        if not compiler.is_file():raise ValueError('Recompiler l agent en arrière-plan sur Windows avec le compilateur .NET Framework.')
         cache=ROOT/'.cache/agent-build';cache.mkdir(parents=True,exist_ok=True)
         archive=cache/'payload.zip';archive.write_bytes(payload)
         generated=cache/'BuildInfo.cs'
@@ -71,7 +74,7 @@ def executable(payload,check=False):
         references=[framework/'System.dll',framework/'System.Core.dll',framework/'System.Drawing.dll',framework/'System.Windows.Forms.dll',framework/'Microsoft.CSharp.dll',framework/'System.Xml.dll',framework/'System.Web.Extensions.dll',framework/'System.IO.Compression.dll',framework/'System.IO.Compression.FileSystem.dll',framework/'WindowsBase.dll',framework/'WPF/PresentationCore.dll',framework/'WPF/PresentationFramework.dll',framework/'WPF/System.Xaml.dll']
         # System.Xaml lives beside WindowsBase on some Windows installations.
         references=[next((candidate for candidate in [p,framework/p.name,framework/'WPF'/p.name] if candidate.exists()),p) for p in references]
-        command=[str(compiler),'/nologo','/target:winexe','/platform:x64','/optimize+','/debug-','/out:'+str(output),'/win32manifest:'+str(ROOT/'agent/windows.manifest'),'/resource:'+str(archive)+',WolfGuard.Payload.zip','/resource:'+str(ROOT/'app/images/logo-loup.svg')+',WolfGuard.Logo.svg']+['/reference:'+str(p) for p in references]+[str(ROOT/'agent/AgentWindow.cs'),str(ROOT/'agent/DesktopEncoder.cs'),str(generated)]
+        command=[str(compiler),'/nologo','/target:winexe','/main:WolfGuard.BackgroundAgent','/platform:x64','/optimize+','/debug-','/out:'+str(output),'/win32manifest:'+str(ROOT/'agent/windows.manifest'),'/resource:'+str(archive)+',WolfGuard.Payload.zip','/resource:'+str(ROOT/'app/images/logo-loup.svg')+',WolfGuard.Logo.svg']+['/reference:'+str(p) for p in references]+[str(ROOT/'agent/AgentWindow.cs'),str(ROOT/'agent/BackgroundAgent.cs'),str(ROOT/'agent/DesktopEncoder.cs'),str(generated)]
         subprocess.run(command,check=True,cwd=ROOT)
         png=cache/'logo.png';subprocess.run([str(output),'--render-logo',str(png)],check=True,cwd=ROOT,timeout=30)
         image=png.read_bytes();icon=cache/'logo.ico'

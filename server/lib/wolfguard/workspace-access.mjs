@@ -1,5 +1,5 @@
 import {open as openRecord} from './access.mjs';
-import {can,recordLevel,recordSection} from './permissions.mjs';
+import {can,recordLevel,recordSection,isVaultHome} from './permissions.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 const from64=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
 const to64=value=>{let text='';const bytes=new Uint8Array(value);for(let i=0;i<bytes.length;i+=16000)text+=String.fromCharCode(...bytes.subarray(i,i+16000));return btoa(text);};
@@ -65,6 +65,8 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
     const oldMap=new Map(visible[collection].map(row=>[row.id,row])),newMap=new Map(wanted[collection].map(row=>[row.id,row])),canonical=new Map(source[collection].map(row=>[row.id,row]));
     for(const id of new Set([...oldMap.keys(),...newMap.keys()])){
       const before=oldMap.get(id),after=newMap.get(id);if(same(before,after))continue;
+      if(isVaultHome(id))denied(fail);
+      if(after&&['systemVaultHome','ownerUserId'].some(field=>!same(before?.[field],after[field])))denied(fail);
       if(!before&&canonical.has(id))denied(fail);
       const section=recordSection(before||after,collection);
       if(before&&after&&recordSection(after,collection)!==section)denied(fail);

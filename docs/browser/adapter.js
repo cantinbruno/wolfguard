@@ -8,6 +8,7 @@ const webWorkspace = (() => {
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
   let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false;
+  window.addEventListener('wolfguard-user-changed',()=>{if(session&&cloud?.hasSession()){session.payload=hydrateVaultHomes(session.payload);window.workspaceSearch?.invalidate();}});
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   const IDLE_MS = 60 * 60000, SESSION_MS = 8 * 60 * 60000;
   function updateMFAIndicator(){
@@ -22,6 +23,7 @@ const webWorkspace = (() => {
     catch { await tabSession.forget().catch(() => {}); }
   }
   function activateSession(result, clock = {started: Date.now(), active: Date.now()}) {
+    result.payload=hydrateVaultHomes(result.payload);
     session = result; envelope = result.envelope; pendingBackup = null; db = new BrowserDatabase();
     if(cloud.enabled){
       session.cloudVersion=cloud.currentVersion();
@@ -157,6 +159,7 @@ const webWorkspace = (() => {
       const latest=await cloud.refresh(current.cloudVersion);
       if(!latest||!fresh()||!canRefreshShared())return false;
       const version=cloud.currentVersion(),result=await cryptography.openWithKey(latest,current.key,current.salt);
+      result.payload=hydrateVaultHomes(result.payload);
       validate(result.payload);
       if(!fresh()||!canRefreshShared())return false;
       const changed=!shared.sameValue(current.payload.items,result.payload.items)||!shared.sameValue(current.payload.folders,result.payload.folders);
@@ -240,6 +243,7 @@ const webWorkspace = (() => {
         try{
           for(let attempt=0;attempt<3;attempt++){
             const latest=await cryptography.openWithKey(await cloud.load(),current.key,current.salt);validate(latest.payload);
+            latest.payload=hydrateVaultHomes(latest.payload);
             if(session!==current||generation!==epoch)throw new Error('Espace verrouillé.');
             if(replace&&!shared.sameValue(base,latest.payload))throw shared.sharedConflict();
             payload=validate(shared.mergeWorkspace(base,wanted,latest.payload));
@@ -319,7 +323,7 @@ const webWorkspace = (() => {
     return validate(snapshot);
   }
   async function upgrade(result) {
-    const source = result.payload;
+    const source = hydrateVaultHomes(result.payload);
     if (Array.isArray(source.settings)) return validate(source);
     // Preserve spaces created with the previous, simplified web release.
     if (source.version !== 1 || !Array.isArray(source.items) || !Array.isArray(source.folders)) throw new Error('Ancienne sauvegarde incompatible.');
@@ -331,6 +335,12 @@ const webWorkspace = (() => {
       payload.items.push(record);
     }
     return validate(payload);
+  }
+  function hydrateVaultHomes(payload){
+    if(!cloud?.enabled||!cloud.hasUsers()||!cloud.can('vault.read'))return payload;
+    const homes=cloud.currentUser()?.vaultFolders||[],folders=new Map(payload.folders.map(folder=>[folder.id,folder]));
+    for(const home of homes){const level=folders.get(home.id)?.accessLevel;folders.set(home.id,{...structuredClone(home),...(level?{accessLevel:level}:{})});}
+    return {...payload,folders:[...folders.values()]};
   }
   function renderKeypad() {
     if(!$('#webAccessForm')||accountSetupActive)return;

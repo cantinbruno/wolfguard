@@ -31,21 +31,26 @@ def run():
             page.reload();expect(page.locator('#app')).to_be_visible(timeout=20000)
             ticket=page.evaluate("async()=>await WolfGuardCloud.agentRequest('agents/pair',{})")
             enrolled=agent_api('enroll',{'code':ticket['code'],'name':'Poste EDR test','platform':'win32'},'')
-            agent_api('poll',{'capabilities':['ai-chat-v1','security-audit-v1']},enrolled['token'])
-            page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test');expect(page.locator('#edrPosts')).to_contain_text('Aucun audit disponible')
-            with page.expect_response(lambda response:urlsplit(response.url).path=='/api/scans' and response.request.method=='POST') as created:
-                page.locator('[data-edr-audit]').click()
-            assert created.value.status==201;created.value.finished()
-            job=agent_api('poll',{'capabilities':['ai-chat-v1','security-audit-v1']},enrolled['token'])['job']
-            assert job['spec']['workspace']=='vulnerability'
-            agent_api('update',{'id':job['id'],'lease':job['lease'],'revision':job['revision']+1,'status':'completed','completed':2,'total':2,'report':{'strategy':'passive','workspace':'vulnerability','results':[{'transport':'AUDIT','checkId':'firewall','title':'Pare-feu désactivé','status':'issue','severity':'high','detail':'Enabled = false','recommendation':'Vérifier la politique du pare-feu.'},{'transport':'AUDIT','checkId':'updates','title':'Mises à jour','status':'notchecked','detail':'Lecture indisponible.'}]}},enrolled['token'])
-            expect(page.locator('#edrRefresh')).to_be_enabled();page.locator('#edrRefresh').click();expect(page.locator('#edrPosts')).to_contain_text('1 alerte(s) relevée(s)');expect(page.locator('#edrPosts')).to_contain_text('1 non vérifiés')
-            page.locator('summary').filter(has_text='Pare-feu désactivé').click();expect(page.get_by_text('Enabled = false',exact=True)).to_be_visible()
-            # A new queued audit must keep the last known alert visible.
-            with page.expect_response(lambda response:urlsplit(response.url).path=='/api/scans' and response.request.method=='POST') as retry:
-                page.locator('[data-edr-audit]').click()
-            pending=retry.value.json();expect(page.locator('#edrPosts')).to_contain_text('Audit en cours');expect(page.locator('#edrMetrics article').filter(has_text='Alertes relevées').locator('strong')).to_have_text('1')
-            page.evaluate("async id=>await WolfGuardCloud.agentRequest('scans/cancel',{id})",pending['id'])
+            import time
+            now=int(time.time()*1000)
+            agent_api('poll',{'capabilities':['endpoint-protection-v1','security-audit-v1']},enrolled['token'])
+            event={'id':'native-block-1','occurredAt':now,'provider':'Microsoft Defender','title':'Accès malveillant bloqué','resource':'C:/synthetic/threat.exe','detail':'Action native confirmée','status':'blocked','severity':'high'}
+            report={'collectedAt':now,'platform':'win32','provider':'Microsoft Defender','supported':True,'canEnforce':True,'antivirus':'enabled','realtime':'enabled','firewall':'enabled','signatures':'enabled','activeThreats':0,'events':[event]}
+            agent_api('edr/report',report,enrolled['token'])
+            edr_calls=[];page.on('request',lambda request:edr_calls.append(urlsplit(request.url).path))
+            page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test')
+            expect(page.locator('#edrPostDetail')).to_contain_text('Accès malveillant bloqué')
+            expect(page.locator('#edrProtectionState')).to_contain_text('Protégé')
+            expect(page.locator('#edrPosts')).to_contain_text('1 blocage(s)')
+            page.locator('summary').filter(has_text='Preuve et détails').click();expect(page.get_by_text('Action native confirmée',exact=True)).to_be_visible()
+            page.locator('[data-edr-ack]').click();expect(page.locator('#edrEvents')).to_contain_text('Acquitté')
+            page.locator('#edrCollect').click();expect(page.locator('#edrCommandHistory')).to_contain_text('En attente du poste')
+            command=agent_api('edr/report',report,enrolled['token'])['command'];assert command['action']=='refresh'
+            agent_api('edr/result',{'id':command['id'],'lease':command['lease'],'ok':True,'message':'Collecte confirmée'},enrolled['token'])
+            expect(page.locator('#edrRefresh')).to_be_enabled();page.locator('#edrRefresh').click();expect(page.locator('#edrCommandHistory')).to_contain_text('Confirmée par le poste')
+            page.locator('#edrPolicyMode').select_option('observe');page.locator('#edrPolicySave').click()
+            expect(page.locator('#edrPolicySave')).to_be_disabled()
+            assert not any(path.startswith('/api/scans') for path in edr_calls),edr_calls
             expect(page.locator('[data-section=chatbot],#aiConfig,#aiPrompt')).to_have_count(0)
             assert not page.evaluate('workspaceModules.allows("chatbot")')
             assert page.evaluate('async()=>await openSection("chatbot")') is False
@@ -65,7 +70,7 @@ def run():
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
             page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_be_visible();expect(page.locator('[data-section=chatbot]')).to_have_count(0);assert not chat_calls
             assert not errors,errors
-            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, nine distinct section colours without EDR leakage, chatbot removed, no AI calls, mobile layout, lock and reload')
+            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR native protection, confirmed block, acknowledgment, policy and command lifecycle, nine distinct section colours without EDR leakage, chatbot removed, no AI calls, mobile layout, lock and reload')
     finally:process.terminate();process.wait(timeout=5);server.shutdown()
 
 if __name__=='__main__':run()

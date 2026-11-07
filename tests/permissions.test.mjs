@@ -5,7 +5,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import * as browserCrypto from '../browser/crypto.js';
-import {profilePolicy,normalizePolicy,can,recordLevel,canManagePolicy} from '../server/lib/wolfguard/permissions.mjs';
+import {profilePolicy,normalizePolicy,can,recordLevel,canManagePolicy,vaultHomeId} from '../server/lib/wolfguard/permissions.mjs';
 import {openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from '../server/lib/wolfguard/workspace-access.mjs';
 import {policyCipher} from '../server/lib/wolfguard/permission-store.mjs';
 import {seal as sealRecord} from '../server/lib/wolfguard/access.mjs';
@@ -28,6 +28,7 @@ async function setup(){
   assert.equal((await api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'09876543',oldCode:'07942685',workspace:master,version:1},initial.token)).status,200);
   const login=async(code='09876543')=>{const response=await api('login',{code});assert.equal(response.status,200,await response.clone().text());return response.json();},owner=await login();
   const added=await(await api('users/create',{username:'member@example.test'},owner.token)).json();assert.equal((await api('account/complete',{ticket:added.invitation.ticket,username:'member@example.test',code:'12345678'})).status,200);
+  source.items[2].folderId=vaultHomeId(added.user.id);source.folders.push({id:vaultHomeId(added.user.id),name:'member@example.test',section:'vault',parentId:null,ownerUserId:added.user.id,systemVaultHome:true});assert.equal((await upload(await browserCrypto.seal(source,encrypted.key,encrypted.salt,2),1,owner.token)).status,200);
   const assign=async(policy,revision)=>api('users/permissions',{id:added.user.id,revision:revision??env.DB.db.prepare('SELECT permission_revision FROM users WHERE id=?').get(added.user.id).permission_revision,policy,reason:'Test d’intervention'},owner.token);
   const load=async auth=>{const response=await api('vault',undefined,auth.token);assert.equal(response.status,200,await response.clone().text());const material=await browserCrypto.importWorkspaceMaterial(auth.workspace);return {...await browserCrypto.openWithKey(await response.json(),material.key,material.salt),version:Number(response.headers.get('X-WG-Version'))};};
   return {env,api,upload,login,owner,added,assign,load,source,master,advance:ms=>{now+=ms;}};
@@ -69,7 +70,7 @@ test('existing accounts retain legacy rights without a master-key disclosure',as
 });
 test('folder and record restrictions filter API output, cross-links, activity and secrets before encryption',async()=>{
   const s=await setup();try{
-    const policy=profilePolicy('reader');policy.scopes.library={mode:'selected',folders:{team:'read'},items:{}};assert.equal((await s.assign(policy)).status,200);
+    const policy=profilePolicy('reader');policy.grants=policy.grants.filter(k=>k!=='vault.secrets');policy.scopes.library={mode:'selected',folders:{team:'read'},items:{}};assert.equal((await s.assign(policy)).status,200);
     const auth=await s.login('12345678'),loaded=await s.load(auth);assert.deepEqual(loaded.payload.items.map(r=>r.id),['public','credential']);assert.deepEqual(loaded.payload.items[0].linkedItemIds,[]);assert.equal(loaded.payload.items[1].secretsRestricted,true);assert.equal(loaded.payload.items[1].vaultBlobEnc,undefined);assert.ok(!JSON.stringify(loaded.payload).includes('secret direction'));
     const master=await browserCrypto.importWorkspaceMaterial(s.master);await assert.rejects(browserCrypto.openWithKey(loaded.envelope,master.key,master.salt));
     const second=await s.load(auth);assert.deepEqual(second.payload,loaded.payload);

@@ -1,71 +1,41 @@
 WolfGuard Agent - Windows 10/11 x64
 
-Depuis le site, telecharger WolfGuard-Agent-Windows.exe puis l ouvrir.
-La fenetre affiche le statut du poste, les scans et le partage du bureau.
-La progression indique le compteur et le pourcentage disponibles.
-Les trois dernieres activites restent horodatees pendant cette ouverture.
-Les commandes restent accessibles en bas, meme avec une petite fenetre.
-Les resultats detailles des scans restent sur le site.
-Aucune extraction d archive ni console n est necessaire.
+L'agent fonctionne en arriere-plan, sans fenetre ni icone a gerer.
+Les postes, scans, alertes EDR, blocages et connexions se gerent sur le site.
 
-1. Ouvrir WolfGuard, saisir le code habituel puis Agents.
-2. Generer et copier le code temporaire d association.
-3. Le coller dans la fenetre de l agent et cliquer sur Associer ce poste.
-4. Attendre l etat Pret puis choisir ce poste dans Agents.
-   Le meme choix s applique aux quatre sections de scan.
+1. Telecharger puis ouvrir WolfGuard-Agent-Windows.exe normalement.
+2. Dans WolfGuard > Agents, generer un code temporaire.
+3. Cliquer sur Associer ce poste. Autoriser l'ouverture du lien WolfGuard.
+   Ou lancer Associer-agent.cmd et coller le code temporaire.
+4. Choisir le poste dans Agents. L'agent demarre automatiquement avec la session.
 
-Dans cette archive alternative, ouvrir WolfGuard-Agent.exe.
-Fermer la console de l ancien agent avant d ouvrir cette version graphique.
-Une association existante est reutilisee pour le meme utilisateur Windows.
-La saisie du code apparait uniquement si une association est necessaire.
-Pour refaire une association, ouvrir le menu ... de la fenetre puis
-Associer a nouveau ce poste, ou utiliser Associer-agent.cmd.
+Une association existante est conservee pour le meme utilisateur Windows.
+Pour administrer les protections natives, apres cette association, relancer
+une fois l'executable comme administrateur. Le composant est alors installe
+dans ProgramData avec une tache de demarrage et des fichiers restreints.
+Si le composant privilegie doit etre associe de nouveau apres revocation,
+lancer Associer-agent.cmd comme administrateur avec un nouveau code temporaire.
 
-Au premier lancement, le moteur Node.js est telecharge depuis nodejs.org ;
-son SHA-256 est verifie avant extraction et execution. Les fichiers de
-l application sont installes dans le dossier local de ta session Windows.
-Aucun droit administrateur n est demande. Le code WolfGuard n est jamais
-transmis a l agent ; son acces est protege par Windows DPAPI.
-Le fichier executable n est pas signe numeriquement.
+Le code personnel WolfGuard ne doit jamais etre saisi dans l'agent.
+Le jeton d'association est protege par Windows DPAPI.
+Node.js est telecharge au premier lancement depuis nodejs.org et verifie
+par SHA-256. L'executable n'est pas signe numeriquement.
+Diagnostic utilisateur : %LOCALAPPDATA%\WolfGuardAgent\agent.log
+Diagnostic du composant privilegie : %PROGRAMDATA%\WolfGuardAgent\<SID>\agent.log
 
-En cas d echec au demarrage, le message indique le fichier diagnostic
-%LOCALAPPDATA%\WolfGuardAgent\startup-error.log a transmettre au support.
-Cette erreur ne signifie pas que l agent telecharge est obsolete.
+Le nouvel agent remplace l'ancienne fenetre. Pour arreter l'agent :
+WolfGuard-Agent.exe --stop (comme administrateur pour le composant privilegie).
+La revocation depuis le site coupe son acces. Fermer le navigateur n'arrete
+pas l'agent. Aucun port entrant n'est ouvert.
 
-Etats : A associer, Connexion, Pret, Scan en cours, Scan termine, Echec du scan,
-Ouverture du bureau, Prise en main active, En pause, Hors ligne ou erreur.
-La prise en main Windows se connecte directement depuis WolfGuard sur un
-poste deja associe, sans confirmation locale ni popup sur son bureau.
-L icone de l agent indique l action en cours. Une notification Windows signale
-le debut d un scan ou d une prise en main, selon les reglages de notifications.
-Le bouton Arreter la prise en main de la fenetre et le meme choix dans son menu
-terminent le partage sans arreter l agent, y compris pendant sa preparation.
-Deconnecter sur le site termine aussi la session.
-Pret apparait uniquement apres une reponse effective du serveur.
-Mettre en pause suspend la connexion et annule le scan en cours.
-Reprendre reconnecte le poste avec l association deja enregistree.
-La croix ou Masquer garde l agent actif pres de l horloge Windows.
-Double-cliquer sur son icone ou relancer l executable rouvre la fenetre.
-Pour arreter completement l agent : menu ... > Quitter l agent,
-ou clic droit sur l icone > Quitter l agent.
-
-Aucun port entrant n est ouvert. Les scans actifs ciblent uniquement des
-adresses privees ou locales : une cible IP/FQDN (256 adresses en cartographie),
-4096 tests, 32 tests simultanes
-et trois minutes maximum. Les resultats restent consultables sur le site
-dans Parametres > Historique.
+EDR : remontes Defender et pare-feu toutes les 30 secondes, alertes et actions
+natives confirmees par poste. Les politiques maintiennent les protections
+activees ; le mode observation ne les desactive pas. Defender passif ou un
+antivirus tiers est indique sans inventer de protection active.
+Les audits ponctuels restent dans Vulnerabilites, sans correctif automatique.
+Les scans reseau, rapports, bureau et terminal restent disponibles sur le site.
 
 Sources : https://github.com/cantinbruno/wolfguard/tree/main/agent
-
-Sections : Scan passif (cache pour la cible IP/FQDN), Scan actif (ports de la cible IP/FQDN), Cartographie (découverte réseau), Vulnérabilités (audit Windows).
-L’audit lit les configurations et le cache Windows Update, sans installer de correctif. Une lecture refusée ou indisponible reste non vérifiée. Le cache peut être ancien ou incomplet.
-Pour mettre à jour : quitte l’ancien agent depuis son icône près de l’horloge, puis lance la nouvelle version téléchargée depuis le site ; l’association du poste est conservée.
-
-Scans reseau : le passif lit les voisins ARP/NDP, noms en cache, connexions et sockets connus pour la cible, sans sonde.
-L actif analyse les services TCP de la seule cible IP ou FQDN indiquee
-(4096 tests maximum). Les controles du poste restent dans Vulnerabilites.
-
-Scans actif/passif : une seule cible IP ou FQDN obligatoire. Le passif ne résout pas les noms sur le réseau : fichier hosts ou cache DNS Windows uniquement. Si aucune association locale n’existe, le rapport explique l’absence de résultat. Les réseaux et plages restent réservés à la cartographie.
 
 TERMINAL DISTANT
 Dans Prise en main, choisir Terminal puis Se connecter.
@@ -76,7 +46,7 @@ Les sorties et erreurs arrivent au fil de l execution. Interrompre arrete
 la commande et son arbre de processus. Une seule commande a la fois,
 60 secondes et 65 536 caracteres de sortie au maximum.
 Les programmes interactifs ne sont pas pris en charge.
-Deconnecter, quitter la rubrique ou arreter localement la prise en main
+Deconnecter, quitter la rubrique ou arreter l agent
 ferme le terminal et interrompt la commande. La session dure au plus 20 minutes.
 Les commandes et leurs sorties sont chiffrees sur le relais et supprimees
 de la session a sa fermeture. Aucun port entrant supplementaire n est ouvert.
