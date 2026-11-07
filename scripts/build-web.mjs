@@ -65,7 +65,7 @@ html = html.replace('<script src="js/app.js', '<script src="js/push-device.js"><
 html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
 html = html.replace('<script src="js/ui/workspace-users.js"></script>','<script src="js/ui/workspace-users.js"></script><script src="browser/permissions.bundle.js"></script><script src="browser/access-control.js"></script><script src="browser/permission-editor.js"></script>');
 html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site");
-html = html.replace("worker-src 'none'", "worker-src 'self'; manifest-src 'self'");
+if(!html.includes("worker-src 'self'")||!html.includes("manifest-src 'self'"))throw new Error('Les notifications doivent être autorisées dans la politique de sécurité source.');
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
 html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/tab-session.bundle.js"></script>\n<script src="browser/shared-workspace.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
 html = html.replace(/((?:src|href)=")([^\"]+\.(?:js|css)(?:\?[^\"]*)?)(")/g,(_match,before,url,after)=>before+url+(url.includes('?')?'&':'?')+'wg='+revision+after);

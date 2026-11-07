@@ -3,6 +3,43 @@
 // is stored here, never a WolfGuard session, personal code or workspace key.
 globalThis.WolfGuardPhone=(()=>{
   const API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
+  let workerTask=null;
+  const refreshKey='wolfguard-push-csp-refresh';
+  const entryFragment=typeof window!=='undefined'?location.hash:'';
+  async function refreshSecurityPolicy(error){
+    if(typeof window==='undefined'||window.top!==window.self||!/^\?access=[a-f0-9]{64}$/.test(location.search)||location.pathname!=='/')return false;
+    if(error.name!=='SecurityError'&&!/content.?security.?policy|\bcsp\b/i.test(error.message))return false;
+    try{
+      const previous=Number(sessionStorage.getItem(refreshKey));
+      if(previous&&Date.now()-previous<120000)return false;
+      sessionStorage.setItem(refreshKey,String(Date.now()));
+      // The old gate's CSP survives document.write. Refresh the cached HTML,
+      // then navigate: changing a meta tag cannot relax an inherited policy.
+      const response=await fetch(location.pathname+location.search,{cache:'reload',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer'});
+      if(!response.ok||!/worker-src\s+'self'/.test(await response.text()))return false;
+      if(/^#account=[a-f0-9]{64}$/.test(entryFragment))history.replaceState(null,'',location.pathname+location.search+entryFragment);
+      location.reload();return true;
+    }catch{return false;}
+  }
+  function notificationWorker(){
+    if(workerTask)return workerTask;
+    const task=(async()=>{
+      const registration=await navigator.serviceWorker.register('/push-worker.js',{scope:'/',updateViaCache:'none'});
+      const worker=registration.installing||registration.waiting||registration.active;
+      if(!worker)throw new Error('Le service de notifications ne démarre pas. Recharge la page.');
+      if(worker.state!=='activated')await new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>{worker.removeEventListener('statechange',check);reject(new Error('Le service de notifications ne démarre pas. Recharge la page.'));},15000);
+        function check(){if(worker.state==='activated'){clearTimeout(timeout);worker.removeEventListener('statechange',check);resolve();}else if(worker.state==='redundant'){clearTimeout(timeout);worker.removeEventListener('statechange',check);reject(new Error('La mise à jour des notifications a échoué. Recharge la page.'));}}
+        worker.addEventListener('statechange',check);check();
+      });
+      try{sessionStorage.removeItem(refreshKey);}catch{}
+      return registration;
+    })();
+    workerTask=task;task.catch(()=>{if(workerTask===task)workerTask=null;});return task;
+  }
+  // No notification permission, subscription or phone association is requested
+  // here. Repair an obsolete private gate before the user enters MFA details.
+  if(typeof window!=='undefined'&&'serviceWorker' in navigator&&/^\?access=[a-f0-9]{64}$/.test(location.search))notificationWorker().catch(refreshSecurityPolicy);
   const bytes=text=>Uint8Array.from(atob(text.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
   const base64=value=>btoa(String.fromCharCode(...new Uint8Array(value))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
   async function store(action,value,id='current'){
@@ -28,14 +65,13 @@ globalThis.WolfGuardPhone=(()=>{
     const permission=Notification.requestPermission();
     if(await permission!=='granted')throw new Error('Notifications bloquées : autorise WolfGuard dans les réglages du navigateur, puis réessaie. Authenticator reste utilisable.');
     if(typeof publicKey!=='string'||!publicKey)throw new Error('Le service push est indisponible. Utilise Authenticator.');
-    const registration=await navigator.serviceWorker.register('/push-worker.js',{scope:'/',updateViaCache:'none'});
-    const worker=registration.installing||registration.waiting||registration.active;
-    if(!worker)throw new Error('Le service de notifications ne démarre pas. Recharge la page.');
-    if(worker.state!=='activated')await new Promise((resolve,reject)=>{
-      const timeout=setTimeout(()=>{worker.removeEventListener('statechange',check);reject(new Error('Le service de notifications ne démarre pas. Recharge la page.'));},15000);
-      function check(){if(worker.state==='activated'){clearTimeout(timeout);worker.removeEventListener('statechange',check);resolve();}else if(worker.state==='redundant'){clearTimeout(timeout);worker.removeEventListener('statechange',check);reject(new Error('La mise à jour des notifications a échoué. Recharge la page.'));}}
-      worker.addEventListener('statechange',check);check();
-    });
+    let registration;
+    try{registration=await notificationWorker();}
+    catch(error){
+      if(await refreshSecurityPolicy(error))throw new Error('Mise à jour de la sécurité des notifications. La page va se recharger ; réessaie ensuite l’association.');
+      if(error.name==='SecurityError'||/content.?security.?policy|\bcsp\b/i.test(error.message))throw new Error('Une ancienne règle de sécurité bloque les notifications. Ferme cette page, puis rouvre ton lien privé dans ton navigateur habituel. Tes données sont conservées.');
+      throw error;
+    }
     let subscription=await registration.pushManager.getSubscription();
     const applicationServerKey=bytes(publicKey),previousKey=subscription?.options?.applicationServerKey;
     if(subscription&&previousKey&&base64(previousKey)!==base64(applicationServerKey)){await subscription.unsubscribe();subscription=null;}
