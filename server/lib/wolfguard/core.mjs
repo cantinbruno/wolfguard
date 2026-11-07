@@ -2,8 +2,8 @@
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode} from './users.mjs';
-import {consumeOTP} from './otp.mjs';
+import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode,revokeUserSessions} from './users.mjs';
+import {consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from './otp.mjs';
 import {pushDevice,startPush,handlePushLogin} from './push.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
@@ -56,9 +56,10 @@ async function verifyPIN(code,env,now,verifier,pinVerifier) {
       .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
   }
   if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
-  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.pushRequired,pushRequired:!!result.pushRequired,pushDevice:result.device}:{})};
+  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.pushRequired&&!result.setupRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes,pushRequired:!!result.pushRequired,pushDevice:result.device}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
+  if(requiresMFA(env)&&user&&!user.otp_secret_cipher)fail(403,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
   const token=random(32), hash=await digest(token);
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   const issued=await env.DB.batch([
@@ -74,21 +75,22 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name')
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
     .bind(now,hash,now,now-IDLE_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   const path=new URL(request.url).pathname;
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
-  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role}:{id:null,username:'Configuration initiale',role:'admin'};
+  if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
+  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&!!session.user_push,required:requiresMFA(env)}}:{id:null,username:'Configuration initiale',role:'admin'};
   return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
-async function finishLogin(request,env,now,row,user){
+async function finishLogin(request,env,now,row,user,extra={}){
   if(user.disabled_at!==null)fail(403,'Ce compte est désactivé. Contacte un administrateur.',{code:'ACCOUNT_DISABLED'});
   if(!row.users_enabled&&user.id!==row.owner_user_id)fail(403,'Ce compte est indisponible.');
   const token=await issueSession(env,row.generation,now,request,user);
   await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
-  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await workspaceMaterial(row,env)}:{})});
+  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await workspaceMaterial(row,env)}:{}),...extra});
 }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
 // Fixed-sized frames keep the Worker below its memory limit even for attachments.
@@ -181,6 +183,10 @@ export async function handleAPI(request,env,clock=Date.now) {
             let user,lookup;
             if(username!==undefined){user=await findUser(username,env);if(!user||user.credential_pending||!equal(await pinHash(code,user.pin_salt,env),user.pin_hash))return false;}
             else {const found=await usersMatchingCode(code,env,pinHash);lookup=found.lookup;if(found.matches.length!==1)return false;user=found.matches[0];}
+            if(requiresMFA(env)&&!user.otp_secret_cipher&&user.disabled_at===null){
+              if(otp===undefined)return {user,partial:true,setupRequired:true};
+              return await confirmOTPEnrollment(user,otp,env,now)||false;
+            }
             if(user.otp_secret_cipher&&otp===undefined)return {user,partial:true};
             if(user.disabled_at===null&&!await consumeOTP(user,otp,env,now))return false;
             const device=await pushDevice(env,user.id);user.push_device_id=device?.id||null;
@@ -190,10 +196,12 @@ export async function handleAPI(request,env,clock=Date.now) {
             if(user.disabled_at===null&&device&&!(typeof otp==='string'&&/^[a-f0-9]{16}$/.test(otp)))return {user,partial:true,pushRequired:true,device};
             return {user};
           }),user=row.loginUser;
-          if(row.otpRequired){response=json({otpRequired:true});}
+          if(row.otpSetupRequired){response=json({otpSetupRequired:true,...await prepareOTPEnrollment(user,env,now),username:(await publicUser(user,env)).username});}
+          else if(row.otpRequired){response=json({otpRequired:true});}
           else if(row.pushRequired){response=await startPush(request,env,now,row,user,row.pushDevice,{fail,json});}
           else {
-          response=await finishLogin(request,env,now,row,user);
+          if(row.recoveryCodes)await revokeUserSessions(env,user.id,now);
+          response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});
           }
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){

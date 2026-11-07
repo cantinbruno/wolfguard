@@ -315,6 +315,41 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
   }finally{s.env.DB.db.close();}
 });
 
+test('mandatory MFA enrolls every account before issuing a session and each new session verifies its own factor',async()=>{
+  const s=await setup();try{
+    await s.initialize();const legacy=await s.login('cantin.bruno@gmx.fr','09876543');
+    s.env.MFA_REQUIRED='1';
+    assert.equal((await s.api('me',undefined,legacy.token)).status,401);
+    const count=s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n;
+    const challenge=await(await s.api('login',{code:'09876543'})).json();assert.equal(challenge.otpSetupRequired,true);assert.ok(!challenge.token&&!challenge.workspace);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,count);
+    assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);s.advance(5001);
+    const activated=await s.api('login',{code:'09876543',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))});assert.equal(activated.status,200);
+    const owner=await activated.json();assert.ok(owner.token);assert.equal(owner.recoveryCodes.length,8);
+    assert.deepEqual(owner.user.mfa,{authenticator:true,phone:false,complete:false,required:true});
+    assert.deepEqual((await(await s.api('me',undefined,owner.token)).json()).user.mfa,owner.user.mfa);
+    assert.deepEqual((await(await s.api('touch',{},owner.token)).json()).user.mfa,owner.user.mfa);
+    assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:owner.recoveryCodes[0]},owner.token)).status,409);
+    await s.createMember('own-mfa@example.test','12345678',owner.token);
+    const other=await(await s.api('login',{code:'12345678'})).json();assert.equal(other.otpSetupRequired,true);assert.notEqual(other.secret,challenge.secret);assert.ok(!other.token&&!other.workspace);
+    const users=await(await s.api('users',undefined,owner.token)).json();assert.equal(users.users.find(user=>user.username==='own-mfa@example.test').mfa.authenticator,false);
+    s.advance(30000);let step=Math.floor(s.clock()/30000);
+    const member=await(await s.api('login',{code:'12345678',otp:await otpAt(other.secret,step)})).json();assert.ok(member.token);assert.equal(member.user.mfa.required,true);
+    assert.deepEqual(await(await s.api('login',{code:'12345678'})).json(),{otpRequired:true});
+    assert.equal((await s.api('login',{code:'12345678',otp:await otpAt(other.secret,step)})).status,401);s.advance(5001);
+    s.advance(30000);step=Math.floor(s.clock()/30000);
+    const ownOTP=await otpAt(other.secret,step),ownerOTP=await otpAt(challenge.secret,step);
+    if(ownOTP!==ownerOTP){assert.equal((await s.api('login',{code:'12345678',otp:ownerOTP})).status,401);s.advance(10001);}
+    const renewed=await s.api('login',{code:'12345678',otp:await otpAt(other.secret,Math.floor(s.clock()/30000))});assert.equal(renewed.status,200);assert.notEqual((await renewed.json()).token,member.token);
+    // An already verified session survives a refresh without a new OTP.
+    assert.equal((await s.api('me',undefined,member.token)).status,200);
+    assert.equal((await s.api('users/reset-otp',{id:member.user.id},owner.token)).status,200);
+    assert.equal((await s.api('me',undefined,member.token)).status,401);
+    const reset=await(await s.api('login',{code:'12345678'})).json();assert.equal(reset.otpSetupRequired,true);
+    s.advance(600001);assert.equal((await s.api('login',{code:'12345678',otp:await otpAt(reset.secret,Math.floor(s.clock()/30000))})).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
 test('OTP setup expires, rejects wrong passwords and cannot be managed for another user',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');

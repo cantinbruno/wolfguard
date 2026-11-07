@@ -57,7 +57,7 @@ def run():
             first.locator('#wgUsersFilter').select_option('active');expect(first.locator('.user-card')).to_have_count(0)
             first.locator('#wgUsersFilter').select_option('pending');expect(first.locator('.user-card')).to_have_count(1)
             first.locator('#wgUsersSearch').fill('');first.locator('#wgUsersFilter').select_option('all')
-            owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Compte protégé')
+            owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Suppression et désactivation bloquées');expect(owner_row).to_contain_text('MFA non configurée')
             owner_row.get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
             for width in [1440,1150,1050,900,640,390,320]:
                 first.set_viewport_size({'width':width,'height':1000 if width>640 else 844})

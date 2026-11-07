@@ -10,6 +10,10 @@ const webWorkspace = (() => {
   let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false;
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   const IDLE_MS = 60 * 60000, SESSION_MS = 8 * 60 * 60000;
+  function updateMFAIndicator(){
+    const button=$('#settingsBtn'),mfa=cloud?.currentUser()?.mfa,pending=!!(session&&cloud?.enabled&&cloud.hasUsers()&&mfa&&!mfa.complete);
+    button?.classList.toggle('web-mfa-pending',pending);if(button)button.title=pending?'Paramètres · MFA à configurer':'Paramètres';
+  }
   function sessionView() { return {section: state.section, item: state.item, folder: state.folder, tool: networkToolsView.tool}; }
   function updateReloadTicket() { if (session && sessionClock) tabSession?.update(sessionClock, cloud.sessionState(), sessionView()); }
   async function rememberSession() {
@@ -31,6 +35,7 @@ const webWorkspace = (() => {
     if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(() => { if (session && !sessionExpired()) cloud.touch().catch(() => lock()); }, 25000); }
     resetSessionSettings(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
     state.vaultKey = result.key; sessionAccessCode = '';
+    updateMFAIndicator();
   }
   async function resumeAfterReload() {
     let claimed = false;
@@ -416,6 +421,36 @@ const webWorkspace = (() => {
       poll();
     });
   }
+  function drawAuthenticatorQR(canvas,uri){
+    const qr=qrcodegen.QrCode.encodeText(uri,qrcodegen.QrCode.Ecc.MEDIUM),scale=4,border=4;canvas.width=canvas.height=(qr.size+border*2)*scale;
+    const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.fillStyle='#000';for(let y=0;y<qr.size;y++)for(let x=0;x<qr.size;x++)if(qr.getModule(x,y))context.fillRect((x+border)*scale,(y+border)*scale,scale,scale);
+  }
+  function enrollRequiredMFA(info,password){
+    return new Promise((resolve,reject)=>{
+      const dialog=document.createElement('dialog');dialog.className='app-dialog web-mfa-enrollment';dialog.setAttribute('aria-labelledby','webEnrollTitle');
+      dialog.innerHTML='<span class="web-mfa-required-label">OBLIGATOIRE · PROPRE À TON COMPTE</span><h2 id="webEnrollTitle">Configure ton Authenticator</h2><p>'+esc(info.username)+' · Aucun accès à l’espace avant la validation des six chiffres.</p><p>Ajoute un compte dans ton application Authenticator et scanne ce QR code.</p><canvas id="webEnrollQR" role="img" aria-label="QR code personnel Authenticator"></canvas><label>Ou saisis cette clé temporelle (TOTP)<input id="webEnrollSecret" readonly spellcheck="false" value="'+esc(info.secret)+'"></label><button type="button" class="settings-btn" id="webEnrollCopy">Copier la clé</button><form id="webEnrollForm"><label>Code Authenticator de 6 chiffres<input id="webEnrollOTP" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><p role="alert" id="webEnrollError"></p><div class="app-dialog-actions"><button type="button" id="webEnrollCancel">Annuler</button><button type="submit" class="primary">Valider ma MFA</button></div></form>';
+      document.body.append(dialog);drawAuthenticatorQR(dialog.querySelector('#webEnrollQR'),info.uri);dialog.showModal();let done=false,working=false;
+      const finish=(value,error)=>{if(done)return;done=true;password='';info.secret='';info.uri='';dialog.querySelectorAll('input,textarea').forEach(input=>input.value='');dialog.close();dialog.remove();if(error)reject(error);else resolve(value);};
+      const cancel=()=>finish(null,new Error('Configuration MFA annulée. Reconnecte-toi pour la reprendre.'));
+      dialog.oncancel=event=>{event.preventDefault();cancel();};dialog.querySelector('#webEnrollCancel').onclick=cancel;
+      dialog.querySelector('#webEnrollCopy').onclick=()=>copyText(info.secret);
+      dialog.querySelector('form').onsubmit=async event=>{
+        event.preventDefault();if(working)return;working=true;const button=dialog.querySelector('[type=submit]');button.disabled=true;
+        try{
+          const result=await cloud.login(password,undefined,dialog.querySelector('#webEnrollOTP').value);if(done){cloud.clear();return;}
+          if(!result.token||!Array.isArray(result.recoveryCodes))throw new Error('La configuration a changé. Recommence la connexion.');
+          info.secret='';info.uri='';password='';
+          dialog.innerHTML='<h2 id="webEnrollTitle">Ta MFA est activée</h2><p>Chaque nouvelle session demandera ton code personnel et les six chiffres de ton propre Authenticator.</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Accéder à mon espace</button></div>';
+          dialog.querySelector('textarea').value=result.recoveryCodes.join('\n');delete result.recoveryCodes;
+          dialog.querySelector('#webEnrollSaved').onchange=event=>dialog.querySelector('#webEnrollContinue').disabled=!event.target.checked;
+          dialog.querySelector('#webEnrollContinue').onclick=()=>finish(result);
+          dialog.oncancel=event=>{event.preventDefault();cloud.clear();cancel();};
+        }catch(error){if(!done){dialog.querySelector('#webEnrollError').textContent=error.message;dialog.querySelector('#webEnrollOTP').value='';}}
+        finally{working=false;if(button.isConnected)button.disabled=false;}
+      };
+      dialog.querySelector('#webEnrollOTP').focus();
+    });
+  }
   async function openShared(password) {
     if(!/^[0-9]{8}$/.test(password))throw new Error('Le partage utilise ton code de 8 chiffres.');
     await cloud.status();
@@ -432,6 +467,7 @@ const webWorkspace = (() => {
       await cloud.initialize(password);
     }else{
       let info=await cloud.login(password);
+      if(info.otpSetupRequired){mfaWaiting=true;info=await enrollRequiredMFA(info,password);}
       if(info.otpRequired){
         mfaWaiting=true;
         let otp=await appPrompt('Saisis les 6 chiffres affichés dans ton application Authenticator, ou un code de secours.','',{title:'Vérification OTP',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
@@ -465,7 +501,7 @@ const webWorkspace = (() => {
   async function showAccountSetup(){
     accountSetupActive=true;
     const form=document.createElement('form');form.id='webAccountSetupForm';form.className='user-setup-form';
-    form.innerHTML='<span class="user-setup-badge">Invitation à usage unique</span><h2>Bienvenue dans WolfGuard</h2><p>Saisis ton adresse e-mail et choisis ton code personnel pour rejoindre l’espace partagé. Le lien sera invalidé après validation.</p><label>Adresse e-mail<input id="webAccountUsername" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label><label>Code personnel de 8 chiffres<input id="webAccountCode" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le code<input id="webAccountConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert">Vérification du lien…</p><div class="actions"><button type="submit" class="primary" disabled>Valider et accéder à l’espace</button><button type="button" class="secondary" id="webAccountCancel">Retour à la connexion</button></div>';
+    form.innerHTML='<span class="user-setup-badge">Invitation à usage unique</span><h2>Bienvenue dans WolfGuard</h2><p>Saisis ton adresse e-mail et choisis ton code personnel pour rejoindre l’espace partagé. Tu configureras ensuite ton propre Authenticator : la MFA est obligatoire avant tout accès. Le lien est à usage unique.</p><label>Adresse e-mail<input id="webAccountUsername" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label><label>Code personnel de 8 chiffres<input id="webAccountCode" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le code<input id="webAccountConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert">Vérification du lien…</p><div class="actions"><button type="submit" class="primary" disabled>Continuer vers ma MFA</button><button type="button" class="secondary" id="webAccountCancel">Retour à la connexion</button></div>';
     $('#lockError').before(form);
     const submit=form.querySelector('[type=submit]'),error=form.querySelector('[role=alert]');
     $('#webAccountCancel').onclick=()=>{cloud.clearAccountInvitation();form.reset();form.remove();accountSetupActive=false;showGate();};
@@ -568,7 +604,7 @@ const webWorkspace = (() => {
     $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
     document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
-    pendingBackup=null; saveStatus('Espace verrouillé'); showGate();
+    pendingBackup=null; updateMFAIndicator();saveStatus('Espace verrouillé'); showGate();
     secretClipboard.clear();
     try { await queue; await forgotten; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
@@ -685,24 +721,37 @@ const webWorkspace = (() => {
     $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
     $('#webChangePassword').onclick=rotatePassword;
   };
+  async function refreshMFASettings(){
+    const current=session;await cloud.me();if(session!==current)return;updateMFAIndicator();
+    const root=$('#webMFASettings');if(!root)return;const mfa=cloud.currentUser()?.mfa;
+    root.dataset.state=mfa?.complete?'complete':mfa?.authenticator?'partial':'missing';
+    root.querySelector('#webMFAState').textContent=mfa?.complete?'MFA complète':mfa?.authenticator?'MFA incomplète · Téléphone à associer':'MFA non configurée';
+    root.querySelector('#webMFADescription').textContent=mfa?.complete?'Chaque nouvelle connexion demande ton code personnel, les six chiffres Authenticator, puis ton approbation sur le téléphone.':mfa?.authenticator?'Les six chiffres sont actifs. Associe maintenant ton téléphone pour ajouter la notification d’approbation.':'Ton compte utilise actuellement seulement le code personnel. Configure les deux étapes ci-dessous pour activer les six chiffres et la validation sur téléphone.';
+    for(const [id,enabled] of [['webMFAStepOTP',mfa?.authenticator],['webMFAStepPhone',mfa?.phone]]){const step=root.querySelector('#'+id);step.dataset.done=String(!!enabled);step.querySelector('span').textContent=enabled?'Activé':'À configurer';}
+  }
+  async function refreshPhoneSettings(){
+    $('#webPhoneSettings')?.remove();await mountPhoneSettings();
+  }
   async function mountOTPSettings(){
     const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
-    $('#settings-security').append(root);
+    ($('#webMFASteps')||$('#settings-security')).append(root);
     const live=()=>session===current&&root.isConnected;
     const request=(path,value)=>cloud.agentRequest('users/otp'+path,value);
-    let enabled=false,pending=false;
+    let enabled=false,pending=false,required=false;
     function render(){
       if(!live())return;
-      root.innerHTML='<h4>Double authentification · OTP</h4><p>'+(enabled?'Authenticator est activé. Le code OTP est demandé après ton code personnel.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p><form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
+      if(enabled&&required){root.innerHTML='<h4>1 · Application Authenticator</h4><p>Authenticator est activé et obligatoire pour ton compte. Les six chiffres sont demandés à chaque nouvelle session. Ils ne sont pas redemandés lors d’un rafraîchissement de cette session.</p><p class="access-help">La désactivation est bloquée par la politique de sécurité. Conserve tes codes de secours pour récupérer ton accès.</p>';return;}
+      root.innerHTML='<h4>1 · Application Authenticator</h4><p>'+(enabled?'Authenticator est activé. Le code OTP est demandé après ton code personnel.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p><form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
       root.querySelector('form').onsubmit=async event=>{
         event.preventDefault();if(pending)return;pending=true;
         const button=root.querySelector('[type=submit]');button.disabled=true;
         let code=root.querySelector('#webOTPPassword').value;
         try{
-          if(enabled){await request('/disable',{code,otp:root.querySelector('#webOTPCode').value.trim()});if(!live())return;enabled=false;render();root.querySelector('[role=status]').textContent='Authenticator est désactivé.';}
+          if(enabled){await request('/disable',{code,otp:root.querySelector('#webOTPCode').value.trim()});if(!live())return;enabled=false;render();root.querySelector('[role=status]').textContent='Authenticator est désactivé.';await refreshMFASettings();await refreshPhoneSettings();}
           else{
             const setup=await request('/setup',{code});if(!live())return;
-            root.innerHTML='<h4>Associer Authenticator</h4><p>Dans ton application, ajoute un compte avec une clé de configuration : <strong>clé temporelle (TOTP)</strong>.</p><label>Clé à saisir dans Authenticator<input id="webOTPSecret" readonly value="'+esc(setup.secret)+'" spellcheck="false"></label><button type="button" class="settings-btn" id="webOTPCopy">Copier la clé</button><p>Nom du compte : WolfGuard. Puis saisis le code affiché pour confirmer.</p><form><label>Code OTP de 6 chiffres<input id="webOTPCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><button type="submit" class="settings-btn primary">Activer Authenticator</button><button type="button" class="settings-btn" id="webOTPCancel">Annuler</button></form><p role="status"></p>';
+            root.innerHTML='<h4>1 · Associer Authenticator</h4><p>Dans ton application Authenticator, ajoute un compte et scanne ce QR code. Le compte sera nommé <strong>WolfGuard · '+esc(cloud.currentUser()?.username||'')+'</strong>.</p><canvas id="webOTPQR" role="img" aria-label="QR code à scanner dans Authenticator"></canvas><p class="access-help">Ce QR code est généré sur cet appareil. Si tu utilises le même téléphone, ajoute manuellement la clé ci-dessous comme clé temporelle (TOTP).</p><label>Clé à saisir dans Authenticator<input id="webOTPSecret" readonly value="'+esc(setup.secret)+'" spellcheck="false"></label><button type="button" class="settings-btn" id="webOTPCopy">Copier la clé</button><p>Saisis ensuite les six chiffres affichés. Rien n’est activé avant cette confirmation.</p><form><label>Code OTP de 6 chiffres<input id="webOTPCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><button type="submit" class="settings-btn primary">Activer Authenticator</button><button type="button" class="settings-btn" id="webOTPCancel">Annuler</button></form><p role="status"></p>';
+            drawAuthenticatorQR(root.querySelector('#webOTPQR'),setup.uri);
             root.querySelector('#webOTPCopy').onclick=async()=>{await copyText(setup.secret);};
             root.querySelector('#webOTPCancel').onclick=()=>{code='';setup.secret='';render();};
             root.querySelector('form').onsubmit=async submitEvent=>{
@@ -710,7 +759,9 @@ const webWorkspace = (() => {
               try{
                 const result=await request('/enable',{code,otp:root.querySelector('#webOTPCode').value});if(!live())return;
                 code='';setup.secret='';enabled=true;render();
-                const message=document.createElement('div');message.className='web-otp-recovery';message.innerHTML='<p><strong>Authenticator est activé.</strong> Conserve ces codes de secours dans un endroit sûr. Chacun peut remplacer un OTP une seule fois si tu perds ton téléphone.</p><textarea readonly rows="8" aria-label="Codes de secours">'+result.recoveryCodes.join('\n')+'</textarea><p>Pour la prochaine connexion, utilise un nouveau code Authenticator.</p>';root.append(message);
+                const message=document.createElement('div');message.className='web-otp-recovery';message.innerHTML='<p><strong>Authenticator est activé.</strong> Conserve ces codes de secours dans un endroit sûr. Chacun peut remplacer un OTP une seule fois si tu perds ton téléphone.</p><textarea readonly rows="8" aria-label="Codes de secours">'+result.recoveryCodes.join('\n')+'</textarea><p>Pour la prochaine connexion, utilise un nouveau code Authenticator.</p><button type="button" class="settings-btn primary" id="webMFAContinue">Continuer : associer mon téléphone</button>';root.append(message);
+                await refreshMFASettings();if(!live())return;await refreshPhoneSettings();
+                root.querySelector('#webMFAContinue').onclick=()=>{$('#webPhoneSettings')?.scrollIntoView({block:'start',behavior:'smooth'});$('#webPhoneCode')?.focus({preventScroll:true});};
               }catch(error){if(live())root.querySelector('[role=status]').textContent=error.message;}
               finally{pending=false;if(submit.isConnected)submit.disabled=false;}
             };
@@ -720,17 +771,17 @@ const webWorkspace = (() => {
         finally{pending=false;if(button.isConnected)button.disabled=false;if(enabled)code='';}
       };
     }
-    try{enabled=(await request('')).enabled;render();}catch(error){if(live())root.textContent=error.message;}
+    try{const info=await request('');enabled=info.enabled;required=info.required;render();}catch(error){if(live())root.textContent=error.message;}
   }
   async function mountPhoneSettings(){
-    const current=session,root=document.createElement('section');root.id='webPhoneSettings';root.className='web-otp-settings';$('#settings-security').append(root);
+    const current=session,root=document.createElement('section');root.id='webPhoneSettings';root.className='web-otp-settings';($('#webMFASteps')||$('#settings-security')).append(root);
     const live=()=>session===current&&root.isConnected,request=(path,value)=>cloud.agentRequest('users/push'+path,value);
     try{
       const info=await request('');if(!live())return;
-      root.innerHTML='<h4>Validation sur téléphone · Push</h4><p>'+(info.device?'Un téléphone est associé. Après les six chiffres OTP, approuve la notification pour ouvrir ton espace.':'Associe ton téléphone pour recevoir une notification avec Approuver / Refuser après les six chiffres OTP.')+'</p><p>Sur iPhone : ajoute d’abord ton lien privé WolfGuard à l’écran d’accueil avec le menu Partager, puis ouvre cette icône pour associer le téléphone. Sur Android : ouvre WolfGuard dans Chrome et autorise les notifications.</p><p class="web-phone-status" role="status"></p>';
+      root.innerHTML='<h4>2 · Approbation sur téléphone</h4><p>'+(info.device?'Un téléphone est associé. Après les six chiffres OTP, approuve la notification pour ouvrir ton espace.':'Ouvre ton lien privé WolfGuard sur le téléphone à associer, puis cette rubrique, pour recevoir les notifications Approuver / Refuser après les six chiffres OTP.')+'</p><p>Sur iPhone : ajoute d’abord ton lien privé WolfGuard à l’écran d’accueil avec le menu Partager, puis ouvre cette icône pour associer le téléphone. Sur Android : ouvre WolfGuard dans Chrome et autorise les notifications.</p><p class="web-phone-status" role="status"></p>';
       const status=root.querySelector('[role=status]');
       if(!info.configured){status.textContent='Le service de notifications n’est pas disponible pour le moment.';return;}
-      if(!info.otpEnabled){status.textContent='Active d’abord Authenticator ci-dessus, puis rouvre les paramètres.';return;}
+      if(!info.otpEnabled){status.textContent='Commence par activer Authenticator à l’étape 1. L’association du téléphone sera ensuite disponible ici.';return;}
       const supported='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
       const form=document.createElement('form');form.innerHTML='<label>Code personnel actuel<input id="webPhoneCode" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Code OTP actuel ou code de secours<input id="webPhoneOTP" type="text" autocomplete="one-time-code" maxlength="16" required></label><div class="actions">'+(supported?'<button type="submit" class="settings-btn primary" id="webPhoneRegister">'+(info.device?'Associer ce téléphone à la place':'Associer ce téléphone')+'</button>':'')+(info.device?'<button type="button" class="settings-btn" id="webPhoneRemove">Retirer le téléphone associé</button>':'')+'</div>';
       root.append(form);if(!supported)status.textContent='Ce navigateur ne permet pas les notifications. Sur iPhone, ouvre WolfGuard depuis son icône sur l’écran d’accueil.';
@@ -751,7 +802,7 @@ const webWorkspace = (() => {
           await WolfGuardPhone.save({id,key:keys.privateKey});
           await request('/register',{deviceId:id,subscription:subscription.toJSON(),publicKey,code,otp});
           if(!live())return;status.textContent='Téléphone associé. Les prochaines connexions demanderont les six chiffres et ton approbation.';
-          form.remove();
+          form.remove();await refreshMFASettings();
         }catch(error){if(live())status.textContent=error.message;}
         finally{code='';otp='';setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
       };
@@ -759,7 +810,7 @@ const webWorkspace = (() => {
         if(working||!form.reportValidity())return;
         if(!await appConfirm('Retirer le téléphone associé ? Les six chiffres OTP resteront demandés.',{title:'Validation sur téléphone',confirmLabel:'Retirer'}))return;
         setBusy(true);
-        try{await request('/remove',{code:form.querySelector('#webPhoneCode').value,otp:form.querySelector('#webPhoneOTP').value.trim()});if(!live())return;form.remove();status.textContent='Téléphone retiré. Authenticator reste activé.';}
+        try{await request('/remove',{code:form.querySelector('#webPhoneCode').value,otp:form.querySelector('#webPhoneOTP').value.trim()});if(!live())return;form.remove();status.textContent='Téléphone retiré. Authenticator reste activé.';await refreshMFASettings();}
         catch(error){if(live())status.textContent=error.message;}
         finally{setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
       };
@@ -774,8 +825,12 @@ const webWorkspace = (() => {
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton code personnel suffit pour te connecter. Ton adresse e-mail identifie ton compte pour les invitations et les réinitialisations.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
-    if(cloud.enabled&&cloud.hasUsers()){mountOTPSettings();mountPhoneSettings();}
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    if(cloud.enabled&&cloud.hasUsers()){
+      const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
+      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>1 · Authenticator</strong><span>Vérification…</span></li><li id="webMFAStepPhone"><strong>2 · Téléphone</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
+      security.before(mfa);await Promise.all([mountOTPSettings(),mountPhoneSettings(),refreshMFASettings()]);
+    }
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
@@ -794,6 +849,11 @@ const webWorkspace = (() => {
       button.textContent=recovery.key==='memo-consolidation-before-v1'?'Exporter avant le regroupement des fiches':recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
       button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
     }
+  };
+  window.openAccountMFA=async()=>{
+    if(!session||!cloud?.hasUsers())return;
+    if(!$('#webMFASettings'))await openSettings('security');else setSettingsTab('security');
+    const root=$('#webMFASettings');root?.scrollIntoView({block:'start'});root?.querySelector('input')?.focus({preventScroll:true});
   };
   generatePassword=cryptographicPassword;
   function cryptographicPassword(options={}) {

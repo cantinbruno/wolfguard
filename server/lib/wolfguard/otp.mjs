@@ -18,6 +18,22 @@ export async function matchingStep(secret,code,now,last=-1){
 const context=id=>'WolfGuard OTP v1:'+id;
 const recoveryContext=id=>'WolfGuard OTP recovery v1:'+id;
 const recoveryHash=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),n=>n.toString(16).padStart(2,'0')).join('');
+export const requiresMFA=env=>env.MFA_REQUIRED==='1';
+export async function prepareOTPEnrollment(user,env,now){
+  const secret=encodeSecret(crypto.getRandomValues(new Uint8Array(20))),cipher=await seal(secret,context(user.id),env);
+  const updated=await env.DB.prepare('UPDATE users SET otp_pending_cipher=?,otp_pending_until=? WHERE id=? AND code_version=? AND otp_secret_cipher IS NULL AND disabled_at IS NULL AND credential_pending=0 RETURNING id').bind(cipher,now+600000,user.id,user.code_version).first();
+  if(!updated)throw new Error('La configuration du compte a changé. Reconnecte-toi.');
+  const username=await open(user.name_cipher,'WolfGuard users v1:name:'+user.id,env);
+  return {secret,uri:'otpauth://totp/'+encodeURIComponent('WolfGuard:'+username)+'?secret='+secret+'&issuer=WolfGuard&algorithm=SHA1&digits=6&period=30'};
+}
+export async function confirmOTPEnrollment(user,code,env,now){
+  if(!user.otp_pending_cipher||user.otp_pending_until<=now||user.otp_secret_cipher)return null;
+  const step=await matchingStep(await open(user.otp_pending_cipher,context(user.id),env),code,now);if(step===null)return null;
+  const recoveryCodes=Array.from({length:8},()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),n=>n.toString(16).padStart(2,'0')).join(''));
+  const recovery=await seal(await Promise.all(recoveryCodes.map(recoveryHash)),recoveryContext(user.id),env);
+  const changed=await env.DB.prepare('UPDATE users SET otp_secret_cipher=otp_pending_cipher,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=?,otp_recovery_cipher=? WHERE id=? AND otp_pending_cipher=? AND otp_pending_until>? AND otp_secret_cipher IS NULL AND code_version=? AND disabled_at IS NULL AND credential_pending=0 RETURNING *').bind(step,recovery,user.id,user.otp_pending_cipher,now,user.code_version).first();
+  return changed?{user:changed,recoveryCodes}:null;
+}
 export async function consumeOTP(user,code,env,now){
   if(!user.otp_secret_cipher)return true;
   if(typeof code==='string'&&/^[a-f0-9]{16}$/.test(code)&&user.otp_recovery_cipher){
@@ -33,7 +49,7 @@ export async function handleOTP(request,env,now,session,h){
   const {fail,json,body,verifyPIN}=h,path=new URL(request.url).pathname;
   const user=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
   if(!user)fail(401,'Reconnecte-toi.');
-  if(path==='/api/users/otp'&&request.method==='GET')return json({enabled:!!user.otp_secret_cipher});
+  if(path==='/api/users/otp'&&request.method==='GET')return json({enabled:!!user.otp_secret_cipher,required:requiresMFA(env)});
   if(request.method!=='POST')fail(404,'Adresse inconnue.');
   const data=await body();
   if(path==='/api/users/otp/setup'){
@@ -57,6 +73,7 @@ export async function handleOTP(request,env,now,session,h){
     return json({enabled:true,recoveryCodes});
   }
   if(path==='/api/users/otp/disable'){
+    if(requiresMFA(env))fail(409,'Authenticator est obligatoire pour chaque compte. Il ne peut pas être désactivé.');
     if(await env.DB.prepare('SELECT id FROM push_devices WHERE user_id=?').bind(user.id).first())fail(409,'Retire d’abord le téléphone associé dans Validation sur téléphone.');
     await verifyPIN(data.code,env,now,()=>consumeOTP(user,data.otp,env,now),user);
     const changed=await env.DB.prepare('UPDATE users SET otp_secret_cipher=NULL,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=-1,otp_recovery_cipher=NULL WHERE id=? AND otp_secret_cipher=? AND code_version=? AND NOT EXISTS(SELECT 1 FROM push_devices WHERE user_id=users.id) RETURNING id').bind(user.id,user.otp_secret_cipher,user.code_version).first();

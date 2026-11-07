@@ -47,7 +47,7 @@
 .users-invite-icon {display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;background:rgba(69,136,234,.15);border-radius:12px;color:var(--accent,var(--text))}
 .users-invite-icon svg {width:22px;height:22px}
 .users-invite-rule,.user-setup-badge {display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
-.users-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:22px 0}
+.users-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:22px 0}
 .users-summary>div {display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
 .users-summary strong {font-size:23px;font-variant-numeric:tabular-nums}
 .users-summary span {color:var(--muted);font-size:12px}
@@ -73,4 +73,6 @@
 .users-pending-row p {font-size:11px;color:var(--muted);line-height:1.6;margin:4px 0 0}
 .users-pending-row .settings-btn {flex-shrink:0}
 .user-setup-badge {color:#a9c9ff;background:rgba(85,149,244,.12);padding:6px 10px;border:1px solid #405b77;border-radius:20px;margin:0 0 14px}
+.users-mfa{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:16px 0;padding:14px;border:1px solid #7b6244;border-radius:10px;background:#332a201f}.users-mfa strong{font-size:12px;color:#efc68f}.users-mfa p{font-size:11px;line-height:1.7;color:var(--muted);margin:5px 0 0}.users-mfa[data-mfa-state=complete]{border-color:#3b6d60;background:#23423820}.users-mfa[data-mfa-state=complete] strong{color:#a4d8bf}.users-mfa button{flex-shrink:0}
+@media(max-width:600px){.users-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.users-mfa{align-items:flex-start;flex-direction:column}}
 @media(max-width:760px){.users-invite-hero{flex-wrap:wrap;padding:16px}.users-invite-hero>.settings-btn{width:100%}.users-summary>div{flex-direction:column;align-items:flex-start;gap:4px;padding:12px}.users-filters{flex-direction:column;align-items:stretch}.users-search{flex:none}.users-filter-label{justify-content:space-between}.users-pending-row{align-items:flex-start;flex-direction:column}}

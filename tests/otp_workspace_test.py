@@ -22,7 +22,7 @@ def run():
     Thread(target=server.serve_forever, daemon=True).start()
     origin = f'http://127.0.0.1:{server.server_port}'
     node = Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ, 'WG_TEST_ORIGIN':origin})
+    process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ, 'WG_TEST_ORIGIN':origin,'WG_TEST_PUSH':'1'})
     backend = 'http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     try:
         with sync_playwright() as p:
@@ -33,17 +33,23 @@ def run():
             page.goto(origin+'/'); ready(page); seed(page)
             page.goto(origin+'/?sync-test#activate='+('b'*64)); unlock(page)
             expect(page.locator('#webUsername')).to_be_hidden()
-            page.locator('#settingsBtn').click()
+            page.locator('#settingsBtn').click();page.locator('#settings-tab-users').click()
+            expect(page.locator('#wgUsersList')).to_contain_text('MFA non configurée')
+            page.get_by_role('button',name='Configurer ma MFA').click()
             expect(page.locator('#webOTPForm')).to_be_visible()
             page.locator('#webOTPPassword').fill(CODE)
             page.locator('#webOTPForm button[type=submit]').click()
             expect(page.locator('#webOTPSecret')).to_be_visible()
             secret = page.locator('#webOTPSecret').input_value()
+            expect(page.locator('#webOTPQR')).to_be_visible()
+            assert page.locator('#webOTPQR').evaluate('(canvas)=>canvas.width>200&&canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data.some((value,index)=>index%4!==3&&value===0)')
             page.locator('#webOTPCode').fill(otp(secret,time.time()))
             page.locator('#webOTPSettings button[type=submit]').click()
             recovery = page.get_by_role('textbox', name='Codes de secours')
             expect(recovery).to_be_visible()
             codes = recovery.input_value().splitlines(); assert len(codes)==8
+            expect(page.locator('#webMFAState')).to_contain_text('MFA incomplète')
+            expect(page.locator('#webPhoneCode')).to_be_visible()
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':900})
                 page.wait_for_timeout(200)

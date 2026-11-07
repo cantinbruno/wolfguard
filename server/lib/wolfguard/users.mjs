@@ -1,5 +1,5 @@
 import {seal,open,stopRemoteOwners} from './access.mjs';
-import {handleOTP} from './otp.mjs';
+import {handleOTP,requiresMFA} from './otp.mjs';
 import {handlePushSettings} from './push.mjs';
 const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
@@ -55,7 +55,10 @@ async function availableCode(code,id,env,pinHash,fail){
   if(matches.some(user=>user.id!==id))fail(409,'Ce code personnel n’est pas disponible. Choisis-en un autre.');
   return lookup;
 }
-export async function publicUser(row,env){return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login};}
+export async function publicUser(row,env){
+  const phone=!!await env.DB.prepare('SELECT id FROM push_devices WHERE user_id=?').bind(row.id).first();
+  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&phone,required:requiresMFA(env)}};
+}
 export async function handleAccountAPI(request,env,now,h){
   const {fail,json,body,digest,pinHash,random}=h,path=new URL(request.url).pathname;
   if(request.method!=='POST'||!['/api/account/inspect','/api/account/complete'].includes(path))fail(404,'Adresse inconnue.');

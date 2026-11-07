@@ -62,7 +62,7 @@ export function clearAccountInvitation(){accountTicket='';}
 export async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 export async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 function acceptLogin(data){
-  if(data.otpRequired||data.pushRequired){detach();return data;}
+  if(data.otpRequired||data.pushRequired||data.otpSetupRequired){detach();return data;}
   token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 export async function login(code,username,otp){
