@@ -61,9 +61,8 @@ def run():
             owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
             if codes_only:
                 expect(owner.locator('#webMFADescription')).to_contain_text('WALLIX Authenticator')
-                expect(owner.locator('#webMFAStepPhone')).to_contain_text('Duo Mobile')
+                expect(owner.locator('#webMFAStepPhone,#webDuoSettings')).to_have_count(0)
                 expect(owner.locator('#webPhoneSettings')).to_have_count(0)
-                expect(owner.locator('#webDuoSettings')).to_contain_text('Les notifications du navigateur ont été retirées')
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
             owner.locator('#settings-tab-users').click();owner.locator('#wgUserInvite').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()

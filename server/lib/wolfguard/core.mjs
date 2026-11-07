@@ -8,7 +8,6 @@ import {browserPushEnabled,pushDevice,startPush,handlePushLogin,requiresPhone,ph
 import {open as openRecord} from './access.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {handleChatHistory} from './chat-history.mjs';
-import {duoEnabled,startDuo,handleDuoLogin,handleDuoSettings} from './duo.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -60,7 +59,7 @@ async function verifyPIN(code,env,now,verifier,pinVerifier) {
       .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
   }
   if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
-  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.setupRequired&&!result.pushRequired&&!result.duoRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes,duoRequired:!!result.duoRequired,pushRequired:!!result.pushRequired,pushDevice:result.device,backupUsed:!!result.backupUsed}:{})};
+  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.setupRequired&&!result.pushRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes,pushRequired:!!result.pushRequired,pushDevice:result.device,backupUsed:!!result.backupUsed}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
   if(requiresMFA(env)&&user&&!user.otp_secret_cipher)fail(403,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
@@ -88,7 +87,7 @@ async function authorize(request,env,now) {
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
   if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
   if(requiresPhone(env)&&session.user_id&&!session.user_push)fail(401,'Associe ton téléphone pour terminer la configuration MFA.',{code:'MFA_SETUP_REQUIRED'});
-  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&(!requiresPhone(env)||!!session.user_push),required:requiresMFA(env),primary:await duoEnabled(env)?'duo':requiresPhone(env)||session.user_push?'push':'authenticator',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
+  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&(!requiresPhone(env)||!!session.user_push),required:requiresMFA(env),primary:requiresPhone(env)||session.user_push?'push':'authenticator',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
   if(session.user_id){const rights=await env.DB.prepare('SELECT id,permissions_cipher,permission_revision FROM users WHERE id=?').bind(session.user_id).first();user.permissions=await userPolicy(rights,env);user.permission_revision=rights.permission_revision;}
   return {...session,hash,access:context,user};
 }
@@ -193,8 +192,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
       }else if(path.startsWith('/api/duo/')){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
-        response=await handleDuoLogin(request,env,now,{fail,json,body:()=>smallJSON(request),finish:async(user,generation)=>{const current=await state(env);if(current.generation!==generation)fail(401,'Ce compte a changé. Reconnecte-toi.');return finishLogin(request,env,now,current,user);}});
+        fail(410,'La connexion utilise maintenant le code MFA de ton Authenticator.');
       }else if(path.startsWith('/api/push/')){
         if(!browserPushEnabled(env))fail(410,'Les notifications du navigateur ont été retirées.');
         await assertAddressAllowed(env,await addressContext(request,env),fail);
@@ -220,7 +218,6 @@ export async function handleAPI(request,env,clock=Date.now) {
             let user,lookup;
             if(username!==undefined){user=await findUser(username,env);if(!user||user.credential_pending||!equal(await pinHash(code,user.pin_salt,env),user.pin_hash))return false;}
             else {const found=await usersMatchingCode(code,env,pinHash);lookup=found.lookup;if(found.matches.length!==1)return false;user=found.matches[0];}
-            if(user.disabled_at===null&&user.otp_secret_cipher&&otp===undefined&&await duoEnabled(env))return {user,partial:true,duoRequired:true};
             if(requiresMFA(env)&&!user.otp_secret_cipher&&user.disabled_at===null){
               if(otp===undefined)return {user,partial:true,setupRequired:true};
               return await confirmOTPEnrollment(user,otp,env,now)||false;
@@ -234,7 +231,6 @@ export async function handleAPI(request,env,clock=Date.now) {
           }),user=row.loginUser;
           if(row.otpSetupRequired){response=json({otpSetupRequired:true,...await prepareOTPEnrollment(user,env,now),username:(await publicUser(user,env)).username});}
           else if(row.otpRequired){response=json({otpRequired:true,...(requiresPhone(env)?{phoneEnrollment:true}:{})});}
-          else if(row.duoRequired){response=await startDuo(request,env,now,row,user,{fail,json});}
           else if(row.pushRequired){response=await startPush(request,env,now,row,user,row.pushDevice,{fail,json});}
           else {
           if(row.recoveryCodes)await revokeUserSessions(env,user.id,now);
@@ -247,7 +243,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
-        if(path==='/api/users/duo')response=await handleDuoSettings(request,env,now,session,{fail,json,body:()=>smallJSON(request),verifyPIN});
+        if(path==='/api/users/duo')fail(410,'La configuration Duo a été retirée. Utilise les paramètres Authenticator.');
         else if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest});
         else if(path==='/api/chat/history'||path.startsWith('/api/chat/history/'))response=await handleChatHistory(request,env,now,session,{fail,json,body:()=>smallJSON(request,160*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});

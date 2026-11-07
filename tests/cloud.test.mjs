@@ -94,18 +94,6 @@ test('mandatory application enrollment stays anonymous until the six digits are 
   await cloud.login('12345678',undefined,'123456');assert.equal(cloud.hasSession(),true);
 }));
 
-test('phone enrollment and push challenges remain anonymous until approval; registration is scoped and backup is explicit',()=>client(async cloud=>{
-  const calls=[];
-  const replies=[{phoneSetupRequired:true,enrollmentTicket:'scoped-ticket'},{registered:true},{pushRequired:true,ticket:'a'.repeat(64)},{pending:true},{token:'b'.repeat(64),version:1,usersEnabled:true,user:{id:'u',username:'user@example.test',role:'member'}}];
-  globalThis.fetch=async(url,options)=>{calls.push({url,options});assert.equal(options.headers.Authorization,undefined);return {ok:true,headers:new Headers(),json:async()=>replies.shift()};};
-  await cloud.login('12345678',undefined,'654321');assert.equal(cloud.hasSession(),false);
-  await cloud.registerInitialPhone('scoped-ticket',{deviceId:'new-device'});assert.equal(cloud.hasSession(),false);
-  const push=await cloud.login('12345678');assert.equal(push.pushRequired,true);assert.equal(cloud.hasSession(),false);
-  assert.deepEqual(JSON.parse(calls[2].options.body),{code:'12345678'});
-  await cloud.pollPush(push.ticket);assert.equal(cloud.hasSession(),false);
-  await cloud.pollPush(push.ticket);assert.equal(cloud.hasSession(),true);
-}));
-
 test('revoked sessions and blocked IPs notify the app, while a wrong login code does not',()=>client(async cloud=>{
   const events=[];window.dispatchEvent=event=>events.push(event.type);
   globalThis.fetch=async()=>({ok:false,status:403,json:async()=>({error:'IP bloquée',code:'ACCESS_BLOCKED'})});

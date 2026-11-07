@@ -407,74 +407,9 @@ const webWorkspace = (() => {
     $('#webConfirm').value=exists ? '' : enteredCode;
     await authenticate({preventDefault(){}});
   }
-  function waitForPhone(info){
-    return new Promise((resolve,reject)=>{
-      const dialog=document.createElement('dialog');dialog.className='app-dialog web-push-dialog';dialog.setAttribute('aria-labelledby','webPushTitle');
-      dialog.innerHTML='<h2 id="webPushTitle">Valide sur ton téléphone</h2><p>Une notification WolfGuard a été envoyée. Vérifie ce numéro avant d’approuver :</p><strong class="web-push-number">'+esc(info.displayCode)+'</strong><p role="status">En attente de ton approbation…</p><div class="app-dialog-actions"><button type="button" id="webPushRecovery">Utiliser Authenticator ou un code de secours</button><button type="button" id="webPushCancel">Annuler</button></div>';
-      document.body.append(dialog);dialog.showModal();let done=false,timer;
-      if(info.deliveryFailed)dialog.querySelector('p').textContent='La notification est indisponible. Tu peux utiliser ton code Authenticator de secours.';
-      const finish=(value,error)=>{if(done)return;done=true;clearTimeout(timer);dialog.close();dialog.remove();if(error)reject(error);else resolve(value);};
-      const cancel=recovery=>{if(info.ticket)cloud.cancelPush(info.ticket).catch(()=>{});finish(recovery?{recovery:true}:null,recovery?null:new Error('Connexion annulée.'));};
-      dialog.querySelector('#webPushCancel').onclick=()=>cancel(false);dialog.querySelector('#webPushRecovery').onclick=()=>cancel(true);dialog.oncancel=event=>{event.preventDefault();cancel(false);};
-      const poll=async()=>{
-        if(done)return;
-        try{
-          if(Date.now()>=info.expiresAt)throw new Error('La demande a expiré. Recommence la connexion.');
-          const result=await cloud.pollPush(info.ticket);if(done){if(!result.pending)cloud.clear();return;}
-          if(!result.pending){finish(result);return;}
-          timer=setTimeout(poll,2000);
-        }catch(error){finish(null,error);}
-      };
-      if(info.deliveryFailed)dialog.querySelector('[role=status]').textContent=info.message||'La notification n’a pas pu être envoyée. Utilise un code de secours.';else poll();
-    });
-  }
-  function waitForDuo(info){
-    return new Promise((resolve,reject)=>{
-      const dialog=document.createElement('dialog');dialog.className='app-dialog web-duo-dialog';dialog.setAttribute('aria-labelledby','webDuoTitle');
-      dialog.innerHTML='<h2 id="webDuoTitle">Valider avec Duo Mobile</h2><p>Ouvre la validation Duo, puis approuve la demande dans Duo Mobile sur ton téléphone. À la première utilisation, Duo peut te proposer d’activer l’application.</p><p id="webDuoStatus" role="status"></p><div class="app-dialog-actions"><button type="button" class="primary" id="webDuoOpen">Ouvrir la validation Duo</button><button type="button" id="webDuoBackup">Utiliser mon code de secours</button><button type="button" id="webDuoCancel">Annuler</button></div>';
-      document.body.append(dialog);dialog.showModal();let done=false,timer=0,popup=null;
-      const status=dialog.querySelector('[role=status]'),open=dialog.querySelector('#webDuoOpen');
-      const finish=(value,error)=>{if(done)return;done=true;clearTimeout(timer);try{popup?.close();}catch{}dialog.close();dialog.remove();info.ticket='';if(error)reject(error);else resolve(value);};
-      const cancel=()=>{if(info.ticket)cloud.cancelDuo(info.ticket).catch(()=>{});finish(null,new Error('Validation Duo annulée.'));};
-      dialog.oncancel=event=>{event.preventDefault();cancel();};dialog.querySelector('#webDuoCancel').onclick=cancel;
-      dialog.querySelector('#webDuoBackup').onclick=()=>{if(info.ticket)cloud.cancelDuo(info.ticket).catch(()=>{});finish({recovery:true});};
-      open.disabled=!!info.unavailable;
-      if(info.unavailable)status.textContent='Duo est indisponible. Ton code de secours reste utilisable.';
-      open.onclick=()=>{
-        let url;try{url=new URL(info.authorizationURL);if(url.protocol!=='https:'||!/^api-[a-z0-9]{8,32}\.duosecurity\.com$/.test(url.hostname)||url.pathname!=='/oauth/v1/authorize')throw new Error();}catch{status.textContent='Adresse Duo invalide. Utilise le code de secours.';return;}
-        popup=window.open(url.href,'wolfguard-duo','popup,width=540,height=760');if(popup){try{popup.opener=null;}catch{}status.textContent='Valide la notification dans Duo Mobile. Cette page attend la confirmation.';}else status.textContent='Autorise l’ouverture de la fenêtre Duo, puis réessaie.';
-      };
-      async function poll(){if(done)return;if(Date.now()>=info.expiresAt){finish(null,new Error('La demande Duo a expiré. Recommence la connexion.'));return;}try{const result=await cloud.pollDuo(info.ticket);if(done){if(result.token)cloud.clear();return;}if(result.token){finish(result);return;}}catch(error){status.textContent=error.message;open.disabled=true;return;}timer=setTimeout(poll,1500);}
-      if(info.ticket)poll();
-    });
-  }
   function drawAuthenticatorQR(canvas,uri){
     const qr=qrcodegen.QrCode.encodeText(uri,qrcodegen.QrCode.Ecc.MEDIUM),scale=4,border=4;canvas.width=canvas.height=(qr.size+border*2)*scale;
     const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.fillStyle='#000';for(let y=0;y<qr.size;y++)for(let x=0;x<qr.size;x++)if(qr.getModule(x,y))context.fillRect((x+border)*scale,(y+border)*scale,scale,scale);
-  }
-  async function registerCurrentPhone(publicKey,submit){
-    return WolfGuardPhone.register(publicKey,submit);
-  }
-  function enrollRequiredPhone(info,password){
-    return new Promise((resolve,reject)=>{
-      const dialog=document.createElement('dialog');dialog.className='app-dialog web-mfa-enrollment';dialog.setAttribute('aria-labelledby','webPhoneEnrollTitle');
-      dialog.innerHTML='<span class="web-mfa-required-label">VALIDATION PRINCIPALE · OBLIGATOIRE</span><h2 id="webPhoneEnrollTitle">Associe ton téléphone</h2><p>Les prochaines connexions se valideront par une notification <strong>Approuver / Refuser</strong>. Le code Authenticator reste uniquement une solution de secours.</p><p>Sur ton téléphone, ouvre ton lien privé WolfGuard, connecte-toi à ton propre compte, puis appuie sur « Associer ce téléphone ». Sur iPhone, ajoute d’abord le lien à l’écran d’accueil et ouvre cette icône. Sur Android, autorise les notifications dans Chrome.</p><p id="webPhoneEnrollStatus" role="status"></p><div class="app-dialog-actions"><button type="button" id="webPhoneEnrollCopy">Copier mon lien privé</button><button type="button" class="primary" id="webPhoneEnrollRegister">Associer ce téléphone</button><button type="button" id="webPhoneEnrollContinue">J’ai associé mon téléphone</button><button type="button" id="webPhoneEnrollCancel">Annuler</button></div>';
-      document.body.append(dialog);dialog.showModal();let done=false,working=false;
-      const status=dialog.querySelector('[role=status]'),register=dialog.querySelector('#webPhoneEnrollRegister'),next=dialog.querySelector('#webPhoneEnrollContinue');
-      register.disabled=!info.configured;if(!info.configured)status.textContent='Le service de notifications est indisponible. Réessaie plus tard.';
-      const finish=(value,error)=>{if(done)return;done=true;password='';info.enrollmentTicket='';dialog.close();dialog.remove();if(error)reject(error);else resolve(value);};
-      const cancel=()=>finish(null,new Error('Configuration du téléphone annulée. Reconnecte-toi pour la reprendre.'));
-      dialog.oncancel=event=>{event.preventDefault();cancel();};dialog.querySelector('#webPhoneEnrollCancel').onclick=cancel;
-      dialog.querySelector('#webPhoneEnrollCopy').onclick=async()=>{const url=new URL(location.href);url.hash='';status.textContent=await copyText(url.href)?'Lien copié. Ouvre-le sur ton téléphone et connecte-toi à ton compte.':'Copie impossible. Ouvre ton lien privé habituel sur le téléphone.';};
-      async function connect(){const result=await cloud.login(password);if(done){if(result.token)cloud.clear();return;}if(!result.pushRequired)throw new Error('Termine l’association sur ton téléphone, puis réessaie.');finish(result);}
-      next.onclick=async()=>{if(working)return;working=true;next.disabled=true;try{await connect();}catch(error){if(!done)status.textContent=error.message;}finally{working=false;if(next.isConnected)next.disabled=false;}};
-      register.onclick=async()=>{
-        if(working)return;working=true;register.disabled=true;next.disabled=true;status.textContent='Association du téléphone…';
-        try{await registerCurrentPhone(info.publicKey,value=>cloud.registerInitialPhone(info.enrollmentTicket,value));if(done)return;status.textContent='Téléphone associé. Confirme maintenant la notification de connexion.';await connect();}
-        catch(error){if(!done)status.textContent=error.message;}
-        finally{working=false;if(register.isConnected){register.disabled=!info.configured;next.disabled=false;}}
-      };
-    });
   }
   function enrollRequiredMFA(info,password){
     return new Promise((resolve,reject)=>{
@@ -489,9 +424,9 @@ const webWorkspace = (() => {
         event.preventDefault();if(working)return;working=true;const button=dialog.querySelector('[type=submit]');button.disabled=true;
         try{
           const result=await cloud.login(password,undefined,dialog.querySelector('#webEnrollOTP').value);if(done){cloud.clear();return;}
-          if((!result.token&&!result.phoneSetupRequired)||!Array.isArray(result.recoveryCodes))throw new Error('La configuration a changé. Recommence la connexion.');
+          if(!result.token||!Array.isArray(result.recoveryCodes))throw new Error('La configuration a changé. Recommence la connexion.');
           info.secret='';info.uri='';password='';
-          dialog.innerHTML='<h2 id="webEnrollTitle">Ton Authenticator est prêt</h2><p>'+(result.phoneSetupRequired?'Ton code de secours est prêt. Associe ensuite ton navigateur pour les notifications.':'La double authentification est activée. Utilise les six chiffres de ton application, notamment WALLIX Authenticator. Aucune association du téléphone au navigateur n’est nécessaire.')+'</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Continuer</button></div>';
+          dialog.innerHTML='<h2 id="webEnrollTitle">Ton Authenticator est prêt</h2><p>La double authentification est activée. Utilise les six chiffres de ton application, notamment WALLIX Authenticator.</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Continuer</button></div>';
           dialog.querySelector('textarea').value=result.recoveryCodes.join('\n');delete result.recoveryCodes;
           dialog.querySelector('#webEnrollSaved').onchange=event=>dialog.querySelector('#webEnrollContinue').disabled=!event.target.checked;
           dialog.querySelector('#webEnrollContinue').onclick=()=>finish(result);
@@ -519,24 +454,11 @@ const webWorkspace = (() => {
     }else{
       let info=await cloud.login(password);
       if(info.otpSetupRequired){mfaWaiting=true;info=await enrollRequiredMFA(info,password);}
-      if(info.duoRequired){
-        mfaWaiting=true;info=await waitForDuo(info);
-        if(info.recovery){let otp=await appPrompt('Saisis les six chiffres de ton application Authenticator, ou un code de récupération.','',{title:'Code de secours',confirmLabel:'Vérifier',autocomplete:'one-time-code'});if(otp===null)throw new Error('Connexion annulée.');try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}}
-      }
       if(info.otpRequired){
         mfaWaiting=true;
-        let otp=await appPrompt(info.phoneEnrollment?'Pour associer tes notifications, confirme les 6 chiffres de ton Authenticator de secours.':'Saisis les 6 chiffres affichés dans WALLIX Authenticator ou ton application compatible, ou un code de secours.','',{title:info.phoneEnrollment?'Configurer les notifications':'Vérification OTP',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
+        let otp=await appPrompt('Saisis les 6 chiffres affichés dans WALLIX Authenticator ou ton application compatible, ou un code de secours.','',{title:'Vérification MFA',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
         if(otp===null)throw new Error('Connexion annulée.');
         try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}
-      }
-      if(info.phoneSetupRequired){mfaWaiting=true;info=await enrollRequiredPhone(info,password);}
-      if(info.pushRequired){
-        mfaWaiting=true;info=await waitForPhone(info);
-        if(info.recovery){
-          let otp=await appPrompt('Saisis les 6 chiffres de ton Authenticator de secours, ou un code de récupération à usage unique.','',{title:'MFA · Code de secours',confirmLabel:'Utiliser le code',autocomplete:'one-time-code'});
-          if(otp===null)throw new Error('Connexion annulée.');try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}
-          if(info.phoneSetupRequired)info=await enrollRequiredPhone(info,password);
-        }
       }
       if(document.hidden&&mfaWaiting)await new Promise(resolve=>{const visible=()=>{if(!document.hidden){document.removeEventListener('visibilitychange',visible);resolve();}};document.addEventListener('visibilitychange',visible);});
       mfaWaiting=false;
@@ -788,8 +710,8 @@ const webWorkspace = (() => {
     const root=$('#webMFASettings');if(!root)return;const mfa=cloud.currentUser()?.mfa;
     root.dataset.state=mfa?.complete?'complete':'missing';
     root.querySelector('#webMFAState').textContent=mfa?.complete?'MFA activée':'MFA à terminer';
-    root.querySelector('#webMFADescription').textContent=mfa?.primary==='duo'?'Duo Mobile est la validation principale. Ton code Authenticator reste disponible en secours.':mfa?.phone?'Les notifications du navigateur sont activées sur ton compte. Elles sont distinctes de WALLIX Authenticator ; ton code à six chiffres reste utilisable en secours.':'Valide tes connexions avec les six chiffres de ton application, notamment WALLIX Authenticator. Aucun enregistrement du téléphone dans le navigateur n’est nécessaire.';
-    for(const [id,enabled] of [['webMFAStepPhone',mfa?.primary==='duo'],['webMFAStepOTP',mfa?.authenticator]]){const step=root.querySelector('#'+id);step.dataset.done=String(!!enabled);step.querySelector('span').textContent=enabled?'Activé':id==='webMFAStepPhone'?'À activer avec l’administrateur':'À configurer';}
+    root.querySelector('#webMFADescription').textContent='Après ton code personnel à huit chiffres, saisis les six chiffres de ton application Authenticator, notamment WALLIX Authenticator. Ton QR code existant reste valable.';
+    const step=root.querySelector('#webMFAStepOTP');step.dataset.done=String(!!mfa?.authenticator);step.querySelector('span').textContent=mfa?.authenticator?'Activé':'À configurer';
   }
   async function mountOTPSettings(){
     const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
@@ -799,7 +721,7 @@ const webWorkspace = (() => {
     let enabled=false,pending=false,required=false;
     function render(){
       if(!live())return;
-      if(enabled&&required){root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>Ton code à six chiffres est déjà activé. Utilise celui de WALLIX Authenticator ou de ton application compatible. Si tu as activé les notifications du navigateur, choisis « Utiliser Authenticator ou un code de secours » pour saisir ce code.</p><p class="access-help">La désactivation est bloquée par la politique de sécurité. Conserve tes codes de secours pour récupérer ton accès.</p>';return;}
+      if(enabled&&required){root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>Ton code à six chiffres est déjà activé. Après ton code personnel à huit chiffres, utilise celui de WALLIX Authenticator ou de ton application compatible.</p><p class="access-help">La désactivation est bloquée par la politique de sécurité. Conserve tes codes de secours pour récupérer ton accès.</p>';return;}
       root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>'+(enabled?'Ton application Authenticator est activée. Ses six chiffres permettent de te connecter sans enregistrer le téléphone dans le navigateur.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p><form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
       root.querySelector('form').onsubmit=async event=>{
         event.preventDefault();if(pending)return;pending=true;
@@ -818,7 +740,7 @@ const webWorkspace = (() => {
               try{
                 const result=await request('/enable',{code,otp:root.querySelector('#webOTPCode').value});if(!live())return;
                 code='';setup.secret='';enabled=true;render();
-                const message=document.createElement('div');message.className='web-otp-recovery';message.innerHTML='<p><strong>Authenticator est activé.</strong> Conserve ces codes de secours dans un endroit sûr. Chacun peut remplacer un OTP une seule fois si tu perds ton téléphone.</p><textarea readonly rows="8" aria-label="Codes de secours">'+result.recoveryCodes.join('\n')+'</textarea><p>Pour te connecter, utilise les six chiffres de ton application Authenticator. Les notifications du navigateur restent facultatives.</p>';root.append(message);
+                const message=document.createElement('div');message.className='web-otp-recovery';message.innerHTML='<p><strong>Authenticator est activé.</strong> Conserve ces codes de secours dans un endroit sûr. Chacun peut remplacer un OTP une seule fois si tu perds ton téléphone.</p><textarea readonly rows="8" aria-label="Codes de secours">'+result.recoveryCodes.join('\n')+'</textarea><p>Pour te connecter, utilise les six chiffres de ton application Authenticator.</p>';root.append(message);
                 await refreshMFASettings();
               }catch(error){if(live())root.querySelector('[role=status]').textContent=error.message;}
               finally{pending=false;if(submit.isConnected)submit.disabled=false;}
@@ -830,22 +752,6 @@ const webWorkspace = (() => {
       };
     }
     try{const info=await request('');enabled=info.enabled;required=info.required;render();}catch(error){if(live())root.textContent=error.message;}
-  }
-  async function mountDuoSettings(){
-    const current=session,root=document.createElement('section');root.id='webDuoSettings';root.className='web-otp-settings';$('#webMFASteps').prepend(root);
-    const live=()=>session===current&&root.isConnected;
-    try{
-      const info=await cloud.duoSettings();if(!live())return;
-      root.innerHTML='<h4>Notifications · Duo Mobile</h4><p id="webDuoSummary">'+(info.enabled?'Duo Mobile est activé. Tes prochaines connexions proposeront la validation sur ton téléphone. Ton Authenticator actuel reste disponible en secours.':'Duo Mobile n’est pas encore configuré. Les notifications du navigateur ont été retirées. Ton code Authenticator actuel conserve ton accès pendant la configuration.')+'</p>';
-      if(!info.canConfigure){if(!info.enabled)root.insertAdjacentHTML('beforeend','<p>Demande à ton administrateur de configurer Duo Mobile.</p>');return;}
-      root.insertAdjacentHTML('beforeend','<details '+(!info.configured?'open':'')+'><summary>Configurer Duo Mobile</summary><p>Crée un compte administrateur sur <a href="https://signup.duo.com/" target="_blank" rel="noopener noreferrer">Cisco Duo</a>, puis une application <strong>Web SDK</strong>. Duo Free accepte jusqu’à 10 utilisateurs. Dans Duo, ajoute les mêmes adresses e-mail que dans WolfGuard et active Duo Mobile pour chaque téléphone. Conserve une politique exigeant la MFA, sans contournement.</p><p>Ajoute cette adresse de retour à ton application Duo :</p><input id="webDuoCallback" readonly aria-label="Adresse de retour Duo"><button type="button" class="settings-btn" id="webDuoCopy">Copier l’adresse</button><form id="webDuoForm"><label>API hostname<input id="webDuoHost" autocomplete="off" spellcheck="false" placeholder="api-xxxxxxxx.duosecurity.com" required></label><label>Client ID<input id="webDuoClient" autocomplete="off" spellcheck="false" minlength="20" maxlength="20" required></label><label>Client secret<input id="webDuoSecret" type="password" autocomplete="new-password" minlength="40" maxlength="40" '+(!info.configured?'required':'placeholder="Laisser vide pour conserver la clé actuelle"')+'></label><label class="web-duo-toggle"><input id="webDuoEnabled" type="checkbox" '+(info.enabled||!info.configured?'checked':'')+'>Activer les validations Duo Mobile</label><label>Ton code personnel actuel<input id="webDuoPIN" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Ton code Authenticator actuel ou un code de secours<input id="webDuoOTP" autocomplete="one-time-code" maxlength="16" required></label><button type="submit" class="settings-btn primary">Vérifier et enregistrer Duo</button></form><p id="webDuoFeedback" role="status"></p></details>');
-      root.querySelector('#webDuoCallback').value=info.callbackUrl;root.querySelector('#webDuoHost').value=info.apiHost;root.querySelector('#webDuoClient').value=info.clientId;
-      root.querySelector('#webDuoCopy').onclick=()=>copyText(info.callbackUrl);
-      root.querySelector('#webDuoForm').onsubmit=async event=>{event.preventDefault();const button=root.querySelector('[type=submit]'),status=root.querySelector('#webDuoFeedback');button.disabled=true;status.textContent='Vérification auprès de Duo…';
-        try{const saved=await cloud.duoSettings({apiHost:root.querySelector('#webDuoHost').value,clientId:root.querySelector('#webDuoClient').value,clientSecret:root.querySelector('#webDuoSecret').value,enabled:root.querySelector('#webDuoEnabled').checked,code:root.querySelector('#webDuoPIN').value,otp:root.querySelector('#webDuoOTP').value.trim()});if(!live())return;info.enabled=saved.enabled;info.configured=true;root.querySelector('#webDuoSecret').required=false;root.querySelector('#webDuoSecret').placeholder='Laisser vide pour conserver la clé actuelle';root.querySelector('#webDuoSummary').textContent=saved.enabled?'Duo Mobile est activé pour les prochaines connexions. Ton Authenticator reste disponible en secours.':'Duo Mobile est désactivé. Ton code Authenticator conserve ton accès.';status.textContent='Configuration enregistrée. Tu peux tester Duo à la prochaine connexion.';await refreshMFASettings();}
-        catch(error){if(live())status.textContent=error.message;}finally{if(live()){button.disabled=false;for(const id of ['webDuoSecret','webDuoPIN','webDuoOTP'])root.querySelector('#'+id).value='';}}
-      };
-    }catch(error){if(live())root.textContent=error.message;}
   }
   openSettings=async initialTab => {
     assertFreshSession();
@@ -859,8 +765,8 @@ const webWorkspace = (() => {
     const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
-      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li><li id="webMFAStepPhone"><strong>Duo Mobile · Notifications</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
-      security.before(mfa);await Promise.all([mountDuoSettings(),mountOTPSettings(),refreshMFASettings()]);
+      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
+      security.before(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
     }
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';

@@ -11,58 +11,21 @@ import {encodeSecret,otpAt,matchingStep} from '../server/lib/wolfguard/otp.mjs';
 import {validSubscription,decisionMessage,inspectMessage} from '../server/lib/wolfguard/push.mjs';
 import {buildPushPayload} from '../server/vendor/webpush.mjs';
 import {profilePolicy} from '../server/lib/wolfguard/permissions.mjs';
-import {signDuoJWT,verifyDuoJWT} from '../server/lib/wolfguard/duo.mjs';
 
-test('Duo Mobile replaces browser push, binds real MFA to the account, and never exposes the integration secret',async()=>{
+test('classic MFA uses the existing six-digit code even when a previous Duo setup and browser phone exist',async()=>{
   const s=await setup();try{
-    const phone=await phoneSetup(s);s.env.MFA_REQUIRED='1';s.env.MFA_BROWSER_PUSH_ENABLED='0';
-    const config={apiHost:'api-12345678.duosecurity.com',clientId:'DI'+'A'.repeat(18),clientSecret:'B'.repeat(40)};let providerDown=false,bypass=false;
-    s.env.DUO_TEST_FETCH=async(url,options)=>{
-      if(providerDown)throw new Error('Synthetic Duo outage');
-      const values=new URLSearchParams(options.body);assert.ok(values.get('client_assertion'));assert.equal(options.redirect,'error');
-      if(url.endsWith('/health_check'))return Response.json({stat:'OK'});
-      const row=s.env.DB.db.prepare("SELECT * FROM duo_requests WHERE status='verifying'").get();
-      return Response.json({id_token:await signDuoJWT({iss:'https://'+config.apiHost+'/oauth/v1/token',sub:'cantin.bruno@gmx.fr',preferred_username:'cantin.bruno@gmx.fr',aud:config.clientId,nonce:row.nonce,iat:Math.floor(s.clock()/1000),exp:Math.floor(s.clock()/1000)+300,auth_time:Math.floor(s.clock()/1000),amr:bypass?[]:['mfa','otp'],auth_result:{result:'allow',status:'allow'}},config.clientSecret)});
-    };
-    assert.equal((await s.api('users/push',undefined,phone.owner.token)).status,410);
-    assert.equal((await s.api('push/poll',{ticket:'a'.repeat(64)})).status,410);
+    const phone=await phoneSetup(s),stored=s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(phone.owner.user.id).otp_secret_cipher;
+    s.env.MFA_REQUIRED='1';s.env.MFA_BROWSER_PUSH_ENABLED='0';s.env.MFA_PHONE_REQUIRED='1';
+    s.env.DB.db.prepare("UPDATE duo_config SET enabled=1,config_cipher='retired-provider-must-not-be-read',revision=1 WHERE id=1").run();
     s.advance(30001);
-    const saved=await s.api('users/duo',{...config,enabled:true,code:'09876543',otp:await otpAt(phone.secret,Math.floor(s.clock()/30000))},phone.owner.token);assert.equal(saved.status,200,await saved.clone().text());
-    const visible=await(await s.api('users/duo',undefined,phone.owner.token)).json();assert.equal(visible.enabled,true);assert.equal(visible.clientSecret,undefined);
-    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM duo_config').all());assert.ok(!disk.includes(config.clientSecret));
-    assert.equal((await s.api('login',{code:'11111111'})).status,401);s.advance(10000);
-    const begin=await(await s.api('login',{code:'09876543'})).json();assert.ok(begin.duoRequired&&!begin.otpRequired&&!begin.pushRequired&&!begin.token);
-    const url=new URL(begin.authorizationURL);assert.equal(url.hostname,config.apiHost);const payload=JSON.parse(Buffer.from(url.searchParams.get('request').split('.')[1],'base64url'));
-    assert.equal(payload.duo_uname,'cantin.bruno@gmx.fr');assert.equal(payload.prompt,'login');assert.equal(payload.max_age,0);assert.ok(payload.nonce.length>=16);
-    assert.equal((await s.api('vault',undefined,begin.ticket)).status,401);
-    assert.equal((await(await s.api('duo/poll',{ticket:begin.ticket})).json()).pending,true);
-    const callback='duo/callback?'+new URLSearchParams({state:payload.state,code:'provider-code'});
-    assert.equal((await s.api(callback)).status,200);
-    const result=await(await s.api('duo/poll',{ticket:begin.ticket})).json();assert.ok(result.token);assert.equal(result.user.mfa.primary,'duo');assert.equal(result.user.mfa.phone,false);assert.deepEqual(result.workspace,s.material);
-    assert.equal((await s.api('duo/poll',{ticket:begin.ticket})).status,410);assert.equal((await s.api(callback)).status,410);
-    bypass=true;
-    const bad=await(await s.api('login',{code:'09876543'})).json(),badPayload=JSON.parse(Buffer.from(new URL(bad.authorizationURL).searchParams.get('request').split('.')[1],'base64url'));
-    assert.equal((await s.api('duo/callback?'+new URLSearchParams({state:badPayload.state,code:'bypass'}))).status,403);assert.equal((await s.api('duo/poll',{ticket:bad.ticket})).status,410);
-    providerDown=true;assert.equal((await(await s.api('login',{code:'09876543'})).json()).unavailable,true);
-    s.advance(30001);const backup=await(await s.api('login',{code:'09876543',otp:await otpAt(phone.secret,Math.floor(s.clock()/30000))})).json();assert.ok(backup.token&&!backup.duoRequired);
-    providerDown=false;bypass=false;
-    const cancelled=await(await s.api('login',{code:'09876543'})).json(),cancelPayload=JSON.parse(Buffer.from(new URL(cancelled.authorizationURL).searchParams.get('request').split('.')[1],'base64url'));
-    assert.equal((await s.api('duo/cancel',{ticket:cancelled.ticket})).status,200);
-    assert.equal((await s.api('duo/callback?'+new URLSearchParams({state:cancelPayload.state,code:'cancelled'}))).status,410);
-    assert.equal((await s.api('duo/poll',{ticket:cancelled.ticket})).status,410);
-    const expired=await(await s.api('login',{code:'09876543'})).json();s.advance(300001);assert.equal((await s.api('duo/poll',{ticket:expired.ticket})).status,410);
-    const revoked=await(await s.api('login',{code:'09876543'})).json(),revokePayload=JSON.parse(Buffer.from(new URL(revoked.authorizationURL).searchParams.get('request').split('.')[1],'base64url'));
-    s.env.DB.db.prepare('UPDATE users SET code_version=code_version+1 WHERE id=?').run(phone.owner.user.id);
-    assert.equal((await s.api('duo/callback?'+new URLSearchParams({state:revokePayload.state,code:'revoked'}))).status,410);
+    const challenge=await(await s.api('login',{code:'09876543'})).json();assert.equal(challenge.otpRequired,true);assert.ok(!challenge.token&&!challenge.duoRequired&&!challenge.pushRequired&&!challenge.phoneSetupRequired&&!challenge.phoneEnrollment);
+    const valid=await otpAt(phone.secret,Math.floor(s.clock()/30000));
+    assert.equal((await s.api('login',{code:'09876543',otp:valid==='000000'?'111111':'000000'})).status,401);s.advance(10001);
+    const response=await s.api('login',{code:'09876543',otp:await otpAt(phone.secret,Math.floor(s.clock()/30000))});assert.equal(response.status,200,await response.clone().text());const result=await response.json();assert.ok(result.token);assert.equal(result.user.mfa.primary,'authenticator');assert.equal(result.user.mfa.phone,false);assert.equal(result.user.mfa.complete,true);
+    assert.equal(s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(phone.owner.user.id).otp_secret_cipher,stored);
+    assert.equal((await s.api('users/duo',undefined,result.token)).status,410);assert.equal((await s.api('duo/poll',{ticket:'old-request'})).status,410);assert.equal((await s.api('duo/callback?state=old&code=old')).status,410);
+    assert.equal((await s.api('users/push',undefined,result.token)).status,410);
   }finally{s.env.DB.db.close();}
-});
-
-test('Duo JWT verification rejects forged, expired, wrong-account, wrong-nonce and bypass responses',async()=>{
-  const now=Date.now(),seconds=Math.floor(now/1000),config={apiHost:'api-12345678.duosecurity.com',clientId:'DI'+'A'.repeat(18),clientSecret:'B'.repeat(40)},expected={username:'owner@example.test',nonce:'N'.repeat(43),createdAt:now};
-  const payload={iss:'https://'+config.apiHost+'/oauth/v1/token',sub:expected.username,preferred_username:expected.username,aud:config.clientId,nonce:expected.nonce,iat:seconds,exp:seconds+300,auth_time:seconds,amr:['mfa','otp'],auth_result:{result:'allow',status:'allow'}};
-  assert.equal((await verifyDuoJWT(await signDuoJWT(payload,config.clientSecret),config,expected,now)).sub,expected.username);
-  for(const patch of [{iss:'https://attacker.invalid'},{aud:'wrong'},{nonce:'wrong'},{preferred_username:'other@example.test'},{sub:'other@example.test'},{exp:seconds},{nbf:seconds+120},{iat:seconds+120},{auth_time:seconds-300},{amr:[]},{auth_result:{result:'deny',status:'deny'}}])await assert.rejects(verifyDuoJWT(await signDuoJWT({...payload,...patch},config.clientSecret),config,expected,now));
-  await assert.rejects(verifyDuoJWT(await signDuoJWT(payload,'C'.repeat(40)),config,expected,now));
 });
 
 test('chat histories are private per user, encrypted, resumable and only the admin can purge them',async()=>{
