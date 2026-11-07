@@ -101,3 +101,5 @@
 @media(max-width:650px){.permission-editor{padding:14px}.permission-matrix{grid-template-columns:1fr}.permission-rule{grid-template-columns:minmax(0,1fr) auto}.permission-rule>span{grid-column:1/-1}.permission-rule select{width:100%}.permission-add-rule{flex-wrap:wrap}.permission-add-rule select{flex-basis:100%}}
 
 @media(max-width:650px){.permission-group-head{flex-wrap:wrap}.permission-group h5{flex-basis:100%;margin-bottom:4px}}
+
+.web-otp-settings .web-duo-toggle{display:flex;align-items:center;gap:10px}.web-otp-settings .web-duo-toggle input{width:18px;height:18px;padding:0;flex-shrink:0}.web-duo-dialog .app-dialog-actions{flex-wrap:wrap}

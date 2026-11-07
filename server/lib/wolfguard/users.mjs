@@ -1,6 +1,7 @@
+import {duoEnabled} from './duo.mjs';
 import {seal,open,stopRemoteOwners} from './access.mjs';
 import {handleOTP,requiresMFA} from './otp.mjs';
-import {handlePushSettings,requiresPhone} from './push.mjs';
+import {handlePushSettings,requiresPhone,pushDevice} from './push.mjs';
 import {userPolicy,policyCipher,permissionAPI} from './permission-store.mjs';
 import {profilePolicy,requirePermission,canManagePolicy} from './permissions.mjs';
 const encoder=new TextEncoder();
@@ -58,8 +59,8 @@ async function availableCode(code,id,env,pinHash,fail){
   return lookup;
 }
 export async function publicUser(row,env){
-  const phone=!!await env.DB.prepare('SELECT id FROM push_devices WHERE user_id=?').bind(row.id).first();
-  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&(!requiresPhone(env)||phone),required:requiresMFA(env),primary:requiresPhone(env)||phone?'push':'authenticator',backup:'authenticator'}};
+  const phone=!!await pushDevice(env,row.id);
+  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&(!requiresPhone(env)||phone),required:requiresMFA(env),primary:await duoEnabled(env)?'duo':requiresPhone(env)||phone?'push':'authenticator',backup:'authenticator'}};
 }
 export async function handleAccountAPI(request,env,now,h){
   const {fail,json,body,digest,pinHash,random}=h,path=new URL(request.url).pathname;

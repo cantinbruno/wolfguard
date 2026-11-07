@@ -82,3 +82,10 @@ export const chatHistoryState=sqliteTable('chat_history_state',{
 export const chatConversations=sqliteTable('chat_conversations',{
   id:text('id').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),epoch:integer('epoch').notNull(),revision:integer('revision').notNull(),titleCipher:text('title_cipher').notNull(),contentCipher:text('content_cipher').notNull(),updatedAt:integer('updated_at').notNull()
 },table=>[index('chat_conversations_user_updated').on(table.userId,table.updatedAt)]);
+
+export const duoConfig=sqliteTable('duo_config',{
+  id:integer('id').primaryKey(),enabled:integer('enabled').notNull().default(0),configCipher:text('config_cipher'),revision:integer('revision').notNull().default(0)
+});
+export const duoRequests=sqliteTable('duo_requests',{
+  id:text('id').primaryKey(),stateHash:text('state_hash').notNull().unique(),ticketHash:text('ticket_hash').notNull().unique(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),userVersion:integer('user_version').notNull(),generation:integer('generation').notNull(),configRevision:integer('config_revision').notNull(),otpBinding:text('otp_binding').notNull(),nonce:text('nonce').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+},table=>[index('duo_requests_user_created').on(table.userId,table.createdAt)]);

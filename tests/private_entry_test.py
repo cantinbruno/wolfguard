@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright,expect
 import hashlib,json,os,subprocess
 from site_fixture import PRIVATE_ACCESS_FILE
-from push_fixture import configure_push
 
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
@@ -36,7 +35,6 @@ def run():
         with sync_playwright() as p:
             # Inspect the native error screen in a full browser, not headless shell.
             browser=p.chromium.launch(channel='msedge');context=browser.new_context(reduced_motion='reduce')
-            configure_push(context,url.rstrip('/'))
             context.add_init_script("globalThis.cspViolations=[];document.addEventListener('securitypolicyviolation',event=>cspViolations.push({directive:event.effectiveDirective,blocked:event.blockedURI}));")
             # Stub inference only: the real private-entry CSP must permit the
             # module worker and its message exchange without downloading weights.
@@ -69,14 +67,8 @@ def run():
             expect(page.locator('#lock .access-heading h2')).to_have_text('Confirmer le code')
             page.keyboard.type('01234567');expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function('()=>!document.querySelector("#app").inert')
-            registered=page.evaluate("""async()=>{
-                const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-                const key=WolfGuardPhone.base64(await crypto.subtle.exportKey('raw',pair.publicKey));
-                return WolfGuardPhone.register(key,async data=>({id:data.deviceId,publicKey:data.publicKey,subscription:data.subscription}));
-            }""")
-            assert len(registered['id'])==32 and registered['publicKey']['crv']=='P-256'
-            assert registered['subscription']['endpoint'].startswith('https://fcm.googleapis.com/')
-            assert page.evaluate("async()=>(await navigator.serviceWorker.getRegistration('/')).active.state")=='activated'
+            assert page.locator('script[src*="push-device"]').count()==0
+            assert page.evaluate("async()=>!(await navigator.serviceWorker.getRegistration('/'))")
             assert page.evaluate("async()=>(await WolfGuardBrowserAI.prepare()).type")=='ready'
             manifest=context.new_cdp_session(page).send('Page.getAppManifest')
             assert manifest['url'].endswith('/phone-manifest.json') and not manifest['errors'],manifest
@@ -94,7 +86,7 @@ def run():
             assert not errors,errors
             assert not (ROOT/'docs/browser/not-found.html').exists()
             browser.close()
-        print('PASS: private encrypted entry permits real push registration, AI module worker and phone manifest; native DNS failures, reload, mobile and API outage verified')
+        print('PASS: private encrypted entry, AI worker, manifest, no browser push registration, native DNS failures, reload, mobile and API outage verified')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

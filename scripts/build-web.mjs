@@ -61,7 +61,6 @@ let html = readFileSync(path.join(output, 'index.html'), 'utf8');
 html = html.replace("script-src 'self' 'unsafe-inline' 'unsafe-eval'", "script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'");
 html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css">\n</head>');
 html = html.replace('</head>', '<link rel="manifest" href="phone-manifest.json"><meta name="theme-color" content="#111c2c">\n</head>');
-html = html.replace('<script src="js/app.js', '<script src="js/push-device.js"></script><script src="js/app.js');
 html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
 html = html.replace('<script src="js/ui/workspace-users.js"></script>','<script src="js/ui/workspace-users.js"></script><script src="browser/permissions.bundle.js"></script><script src="browser/access-control.js"></script><script src="browser/permission-editor.js"></script>');
 html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site");

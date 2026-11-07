@@ -64,13 +64,16 @@ function clearAccountInvitation(){accountTicket='';}
 async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 function acceptLogin(data){
-  if(data.otpRequired||data.otpSetupRequired||data.pushRequired||data.phoneSetupRequired){detach();return data;}
+  if(data.otpRequired||data.otpSetupRequired||data.duoRequired||data.pushRequired||data.phoneSetupRequired){detach();return data;}
   token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 async function login(code,username,otp){
   const data=await post('login',{code,...(username===undefined?{}:{username}),...(otp===undefined?{}:{otp})},{anonymous:true});
   return acceptLogin(data);
 }
+async function pollDuo(ticket){const data=await post('duo/poll',{ticket},{anonymous:true});return data.pending?data:acceptLogin(data);}
+async function cancelDuo(ticket){return post('duo/cancel',{ticket},{anonymous:true});}
+async function duoSettings(value){return value===undefined?(await request('users/duo')).data:post('users/duo',value);}
 async function pollPush(ticket){const data=await post('push/poll',{ticket},{anonymous:true});return data.pending?data:acceptLogin(data);}
 async function cancelPush(ticket){return post('push/cancel',{ticket},{anonymous:true});}
 async function registerInitialPhone(enrollmentTicket,value){return post('mfa/phone/register',{enrollmentTicket,...value},{anonymous:true});}
@@ -119,5 +122,5 @@ function clear(){
   token='';version=0;user=null;usersEnabled=false;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,pollPush,cancelPush,registerInitialPhone,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,pollDuo,cancelDuo,duoSettings,pollPush,cancelPush,registerInitialPhone,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,clear});
 })();

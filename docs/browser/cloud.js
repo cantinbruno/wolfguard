@@ -63,13 +63,16 @@ export function clearAccountInvitation(){accountTicket='';}
 export async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 export async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 function acceptLogin(data){
-  if(data.otpRequired||data.otpSetupRequired||data.pushRequired||data.phoneSetupRequired){detach();return data;}
+  if(data.otpRequired||data.otpSetupRequired||data.duoRequired||data.pushRequired||data.phoneSetupRequired){detach();return data;}
   token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 export async function login(code,username,otp){
   const data=await post('login',{code,...(username===undefined?{}:{username}),...(otp===undefined?{}:{otp})},{anonymous:true});
   return acceptLogin(data);
 }
+export async function pollDuo(ticket){const data=await post('duo/poll',{ticket},{anonymous:true});return data.pending?data:acceptLogin(data);}
+export async function cancelDuo(ticket){return post('duo/cancel',{ticket},{anonymous:true});}
+export async function duoSettings(value){return value===undefined?(await request('users/duo')).data:post('users/duo',value);}
 export async function pollPush(ticket){const data=await post('push/poll',{ticket},{anonymous:true});return data.pending?data:acceptLogin(data);}
 export async function cancelPush(ticket){return post('push/cancel',{ticket},{anonymous:true});}
 export async function registerInitialPhone(enrollmentTicket,value){return post('mfa/phone/register',{enrollmentTicket,...value},{anonymous:true});}

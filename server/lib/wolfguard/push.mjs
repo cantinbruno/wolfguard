@@ -8,9 +8,10 @@ const decode=text=>Uint8Array.from(atob(text.replace(/-/g,'+').replace(/_/g,'/')
 const hash=async value=>hex(await crypto.subtle.digest('SHA-256',encoder.encode(value)));
 const context=id=>'WolfGuard push subscription v1:'+id;
 const detailsContext=id=>'WolfGuard push request v1:'+id;
-export const pushDevice=(env,userId)=>env.DB.prepare('SELECT * FROM push_devices WHERE user_id=?').bind(userId).first();
+export const browserPushEnabled=env=>env.MFA_BROWSER_PUSH_ENABLED!=='0';
+export const pushDevice=(env,userId)=>!browserPushEnabled(env)?Promise.resolve(null):env.DB.prepare('SELECT * FROM push_devices WHERE user_id=?').bind(userId).first();
 // Enforce phone enrollment when required; Authenticator remains the backup.
-export const requiresPhone=env=>env.MFA_PHONE_REQUIRED==='1';
+export const requiresPhone=env=>browserPushEnabled(env)&&env.MFA_PHONE_REQUIRED==='1';
 async function enrollmentKey(env){return crypto.subtle.importKey('raw',Uint8Array.from(env.AUTH_PEPPER.match(/../g),value=>parseInt(value,16)),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 export async function phoneEnrollment(env,user,generation,now){
   const payload=btoa(JSON.stringify({purpose:'push-enrollment',userId:user.id,version:user.code_version,generation,expiresAt:now+600000,binding:await hash(user.otp_secret_cipher)})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -29,6 +30,7 @@ async function enrollmentUser(env,ticket,now,fail){
   }catch{fail(410,'La configuration a expiré ou le compte a changé. Recommence la connexion.');}
 }
 export async function handlePhoneEnrollment(request,env,now,h){
+  if(!browserPushEnabled(env))h.fail(410,'Les notifications du navigateur ont été retirées.');
   const {fail,json,body}=h,path=new URL(request.url).pathname;
   if(request.method!=='POST'||path!=='/api/mfa/phone/register')fail(404,'Adresse inconnue.');
   const data=await body(),user=await enrollmentUser(env,data.enrollmentTicket,now,fail);
@@ -105,6 +107,7 @@ export async function handlePushLogin(request,env,now,h){
   return json({ok:true,approved:data.decision==='approve'});
 }
 export async function handlePushSettings(request,env,now,session,h){
+  if(!browserPushEnabled(env))h.fail(410,'Les notifications du navigateur ont été retirées.');
   const {fail,json,body,verifyPIN}=h,path=new URL(request.url).pathname,user=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
   const device=await pushDevice(env,user.id),configured=!!(env.PUSH_VAPID_PUBLIC_KEY&&env.PUSH_VAPID_PRIVATE_KEY)||!!(env.LOCAL_TEST_ORIGIN&&env.PUSH_TEST_SEND);
   if(path==='/api/users/push'&&request.method==='GET')return json({configured,required:requiresPhone(env),primary:requiresPhone(env)||device?'push':'authenticator',device:device?{id:device.id,createdAt:device.created_at}:null,publicKey:env.PUSH_VAPID_PUBLIC_KEY||null,otpEnabled:!!user.otp_secret_cipher});

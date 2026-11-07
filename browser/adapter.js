@@ -428,6 +428,26 @@ const webWorkspace = (() => {
       if(info.deliveryFailed)dialog.querySelector('[role=status]').textContent=info.message||'La notification n’a pas pu être envoyée. Utilise un code de secours.';else poll();
     });
   }
+  function waitForDuo(info){
+    return new Promise((resolve,reject)=>{
+      const dialog=document.createElement('dialog');dialog.className='app-dialog web-duo-dialog';dialog.setAttribute('aria-labelledby','webDuoTitle');
+      dialog.innerHTML='<h2 id="webDuoTitle">Valider avec Duo Mobile</h2><p>Ouvre la validation Duo, puis approuve la demande dans Duo Mobile sur ton téléphone. À la première utilisation, Duo peut te proposer d’activer l’application.</p><p id="webDuoStatus" role="status"></p><div class="app-dialog-actions"><button type="button" class="primary" id="webDuoOpen">Ouvrir la validation Duo</button><button type="button" id="webDuoBackup">Utiliser mon code de secours</button><button type="button" id="webDuoCancel">Annuler</button></div>';
+      document.body.append(dialog);dialog.showModal();let done=false,timer=0,popup=null;
+      const status=dialog.querySelector('[role=status]'),open=dialog.querySelector('#webDuoOpen');
+      const finish=(value,error)=>{if(done)return;done=true;clearTimeout(timer);try{popup?.close();}catch{}dialog.close();dialog.remove();info.ticket='';if(error)reject(error);else resolve(value);};
+      const cancel=()=>{if(info.ticket)cloud.cancelDuo(info.ticket).catch(()=>{});finish(null,new Error('Validation Duo annulée.'));};
+      dialog.oncancel=event=>{event.preventDefault();cancel();};dialog.querySelector('#webDuoCancel').onclick=cancel;
+      dialog.querySelector('#webDuoBackup').onclick=()=>{if(info.ticket)cloud.cancelDuo(info.ticket).catch(()=>{});finish({recovery:true});};
+      open.disabled=!!info.unavailable;
+      if(info.unavailable)status.textContent='Duo est indisponible. Ton code de secours reste utilisable.';
+      open.onclick=()=>{
+        let url;try{url=new URL(info.authorizationURL);if(url.protocol!=='https:'||!/^api-[a-z0-9]{8,32}\.duosecurity\.com$/.test(url.hostname)||url.pathname!=='/oauth/v1/authorize')throw new Error();}catch{status.textContent='Adresse Duo invalide. Utilise le code de secours.';return;}
+        popup=window.open(url.href,'wolfguard-duo','popup,width=540,height=760');if(popup){try{popup.opener=null;}catch{}status.textContent='Valide la notification dans Duo Mobile. Cette page attend la confirmation.';}else status.textContent='Autorise l’ouverture de la fenêtre Duo, puis réessaie.';
+      };
+      async function poll(){if(done)return;if(Date.now()>=info.expiresAt){finish(null,new Error('La demande Duo a expiré. Recommence la connexion.'));return;}try{const result=await cloud.pollDuo(info.ticket);if(done){if(result.token)cloud.clear();return;}if(result.token){finish(result);return;}}catch(error){status.textContent=error.message;open.disabled=true;return;}timer=setTimeout(poll,1500);}
+      if(info.ticket)poll();
+    });
+  }
   function drawAuthenticatorQR(canvas,uri){
     const qr=qrcodegen.QrCode.encodeText(uri,qrcodegen.QrCode.Ecc.MEDIUM),scale=4,border=4;canvas.width=canvas.height=(qr.size+border*2)*scale;
     const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.fillStyle='#000';for(let y=0;y<qr.size;y++)for(let x=0;x<qr.size;x++)if(qr.getModule(x,y))context.fillRect((x+border)*scale,(y+border)*scale,scale,scale);
@@ -499,6 +519,10 @@ const webWorkspace = (() => {
     }else{
       let info=await cloud.login(password);
       if(info.otpSetupRequired){mfaWaiting=true;info=await enrollRequiredMFA(info,password);}
+      if(info.duoRequired){
+        mfaWaiting=true;info=await waitForDuo(info);
+        if(info.recovery){let otp=await appPrompt('Saisis les six chiffres de ton application Authenticator, ou un code de récupération.','',{title:'Code de secours',confirmLabel:'Vérifier',autocomplete:'one-time-code'});if(otp===null)throw new Error('Connexion annulée.');try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}}
+      }
       if(info.otpRequired){
         mfaWaiting=true;
         let otp=await appPrompt(info.phoneEnrollment?'Pour associer tes notifications, confirme les 6 chiffres de ton Authenticator de secours.':'Saisis les 6 chiffres affichés dans WALLIX Authenticator ou ton application compatible, ou un code de secours.','',{title:info.phoneEnrollment?'Configurer les notifications':'Vérification OTP',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
@@ -764,8 +788,8 @@ const webWorkspace = (() => {
     const root=$('#webMFASettings');if(!root)return;const mfa=cloud.currentUser()?.mfa;
     root.dataset.state=mfa?.complete?'complete':'missing';
     root.querySelector('#webMFAState').textContent=mfa?.complete?'MFA activée':'MFA à terminer';
-    root.querySelector('#webMFADescription').textContent=mfa?.phone?'Les notifications du navigateur sont activées sur ton compte. Elles sont distinctes de WALLIX Authenticator ; ton code à six chiffres reste utilisable en secours.':'Valide tes connexions avec les six chiffres de ton application, notamment WALLIX Authenticator. Aucun enregistrement du téléphone dans le navigateur n’est nécessaire.';
-    for(const [id,enabled] of [['webMFAStepPhone',mfa?.phone],['webMFAStepOTP',mfa?.authenticator]]){const step=root.querySelector('#'+id);step.dataset.done=String(!!enabled);step.querySelector('span').textContent=enabled?'Activé':id==='webMFAStepPhone'?'Facultatif':'À configurer';}
+    root.querySelector('#webMFADescription').textContent=mfa?.primary==='duo'?'Duo Mobile est la validation principale. Ton code Authenticator reste disponible en secours.':mfa?.phone?'Les notifications du navigateur sont activées sur ton compte. Elles sont distinctes de WALLIX Authenticator ; ton code à six chiffres reste utilisable en secours.':'Valide tes connexions avec les six chiffres de ton application, notamment WALLIX Authenticator. Aucun enregistrement du téléphone dans le navigateur n’est nécessaire.';
+    for(const [id,enabled] of [['webMFAStepPhone',mfa?.primary==='duo'],['webMFAStepOTP',mfa?.authenticator]]){const step=root.querySelector('#'+id);step.dataset.done=String(!!enabled);step.querySelector('span').textContent=enabled?'Activé':id==='webMFAStepPhone'?'À activer avec l’administrateur':'À configurer';}
   }
   async function mountOTPSettings(){
     const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
@@ -807,42 +831,19 @@ const webWorkspace = (() => {
     }
     try{const info=await request('');enabled=info.enabled;required=info.required;render();}catch(error){if(live())root.textContent=error.message;}
   }
-  async function mountPhoneSettings(){
-    const current=session,root=document.createElement('section');root.id='webPhoneSettings';root.className='web-otp-settings';($('#webMFASteps')||$('#settings-security')).append(root);
-    const live=()=>session===current&&root.isConnected,request=(path,value)=>cloud.agentRequest('users/push'+path,value);
+  async function mountDuoSettings(){
+    const current=session,root=document.createElement('section');root.id='webDuoSettings';root.className='web-otp-settings';$('#webMFASteps').prepend(root);
+    const live=()=>session===current&&root.isConnected;
     try{
-      const info=await request('');if(!live())return;
-      root.innerHTML='<h4>Notifications du navigateur · Facultatif</h4><p>'+(info.device?'Un téléphone est associé. Après ton code personnel, approuve la notification. Le code Authenticator sert uniquement de secours.':'Cette option ajoute des notifications dans un navigateur. Elle n’envoie aucune demande dans WALLIX Authenticator. Le QR code WolfGuard fournit les six chiffres ; une notification dans l’application WALLIX nécessiterait un service WALLIX Trustelem / IDaaS.')+'</p><p>Sur iPhone : ajoute d’abord ton lien privé WolfGuard à l’écran d’accueil avec le menu Partager, puis ouvre cette icône pour associer le téléphone. Sur Android : ouvre WolfGuard dans Chrome et autorise les notifications.</p><p class="web-phone-status" role="status"></p>';
-      const status=root.querySelector('[role=status]');
-      if(info.device){
-        const test=document.createElement('button');test.type='button';test.className='settings-btn';test.id='webPhoneTest';test.textContent='Tester la notification';root.append(test);
-        test.onclick=async()=>{test.disabled=true;try{await request('/test',{});if(live())status.textContent='Notification remise au service push. Vérifie le téléphone associé.';}catch(error){if(live())status.textContent=error.message;}finally{test.disabled=false;}};
-      }
-      if(!info.configured){status.textContent='Le service de notifications n’est pas disponible pour le moment.';return;}
-      if(!info.otpEnabled){status.textContent='Configure d’abord ton code à six chiffres. Tu pourras ensuite activer les notifications du navigateur si tu le souhaites.';return;}
-      const supported='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
-      const form=document.createElement('form');form.innerHTML='<label>Code personnel actuel<input id="webPhoneCode" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Code OTP actuel ou code de secours<input id="webPhoneOTP" type="text" autocomplete="one-time-code" maxlength="16" required></label><div class="actions">'+(supported?'<button type="submit" class="settings-btn primary" id="webPhoneRegister">'+(info.device?'Associer ce téléphone à la place':'Associer ce téléphone')+'</button>':'')+(info.device?'<button type="button" class="settings-btn" id="webPhoneRemove">Retirer le téléphone associé</button>':'')+'</div>';
-      root.append(form);if(!supported)status.textContent='Ce navigateur ne permet pas les notifications. Sur iPhone, ouvre WolfGuard depuis son icône sur l’écran d’accueil.';
-      let working=false;
-      const setBusy=value=>{working=value;form.querySelectorAll('button').forEach(button=>button.disabled=value);};
-      form.onsubmit=async event=>{
-        event.preventDefault();if(working||!supported)return;
-        setBusy(true);status.textContent='Activation des notifications…';
-        let code=form.querySelector('#webPhoneCode').value,otp=form.querySelector('#webPhoneOTP').value.trim();
-        try{
-          await registerCurrentPhone(info.publicKey,value=>request('/register',{...value,code,otp}));
-          if(!live())return;status.textContent='Téléphone associé. Les prochaines connexions demanderont ton approbation ; Authenticator reste disponible en secours.';
-          form.remove();await refreshMFASettings();
-        }catch(error){if(live())status.textContent=error.message;}
-        finally{code='';otp='';setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
-      };
-      const remove=form.querySelector('#webPhoneRemove');if(remove)remove.onclick=async()=>{
-        if(working||!form.reportValidity())return;
-        if(!await appConfirm('Retirer les notifications de ce navigateur ? Tu conserveras la connexion avec les six chiffres de ton application Authenticator.',{title:'Validation sur téléphone',confirmLabel:'Retirer'}))return;
-        setBusy(true);
-        try{await request('/remove',{code:form.querySelector('#webPhoneCode').value,otp:form.querySelector('#webPhoneOTP').value.trim()});if(!live())return;form.remove();status.textContent='Notifications du navigateur retirées. Ton code Authenticator reste activé pour les prochaines connexions.';await refreshMFASettings();}
-        catch(error){if(live())status.textContent=error.message;}
-        finally{setBusy(false);form.querySelectorAll('input').forEach(input=>input.value='');}
+      const info=await cloud.duoSettings();if(!live())return;
+      root.innerHTML='<h4>Notifications · Duo Mobile</h4><p id="webDuoSummary">'+(info.enabled?'Duo Mobile est activé. Tes prochaines connexions proposeront la validation sur ton téléphone. Ton Authenticator actuel reste disponible en secours.':'Duo Mobile n’est pas encore configuré. Les notifications du navigateur ont été retirées. Ton code Authenticator actuel conserve ton accès pendant la configuration.')+'</p>';
+      if(!info.canConfigure){if(!info.enabled)root.insertAdjacentHTML('beforeend','<p>Demande à ton administrateur de configurer Duo Mobile.</p>');return;}
+      root.insertAdjacentHTML('beforeend','<details '+(!info.configured?'open':'')+'><summary>Configurer Duo Mobile</summary><p>Crée un compte administrateur sur <a href="https://signup.duo.com/" target="_blank" rel="noopener noreferrer">Cisco Duo</a>, puis une application <strong>Web SDK</strong>. Duo Free accepte jusqu’à 10 utilisateurs. Dans Duo, ajoute les mêmes adresses e-mail que dans WolfGuard et active Duo Mobile pour chaque téléphone. Conserve une politique exigeant la MFA, sans contournement.</p><p>Ajoute cette adresse de retour à ton application Duo :</p><input id="webDuoCallback" readonly aria-label="Adresse de retour Duo"><button type="button" class="settings-btn" id="webDuoCopy">Copier l’adresse</button><form id="webDuoForm"><label>API hostname<input id="webDuoHost" autocomplete="off" spellcheck="false" placeholder="api-xxxxxxxx.duosecurity.com" required></label><label>Client ID<input id="webDuoClient" autocomplete="off" spellcheck="false" minlength="20" maxlength="20" required></label><label>Client secret<input id="webDuoSecret" type="password" autocomplete="new-password" minlength="40" maxlength="40" '+(!info.configured?'required':'placeholder="Laisser vide pour conserver la clé actuelle"')+'></label><label class="web-duo-toggle"><input id="webDuoEnabled" type="checkbox" '+(info.enabled||!info.configured?'checked':'')+'>Activer les validations Duo Mobile</label><label>Ton code personnel actuel<input id="webDuoPIN" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Ton code Authenticator actuel ou un code de secours<input id="webDuoOTP" autocomplete="one-time-code" maxlength="16" required></label><button type="submit" class="settings-btn primary">Vérifier et enregistrer Duo</button></form><p id="webDuoFeedback" role="status"></p></details>');
+      root.querySelector('#webDuoCallback').value=info.callbackUrl;root.querySelector('#webDuoHost').value=info.apiHost;root.querySelector('#webDuoClient').value=info.clientId;
+      root.querySelector('#webDuoCopy').onclick=()=>copyText(info.callbackUrl);
+      root.querySelector('#webDuoForm').onsubmit=async event=>{event.preventDefault();const button=root.querySelector('[type=submit]'),status=root.querySelector('#webDuoFeedback');button.disabled=true;status.textContent='Vérification auprès de Duo…';
+        try{const saved=await cloud.duoSettings({apiHost:root.querySelector('#webDuoHost').value,clientId:root.querySelector('#webDuoClient').value,clientSecret:root.querySelector('#webDuoSecret').value,enabled:root.querySelector('#webDuoEnabled').checked,code:root.querySelector('#webDuoPIN').value,otp:root.querySelector('#webDuoOTP').value.trim()});if(!live())return;info.enabled=saved.enabled;info.configured=true;root.querySelector('#webDuoSecret').required=false;root.querySelector('#webDuoSecret').placeholder='Laisser vide pour conserver la clé actuelle';root.querySelector('#webDuoSummary').textContent=saved.enabled?'Duo Mobile est activé pour les prochaines connexions. Ton Authenticator reste disponible en secours.':'Duo Mobile est désactivé. Ton code Authenticator conserve ton accès.';status.textContent='Configuration enregistrée. Tu peux tester Duo à la prochaine connexion.';await refreshMFASettings();}
+        catch(error){if(live())status.textContent=error.message;}finally{if(live()){button.disabled=false;for(const id of ['webDuoSecret','webDuoPIN','webDuoOTP'])root.querySelector('#'+id).value='';}}
       };
     }catch(error){if(live())root.textContent=error.message;}
   }
@@ -858,8 +859,8 @@ const webWorkspace = (() => {
     const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
-      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li><li id="webMFAStepPhone"><strong>Notifications navigateur · Facultatif</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
-      security.before(mfa);await Promise.all([mountPhoneSettings(),mountOTPSettings(),refreshMFASettings()]);
+      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li><li id="webMFAStepPhone"><strong>Duo Mobile · Notifications</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
+      security.before(mfa);await Promise.all([mountDuoSettings(),mountOTPSettings(),refreshMFASettings()]);
     }
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';

@@ -6,7 +6,8 @@ import {createServer} from 'node:http';
 import {Readable} from 'node:stream';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import {usernameHash} from '../server/lib/wolfguard/users.mjs';
-import {seal} from '../server/lib/wolfguard/access.mjs';
+import {seal,open} from '../server/lib/wolfguard/access.mjs';
+import {signDuoJWT} from '../server/lib/wolfguard/duo.mjs';
 class D1 {
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
   prepare(sql){const statement=this.db.prepare(sql);let values=[];return {bind(...args){values=args;return this;},async first(){return statement.get(...values)||null;},async all(){return {results:statement.all(...values)};},run(){const r=statement.run(...values);return {meta:{changes:Number(r.changes)}};}};}
@@ -23,6 +24,13 @@ env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
 env.MFA_REQUIRED=process.env.WG_TEST_MFA_REQUIRED;
 env.MFA_PUSH_PRIMARY=process.env.WG_TEST_PUSH_PRIMARY;
 env.MFA_PHONE_REQUIRED=process.env.WG_TEST_PHONE_REQUIRED;
+env.MFA_BROWSER_PUSH_ENABLED=process.env.WG_TEST_BROWSER_PUSH;
+if(process.env.WG_TEST_DUO==='1')env.DUO_TEST_FETCH=async(url,options)=>{
+  if(url.endsWith('/health_check'))return Response.json({stat:'OK'});
+  const row=env.DB.db.prepare("SELECT * FROM duo_requests WHERE status='verifying'").get(),user=env.DB.db.prepare('SELECT * FROM users WHERE id=?').get(row.user_id);
+  const config=await open(env.DB.db.prepare('SELECT config_cipher FROM duo_config WHERE id=1').get().config_cipher,'WolfGuard Duo configuration v1',env),username=await open(user.name_cipher,'WolfGuard users v1:name:'+user.id,env),now=Math.floor((Date.now()+offset)/1000);
+  return Response.json({id_token:await signDuoJWT({iss:'https://'+config.apiHost+'/oauth/v1/token',aud:config.clientId,sub:username,preferred_username:username,nonce:row.nonce,iat:now,auth_time:now,exp:now+300,amr:['mfa','otp'],auth_result:{result:'allow',status:'allow'}},config.clientSecret)});
+};
 // Existing browser regressions remain deterministic and never contact CERT-FR.
 env.CERTFR_FETCH=async()=>Response.json([]);
 if(process.env.WG_TEST_CERTFR==='1')env.CERTFR_FETCH=async url=>{

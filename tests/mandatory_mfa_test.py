@@ -14,7 +14,7 @@ from push_fixture import configure_push,approve_latest
 ROOT=Path(__file__).resolve().parents[1]
 
 def run():
-    codes_only=os.environ.get('WG_TEST_MFA_CODES_ONLY')=='1'
+    codes_only=True
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
@@ -61,8 +61,9 @@ def run():
             owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
             if codes_only:
                 expect(owner.locator('#webMFADescription')).to_contain_text('WALLIX Authenticator')
-                expect(owner.locator('#webMFAStepPhone')).to_contain_text('Facultatif')
-                expect(owner.locator('#webPhoneSettings')).to_contain_text('n’envoie aucune demande dans WALLIX Authenticator')
+                expect(owner.locator('#webMFAStepPhone')).to_contain_text('Duo Mobile')
+                expect(owner.locator('#webPhoneSettings')).to_have_count(0)
+                expect(owner.locator('#webDuoSettings')).to_contain_text('Les notifications du navigateur ont été retirées')
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
             owner.locator('#settings-tab-users').click();owner.locator('#wgUserInvite').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()
