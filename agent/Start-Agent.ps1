@@ -1,4 +1,4 @@
-param([switch]$Pair, [switch]$Headless)
+﻿param([switch]$Pair, [switch]$Headless)
 $ErrorActionPreference = 'Stop'
 $agentRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 if (-not $Headless) {

@@ -46,7 +46,8 @@ def source_archive(files=FILES):
         for target,source in sorted(files.items()):
             path=ROOT/source
             if path.is_symlink():raise ValueError('Agent source must not be a symlink')
-            data=path.read_text(encoding='utf-8').replace('\r\n','\n')
+            data=path.read_text(encoding='utf-8-sig').replace('\r\n','\n')
+            if not data.strip():raise ValueError('Empty agent source: '+source)
             encoding='utf-8-sig' if target.endswith('.ps1') else 'utf-8'
             if target.endswith(('.cmd','.ps1','.txt')):data=data.replace('\n','\r\n')
             info=ZipInfo(target,date_time=(2026,1,1,0,0,0));info.compress_type=ZIP_DEFLATED;info.create_system=3;info.external_attr=(0o755 if target.endswith(('.sh','.command')) else 0o644)<<16
