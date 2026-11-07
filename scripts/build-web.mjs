@@ -10,7 +10,7 @@ const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 // One permission model is used by server checks and the browser controls.
 writeFileSync(path.join(root,'browser/permissions.js'),readFileSync(path.join(root,'server/lib/wolfguard/permissions.mjs'),'utf8'));
-const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md']);
+const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md','.wasm']);
 // A build must preserve the private URL. Never generate a replacement silently.
 const entryFile=siteAccessFile;
 if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer site-access.json dans la configuration privée de WolfGuard avant de publier.');
@@ -80,7 +80,7 @@ function normalizePublishedText(folder) {
   for(const entry of readdirSync(folder,{withFileTypes:true})) {
     const filename=path.join(folder,entry.name);
     if(entry.isDirectory())normalizePublishedText(filename);
-    else if(allowed.has(path.extname(filename).toLowerCase())&&!['.zip','.exe'].includes(path.extname(filename).toLowerCase())) {
+    else if(allowed.has(path.extname(filename).toLowerCase())&&!['.zip','.exe','.wasm'].includes(path.extname(filename).toLowerCase())) {
       const contents=readFileSync(filename,'utf8');
       if(contents.includes('\r\n'))writeFileSync(filename,contents.replace(/\r\n/g,'\n'));
     }
