@@ -60,8 +60,8 @@ def run():
             assert counts['sources']==740, counts
             assert counts['references']==1 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
-            assert page.locator('.workspace-section-button').count()==7
-            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
+            assert page.locator('.workspace-section-button').count()==8
+            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')
 
@@ -103,18 +103,18 @@ def run():
             expect(page.locator('[data-section=checklist]')).to_have_count(0)
             page.evaluate("async()=>await put('items',{id:'saved-task',type:'task',title:'Ancienne tache conservee',content:'Note de checklist',completed:true,priority:'high',dueDate:'2030-01-15',createdAt:now(),updatedAt:now()})")
             assert not page.evaluate("workspaceModules.allowsItem({type:'task'})")
-            # Old vault records are retained encrypted, outside navigation and search.
+            # Existing encrypted vault records are accessible through the dedicated section.
             vault_id='archived-vault-test'
             page.evaluate("""async id=>await put('items',{id,type:'vault',title:'Acces confidentiel de test',tags:[],folderId:null,vaultBlobEnc:await encryptBlobWithKey(JSON.stringify({username:'synthetic@example.invalid',password:'SECRET-TEST-COFFRE-943!',host:'192.168.1.20',notes:'Note confidentielle du coffre',custom:[]}),state.vaultKey),encryptionVersion:2,createdAt:now(),updatedAt:now()})""",vault_id)
-            assert not page.evaluate("workspaceModules.allowsItem({type:'vault'})")
-            assert not page.evaluate("openSection('vault')")
+            assert page.evaluate("workspaceModules.allowsItem({type:'vault'})")
+            page.evaluate("openSection('vault')");page.wait_for_function('()=>!sectionTransition.active')
             clear=page.evaluate("async id=>await vaultData(await get('items',id))",vault_id)
             assert clear['password']=='SECRET-TEST-COFFRE-943!'
             stored=page.evaluate("async()=>await (await import('./browser/storage.js')).read()")
             for secret in ['Acces confidentiel','SECRET-TEST','Fiche confidentielle','synthetic@example']:
                 assert secret not in json.dumps(stored)
             assert page.evaluate("""async password=>{const c=await import('./browser/crypto.js');const s=await import('./browser/storage.js');const original=await s.read();const damaged=structuredClone(original);damaged.data=(damaged.data[0]==='A'?'B':'A')+damaged.data.slice(1);try{await c.open(damaged,password);return false}catch{return true}}""",PASSWORD)
-            print('PASS: ancienne donnee du coffre conservee chiffree, section retiree')
+            print('PASS: ancienne donnee du coffre accessible et conservee chiffree')
 
             page.locator('.workspace-section-button[data-section=tools]').click()
             page.wait_for_function('()=>!sectionTransition.active')

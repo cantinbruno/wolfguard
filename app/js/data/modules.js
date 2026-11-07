@@ -17,10 +17,10 @@ function libraryFacets() {
 const SCAN_WORKSPACE_KINDS={'scan-passive':'passive','scan-active':'active','scan-map':'map','scan-vulnerability':'vulnerability'};
 function isScanSection(section) { return Object.hasOwn(SCAN_WORKSPACE_KINDS,section); }
 
-const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'tools', 'remote'];
+const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'tools', 'remote', 'vault'];
 
 const workspaceModules = (() => {
-  const installed = new Set((window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools']).filter(id => id !== 'vault'));
+  const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);
   const has = id => installed.has(id);
   const allows = section => section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools'));
   return {

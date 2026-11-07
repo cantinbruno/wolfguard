@@ -47,7 +47,7 @@ const timestamp = value => {
   return Number.isFinite(result) ? result : 0
 };
 const typeLabel = t => ({
-  vault: 'Coffre',
+  vault: 'Coffre-fort',
   memo: 'Fiche',
   personal: 'Note',
   procedure: 'Procédure',

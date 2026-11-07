@@ -394,3 +394,7 @@
 }
 
 .topbar #agentsBtn {grid-area:agents}
+@media(min-width:1151px) and (max-width:1500px){
+  .topbar{--logo-column:48px;--settings-size:40px;grid-template-columns:var(--logo-column) minmax(0,1fr) var(--settings-size) var(--settings-size)!important;grid-template-areas:"brand search agents settings" "sections sections sections sections"!important;grid-template-rows:48px 44px!important;padding:8px 16px!important;gap:6px!important}
+  .topbar .top-actions{width:100%!important}
+}

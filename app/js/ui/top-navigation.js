@@ -9,7 +9,8 @@ const topNavigation = (() => {
     'scan-map': 'Cartographie',
     'scan-vulnerability': 'Vulnérabilités',
     tools: 'Outils',
-    remote: 'Prise en main'
+    remote: 'Prise en main',
+    vault: 'Coffre-fort'
   };
 
   function positionIndicator() {

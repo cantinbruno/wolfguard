@@ -92,7 +92,7 @@ def run():
             page.keyboard.press('Alt+6')
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.workspace-section-button[data-section=tools]')).to_have_attribute('aria-pressed','true')
-            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
+            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)
             expect(page.locator('.workspace-section-button[data-section=checklist]')).to_have_count(0)
             page.locator('.workspace-section-button[data-section=library]').click()
             page.wait_for_function("()=>!sectionTransition.active")

@@ -86,12 +86,12 @@ def run():
             page.locator('.library-editor-heading').get_by_role('button',name='Enregistrer',exact=True).click()
             expect(page.locator('.document-reader b,.document-reader strong')).to_have_count(1)
             page.evaluate("openById('secret')")
-            expect(page.locator('#passMask,#showPassword')).to_have_count(0)
-            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(0)
+            expect(page.locator('#passMask')).to_be_visible();expect(page.locator('#showPassword')).to_have_attribute('aria-pressed','false')
+            expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)
             assert 'SECRET-943!' not in page.locator('body').inner_text()
-            assert not page.evaluate("workspaceModules.allowsItem({type:'vault'})")
+            assert page.evaluate("workspaceModules.allowsItem({type:'vault'})")
             assert page.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','secret')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-943!'
-            print('PASS: commandes deleguees, editeur riche et ancien coffre conserve sans affichage')
+            print('PASS: commandes deleguees, editeur riche et coffre accessible avec mot de passe masque')
 
             # A fake clipboard exercises cleanup without reading or changing the OS clipboard.
             page.evaluate("""()=>{

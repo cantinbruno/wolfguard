@@ -102,7 +102,7 @@ function openPasswordGenerator() {
   $('#pgCopy').onclick = () => copySecret($('#pgOut').textContent);
   $('#pgUse').onclick = () => {
     const f = $('#fPass');
-    if (f) f.value = $('#pgOut').textContent;
+    if (f) { f.value = $('#pgOut').textContent; f.dispatchEvent(new Event('input', {bubbles:true})); }
     closeModal()
   };
 }
