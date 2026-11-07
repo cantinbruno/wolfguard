@@ -47,7 +47,7 @@ def run():
                 page.locator('[data-edr-audit]').click()
             pending=retry.value.json();expect(page.locator('#edrPosts')).to_contain_text('Audit en cours');expect(page.locator('#edrMetrics article').filter(has_text='Alertes relevées').locator('strong')).to_have_text('1')
             page.evaluate("async id=>await WolfGuardCloud.agentRequest('scans/cancel',{id})",pending['id'])
-            page.locator('[data-section=chatbot]').click();expect(page.locator('#aiSend')).to_be_enabled();page.wait_for_function('()=>!sectionTransition.active');page.locator('#aiPrompt').fill('Question test');expect(page.locator('#aiPrompt')).to_have_value('Question test')
+            page.locator('[data-section=chatbot]').click();expect(page.locator('#aiPrepare')).to_have_text('IA prête');expect(page.locator('#aiSend')).to_be_enabled();page.wait_for_function('()=>!sectionTransition.active');page.locator('#aiPrompt').fill('Question test');expect(page.locator('#aiPrompt')).to_have_value('Question test')
             page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible()
             expect(page.locator('.ai-message[data-role=assistant]')).to_contain_text('Réponse intégrée');assert not page.evaluate('window.injected===true');assert not chat_calls
             page.locator('#aiPrompt').fill('À annuler');page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible();page.locator('#aiStop').click();expect(page.locator('#aiSend')).to_be_enabled(timeout=10000);expect(page.locator('#aiPrompt')).to_have_value('À annuler')

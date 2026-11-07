@@ -108,6 +108,11 @@ export async function agentRequest(path,value,{signal}={}){
     if(!/^(?:users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
+export async function chatHistory(action='',value){
+  if(!enabled||!token)throw new Error('Connecte-toi pour retrouver ton historique.');
+  if(!/^(?:\?id=[a-f0-9]{32}|\/(?:save|delete|purge))?$/.test(action))throw new Error('Adresse d’historique invalide.');
+  return value===undefined?(await request('chat/history'+action)).data:post('chat/history'+action,value);
+}
 export function clear(){
   if(token)request('logout',{method:'POST'}).catch(()=>{});
   token='';version=0;user=null;usersEnabled=false;

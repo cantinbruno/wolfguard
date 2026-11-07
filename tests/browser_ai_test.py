@@ -29,9 +29,10 @@ def run():
                 page.locator('#lock').focus();page.keyboard.type(CODE);unlocked(page)
             else:page.wait_for_function('()=>!document.querySelector("#app").inert')
             page.locator('[data-section=chatbot]').click();page.wait_for_function('()=>!sectionTransition.active')
-            expect(page.locator('#aiAgent,#aiModel,#aiAgents')).to_have_count(0);expect(page.locator('#aiSend')).to_be_enabled()
+            expect(page.locator('#aiAgent,#aiModel,#aiAgents,#aiMode')).to_have_count(0)
             if not real:
-                page.locator('#aiPrepare').click();expect(page.locator('#aiPrepare')).to_have_text('IA prête');expect(page.locator('#aiStatus')).to_contain_text('IA prête')
+                expect(page.locator('#aiPrepare')).to_have_text('IA prête');expect(page.locator('#aiStatus')).to_contain_text('IA prête')
+            expect(page.locator('#aiSend')).to_be_enabled(timeout=900000 if real else 15000)
             page.locator('#aiPrompt').fill('Réponds en une phrase : à quoi sert le DNS ?');started=time.monotonic();page.locator('#aiSend').click()
             if real:
                 for _ in range(180):
@@ -54,14 +55,15 @@ def run():
             for width in [390,320]:
                 page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             page.screenshot(path=str(ROOT/'.cache/browser-ai-mobile.png'))
-            page.evaluate('lockApplication()');ready(page);page.locator('#lock').focus();page.keyboard.type(CODE);unlocked(page);page.locator('[data-section=chatbot]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('.ai-message')).to_have_count(0)
+            page.evaluate('lockApplication()');ready(page)
             assert page.evaluate('WolfGuardBrowserAI.ready===false')
             for _ in range(20):
                 if not page.workers:break
                 page.wait_for_timeout(100)
             assert not page.workers,'Model workers must stop on lock'
+            page.locator('#lock').focus();page.keyboard.type(CODE);unlocked(page);page.locator('[data-section=chatbot]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('.ai-message')).to_have_count(0)
             if real:
-                page.locator('#aiPrepare').click();expect(page.locator('#aiPrepare')).to_have_text('IA prête',timeout=90000)
+                expect(page.locator('#aiPrepare')).to_have_text('IA prête',timeout=90000)
                 assert not [url for _,url,_ in calls if '/api/agents' in url or '/api/ai' in url]
             assert not errors,errors
             context.close();print('PASS: chatbot without any agent or AI relay, escaped replies, cancellation, 320px layout and worker cleanup on lock'+(' (real WASM inference)' if real else ''))

@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, uniqueIndex, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, uniqueIndex, primaryKey, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 export const vault = sqliteTable('vault', {
   id: integer('id').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
@@ -75,3 +75,10 @@ export const terminalCommands=sqliteTable('terminal_commands',{
 export const aiJobs=sqliteTable('ai_jobs',{
  id:text('id').primaryKey(),agentId:text('agent_id').notNull(),userId:text('user_id').notNull(),userVersion:integer('user_version').notNull(),sessionHash:text('session_hash').notNull(),generation:integer('generation').notNull(),status:text('status').notNull(),requestCipher:text('request_cipher').notNull(),resultCipher:text('result_cipher'),leaseHash:text('lease_hash'),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
 },table=>[uniqueIndex('ai_jobs_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('queued','running')`)]);
+
+export const chatHistoryState=sqliteTable('chat_history_state',{
+  id:integer('id').primaryKey(),epoch:integer('epoch').notNull().default(0)
+});
+export const chatConversations=sqliteTable('chat_conversations',{
+  id:text('id').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),epoch:integer('epoch').notNull(),revision:integer('revision').notNull(),titleCipher:text('title_cipher').notNull(),contentCipher:text('content_cipher').notNull(),updatedAt:integer('updated_at').notNull()
+},table=>[index('chat_conversations_user_updated').on(table.userId,table.updatedAt)]);

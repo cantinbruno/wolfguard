@@ -7,6 +7,7 @@ import {consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from '
 import {pushDevice,startPush,handlePushLogin,requiresPhone,phoneEnrollment,handlePhoneEnrollment} from './push.mjs';
 import {open as openRecord} from './access.mjs';
 import {userPolicy} from './permission-store.mjs';
+import {handleChatHistory} from './chat-history.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -239,6 +240,7 @@ export async function handleAPI(request,env,clock=Date.now) {
       }else{
         const session=await authorize(request,env,now);
         if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest});
+        else if(path==='/api/chat/history'||path.startsWith('/api/chat/history/'))response=await handleChatHistory(request,env,now,session,{fail,json,body:()=>smallJSON(request,160*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});

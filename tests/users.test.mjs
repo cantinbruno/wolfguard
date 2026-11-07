@@ -10,6 +10,53 @@ import {seal} from '../server/lib/wolfguard/access.mjs';
 import {encodeSecret,otpAt,matchingStep} from '../server/lib/wolfguard/otp.mjs';
 import {validSubscription,decisionMessage,inspectMessage} from '../server/lib/wolfguard/push.mjs';
 import {buildPushPayload} from '../server/vendor/webpush.mjs';
+import {profilePolicy} from '../server/lib/wolfguard/permissions.mjs';
+
+test('chat histories are private per user, encrypted, resumable and only the admin can purge them',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const added=await s.createMember('chat@example.test','12345678',owner.token),member=await s.login('chat@example.test','12345678');
+    assert.equal((await s.api('chat/history')).status,401);
+    assert.equal((await s.api('chat/history',undefined,member.token)).status,403);
+    const policy=profilePolicy('none');policy.grants=['ai.use'];
+    assert.equal((await s.api('users/permissions',{id:added.user.id,revision:1,policy},owner.token)).status,200);
+    member.token=(await s.login('chat@example.test','12345678')).token;
+    const data={id:'c'.repeat(32),epoch:0,revision:0,messages:[{role:'user',content:'PRIVATE CHAT TITLE'},{role:'assistant',content:'PRIVATE ANSWER'}]};
+    assert.equal((await s.api('chat/history/save',data,member.token)).status,200);
+    const list=await(await s.api('chat/history',undefined,member.token)).json();assert.equal(list.conversations[0].title,'PRIVATE CHAT TITLE');
+    assert.equal((await(await s.api('chat/history',undefined,owner.token)).json()).conversations.length,0);
+    assert.equal((await s.api('chat/history?id='+data.id,undefined,owner.token)).status,404);
+    assert.equal((await s.api('chat/history/save',data,owner.token)).status,409);
+    const relogin=await s.login('chat@example.test','12345678');
+    const detail=await(await s.api('chat/history?id='+data.id,undefined,relogin.token)).json();assert.deepEqual(detail.messages,data.messages);assert.equal(detail.revision,1);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM chat_conversations').all());assert.ok(!disk.includes('PRIVATE CHAT TITLE')&&!disk.includes('PRIVATE ANSWER'));
+    assert.equal((await s.api('chat/history/save',data,member.token)).status,409);
+    assert.equal((await s.api('chat/history/save',{...data,revision:1,messages:[...data.messages,{role:'user',content:'Suite'},{role:'assistant',content:'La suite'}]},member.token)).status,200);
+    assert.equal((await s.api('chat/history/purge',{confirm:'DELETE_ALL_CHAT_HISTORY'},member.token)).status,403);
+    assert.equal((await s.api('chat/history/purge',{},owner.token)).status,400);
+    assert.equal((await s.api('chat/history/save',{...data,id:'d'.repeat(32)},owner.token)).status,200);
+    assert.equal((await s.api('chat/history/purge',{confirm:'DELETE_ALL_CHAT_HISTORY'},owner.token)).status,200);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM chat_conversations').get().n,0);
+    assert.equal((await s.api('chat/history/save',{...data,revision:2},member.token)).status,409);
+    assert.equal((await s.api('chat/history/save',{...data,id:'e'.repeat(32)},owner.token)).status,409);
+    const epoch=(await(await s.api('chat/history',undefined,member.token)).json()).epoch;assert.equal(epoch,1);
+    assert.equal((await s.api('chat/history/save',{...data,epoch},member.token)).status,200);
+    assert.equal((await s.api('chat/history/delete',{id:data.id,epoch,revision:1},owner.token)).status,409);
+    assert.equal((await s.api('chat/history/delete',{id:data.id,epoch,revision:1},member.token)).status,200);
+    assert.equal((await s.api('chat/history/save',{...data,epoch,revision:1},member.token)).status,409);
+  }finally{s.env.DB.db.close();}
+});
+
+test('a purge racing history encryption prevents the old write from committing',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const prepare=s.env.DB.prepare.bind(s.env.DB);let intercepted=false;
+    s.env.DB.prepare=sql=>{const statement=prepare(sql);if(sql.startsWith('INSERT INTO chat_conversations')){const run=statement.run.bind(statement);statement.run=async()=>{intercepted=true;assert.equal((await s.api('chat/history/purge',{confirm:'DELETE_ALL_CHAT_HISTORY'},owner.token)).status,200);return run();};}return statement;};
+    const response=await s.api('chat/history/save',{id:'c'.repeat(32),epoch:0,revision:0,messages:[{role:'user',content:'Effacer'},{role:'assistant',content:'Ancienne réponse'}]},owner.token);
+    assert.ok(intercepted);assert.equal(response.status,409);assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM chat_conversations').get().n,0);
+    assert.equal((await s.api('chat/history/save',{id:'a'.repeat(32),epoch:1,revision:0,messages:[{role:'user',content:'Only a question'}]},owner.token)).status,400);
+  }finally{s.env.DB.db.close();}
+});
 
 class D1{
   constructor(){this.db=new DatabaseSync(':memory:');for(const file of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+file,import.meta.url),'utf8'));}
