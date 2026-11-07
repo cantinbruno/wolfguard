@@ -88,11 +88,14 @@ function settingsTabsLayout(){
 }
 window.addEventListener('resize',settingsTabsLayout);
 
-function setSettingsTab(name, focus = false) {
+async function setSettingsTab(name, focus = false) {
   const dialog = $('.settings-modal');
   if (!dialog) return;
   const button = dialog.querySelector(`[data-settings-tab="${name}"]`);
   if (!button || button.disabled) return;
+  if(button.getAttribute('aria-selected')==='true'){if(focus)button.focus();return;}
+  if(dialog.querySelector('[data-settings-tab="users"]')?.getAttribute('aria-selected')==='true'&&!await workspaceUsers.beforeLeave())return;
+  if(!dialog.isConnected)return;
   dialog.querySelectorAll('[data-settings-tab]').forEach(tab => {
     const selected = tab === button;
     tab.classList.toggle('active', selected);
@@ -142,8 +145,8 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('key-round')}<span>Utilisateurs</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Accès</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
           <button type="button" class="settings-tab" id="settings-tab-history" data-settings-tab="history" role="tab" aria-controls="settings-history" aria-selected="false" tabindex="-1">${settingsIcon('history')}<span>Historique</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
         </nav>
@@ -245,7 +248,8 @@ async function openSettings(initialTab = 'security') {
   title.insertAdjacentHTML('afterbegin', '<img class="settings-title-logo wolf-logo" src="images/logo-loup.svg" alt="" aria-hidden="true" width="40" height="40">');
   const wrap = dialog.parentElement;
   wrap.classList.add('settings-wrap');
-  const closeSettings = () => {
+  const closeSettings = async () => {
+    if(!await workspaceUsers.beforeLeave()||!dialog.isConnected)return;
     closeModal();
     $('#settingsBtn')?.focus()
   };

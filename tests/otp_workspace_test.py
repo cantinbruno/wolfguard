@@ -34,7 +34,7 @@ def run():
             page.goto(origin+'/?sync-test#activate='+('b'*64)); unlock(page)
             expect(page.locator('#webUsername')).to_be_hidden()
             page.locator('#settingsBtn').click();page.locator('#settings-tab-users').click()
-            expect(page.locator('#wgUsersList')).to_contain_text('MFA non configurée')
+            expect(page.locator('#wgUserDetail')).to_contain_text('MFA non configurée');page.locator('.users-account-security summary').click()
             page.get_by_role('button',name='Configurer ma MFA').click()
             expect(page.locator('#webOTPForm')).to_be_visible()
             page.locator('#webOTPPassword').fill(CODE)

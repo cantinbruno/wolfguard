@@ -51,14 +51,14 @@ def run():
             expect(first.locator('#wgUsersList')).to_contain_text('cantin.bruno@gmx.fr')
             first.locator('#wgUserAdd').click();first.locator('#wgUserName').fill('alice@example.test');first.screenshot(path=str(ROOT/'.cache/users-add-email-only.png'),animations='disabled');expect(first.locator('#wgUserCode')).to_have_count(0);first.locator('#wgUserSave').click()
             expect(first.locator('#wgUserInvitation')).to_be_visible();initial_link=first.locator('#wgUserInvitationLink').input_value();assert '#account=' in initial_link
-            expect(first.locator('#wgUsersList')).to_contain_text('Code à définir par l’utilisateur')
+            expect(first.locator('#wgUsersList')).to_contain_text('À activer')
             expect(first.locator('#wgUsersList')).to_contain_text('alice@example.test')
             first.locator('#wgUsersSearch').fill('alice');expect(first.locator('.user-card')).to_have_count(1)
             first.locator('#wgUsersFilter').select_option('active');expect(first.locator('.user-card')).to_have_count(0)
             first.locator('#wgUsersFilter').select_option('pending');expect(first.locator('.user-card')).to_have_count(1)
             first.locator('#wgUsersSearch').fill('');first.locator('#wgUsersFilter').select_option('all')
-            owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));expect(owner_row).to_contain_text('Suppression et désactivation bloquées');expect(owner_row).to_contain_text('MFA non configurée')
-            owner_row.get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
+            owner_row=first.locator('.user-card').filter(has=first.get_by_text('cantin.bruno@gmx.fr',exact=True));owner_row.click();expect(first.locator('#wgUserDetail')).to_contain_text('Suppression et désactivation bloquées');expect(first.locator('#wgUserDetail')).to_contain_text('MFA non configurée')
+            first.locator('#wgUserDetail').get_by_role('button',name='Modifier',exact=True).click();expect(first.locator('#wgUserName')).to_have_attribute('readonly','');expect(first.locator('#wgUserDisabled')).to_be_disabled();first.locator('#wgUserCancel').click()
             for width in [1440,1150,1050,900,640,390,320]:
                 first.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
                 assert first.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
@@ -117,11 +117,12 @@ def run():
             users()
             def alice():return first.locator('.user-card').filter(has=first.get_by_text('alice@example.test',exact=True))
             def manage(name):
-                if alice().locator('details').get_attribute('open') is None:alice().locator('summary').click()
-                alice().get_by_role('button',name=name,exact=True).click()
-            manage('Désactiver');first.locator('.app-dialog-submit').click();expect(alice()).to_contain_text('Compte désactivé')
+                alice().click();detail=first.locator('#wgUserDetail');expect(detail.locator('h4').first).to_have_text('alice@example.test')
+                if detail.locator('.users-account-security').get_attribute('open') is None:detail.locator('.users-account-security summary').click()
+                detail.get_by_role('button',name=name,exact=True).click()
+            manage('Désactiver');first.locator('.app-dialog-submit').click();expect(alice()).to_contain_text('Désactivé')
             second.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}');expect(second.locator('#lock')).to_be_visible()
-            manage('Activer');first.locator('.app-dialog-submit').click();expect(alice()).not_to_contain_text('Compte désactivé');login(second,'alice@example.test','12345678')
+            manage('Activer');first.locator('.app-dialog-submit').click();expect(alice()).not_to_contain_text('Désactivé');login(second,'alice@example.test','12345678')
             manage('Réinitialiser le code');expect(first.locator('.app-dialog-input')).to_have_count(0)
             with first.expect_response(lambda response:urlsplit(response.url).path=='/api/users/reset-code' and response.status==200):first.locator('.app-dialog-submit').click()
             expect(first.locator('#wgUserInvitation')).to_be_visible();reset_link=first.locator('#wgUserInvitationLink').input_value();assert reset_link!=initial_link
@@ -145,7 +146,7 @@ def run():
             # and one-time fragment, using production origins and synthetic data.
             users();first.locator('#wgUserInvite').click();expect(first.locator('#wgUserInvitation')).to_be_visible()
             revoked_link=first.locator('#wgUserInvitationLink').input_value();expect(first.locator('#wgPendingInvitations')).to_be_visible()
-            first.locator('#wgPendingInvitations button').click();first.locator('.app-dialog-submit').click()
+            first.locator('#wgPendingInvitations summary').click();first.locator('#wgPendingInvitations button').click();first.locator('.app-dialog-submit').click()
             expect(first.locator('#wgPendingInvitations')).to_be_hidden();expect(first.locator('#wgUserInvitation')).to_be_hidden()
             canceled=guest.new_page();canceled.goto(revoked_link);expect(canceled.locator('#webAccountSetupForm [role=alert]')).to_contain_text('plus valide',timeout=15000);canceled.close()
             first.locator('#wgUserInvite').click();expect(first.locator('#wgUserInvitation')).to_be_visible()
