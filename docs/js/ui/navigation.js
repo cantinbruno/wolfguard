@@ -33,7 +33,7 @@ async function openSection(section, itemId = null, options = {}) {
     $('#sidebar').classList.add('hidden');
     $('#content').style.padding = '';
     $('#content').style.overflow = '';
-    $('#content').classList.remove('vault-content', 'protocol-content', 'section-accent-library', 'section-accent-vault', 'section-accent-memo', 'section-accent-personal', 'section-accent-command', 'section-accent-protocol', 'section-accent-template', 'section-accent-tools');
+    $('#content').classList.remove('vault-content', 'protocol-content', ...[...$('#content').classList].filter(name => name.startsWith('section-accent-')));
     $('#content').classList.add('explorer-content', 'section-accent-' + (isScanSection(section) ? 'scan' : section));
     if (!isScanSection(section)) $('#content').classList.remove('scan-content', 'section-accent-scan');
     topNavigation.setActive(section);

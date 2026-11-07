@@ -1,4 +1,4 @@
-/* Dark-blue surfaces with orange memos, pink tools and a green vault. */
+/* Midnight surfaces with a distinct accent for each workspace. */
 :root {
   --ui-page: #111c2b;
   --ui-sidebar: #0d1724;
@@ -22,9 +22,9 @@
   --workspace-passive: #8fd5ff;
   --workspace-active: #d1b5ff;
   --workspace-map: #79ead0;
-  --workspace-audit: #ffc295;
-  --workspace-remote: #a8c7ff;
-  --workspace-edr: #74e3be;
+  --workspace-audit: #ff9b9b;
+  --workspace-remote: #9eafff;
+  --workspace-edr: #f3dc78;
   --bg: var(--ui-page);
   --panel: var(--ui-sidebar);
   --panel2: var(--ui-surface);

@@ -29,13 +29,13 @@
   display: none;
 }
 
-#app[data-primary-section="library"] {
+:root:has(#app[data-primary-section="library"]:not(.hidden)), #app[data-primary-section="library"] {
   --workspace-accent: var(--workspace-library);
   --ui-accent: var(--workspace-library);
 }
 
-#app[data-primary-section="scan-passive"] {--workspace-accent:var(--workspace-passive);--ui-accent:var(--workspace-passive)}
-#app[data-primary-section="scan-active"] {--workspace-accent:var(--workspace-active);--ui-accent:var(--workspace-active)}
+:root:has(#app[data-primary-section="scan-passive"]:not(.hidden)), #app[data-primary-section="scan-passive"] {--workspace-accent:var(--workspace-passive);--ui-accent:var(--workspace-passive)}
+:root:has(#app[data-primary-section="scan-active"]:not(.hidden)), #app[data-primary-section="scan-active"] {--workspace-accent:var(--workspace-active);--ui-accent:var(--workspace-active)}
 
 /* Dialogs live outside #app and inherit the active workspace colours here. */
 :root:has(#app[data-primary-section="tools"]:not(.hidden)) {
@@ -94,6 +94,15 @@
 }
 
 .workspace-section-button[data-section="edr"] { --button-accent: var(--workspace-edr); }
+
+/* Keep shared controls and external settings aligned with the current section. */
+:root:has(#app[data-primary-section]:not(.hidden)) {
+  --ui-accent-hover: color-mix(in srgb, var(--ui-accent) 75%, white);
+  --ui-accent-soft: color-mix(in srgb, var(--ui-accent) 15%, var(--ui-sidebar));
+  --ui-highlight: var(--ui-accent);
+  --ui-highlight-hover: var(--ui-accent-hover);
+  --ui-highlight-soft: var(--ui-accent-soft);
+}
 
 /* Main header. */
 .topbar .brand-logo {

@@ -50,20 +50,22 @@ def run():
             assert not page.evaluate('workspaceModules.allows("chatbot")')
             assert page.evaluate('async()=>await openSection("chatbot")') is False
             expect(page.locator('#edrPosts')).to_be_visible()
-            for section in ['edr']:
+            palette={'library':'#ffc078','scan-passive':'#8fd5ff','scan-active':'#d1b5ff','scan-map':'#79ead0','scan-vulnerability':'#ff9b9b','tools':'#ffaddb','remote':'#9eafff','vault':'#91edbd','edr':'#f3dc78'}
+            assert len(set(palette.values()))==len(palette)
+            # Return through all sections after EDR: no previous accent may leak.
+            for section in ['edr',*palette]:
                 page.locator('[data-section='+section+']').click();page.wait_for_function('()=>!sectionTransition.active')
-                expected={'edr':'rgb(116, 227, 190)','chatbot':'rgb(221, 176, 255)'}[section]
-                assert page.locator('.security-workspace-heading h1').evaluate('(element)=>getComputedStyle(element).color')==expected
-                assert page.locator('#app').evaluate('(element)=>getComputedStyle(element).getPropertyValue("--workspace-accent").trim()')=={'edr':'#74e3be','chatbot':'#ddb0ff'}[section]
-                tab=page.locator('[data-section='+section+']')
-                assert tab.evaluate('(element)=>getComputedStyle(element).getPropertyValue("--button-accent").trim()')=={'edr':'#74e3be','chatbot':'#ddb0ff'}[section]
+                expected=palette[section]
+                colours=page.evaluate("""section=>({app:getComputedStyle(document.querySelector('#app')).getPropertyValue('--workspace-accent').trim(),root:getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim(),tab:getComputedStyle(document.querySelector('[data-section="'+section+'"]')).getPropertyValue('--button-accent').trim(),content:getComputedStyle(document.querySelector('#content')).getPropertyValue('--ui-accent').trim(),classes:[...document.querySelector('#content').classList].filter(name=>name.startsWith('section-accent-'))})""",section)
+                assert all(colours[key]==expected for key in ['app','root','tab','content']),(section,colours)
+                assert len(colours['classes'])==1,(section,colours)
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-desktop.png')))
                 for width in [390,320]:
                     page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
             page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_be_visible();expect(page.locator('[data-section=chatbot]')).to_have_count(0);assert not chat_calls
             assert not errors,errors
-            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, chatbot removed, no AI calls, mobile layout, lock and reload')
+            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, nine distinct section colours without EDR leakage, chatbot removed, no AI calls, mobile layout, lock and reload')
     finally:process.terminate();process.wait(timeout=5);server.shutdown()
 
 if __name__=='__main__':run()

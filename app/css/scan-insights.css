@@ -1,5 +1,5 @@
-#app[data-primary-section="scan-map"]{--workspace-accent:var(--workspace-map);--ui-accent:var(--workspace-map)}
-#app[data-primary-section="scan-vulnerability"]{--workspace-accent:var(--workspace-audit);--ui-accent:var(--workspace-audit)}
+:root:has(#app[data-primary-section="scan-map"]:not(.hidden)), #app[data-primary-section="scan-map"]{--workspace-accent:var(--workspace-map);--ui-accent:var(--workspace-map)}
+:root:has(#app[data-primary-section="scan-vulnerability"]:not(.hidden)), #app[data-primary-section="scan-vulnerability"]{--workspace-accent:var(--workspace-audit);--ui-accent:var(--workspace-audit)}
 .workspace-section-button[data-section="scan-map"]{--button-accent:var(--workspace-map)}
 .workspace-section-button[data-section="scan-vulnerability"]{--button-accent:var(--workspace-audit)}
 .wgscan[data-kind="map"]{--ws-accent:var(--workspace-map)}
