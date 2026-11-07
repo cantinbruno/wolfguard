@@ -51,7 +51,7 @@ export function recordLevel(user,record,kind,folders,now=Date.now()){
   if(own(rules,record.id))return rules[record.id];
   let id=kind==='items'?record.folderId:record.parentId;const seen=new Set([record.id]);
   while(id){if(seen.has(id))return 'deny';seen.add(id);if(own(scope.folders,id))return scope.folders[id];const folder=folders.find(f=>f.id===id);if(!folder||recordSection(folder,'folders')!==section)return 'deny';id=folder.parentId;}
-  return scope.folders.root??(scope.mode==='all'?'write':'deny');
+  return scope.mode==='all'?'write':'deny';
 }
 export function requirePermission(user,key,fail,now){if(!can(user,key,now))fail(403,'Ton compte ne dispose pas du droit « '+key+' ».',{code:'PERMISSION_DENIED'});}
 export function canManagePolicy(actor,target){

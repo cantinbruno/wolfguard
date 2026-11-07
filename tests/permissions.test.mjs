@@ -44,6 +44,13 @@ test('folder inheritance and item overrides require module read and never loop o
   assert.equal(recordLevel(user(policy),data.items[0],'items',data.folders),'write');assert.equal(recordLevel(user(policy),data.items[1],'items',data.folders),'read');
   policy.grants=[];assert.equal(recordLevel(user(policy),data.items[1],'items',data.folders),'deny');
 });
+test('a folder literally named root is an ordinary folder and cannot grant access to unrelated data',()=>{
+  const policy=profilePolicy('reader');policy.scopes.library={mode:'selected',folders:{root:'read'},items:{}};
+  const folders=[{id:'root',section:'library',parentId:null},{id:'other',section:'library',parentId:null}];
+  assert.equal(recordLevel(user(policy),{id:'inside',type:'memo',folderId:'root'},'items',folders),'read');
+  assert.equal(recordLevel(user(policy),{id:'outside',type:'memo',folderId:'other'},'items',folders),'deny');
+  assert.equal(recordLevel(user(policy),{id:'loose',type:'memo',folderId:null},'items',folders),'deny');
+});
 test('server envelopes interoperate with browser crypto and authenticate headers',async()=>{
   const data=payload(),value=await browserCrypto.create(data,'12345678'),material=await browserCrypto.workspaceMaterial('12345678',value.salt);
   assert.deepEqual(await openEnvelope(value.envelope,material),data);const wrapped=await sealEnvelope(data,material,3);assert.deepEqual((await browserCrypto.openWithKey(wrapped,value.key,value.salt)).payload,data);
