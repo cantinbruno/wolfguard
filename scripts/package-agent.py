@@ -25,7 +25,7 @@ FILES={
 EXE=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
 MANIFEST=ROOT/'agent/windows-build.json'
 POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mjs','agent/network.mjs','agent/posix.mjs','agent/security-rules.mjs','server/lib/wolfguard/scan-spec.mjs']}
-for name in ['remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
+for name in ['ai.mjs','remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
@@ -33,6 +33,9 @@ POSIX_FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote
 FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
 POSIX_FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
 POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})
+
+FILES['server/lib/wolfguard/ai-input.mjs']='server/lib/wolfguard/ai-input.mjs'
+POSIX_FILES['server/lib/wolfguard/ai-input.mjs']='server/lib/wolfguard/ai-input.mjs'
 
 def source_archive(files=FILES):
     buffer=io.BytesIO()

@@ -71,3 +71,7 @@ export const remoteInputs = sqliteTable('remote_inputs', {
 export const terminalCommands=sqliteTable('terminal_commands',{
   sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),status:text('status').notNull(),specCipher:text('spec_cipher').notNull(),resultCipher:text('result_cipher'),revision:integer('revision').notNull().default(0),cancelRequested:integer('cancel_requested').notNull().default(0)
 },table=>[primaryKey({columns:[table.sessionId,table.seq]}),uniqueIndex('terminal_one_pending_command').on(table.sessionId).where(sql`${table.status} IN ('queued','running')`)]);
+
+export const aiJobs=sqliteTable('ai_jobs',{
+ id:text('id').primaryKey(),agentId:text('agent_id').notNull(),userId:text('user_id').notNull(),userVersion:integer('user_version').notNull(),sessionHash:text('session_hash').notNull(),generation:integer('generation').notNull(),status:text('status').notNull(),requestCipher:text('request_cipher').notNull(),resultCipher:text('result_cipher'),leaseHash:text('lease_hash'),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+},table=>[uniqueIndex('ai_jobs_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('queued','running')`)]);

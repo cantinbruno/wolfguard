@@ -5,12 +5,13 @@ export const PERMISSION_GROUPS=[
   ...['passive','active','map','vulnerability'].map(id=>['scan.'+id,({passive:'Scan passif',active:'Scan actif',map:'Cartographie',vulnerability:'Vulnérabilités'})[id],[['read','Consulter les rapports'],['run','Lancer'],['cancel','Arrêter'],['delete','Supprimer les rapports'],['export','Exporter']]]),
   ['remote','Prise en main',[['desktop','Bureau distant'],['terminal','Terminal distant']]],
   ['agents','Agents',[['read','Voir les postes autorisés'],['pair','Associer des postes'],['revoke','Révoquer des postes']]],
+  ['ai','Chatbot IA',[['use','Discuter avec le modèle local des postes autorisés']]],
   ['tools','Outils',[['use','Utiliser les outils locaux']]],
   ['users','Comptes',[['read','Consulter les comptes'],['manage','Inviter et gérer les comptes membres']]],
   ['access','Connexions',[['read','Consulter les connexions']]]
 ];
 export const PERMISSION_KEYS=PERMISSION_GROUPS.flatMap(([group,,actions])=>actions.map(([action])=>group+'.'+action));
-const legacy=PERMISSION_KEYS.filter(key=>!key.startsWith('users.')&&!key.startsWith('access.')&&!['agents.pair','agents.revoke'].includes(key));
+const legacy=PERMISSION_KEYS.filter(key=>!key.startsWith('users.')&&!key.startsWith('access.')&&!key.startsWith('ai.')&&!['agents.pair','agents.revoke'].includes(key));
 export const PERMISSION_PROFILES=[
   {id:'none',name:'Aucun accès',description:'Accès accordé explicitement, action par action.',grants:[]},
   {id:'reader',name:'Lecture seule',description:'Bibliothèque et rapports, sans secrets ni prise en main.',grants:PERMISSION_KEYS.filter(k=>k==='library.read'||k==='vault.read'||/^scan\..+\.read$/.test(k)||k==='agents.read'||k==='tools.use')},

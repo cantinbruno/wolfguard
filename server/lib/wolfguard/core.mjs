@@ -85,7 +85,7 @@ async function authorize(request,env,now) {
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
   if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
   if(requiresPhone(env)&&session.user_id&&!session.user_push)fail(401,'Associe ton téléphone pour terminer la configuration MFA.',{code:'MFA_SETUP_REQUIRED'});
-  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&!!session.user_push,required:requiresMFA(env),primary:'push',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
+  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&(!requiresPhone(env)||!!session.user_push),required:requiresMFA(env),primary:session.user_push?'push':'authenticator',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
   if(session.user_id){const rights=await env.DB.prepare('SELECT id,permissions_cipher,permission_revision FROM users WHERE id=?').bind(session.user_id).first();user.permissions=await userPolicy(rights,env);user.permission_revision=rights.permission_revision;}
   return {...session,hash,access:context,user};
 }
@@ -234,7 +234,7 @@ export async function handleAPI(request,env,clock=Date.now) {
           else response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});
           }
         }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
-      }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')){
+      }else if(path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')||path==='/api/ai'||path.startsWith('/api/ai/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);

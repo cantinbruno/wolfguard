@@ -36,6 +36,7 @@ export async function handleRemoteAPI(request,env,now,h){
     if(!agent)fail(404,'Poste introuvable.');if(agent.last_seen<=now-20000)fail(409,'Démarre l’agent sur le poste distant.');
     const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes(mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser cette prise en main.');
     const id=h.random(16);
+    if(await env.DB.prepare("SELECT id FROM ai_jobs WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first())fail(409,'Une réponse IA est en cours sur ce poste. Attends sa fin.');
     const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until,mode) SELECT ?,?,?,?,'requested',?,?,?,0,? WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+15000,mode,agent.id).first();
     if(!inserted)fail(409,'Le poste exécute déjà un scan ou une prise en main. Termine cette opération avant de te connecter.');
     return json({id,status:'requested',expiresAt:now+20*60000},201);

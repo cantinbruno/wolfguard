@@ -143,6 +143,7 @@ function resetPinUI() {
 
 function lockApplication() {
   window.remoteDesktopWorkspace?.reset();
+    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof chatbotWorkspace!=='undefined')chatbotWorkspace.reset(true);
   appMessages.dismiss();
   resetPrimaryWorkspaces();
   window.workspaceSearch?.reset();

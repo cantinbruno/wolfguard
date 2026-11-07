@@ -17,7 +17,7 @@ def run():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MFA_REQUIRED':'1','WG_TEST_PUSH_PRIMARY':'1','WG_TEST_PUSH':'1','WG_TEST_MANUAL_USERS':'1'})
+    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MFA_REQUIRED':'1','WG_TEST_PUSH_PRIMARY':'1','WG_TEST_PHONE_REQUIRED':'1','WG_TEST_PUSH':'1','WG_TEST_MANUAL_USERS':'1'})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def api(path,data,token=None,method='POST',headers=None):
         raw=json.dumps(data).encode();h={'Origin':origin,'Content-Type':'application/json',**({'Authorization':'Bearer '+token} if token else {}),**(headers or {})}
@@ -49,7 +49,7 @@ def run():
                 page.locator('#webEnrollSaved').check();page.locator('#webEnrollContinue').click();expect(page.locator('#webPhoneEnrollRegister')).to_be_visible();expect(page.locator('#app')).to_be_hidden();page.locator('#webPhoneEnrollRegister').click();approve_latest(page,origin,backend)
                 return secret
             enter(owner,CODE);owner_secret=enroll(owner)
-            owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('secours')
+            owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
             owner.locator('#settings-tab-users').click();owner.locator('#wgUserInvite').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()
@@ -61,7 +61,8 @@ def run():
                 guest.set_viewport_size({'width':width,'height':1000 if width==1440 else 844});assert guest.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 guest.screenshot(path=str(ROOT/f'.cache/mandatory-mfa-{width}.png'),animations='disabled')
             guest_secret=enroll(guest);assert guest_secret!=owner_secret
-            assert guest.evaluate("async()=>(await get('items','private-note')).content")=='<p>Only after MFA</p>'
+            assert guest.evaluate("async()=>!(await get('items','private-note'))")
+            expect(guest.locator('.permission-empty')).to_contain_text('Aucun espace')
             assert guest.evaluate('WolfGuardCloud.currentUser().mfa.authenticator')
             guest.reload();expect(guest.locator('#app')).to_be_visible(timeout=20000);expect(guest.locator('.web-mfa-enrollment')).to_have_count(0)
             with urlopen(backend+'/__test/advance/30001'):pass

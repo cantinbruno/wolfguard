@@ -139,3 +139,14 @@ seconds terminates the session rather than replaying delayed actions. An
 unclaimed request expires after 90 seconds; all sessions expire after 20 minutes.
 Scans and desktop sessions cannot run concurrently on one agent. These are
 administration-oriented image updates, not a video/audio conferencing service.
+
+
+## Local AI and endpoint monitoring
+
+The EDR workspace reads existing scoped agents, audit history and evidence. It never infers continuous protection from an online agent and never runs automatic remediation.
+
+The authenticated `/api/ai` and `/api/ai/cancel` routes queue private local Ollama requests, requiring `ai.use` and `agents.read` with the selected agent in scope. `ai-chat-v1` agents claim requests through their existing poll and publish responses to `/api/agent/ai/update` using a separate lease. Requests are bound to the originating session, code version and generation; current permissions are rechecked before claim and updates. The agent contacts only `http://127.0.0.1:11434/api/chat`, with no shell or tool calls. Request and result bodies are encrypted with distinct storage contexts. At most one AI operation runs per agent; scans and remote sessions remain mutually exclusive with it. Queue time is two minutes, generation ten minutes, and temporary rows are pruned after one hour on subsequent AI access.
+
+Install Ollama and a local model (default `qwen3.5:4b`) on a selected agent machine. No API key or cloud provider is needed. Chat history is browser-memory-only until locking; relay encryption is at rest, not end-to-end.
+
+`MFA_PUSH_PRIMARY=1` keeps push first for enrolled devices and does not require enrolling a phone. Existing Authenticator factors satisfy MFA independently. A separately explicit `MFA_PHONE_REQUIRED=1` can still enforce strict enrollment. `POST /api/users/push/test` sends a test notification to the session user's enrolled device. VAPID keys and existing storage secrets must be preserved on deployment.

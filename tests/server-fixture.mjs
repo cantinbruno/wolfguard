@@ -22,6 +22,7 @@ const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KE
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
 env.MFA_REQUIRED=process.env.WG_TEST_MFA_REQUIRED;
 env.MFA_PUSH_PRIMARY=process.env.WG_TEST_PUSH_PRIMARY;
+env.MFA_PHONE_REQUIRED=process.env.WG_TEST_PHONE_REQUIRED;
 // Existing browser regressions remain deterministic and never contact CERT-FR.
 env.CERTFR_FETCH=async()=>Response.json([]);
 if(process.env.WG_TEST_CERTFR==='1')env.CERTFR_FETCH=async url=>{

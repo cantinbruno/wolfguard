@@ -24,6 +24,8 @@ async function openSection(section, itemId = null, options = {}) {
     rememberPrimaryWorkspace(section);
     if (options.tool && ['ip', 'hash', 'text'].includes(options.tool)) networkToolsView.tool = options.tool;
     if (options.resume?.section === 'tools') networkToolsView.tool = ['ip', 'hash', 'text'].includes(options.resume.tool) ? options.resume.tool : 'ip';
+    if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
+    if (state.section === 'chatbot' && section !== 'chatbot') chatbotWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
     state.folder = options.resume?.folder || null;
@@ -488,6 +490,8 @@ async function renderWorkspace() {
   if (state.section === 'modules') renderModulesWorkspace();
   else if (isScanSection(state.section)) await renderScanWorkspace();
   else if (state.section === 'remote') await remoteDesktopWorkspace.render();
+  else if (state.section === 'edr') await edrWorkspace.render();
+  else if (state.section === 'chatbot') await chatbotWorkspace.render();
   else if (state.section === 'tools') await renderNetworkTools();
   else if (state.section === 'protocol') await renderProtocolWorkspace();
   else if (state.section === 'library') await renderLibraryWorkspace();

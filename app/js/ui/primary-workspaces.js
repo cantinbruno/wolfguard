@@ -16,7 +16,7 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => isScanSection(section) || section === 'remote' ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const primarySectionFor = section => isScanSection(section) || ['remote','edr','chatbot'].includes(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
 const availablePrimarySections = () => PRIMARY_WORKSPACE_SECTIONS.filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
@@ -47,7 +47,7 @@ function syncMemoDraftIndicator() {
   button?.classList.toggle('has-draft', draft);
   for (const tab of document.querySelectorAll('.workspace-section-button')) {
     const section = tab.dataset.section;
-    const shortcut = String(availablePrimarySections().indexOf(section) + 1);
+    const shortcut = String((availablePrimarySections().indexOf(section) + 1)%10);
     const label = tab.textContent + ' (Alt+' + shortcut + ')' + (section === 'library' && draft ? ' · Brouillon de fiche en cours' : '');
     tab.title = label;
     tab.setAttribute('aria-label', label);
@@ -128,7 +128,7 @@ async function switchPrimaryWorkspace(section) {
     return true;
   }
   if (target === 'library') return openSection('library');
-  if (isScanSection(target) || target === 'remote') return openSection(target);
+  if (isScanSection(target) || ['remote','edr','chatbot'].includes(target)) return openSection(target);
   if (target === 'modules') return openSection('modules');
   if (target === 'vault') return openSection('vault', null, {
     resume: primaryWorkspaces.vault
@@ -140,9 +140,9 @@ async function switchPrimaryWorkspace(section) {
 }
 document.addEventListener('input', () => syncMemoDraftIndicator());
 document.addEventListener('keydown', event => {
-  const digit=/^[1-7]$/.test(event.key)?event.key:/^Digit([1-7])$/.exec(event.code||'')?.[1];
+  const digit=/^[0-9]$/.test(event.key)?event.key:/^Digit([0-9])$/.exec(event.code||'')?.[1];
   if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !digit || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
-  const destination=availablePrimarySections()[Number(digit)-1];
+  const destination=availablePrimarySections()[digit==='0'?9:Number(digit)-1];
   if(!destination)return;
   event.preventDefault();
   switchPrimaryWorkspace(destination);

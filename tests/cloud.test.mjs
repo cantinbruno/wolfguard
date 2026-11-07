@@ -125,3 +125,10 @@ test('cloud keeps authorization, version headers and conflict errors intact',()=
   globalThis.fetch=async()=>({ok:false,status:409,json:async()=>({error:'Version plus récente',retryAfter:4})});
   await assert.rejects(cloud.agentRequest('agents'),{code:'CLOUD_CONFLICT',retryAfter:4});
 }));
+
+test('chat and push test routes use the authenticated client and reject arbitrary paths',()=>client(async cloud=>{
+ const calls=[];globalThis.fetch=async(url,options)=>{calls.push(new URL(url).pathname);return {ok:true,headers:new Headers(),json:async()=>({ok:true})};};
+ for(const path of ['ai','ai?id='+('c'.repeat(32)),'ai/cancel','users/push/test'])await cloud.agentRequest(path,path.includes('?')?undefined:{});
+ assert.deepEqual(calls,['/api/ai','/api/ai','/api/ai/cancel','/api/users/push/test']);
+ await assert.rejects(cloud.agentRequest('ai/arbitrary',{}),/Adresse agent invalide/);
+}));

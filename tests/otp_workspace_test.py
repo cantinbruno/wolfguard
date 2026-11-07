@@ -22,7 +22,7 @@ def run():
     Thread(target=server.serve_forever, daemon=True).start()
     origin = f'http://127.0.0.1:{server.server_port}'
     node = Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ, 'WG_TEST_ORIGIN':origin,'WG_TEST_PUSH':'1'})
+    process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ, 'WG_TEST_ORIGIN':origin,'WG_TEST_PUSH':'1','WG_TEST_PUSH_PRIMARY':'1'})
     backend = 'http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     try:
         with sync_playwright() as p:
@@ -48,7 +48,7 @@ def run():
             recovery = page.get_by_role('textbox', name='Codes de secours')
             expect(recovery).to_be_visible()
             codes = recovery.input_value().splitlines(); assert len(codes)==8
-            expect(page.locator('#webMFAState')).to_contain_text('MFA à terminer')
+            expect(page.locator('#webMFAState')).to_contain_text('MFA activée')
             expect(page.locator('#webPhoneSettings')).to_be_visible()
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':900})

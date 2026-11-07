@@ -11,7 +11,9 @@ const topNavigation = (() => {
     'scan-vulnerability': 'Vulnérabilités',
     tools: 'Outils',
     remote: 'Prise en main',
-    vault: 'Coffre-fort'
+    vault: 'Coffre-fort',
+    edr: 'EDR',
+    chatbot: 'Chatbot IA'
   };
 
   function positionIndicator() {

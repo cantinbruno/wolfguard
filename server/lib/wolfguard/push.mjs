@@ -9,7 +9,9 @@ const hash=async value=>hex(await crypto.subtle.digest('SHA-256',encoder.encode(
 const context=id=>'WolfGuard push subscription v1:'+id;
 const detailsContext=id=>'WolfGuard push request v1:'+id;
 export const pushDevice=(env,userId)=>env.DB.prepare('SELECT * FROM push_devices WHERE user_id=?').bind(userId).first();
-export const requiresPhone=env=>env.MFA_PUSH_PRIMARY==='1';
+// Push priority and mandatory phone enrollment are separate policies. Existing
+// Authenticator accounts can sign in without registering a notification device.
+export const requiresPhone=env=>env.MFA_PHONE_REQUIRED==='1';
 async function enrollmentKey(env){return crypto.subtle.importKey('raw',Uint8Array.from(env.AUTH_PEPPER.match(/../g),value=>parseInt(value,16)),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 export async function phoneEnrollment(env,user,generation,now){
   const payload=btoa(JSON.stringify({purpose:'push-enrollment',userId:user.id,version:user.code_version,generation,expiresAt:now+600000,binding:await hash(user.otp_secret_cipher)})).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -108,6 +110,11 @@ export async function handlePushSettings(request,env,now,session,h){
   const device=await pushDevice(env,user.id),configured=!!(env.PUSH_VAPID_PUBLIC_KEY&&env.PUSH_VAPID_PRIVATE_KEY)||!!(env.LOCAL_TEST_ORIGIN&&env.PUSH_TEST_SEND);
   if(path==='/api/users/push'&&request.method==='GET')return json({configured,device:device?{id:device.id,createdAt:device.created_at}:null,publicKey:env.PUSH_VAPID_PUBLIC_KEY||null,otpEnabled:!!user.otp_secret_cipher});
   if(request.method!=='POST')fail(404,'Adresse inconnue.');
+  if(path==='/api/users/push/test'){
+    if(!device)fail(409,'Active d’abord les notifications sur ce téléphone.');
+    try{await sendNotification(env,device,{type:'test',deviceId:device.id});}catch{fail(503,'La notification n’a pas pu être remise. Réactive les notifications sur le téléphone.');}
+    return json({ok:true});
+  }
   const data=await body();
   if(!user.otp_secret_cipher)fail(409,'Configure d’abord le code Authenticator de secours.');
   if(!['/api/users/push/register','/api/users/push/remove'].includes(path))fail(404,'Adresse inconnue.');

@@ -1,3 +1,4 @@
+import {handleAI,claimAI,updateAI} from './ai.mjs';
 import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
 import {cachedAnalysis,analyzeScan} from './certfr.mjs';
 import {can,canAgent,requirePermission} from './permissions.mjs';
@@ -15,6 +16,7 @@ export async function handleAgentAPI(request,env,now,h){
   async function agentAuth(){const token=/^Agent ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];if(!token)fail(401,'Agent non associé.');const row=await env.DB.prepare('UPDATE scan_agents SET last_seen=? WHERE token_hash=? AND revoked_at IS NULL AND generation=(SELECT generation FROM vault WHERE id=1) RETURNING *').bind(now,await digest(token)).first();if(!row)fail(401,'Association expirée ou agent révoqué.');return row;}
   const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
   const remoteHelpers={...h,body,seal,open,agentAuth};
+  if(path==='/api/ai'||path.startsWith('/api/ai/'))return handleAI(request,env,now,remoteHelpers);
   if(path.startsWith('/api/remote/')||path.startsWith('/api/agent/remote/'))return handleRemoteAPI(request,env,now,remoteHelpers);
   const changed=result=>Number(result?.meta?.changes||0)>0;
   async function expire(){
@@ -31,15 +33,17 @@ export async function handleAgentAPI(request,env,now,h){
   }
   if(path.startsWith('/api/agent/')){
     const agent=await agentAuth();await expire();
+    if(path==='/api/agent/ai/update')return updateAI(request,env,agent,now,remoteHelpers);
     if(path==='/api/agent/poll'&&request.method==='POST'){
       const info=await body();
       if(Array.isArray(info.capabilities)){
-        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1'].filter(value=>info.capabilities.includes(value));
+        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','remote-desktop-v1','remote-terminal-v1','ai-chat-v1'].filter(value=>info.capabilities.includes(value));
         const metadata=await open(agent.name_cipher,agent.id+':name');
         if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities))await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities},agent.id+':name'),agent.id).run();
       }
       const old=await env.DB.prepare("SELECT id FROM scan_jobs WHERE agent_id=? AND status='running'").bind(agent.id).first();if(old)return json({job:null});
       const remote=await claimRemote(env,agent,now,remoteHelpers);if(remote)return json({job:null,remote});
+      if(info.capabilities?.includes('ai-chat-v1')){const ai=await claimAI(env,agent,now,h);if(ai)return json({job:null,ai});}
       const candidate=await env.DB.prepare("SELECT id FROM scan_jobs WHERE agent_id=? AND generation=? AND status='queued' AND expires_at>? ORDER BY created_at LIMIT 1").bind(agent.id,agent.generation,now).first();if(!candidate)return json({job:null});
       const lease=random(32),row=await env.DB.prepare("UPDATE scan_jobs SET status='running',lease_hash=?,lease_until=?,expires_at=?,updated_at=?,revision=revision+1 WHERE id=? AND status='queued' RETURNING *").bind(await digest(lease),now+LEASE_MS,now+10*60000,now,candidate.id).first();
       return json({job:row?{id:row.id,lease,revision:row.revision,spec:await open(row.spec_cipher,row.id+':spec')}:null});
@@ -89,6 +93,7 @@ export async function handleAgentAPI(request,env,now,h){
     if(spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-scan-v3'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour les observations enrichies et les adresses publiques.');
     if(spec.passiveScope==='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('security-audit-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour lancer l’audit de sécurité.');
     if(spec.workspace!=='map'&&spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-target-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour scanner uniquement la cible IP ou FQDN indiquée.');
+    if(await env.DB.prepare("SELECT id FROM ai_jobs WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first())fail(409,'Une réponse IA est en cours sur ce poste. Attends sa fin.');
     const id=random(16),cipher=await seal(spec,id+':spec');
     const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until,created_by) SELECT ?,?,?,?,'queued',?,?,?,?,0,0,0,0,? WHERE NOT EXISTS(SELECT 1 FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000,session.user.id,agent.id).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
   }

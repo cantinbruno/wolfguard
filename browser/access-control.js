@@ -5,7 +5,7 @@ window.WolfGuardAccess=(()=>{
   const restricted=()=>!!(cloud()?.enabled&&cloud()?.hasUsers()&&user()?.role!=='admin');
   const can=key=>!cloud()?.enabled||!cloud()?.hasUsers()||WolfGuardPermissions.can(user(),key);
   const sectionKey=section=>section==='vault'?'vault.read':section==='remote'?'remote':section.startsWith('scan-')?'scan.'+section.slice(5)+'.read':section==='tools'?'tools.use':'library.read';
-  function allows(section){if(section==='modules')return true;const key=sectionKey(section);return key==='remote'?can('remote.desktop')||can('remote.terminal'):can(key);}
+  function allows(section){if(section==='modules')return true;if(section==='edr')return can('agents.read')&&can('scan.vulnerability.read');if(section==='chatbot')return can('ai.use')&&can('agents.read');const key=sectionKey(section);return key==='remote'?can('remote.desktop')||can('remote.terminal'):can(key);}
   const level=(record,kind,folders)=>!restricted()?'write':WolfGuardPermissions.recordLevel(user(),record,kind,folders);
   const action=(record,verb,kind='items',folders=[])=>can(WolfGuardPermissions.recordSection(record,kind)+'.'+verb)&&(verb==='read'?level(record,kind,folders)!=='deny':level(record,kind,folders)==='write');
   const reject=()=>{const error=new Error('Ton compte ne dispose pas du droit nécessaire pour cette action.');error.code='PERMISSION_DENIED';throw error;};

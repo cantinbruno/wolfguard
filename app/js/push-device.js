@@ -22,5 +22,29 @@ globalThis.WolfGuardPhone=(()=>{
     const device=await store('get',null,request.deviceId||'current');if(!device||request.deviceId&&device.id!==request.deviceId)throw new Error('Ce téléphone n’est plus associé à ce compte.');
     return post('decision',{id:request.id,deviceId:device.id,decision,signature:await sign(device,'WolfGuard push v1:'+request.id+':'+request.nonce+':'+decision)});
   }
-  return Object.freeze({bytes,base64,read:id=>store('get',null,id||'current'),save:value=>store('put',value),forget:()=>store('delete'),inspect,decide});
+  async function register(publicKey,submit){
+    if(!('Notification' in globalThis&&'serviceWorker' in navigator&&'PushManager' in globalThis))throw new Error('Ce navigateur ne propose pas le push. Sur iPhone, ajoute WolfGuard à l’écran d’accueil puis ouvre son icône. Tu peux continuer avec Authenticator.');
+    // Keep this request inside the actual click gesture on iOS.
+    const permission=Notification.requestPermission();
+    if(await permission!=='granted')throw new Error('Notifications bloquées : autorise WolfGuard dans les réglages du navigateur, puis réessaie. Authenticator reste utilisable.');
+    if(typeof publicKey!=='string'||!publicKey)throw new Error('Le service push est indisponible. Utilise Authenticator.');
+    const registration=await navigator.serviceWorker.register('/push-worker.js',{scope:'/',updateViaCache:'none'});
+    const worker=registration.installing||registration.waiting||registration.active;
+    if(!worker)throw new Error('Le service de notifications ne démarre pas. Recharge la page.');
+    if(worker.state!=='activated')await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{worker.removeEventListener('statechange',check);reject(new Error('Le service de notifications ne démarre pas. Recharge la page.'));},15000);
+      function check(){if(worker.state==='activated'){clearTimeout(timeout);worker.removeEventListener('statechange',check);resolve();}else if(worker.state==='redundant'){clearTimeout(timeout);worker.removeEventListener('statechange',check);reject(new Error('La mise à jour des notifications a échoué. Recharge la page.'));}}
+      worker.addEventListener('statechange',check);check();
+    });
+    let subscription=await registration.pushManager.getSubscription();
+    const applicationServerKey=bytes(publicKey),previousKey=subscription?.options?.applicationServerKey;
+    if(subscription&&previousKey&&base64(previousKey)!==base64(applicationServerKey)){await subscription.unsubscribe();subscription=null;}
+    if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey});
+    const previous=await store('get'),keys=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},false,['sign','verify']);
+    const device={id:Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join(''),key:keys.privateKey};
+    await store('put',device);
+    try{return await submit({deviceId:device.id,subscription:subscription.toJSON(),publicKey:await crypto.subtle.exportKey('jwk',keys.publicKey)});}
+    catch(error){if(previous)await store('put',previous).catch(()=>{});throw error;}
+  }
+  return Object.freeze({bytes,base64,read:id=>store('get',null,id||'current'),save:value=>store('put',value),forget:()=>store('delete'),inspect,decide,register});
 })();

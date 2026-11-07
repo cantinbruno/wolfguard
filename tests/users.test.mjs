@@ -318,7 +318,7 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
 test('mandatory MFA enrolls every account before issuing a session and each new session verifies its own factor',async()=>{
   const s=await setup();try{
     await s.initialize();const legacy=await s.login('cantin.bruno@gmx.fr','09876543');
-    s.env.MFA_REQUIRED='1';
+    s.env.MFA_REQUIRED='1';s.env.MFA_PUSH_PRIMARY='1';
     assert.equal((await s.api('me',undefined,legacy.token)).status,401);
     const count=s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n;
     const challenge=await(await s.api('login',{code:'09876543'})).json();assert.equal(challenge.otpSetupRequired,true);assert.ok(!challenge.token&&!challenge.workspace);
@@ -326,7 +326,7 @@ test('mandatory MFA enrolls every account before issuing a session and each new 
     assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);s.advance(5001);
     const activated=await s.api('login',{code:'09876543',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))});assert.equal(activated.status,200);
     const owner=await activated.json();assert.ok(owner.token);assert.equal(owner.recoveryCodes.length,8);
-    assert.deepEqual(owner.user.mfa,{authenticator:true,phone:false,complete:false,required:true,primary:'push',backup:'authenticator'});
+    assert.deepEqual(owner.user.mfa,{authenticator:true,phone:false,complete:true,required:true,primary:'authenticator',backup:'authenticator'});
     assert.deepEqual((await(await s.api('me',undefined,owner.token)).json()).user.mfa,owner.user.mfa);
     assert.deepEqual((await(await s.api('touch',{},owner.token)).json()).user.mfa,owner.user.mfa);
     assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:owner.recoveryCodes[0]},owner.token)).status,409);
@@ -396,7 +396,7 @@ test('resetting a member password retains OTP; only the owner can explicitly res
 const b64=value=>Buffer.from(value).toString('base64url');
 test('mandatory push enrollment cannot access the workspace, cannot replace a phone and binds approval to its own account',async()=>{
   const s=await setup();try{
-    const ownerPhone=await phoneSetup(s);s.env.MFA_REQUIRED='1';s.env.MFA_PUSH_PRIMARY='1';
+    const ownerPhone=await phoneSetup(s);s.env.MFA_REQUIRED='1';s.env.MFA_PUSH_PRIMARY='1';s.env.MFA_PHONE_REQUIRED='1';
     await s.createMember('push-user@example.test','12345678',ownerPhone.owner.token);
     const challenge=await(await s.api('login',{code:'12345678'})).json();assert.equal(challenge.otpSetupRequired,true);
     const start=await(await s.api('login',{code:'12345678',otp:await otpAt(challenge.secret,Math.floor(s.clock()/30000))})).json();
