@@ -150,7 +150,7 @@ test('real HTTP agent polling connects the desktop relay only after consent, del
   try{
     const agent=await s.pair(),client=new AgentClient('http://127.0.0.1:'+server.address().port,{allowLoopback:true});client.token=agent.token;
     const created=await (await s.api('remote/start',{agentId:agent.id},s.user)).json();
-    work=runAgent(client,{signal:cancel.signal,pollMs:20,remoteRunner:(client,session,options)=>executeRemoteSession(client,session,{...options,intervalMs:20,prepare:async()=>({}),openDesktop:async()=>{requested=true;await consent;return {capture:async()=>frame,input:async event=>inputs.push(event),close:async()=>closed++};}})});
+    work=runAgent(client,{protectionRunner:async()=>{},signal:cancel.signal,pollMs:20,remoteRunner:(client,session,options)=>executeRemoteSession(client,session,{...options,intervalMs:20,prepare:async()=>({}),openDesktop:async()=>{requested=true;await consent;return {capture:async()=>frame,input:async event=>inputs.push(event),close:async()=>closed++};}})});
     await until(()=>requested);assert.equal(s.objects.size,0);
     assert.equal((await (await s.api('remote/session?id='+created.id,undefined,s.user)).json()).status,'preparing');
     allow();await until(()=>s.objects.size===1);

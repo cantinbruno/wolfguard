@@ -72,13 +72,13 @@ export function diskCredentialStore(directory=agentDirectory(),{platform=process
 
 // The background launcher sends only pairing/control commands over stdin. Status
 // events on stdout contain no credential, pairing code, target or scan report.
-export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector,remoteRunner=executeRemoteSession}={}){
+export async function desktopAgent({client=new AgentClient(),store=diskCredentialStore(),input=process.stdin,emit=event=>process.stdout.write(JSON.stringify(event)+'\n'),name=hostname(),pollMs=4000,passiveCollector,securityCollector,remoteRunner=executeRemoteSession,protectionRunner=runEndpointProtection}={}){
   let controller=null,remoteController=null,work=null,closing=false;
   const state=(message,detail={})=>emit({type:'state',state:detail.state||'error',message,...detail});
   async function stop(){if(controller)controller.abort();if(work)await work;controller=null;work=null;}
   function connect(credential){
     client.token=credential.token;client.agentId=credential.id;controller=new AbortController();
-    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,onStatus:state,remoteRunner:async(client,session,options)=>{
+    work=runAgent(client,{signal:controller.signal,pollMs,passiveCollector,securityCollector,protectionRunner,onStatus:state,remoteRunner:async(client,session,options)=>{
       const current=new AbortController();remoteController=current;
       try{await remoteRunner(client,session,{...options,signal:AbortSignal.any([options.signal,current.signal])});}
       finally{if(remoteController===current)remoteController=null;}

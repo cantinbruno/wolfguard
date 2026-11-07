@@ -38,7 +38,7 @@ async function until(predicate,timeout=6000){const end=Date.now()+timeout;while(
 test('tray sharing Stop cancels only the remote session and leaves the agent connected',async()=>{
   const input=new PassThrough(),events=[];let first=true,started=false,ended=false;
   const client={origin:'https://fixture.invalid',async post(route){assert.equal(route,'poll');if(first){first=false;return {remote:{id:'a'.repeat(32)}};}return {};}};
-  const work=desktopAgent({client,input,pollMs:2,emit:event=>events.push(event),store:{async load(){return {api:client.origin,token:'b'.repeat(64)};}},remoteRunner:async(_client,_session,{signal,onStatus})=>{
+  const work=desktopAgent({protectionRunner:async()=>{},client,input,pollMs:2,emit:event=>events.push(event),store:{async load(){return {api:client.origin,token:'b'.repeat(64)};}},remoteRunner:async(_client,_session,{signal,onStatus})=>{
     started=true;onStatus('Remote fixture',{state:'remote'});
     await new Promise(resolve=>{if(signal.aborted)return resolve();signal.addEventListener('abort',resolve,{once:true});});ended=true;
   }});
@@ -289,7 +289,7 @@ test('Windows protects the agent credential for the current user using real DPAP
 test('the displayed connected state requires a successful poll and recovers honestly after an outage',async()=>{
   const states=[],cancel=new AbortController();let acknowledge,count=0;
   const client={async post(){count++;if(count===1)return new Promise(resolve=>{acknowledge=resolve;});if(count===2)throw new Error('Synthetic outage');return {job:null};}};
-  const work=runAgent(client,{signal:cancel.signal,pollMs:20,onStatus:(_message,detail)=>states.push(detail.state)});
+  const work=runAgent(client,{protectionRunner:async()=>{},signal:cancel.signal,pollMs:20,onStatus:(_message,detail)=>states.push(detail.state)});
   try{
     await until(()=>!!acknowledge);
     assert.deepEqual(states,['connecting']);
@@ -303,7 +303,7 @@ test('the desktop protocol pairs, reports real scans, stops and re-pairs without
   const s=await setup(),input=new PassThrough(),events=[];let credential=null;
   const client={origin:'https://test.invalid',token:'',async post(route,body){const response=await s.api('agent/'+route,body,this.token?'Agent '+this.token:undefined);const value=await response.json();if(!response.ok){const error=new Error(value.error);error.status=response.status;throw error;}return value;}};
   const store={async load(){return null;},async save(value){credential=value;}};
-  const work=desktopAgent({client,store,input,emit:event=>events.push(event),name:'Fenêtre de test',pollMs:20,passiveCollector:async()=>({results:[{address:'192.168.1.1',port:null,transport:'ARP',status:'observed'}],warnings:[]})});
+  const work=desktopAgent({protectionRunner:async()=>{},client,store,input,emit:event=>events.push(event),name:'Fenêtre de test',pollMs:20,passiveCollector:async()=>({results:[{address:'192.168.1.1',port:null,transport:'ARP',status:'observed'}],warnings:[]})});
   const send=value=>input.write(JSON.stringify(value)+'\n');
   try{
     await until(()=>events.at(-1)?.state==='pairing');

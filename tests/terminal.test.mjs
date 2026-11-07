@@ -111,7 +111,7 @@ test('end-to-end authenticated terminal executes once, streams output and cancel
 test('agent terminal branch advertises capability and native stop-remote closes it without ending polling',async()=>{
   const input=new PassThrough(),events=[];let polls=0,stopped=false;
   const client={origin:'https://test.invalid',token:'',async post(route,body){assert.equal(route,'poll');assert.ok(body.capabilities.includes('remote-terminal-v1'));polls++;return polls===1?{remote:{id:'a'.repeat(32),mode:'terminal'}}:{job:null};}};
-  const work=desktopAgent({client,input,store:{async load(){return {api:client.origin,token:'b'.repeat(64)};}},pollMs:5,emit:event=>events.push(event),remoteRunner:async(_client,session,{signal,onStatus})=>{assert.equal(session.mode,'terminal');onStatus('Synthetic terminal',{state:'terminal'});await new Promise(resolve=>signal.addEventListener('abort',resolve,{once:true}));stopped=true;}});
+  const work=desktopAgent({protectionRunner:async()=>{},client,input,store:{async load(){return {api:client.origin,token:'b'.repeat(64)};}},pollMs:5,emit:event=>events.push(event),remoteRunner:async(_client,session,{signal,onStatus})=>{assert.equal(session.mode,'terminal');onStatus('Synthetic terminal',{state:'terminal'});await new Promise(resolve=>signal.addEventListener('abort',resolve,{once:true}));stopped=true;}});
   try{await until(()=>events.some(value=>value.state==='terminal'));input.write('{"type":"stop-remote"}\n');await until(()=>stopped&&events.at(-1)?.state==='connected');assert.ok(polls>1);input.write('{"type":"shutdown"}\n');await work;}
   finally{input.end();await work;}
 });
