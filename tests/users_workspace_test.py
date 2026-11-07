@@ -83,6 +83,7 @@ def run():
             print('PASS: user creation, protected last administrator, responsive account settings and a dedicated Agents button beside Settings from 320px to desktop')
 
             def activate(page,link,code,username='alice@example.test'):
+                first.evaluate("""async username=>{const users=await WolfGuardCloud.agentRequest('users'),target=users.users.find(user=>user.username===username);if(target&&target.permissions.profile==='none')await WolfGuardCloud.agentRequest('users/permissions',{id:target.id,revision:target.permission_revision,policy:WolfGuardPermissions.profilePolicy('legacy')});}""",username)
                 page.goto('about:blank');page.goto(link)
                 expect(page.locator('#webAccountSetupForm')).to_be_visible(timeout=15000);expect(page.locator('#webAccountSetupForm button[type=submit]')).to_be_enabled()
                 assert '#account=' not in page.url
@@ -95,6 +96,9 @@ def run():
                 expect(page.locator('#webAccountSetupForm [role=alert]')).to_contain_text('correspondent pas')
                 page.locator('#webAccountConfirm').fill(code);page.locator('#webAccountSetupForm button[type=submit]').click()
                 expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
+                granted=first.evaluate("""async username=>{const list=await WolfGuardCloud.agentRequest('users'),target=list.users.find(row=>row.username===username);if(target.permissions.profile!=='none')return false;await WolfGuardCloud.agentRequest('users/permissions',{id:target.id,revision:target.permission_revision,policy:WolfGuardPermissions.profilePolicy('legacy')});return true;}""",username)
+                if granted:
+                    page.evaluate('lockApplication()');login(page,username,code)
                 ticket=link.split('#account=')[1];assert ticket not in page.evaluate('JSON.stringify(sessionStorage)')
             second=guest.new_page();second.on('pageerror',lambda error:errors.append(str(error)));activate(second,initial_link,'12345678')
             assert second.evaluate("async()=>(await get('items','personal-preserved')).content")=='<p>Contenu avant les utilisateurs</p>'

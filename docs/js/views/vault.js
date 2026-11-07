@@ -2,6 +2,7 @@
 
 /* V3.3.4 - Restored helpers */
 async function vaultData(item, autoMigrate = true) {
+  if(item?.secretsRestricted)return {username:'',password:'',url:'',host:'',notes:'',custom:[]};
   if (!item) return {
     username: '',
     password: '',
@@ -122,6 +123,7 @@ async function renderVaultWorkspace() {
 }
 async function renderVaultDetail(item) {
   if (!item) return;
+  if(item.secretsRestricted){$('#detailHost').innerHTML='<div class="vault-view"><div class="detail-head"><div class="detail-title"><h2>'+esc(item.title||'Sans titre')+'</h2></div><div class="detail-actions">'+itemActionsHTML(item)+'</div></div><div class="vault-view-body"><p class="access-help">Vous pouvez consulter cette fiche. Le déchiffrement de ses secrets ne fait pas partie de vos droits.</p></div></div>';return;}
   if (state.mode === 'edit') return renderVaultEdit(item);
   const key = state.vaultKey;
   const d = await vaultData(item, true);

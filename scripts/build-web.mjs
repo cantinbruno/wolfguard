@@ -8,6 +8,8 @@ import {siteAccessFile} from './private-paths.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
+// One permission model is used by server checks and the browser controls.
+writeFileSync(path.join(root,'browser/permissions.js'),readFileSync(path.join(root,'server/lib/wolfguard/permissions.mjs'),'utf8'));
 const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md']);
 // A build must preserve the private URL. Never generate a replacement silently.
 const entryFile=siteAccessFile;
@@ -40,7 +42,7 @@ cpSync(source, output, {recursive:true});
 cpSync(path.join(root, 'browser'), path.join(output, 'browser'), {recursive:true});
 // Load the storage/crypto modules as integrity-checked classic bundles in the app.
 // Their original ES modules stay available for maintenance tools and tests.
-for(const [name,globalName] of [['crypto','WolfGuardCrypto'],['storage','WolfGuardStorage'],['cloud','WolfGuardCloud'],['tab-session','WolfGuardTabSession'],['shared-workspace','WolfGuardSharedWorkspace']]) {
+for(const [name,globalName] of [['crypto','WolfGuardCrypto'],['storage','WolfGuardStorage'],['cloud','WolfGuardCloud'],['permissions','WolfGuardPermissions'],['tab-session','WolfGuardTabSession'],['shared-workspace','WolfGuardSharedWorkspace']]) {
   const module=readFileSync(path.join(root,'browser',name+'.js'),'utf8');
   const exports=[...module.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(match=>match[1]);
   if(!exports.length || /^import /m.test(module))throw new Error('Module navigateur non autonome : '+name);
@@ -61,6 +63,7 @@ html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css"
 html = html.replace('</head>', '<link rel="manifest" href="phone-manifest.json"><meta name="theme-color" content="#111c2c">\n</head>');
 html = html.replace('<script src="js/app.js', '<script src="js/push-device.js"></script><script src="js/app.js');
 html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
+html = html.replace('<script src="js/ui/workspace-users.js"></script>','<script src="js/ui/workspace-users.js"></script><script src="browser/permissions.bundle.js"></script><script src="browser/access-control.js"></script><script src="browser/permission-editor.js"></script>');
 html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site");
 html = html.replace("worker-src 'none'", "worker-src 'self'; manifest-src 'self'");
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');

@@ -16,6 +16,7 @@ const currentVersion = () => version;
 const currentUser=()=>user;
 const hasUsers=()=>usersEnabled;
 const isAdmin=()=>!enabled||user?.role==='admin';
+const can=key=>!enabled||user?.role==='admin'||!!(user?.permissions&&(user.permissions.expiresAt===null||user.permissions.expiresAt>Date.now())&&user.permissions.grants.includes(key));
 function sessionState() { return token ? {token, version,user,usersEnabled} : null; }
 function restoreSession(value) {
   if (!enabled || !/^[a-f0-9]{64}$/.test(value?.token || '') || !Number.isSafeInteger(value.version) || value.version < 1) throw new Error('Session de reprise invalide.');
@@ -105,7 +106,7 @@ async function changePersonalCode(oldCode,code){const data=await post('users/cha
 async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove))?|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove))?|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 function clear(){
@@ -113,5 +114,5 @@ function clear(){
   token='';version=0;user=null;usersEnabled=false;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,pollPush,cancelPush,registerInitialPhone,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,pollPush,cancelPush,registerInitialPhone,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,clear});
 })();

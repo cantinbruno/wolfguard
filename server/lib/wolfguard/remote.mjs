@@ -1,5 +1,6 @@
 import {REMOTE_LIVE,desktopInput,desktopFrame} from './remote-spec.mjs';
 import {terminalView,handleTerminalAPI} from './terminal.mjs';
+import {userPolicy} from './permission-store.mjs';
 const liveSQL="('requested','preparing','active')";
 const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
 const key=id=>'remote/'+id+'/frame';
@@ -10,6 +11,8 @@ export async function closeRemote(env,id,status,now,message,h){
   await env.BUCKET.delete(key(id));
 }
 export async function expireRemote(env,now,h){
+  const scoped=await env.DB.prepare("SELECT r.id,r.agent_id,r.mode,u.id AS user_id,u.role,u.permissions_cipher FROM remote_sessions r JOIN sessions s ON s.token_hash=r.owner_hash JOIN users u ON u.id=s.user_id WHERE r.status IN ('requested','preparing','active') AND u.role<>'admin'").all();
+  for(const row of scoped.results){const user={id:row.user_id,role:row.role,permissions:await userPolicy({id:row.user_id,permissions_cipher:row.permissions_cipher},env)};if(!canAgent(user,row.agent_id,now)||!can(user,'remote.'+(row.mode||'desktop'),now))await closeRemote(env,row.id,'closed',now,'Les droits de cette session ont expiré.',h);}
   const stale=await env.DB.prepare('SELECT id FROM remote_sessions WHERE status IN '+liveSQL+" AND ((status='requested' AND created_at<=?) OR expires_at<=? OR viewer_until<=? OR (status<>'requested' AND agent_until<=?) OR NOT EXISTS(SELECT 1 FROM sessions s WHERE s.token_hash=owner_hash AND s.expires_at>?) OR generation<>(SELECT generation FROM vault WHERE id=1) OR NOT EXISTS(SELECT 1 FROM scan_agents a WHERE a.id=agent_id AND a.revoked_at IS NULL))").bind(now-90000,now,now,now,now).all();
   for(const row of stale.results)await closeRemote(env,row.id,'closed',now,'Session terminée : connexion interrompue ou durée dépassée.',h);
   await env.DB.prepare('DELETE FROM remote_sessions WHERE status NOT IN '+liveSQL+' AND expires_at<?').bind(now-86400000).run();
@@ -21,12 +24,14 @@ export async function claimRemote(env,agent,now,h){
   const row=await env.DB.prepare("UPDATE remote_sessions SET status='preparing',lease_hash=?,agent_until=? WHERE id=? AND status='requested' RETURNING id,expires_at,mode").bind(await h.digest(lease),now+15000,candidate.id).first();
   return row?{id:row.id,lease,expiresAt:row.expires_at,...(row.mode==='terminal'?{mode:'terminal'}:{})}:null;
 }
+import {can,canAgent,requirePermission} from './permissions.mjs';
 export async function handleRemoteAPI(request,env,now,h){
   const {fail,json,body,seal,open}=h,path=new URL(request.url).pathname;
   const agentRoute=path.startsWith('/api/agent/remote/'),auth=agentRoute?await h.agentAuth():await h.authorize(request,env,now);
   await expireRemote(env,now,h);
   if(path==='/api/remote/start'&&request.method==='POST'){
     const {agentId,mode='desktop'}=await body();if(!validId(agentId)||!['desktop','terminal'].includes(mode))fail(400,'Poste ou mode invalide.');
+    requirePermission(auth.user,'remote.'+mode,fail,now);if(!canAgent(auth.user,agentId,now))fail(403,'Ce poste ne fait pas partie de tes accès.');
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(agentId,auth.generation).first();
     if(!agent)fail(404,'Poste introuvable.');if(agent.last_seen<=now-20000)fail(409,'Démarre l’agent sur le poste distant.');
     const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes(mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser cette prise en main.');
@@ -39,6 +44,7 @@ export async function handleRemoteAPI(request,env,now,h){
   if(!validId(data.id))fail(400,'Session invalide.');
   let row=await env.DB.prepare('SELECT * FROM remote_sessions WHERE id=? AND generation=?').bind(data.id,auth.generation).first();
   if(!row||agentRoute&&row.agent_id!==auth.id||!agentRoute&&row.owner_hash!==auth.hash)fail(404,'Session introuvable.');
+  if(!agentRoute&&(!canAgent(auth.user,row.agent_id,now)||!can(auth.user,'remote.'+(row.mode||'desktop'),now))){await closeRemote(env,row.id,'closed',now,'Les droits de cette session ont expiré.',h);fail(403,'Tes droits de prise en main ont expiré.',{code:'PERMISSION_DENIED'});}
   if(agentRoute&&(!/^[a-f0-9]{64}$/.test(data.lease||'')||row.lease_hash!==await h.digest(data.lease)))fail(403,'Session non attribuée à cet agent.');
   const describe=async value=>({id:value.id,status:value.status,revision:value.frame_revision,expiresAt:value.expires_at,message:await open(value.message_cipher,value.id+':remote-message')||''});
   if(path==='/api/remote/session'&&request.method==='GET'){

@@ -86,9 +86,9 @@ const workspaceAgents = (() => {
         if(focusId){const target=[...root.querySelectorAll('[data-agent-'+action+']')].find(button=>button.dataset[action==='details'?'agentDetails':'agentUse']===focusId);if(target&&!target.disabled)target.focus({preventScroll:true});}
       }
       const limit=agents.length>=6;find('#wgAgentCapacity').hidden=!limit;
-      find('#wgAgentAdd').hidden=!admin();
-      find('#wgAgentPair').disabled=busy||!available()||limit||!admin();
-      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!admin();
+      find('#wgAgentAdd').hidden=!(admin()||cloud()?.can?.('agents.pair'));
+      find('#wgAgentPair').disabled=busy||!available()||limit||!(admin()||cloud()?.can?.('agents.pair'));
+      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!(admin()||cloud()?.can?.('agents.revoke'));
       for(const button of root.querySelectorAll('[data-agent-start]'))button.hidden=!admin();
       if(firstLoad){showTab(agents.length||!admin()?'fleet':'connect');firstLoad=false;}
     }

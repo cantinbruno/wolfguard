@@ -15,8 +15,9 @@ function itemCopyLabel(item) {
 }
 
 function itemActionsHTML(item, buttonClass = 'workspace-icon', copyButton = null) {
+  const allowed=verb=>!window.WolfGuardAccess||WolfGuardAccess.can((item.type==='vault'?'vault':'library')+'.'+verb)&&item.accessLevel!=='read'&&(!item.secretsRestricted||verb!=='edit');
   const button = (action, label, style) => `<button type="button" class="${style} item-action-button ${buttonClass}" data-item-action="${action}" data-item-id="${esc(item.id)}" title="${esc(label)}" aria-label="${esc(label)}">${ITEM_ACTION_ICONS[action]}</button>`;
-  return (copyButton ?? button('copy', itemCopyLabel(item), 'primary')) + button('edit', 'Modifier', 'secondary') + button('delete', 'Supprimer', 'secondary item-delete-btn');
+  return (item.secretsRestricted?'':copyButton ?? button('copy', itemCopyLabel(item), 'primary')) + (allowed('edit')?button('edit', 'Modifier', 'secondary'):'') + (allowed('delete')?button('delete', 'Supprimer', 'secondary item-delete-btn'):'');
 }
 
 function itemContentText(content) {

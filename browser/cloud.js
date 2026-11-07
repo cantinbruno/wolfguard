@@ -15,6 +15,7 @@ export const currentVersion = () => version;
 export const currentUser=()=>user;
 export const hasUsers=()=>usersEnabled;
 export const isAdmin=()=>!enabled||user?.role==='admin';
+export const can=key=>!enabled||user?.role==='admin'||!!(user?.permissions&&(user.permissions.expiresAt===null||user.permissions.expiresAt>Date.now())&&user.permissions.grants.includes(key));
 export function sessionState() { return token ? {token, version,user,usersEnabled} : null; }
 export function restoreSession(value) {
   if (!enabled || !/^[a-f0-9]{64}$/.test(value?.token || '') || !Number.isSafeInteger(value.version) || value.version < 1) throw new Error('Session de reprise invalide.');
@@ -104,7 +105,7 @@ export async function changePersonalCode(oldCode,code){const data=await post('us
 export async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove))?|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove))?|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 export function clear(){

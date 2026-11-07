@@ -16,11 +16,15 @@ export const users = sqliteTable('users', {
   pinSalt:text('pin_salt').notNull(),pinHash:text('pin_hash').notNull(),codeVersion:integer('code_version').notNull().default(1),
   disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login'),
   credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at'),
-  pinLookup:text('pin_lookup').unique(),otpSecretCipher:text('otp_secret_cipher'),otpPendingCipher:text('otp_pending_cipher'),otpPendingUntil:integer('otp_pending_until'),otpLastStep:integer('otp_last_step').notNull().default(-1),otpRecoveryCipher:text('otp_recovery_cipher')
+  pinLookup:text('pin_lookup').unique(),otpSecretCipher:text('otp_secret_cipher'),otpPendingCipher:text('otp_pending_cipher'),otpPendingUntil:integer('otp_pending_until'),otpLastStep:integer('otp_last_step').notNull().default(-1),otpRecoveryCipher:text('otp_recovery_cipher'),
+  permissionsCipher:text('permissions_cipher'),permissionRevision:integer('permission_revision').notNull().default(1)
 });
 export const userInvitations = sqliteTable('user_invitations', {
   id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),
-  createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+  createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),permissionsCipher:text('permissions_cipher')
+});
+export const permissionAudit=sqliteTable('permission_audit',{
+  id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),detailsCipher:text('details_cipher').notNull()
 });
 export const pushDevices=sqliteTable('push_devices',{
   id:text('id').primaryKey(),userId:text('user_id').notNull().unique(),subscriptionCipher:text('subscription_cipher').notNull(),publicKey:text('public_key').notNull(),createdAt:integer('created_at').notNull()
@@ -54,7 +58,7 @@ export const scanJobs = sqliteTable('scan_jobs', {
   status: text('status').notNull(), specCipher: text('spec_cipher').notNull(), resultCipher: text('result_cipher'),
   createdAt: integer('created_at').notNull(), updatedAt: integer('updated_at').notNull(), expiresAt: integer('expires_at').notNull(),
   revision: integer('revision').notNull(), completed: integer('completed').notNull(), total: integer('total').notNull(),
-  leaseHash: text('lease_hash'), leaseUntil: integer('lease_until').notNull()
+  leaseHash: text('lease_hash'), leaseUntil: integer('lease_until').notNull(),createdBy:text('created_by')
 },table=>[uniqueIndex('scan_jobs_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('queued','running')`)]);
 export const remoteSessions = sqliteTable('remote_sessions', {
   id:text('id').primaryKey(),agentId:text('agent_id').notNull(),generation:integer('generation').notNull(),ownerHash:text('owner_hash').notNull(),status:text('status').notNull(),

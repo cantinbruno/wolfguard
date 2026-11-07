@@ -1,5 +1,7 @@
 import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
 import {cachedAnalysis,analyzeScan} from './certfr.mjs';
+import {can,canAgent,requirePermission} from './permissions.mjs';
+import {userPolicy} from './permission-store.mjs';
 const encode=new TextEncoder();
 const MAX_RESULT=1024*1024,LEASE_MS=30000,ONLINE_MS=20000;
 export async function handleAgentAPI(request,env,now,h){
@@ -15,7 +17,11 @@ export async function handleAgentAPI(request,env,now,h){
   const remoteHelpers={...h,body,seal,open,agentAuth};
   if(path.startsWith('/api/remote/')||path.startsWith('/api/agent/remote/'))return handleRemoteAPI(request,env,now,remoteHelpers);
   const changed=result=>Number(result?.meta?.changes||0)>0;
-  async function expire(){await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();}
+  async function expire(){
+    await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();
+    const scoped=await env.DB.prepare("SELECT j.*,u.id AS permission_user,u.role AS permission_role,u.permissions_cipher,u.disabled_at,u.credential_pending FROM scan_jobs j LEFT JOIN users u ON u.id=j.created_by WHERE j.created_by IS NOT NULL AND j.status IN ('queued','running')").all();
+    for(const row of scoped.results){const user={id:row.permission_user,role:row.permission_role,permissions:row.permission_user?await userPolicy({id:row.permission_user,permissions_cipher:row.permissions_cipher},env):null},spec=await open(row.spec_cipher,row.id+':spec'),kind=spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy);if(!row.permission_user||row.disabled_at!==null||row.credential_pending||!canAgent(user,row.agent_id,now)||!can(user,'scan.'+kind+'.run',now)||!can(user,'scan.'+kind+'.read',now))await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND status IN ('queued','running')").bind(now,row.id).run();}
+  }
   async function publicJob(row,includeResult=false,history=false){const spec=await open(row.spec_cipher,row.id+':spec');return {id:row.id,agentId:row.agent_id,strategy:row.strategy,workspace:spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy),status:row.status,createdAt:row.created_at,updatedAt:row.updated_at,revision:row.revision,completed:row.completed,total:row.total,...(history?{target:spec.target||''}:{}),...(includeResult?{report:await open(row.result_cipher,row.id+':result'),spec}:{})};}
   if(path==='/api/agent/enroll'&&request.method==='POST'){
     const {code,name,platform}=await body();if(typeof code!=='string'||!/^[a-f0-9]{32}$/.test(code)||typeof name!=='string'||!name.trim()||name.length>100||!['win32','linux','darwin'].includes(platform))fail(400,'Association invalide.');
@@ -53,33 +59,38 @@ export async function handleAgentAPI(request,env,now,h){
     fail(404,'Adresse agent inconnue.');
   }
   const session=await authorize(request,env,now);await expire();
+  const permitAgent=id=>{if(!canAgent(session.user,id,now))fail(403,'Ce poste ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});};
+  const jobAllowed=async row=>{const spec=await open(row.spec_cipher,row.id+':spec'),workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy);return canAgent(session.user,row.agent_id,now)&&can(session.user,'scan.'+workspace+'.read',now);};
+  const permitJob=async(id,action='read')=>{const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');if(!await jobAllowed(row))fail(403,'Ce rapport ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});const spec=await open(row.spec_cipher,row.id+':spec');requirePermission(session.user,'scan.'+(spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy))+'.'+action,fail,now);return row;};
   if(path==='/api/agents'&&request.method==='GET'){
+    if(!can(session.user,'agents.read',now))return json({agents:[]});
     const rows=await env.DB.prepare('SELECT * FROM scan_agents WHERE generation=? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 6').bind(session.generation).all();
-    const agents=[];for(const row of rows.results){const metadata=await open(row.name_cipher,row.id+':name');agents.push({id:row.id,...metadata,online:row.last_seen>now-ONLINE_MS,lastSeen:row.last_seen});}return json({agents});
+    const agents=[];for(const row of rows.results){if(!canAgent(session.user,row.id,now))continue;const metadata=await open(row.name_cipher,row.id+':name');agents.push({id:row.id,...metadata,online:row.last_seen>now-ONLINE_MS,lastSeen:row.last_seen});}return json({agents});
   }
   if(path==='/api/agents/pair'&&request.method==='POST'){
-    if(session.user.role!=='admin')fail(403,'Seul un administrateur peut associer un poste.');
+    requirePermission(session.user,'agents.pair',fail,now);if(session.user.role!=='admin'&&session.user.permissions.agents!==null)fail(403,'L’association de nouveaux postes nécessite un périmètre de postes illimité.');
     const code=random(16);await env.DB.prepare('DELETE FROM scan_pairings WHERE expires_at<=? OR generation<>?').bind(now,session.generation).run();
     const pending=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_pairings WHERE generation=?').bind(session.generation).first();if(pending.count>=3)fail(429,'Trois codes sont déjà valides. Attends leur expiration.');
     await env.DB.prepare('INSERT INTO scan_pairings (token_hash,generation,expires_at) VALUES (?,?,?)').bind(await digest(code),session.generation,now+5*60000).run();return json({code,expiresAt:now+5*60000});
   }
   if(path==='/api/agents/revoke'&&request.method==='POST'){
-    if(session.user.role!=='admin')fail(403,'Seul un administrateur peut révoquer un poste.');
-    const {id}=await body();if(!validId(id))fail(400,'Agent invalide.');
+    requirePermission(session.user,'agents.revoke',fail,now);
+    const {id}=await body();if(!validId(id))fail(400,'Agent invalide.');permitAgent(id);
     const row=await env.DB.prepare('UPDATE scan_agents SET revoked_at=? WHERE id=? AND generation=? AND revoked_at IS NULL RETURNING id').bind(now,id,session.generation).first();if(!row)fail(404,'Agent introuvable.');
     await expireRemote(env,now,remoteHelpers);
     await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE agent_id=? AND status IN ('queued','running')").bind(now,id).run();return json({ok:true});
   }
   if(path==='/api/scans'&&request.method==='POST'){
-    const data=await body();const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
+    const data=await body();const requested=data.workspace||(data.strategy==='passive'?(data.passiveScope==='security'?'vulnerability':'passive'):'active');requirePermission(session.user,'scan.'+requested+'.run',fail,now);permitAgent(data.agentId);const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
     let spec;try{spec=h.scanSpec(data);}catch(error){fail(400,error.message);}
+    const workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':spec.strategy);requirePermission(session.user,'scan.'+workspace+'.read',fail,now);requirePermission(session.user,'scan.'+workspace+'.run',fail,now);
     await expireRemote(env,now,remoteHelpers);
     if(await env.DB.prepare("SELECT id FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')").bind(agent.id).first())fail(409,'Une prise en main est en cours. Déconnecte-la avant de lancer un scan.');
     if(spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-scan-v3'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour les observations enrichies et les adresses publiques.');
     if(spec.passiveScope==='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('security-audit-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour lancer l’audit de sécurité.');
     if(spec.workspace!=='map'&&spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-target-v1'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour scanner uniquement la cible IP ou FQDN indiquée.');
     const id=random(16),cipher=await seal(spec,id+':spec');
-    const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until) SELECT ?,?,?,?,'queued',?,?,?,?,0,0,0,0 WHERE NOT EXISTS(SELECT 1 FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000,agent.id).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
+    const row=await env.DB.prepare("INSERT INTO scan_jobs (id,agent_id,generation,strategy,status,spec_cipher,created_at,updated_at,expires_at,revision,completed,total,lease_until,created_by) SELECT ?,?,?,?,'queued',?,?,?,?,0,0,0,0,? WHERE NOT EXISTS(SELECT 1 FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,session.generation,spec.strategy,cipher,now,now,now+120000,session.user.id,agent.id).first();if(!row)fail(409,'Un scan est déjà en cours sur cet agent. Attends ou arrête-le.');return json({id},201);
   }
   if(path==='/api/scans'&&request.method==='GET'){
     const params=new URL(request.url).searchParams;
@@ -92,17 +103,17 @@ export async function handleAgentAPI(request,env,now,h){
       // Target and agent metadata remain encrypted at rest and are read only after authorization.
       const rows=await env.DB.prepare('SELECT j.*,a.name_cipher AS agent_name_cipher FROM scan_jobs j LEFT JOIN scan_agents a ON a.id=j.agent_id WHERE j.generation<=?'+cursor+' ORDER BY j.created_at DESC,j.id DESC LIMIT 51').bind(...values).all();
       const selected=rows.results.slice(0,50),jobs=[];
-      for(const row of selected){const job=await publicJob(row,false,true),agent=row.agent_name_cipher?await open(row.agent_name_cipher,row.agent_id+':name'):{};jobs.push({...job,agentName:agent.name||'Ancien agent',platform:agent.platform||'',hasReport:!!row.result_cipher});}
+      for(const row of selected){if(!await jobAllowed(row))continue;const job=await publicJob(row,false,true),agent=row.agent_name_cipher?await open(row.agent_name_cipher,row.agent_id+':name'):{};jobs.push({...job,agentName:agent.name||'Ancien agent',platform:agent.platform||'',hasReport:!!row.result_cipher});}
       const last=selected.at(-1);return json({jobs,next:rows.results.length>50?{beforeAt:last.created_at,beforeId:last.id}:null});
     }
-    const agentId=params.get('agentId');if(!validId(agentId))fail(400,'Agent invalide.');
-    const rows=await env.DB.prepare('SELECT * FROM scan_jobs WHERE agent_id=? AND generation=? ORDER BY created_at DESC LIMIT 12').bind(agentId,session.generation).all();const jobs=[];for(const row of rows.results)jobs.push(await publicJob(row));return json({jobs});
+    const agentId=params.get('agentId');if(!validId(agentId))fail(400,'Agent invalide.');permitAgent(agentId);
+    const rows=await env.DB.prepare('SELECT * FROM scan_jobs WHERE agent_id=? AND generation=? ORDER BY created_at DESC LIMIT 12').bind(agentId,session.generation).all();const jobs=[];for(const row of rows.results)if(await jobAllowed(row))jobs.push(await publicJob(row));return json({jobs});
   }
   if(path==='/api/scans/result'&&request.method==='GET'){
-    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json({...await publicJob(row,true),intelligence:await cachedAnalysis(env,row)});
+    const id=new URL(request.url).searchParams.get('id');if(!validId(id))fail(400,'Scan invalide.');await permitJob(id,'read');const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');return json({...await publicJob(row,true),intelligence:await cachedAnalysis(env,row)});
   }
   if(path==='/api/scans/intelligence'&&request.method==='POST'){
-    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');
+    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');await permitJob(id,'read');
     const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');
     if(['queued','running'].includes(row.status)||!row.result_cipher)fail(409,'Attends la réception du rapport avant de consulter le CERT-FR.');
     const report=await open(row.result_cipher,row.id+':result'),intelligence=await analyzeScan(env,row,report,now);
@@ -110,10 +121,10 @@ export async function handleAgentAPI(request,env,now,h){
     return json({id,revision:row.revision,intelligence});
   }
   if(path==='/api/scans/cancel'&&request.method==='POST'){
-    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');const row=await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND generation=? AND status IN ('queued','running') RETURNING id").bind(now,id,session.generation).first();if(!row)fail(409,'Ce scan est déjà terminé.');return json({ok:true});
+    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');await permitJob(id,'cancel');const row=await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND generation=? AND status IN ('queued','running') RETURNING id").bind(now,id,session.generation).first();if(!row)fail(409,'Ce scan est déjà terminé.');return json({ok:true});
   }
   if(path==='/api/scans/delete'&&request.method==='POST'){
-    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');
+    const {id}=await body();if(!validId(id))fail(400,'Scan invalide.');await permitJob(id,'delete');
     const deleted=await env.DB.prepare("DELETE FROM scan_jobs WHERE id=? AND generation<=? AND status NOT IN ('queued','running') RETURNING id").bind(id,session.generation).first();
     if(!deleted){
       const row=await env.DB.prepare('SELECT status FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();

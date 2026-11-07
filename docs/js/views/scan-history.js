@@ -32,15 +32,15 @@ const webScanHistory = (() => {
       return sort==='oldest'?rows.reverse():rows;
     }
     function controls(){
-      const rows=filtered();find('#wgHistoryExportAll').disabled=busy||!complete||!rows.length;
+      const rows=filtered();find('#wgHistoryExportAll').disabled=busy||!complete||!rows.length||!!window.WolfGuardAccess&&rows.some(item=>!WolfGuardAccess.can('scan.'+item.kind+'.export'));
       find('#wgHistoryExportAll').innerHTML=settingsIcon('download')+(hasFilters()?'Exporter la sélection':'Exporter tout')+' <span>('+rows.length+')</span>';
       find('#wgHistoryExportAll').setAttribute('aria-busy',String(busy));
       find('#wgHistoryRefresh').disabled=busy||loading;
       find('#wgHistoryList').setAttribute('aria-busy',String(loading));
       find('#wgHistoryReset').hidden=!hasFilters();
       for(const control of panel.querySelectorAll('.scan-history-refine input,.scan-history-refine select,#wgHistoryReset,#wgHistorySearch,[data-history-kind]'))control.disabled=busy;
-      for(const button of panel.querySelectorAll('[data-history-export]'))button.disabled=busy;
-      for(const button of panel.querySelectorAll('[data-history-delete]'))button.disabled=busy||loading||['queued','running'].includes(items.find(item=>item.id===button.dataset.historyDelete)?.status);
+      for(const button of panel.querySelectorAll('[data-history-export]'))button.disabled=busy||!!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+items.find(item=>item.id===button.dataset.historyExport)?.kind+'.export');
+      for(const button of panel.querySelectorAll('[data-history-delete]'))button.disabled=busy||loading||!!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+items.find(item=>item.id===button.dataset.historyDelete)?.kind+'.delete')||['queued','running'].includes(items.find(item=>item.id===button.dataset.historyDelete)?.status);
     }
     function draw(){
       if(!live())return;
@@ -116,6 +116,7 @@ const webScanHistory = (() => {
       return webScanAgent.fromJob({...data,agentName:item.agentName,platform:item.platform});
     }
     async function exportRows(rows,bulk){
+      if(window.WolfGuardAccess&&rows.some(item=>!WolfGuardAccess.can('scan.'+item.kind+'.export'))){status('L’export de ces rapports ne fait pas partie de vos droits.',true);return;}
       if(busy||!live()||!rows.length)return;busy=true;const controller=new AbortController();exportController=controller;
       const active=()=>live()&&!controller.signal.aborted;
       const progress=find('#wgHistoryExportProgress'),meter=find('#wgHistoryProgress'),label=find('#wgHistoryProgressLabel');

@@ -85,6 +85,13 @@
       "when": 1794002143192,
       "tag": "0011_remote_terminal",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794013788022,
+      "tag": "0012_user_permissions",
+      "breakpoints": true
     }
   ]
 }

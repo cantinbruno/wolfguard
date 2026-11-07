@@ -11,12 +11,12 @@ async function openSection(section, itemId = null, options = {}) {
   if (section === 'library' && itemId && primaryWorkspaces.memo?.dirty && primaryWorkspaces.memo.state.item !== itemId && !await appConfirm('Quitter le mémo en cours sans enregistrer ses modifications ?')) return false;
   if ($('#app').classList.contains('hidden') && !state.vaultKey) return false;
   return sectionTransition.navigate(section, async isCurrent => {
-    if (section === 'library') await ensureUnifiedLibrary();
+    if (section === 'library'&&!window.WolfGuardAccess?.restricted()) await ensureUnifiedLibrary();
     if (portReference) {
       const reference = (await all('items')).find(item => item.referenceCatalogId === MEMO_PORT_REFERENCE && !item.deletedAt);
       itemId = reference?.id || null;
     }
-    if (!desktopBridge.available && section === 'vault') await flattenRedundantSectionRoots();
+    if (!desktopBridge.available && section === 'vault'&&!window.WolfGuardAccess?.restricted()) await flattenRedundantSectionRoots();
 
     if (!isCurrent()) return false;
     closeContextMenu();

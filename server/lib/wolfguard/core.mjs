@@ -6,6 +6,8 @@ import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,en
 import {consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from './otp.mjs';
 import {pushDevice,startPush,handlePushLogin,requiresPhone,phoneEnrollment,handlePhoneEnrollment} from './push.mjs';
 import {open as openRecord} from './access.mjs';
+import {userPolicy} from './permission-store.mjs';
+import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
 const SESSION_MS = 8 * 60 * 60000, IDLE_MS = 60 * 60000;
@@ -17,10 +19,10 @@ const equal = (a,b) => { let diff=a.length^b.length; for(let i=0;i<Math.max(a.le
 class Failure extends Error { constructor(status,message,extra={}) { super(message);this.status=status;this.extra=extra; } }
 const fail = (status,message,extra) => { throw new Failure(status,message,extra); };
 const json = (data,status=200) => new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8'}});
-async function smallJSON(request) {
+async function smallJSON(request,limit=2048) {
   let length=0;const parts=[];
   if(!request.body)fail(400,'Requête vide.');
-  for await(const part of request.body){length+=part.byteLength;if(length>2048)fail(413,'Requête trop volumineuse.');parts.push(part);}
+  for await(const part of request.body){length+=part.byteLength;if(length>limit)fail(413,'Requête trop volumineuse.');parts.push(part);}
   const all=new Uint8Array(length);let offset=0;for(const part of parts){all.set(part,offset);offset+=part.length;}
   try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(all));}catch{fail(400,'Requête invalide.');}
 }
@@ -84,6 +86,7 @@ async function authorize(request,env,now) {
   if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
   if(requiresPhone(env)&&session.user_id&&!session.user_push)fail(401,'Associe ton téléphone pour terminer la configuration MFA.',{code:'MFA_SETUP_REQUIRED'});
   const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&!!session.user_push,required:requiresMFA(env),primary:'push',backup:'authenticator'}}:{id:null,username:'Configuration initiale',role:'admin'};
+  if(session.user_id){const rights=await env.DB.prepare('SELECT id,permissions_cipher,permission_revision FROM users WHERE id=?').bind(session.user_id).first();user.permissions=await userPolicy(rights,env);user.permission_revision=rights.permission_revision;}
   return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
@@ -92,7 +95,7 @@ async function finishLogin(request,env,now,row,user,extra={}){
   if(!row.users_enabled&&user.id!==row.owner_user_id)fail(403,'Ce compte est indisponible.');
   const token=await issueSession(env,row.generation,now,request,user);
   await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
-  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await workspaceMaterial(row,env)}:{}),...extra});
+  return json({token,version:row.version,exists:!!row.object_key,user:await publicUser(user,env),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await deliveryMaterial(row,user,env)}:{}),...extra});
 }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
 // Fixed-sized frames keep the Worker below its memory limit even for attachments.
@@ -114,16 +117,38 @@ async function decryptedStream(object,env) {
   async function* transform(){let index=0,total=0;for await(const block of blocks(object.body,BLOCK+16)){const plain=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:ivFor(nonce,index),additionalData:encoder.encode('WolfGuard storage v1:'+length+':'+index++)},key,block));total+=plain.length;yield plain;}if(total!==length)throw new Error('Incomplete data');}
   return {body:streamed(transform()),length};
 }
+const SCOPED_MAX_BYTES=8*1024*1024;
+async function boundedJSON(stream,limit=SCOPED_MAX_BYTES){
+  const reader=stream.getReader(),parts=[];let length=0;
+  try{while(true){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>limit){await reader.cancel();fail(413,'La copie partagée dépasse la limite de 8 Mo pour les accès restreints. Le propriétaire peut réduire les pièces jointes.');}parts.push(value);}}
+  finally{reader.releaseLock();}
+  try{const data=new Uint8Array(length);let offset=0;for(const part of parts){data.set(part,offset);offset+=part.length;}return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(data));}catch{fail(400,'Copie partagée invalide.');}
+}
+async function scopedSnapshot(row,env,user,now){
+  const object=await env.BUCKET.get(row.object_key);if(!object?.body)fail(503,'Copie distante indisponible.');
+  const stream=await decryptedStream(object,env);if(stream.length>SCOPED_MAX_BYTES){await stream.body.cancel();fail(413,'La copie partagée dépasse la limite de 8 Mo pour les accès restreints. Le propriétaire peut réduire les pièces jointes.');}
+  const envelope=await boundedJSON(stream.body),master=await canonicalMaterial(row,env),delivery=await deliveryMaterial(row,user,env);
+  let source;try{source=await openEnvelope(envelope,master);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
+  let visible;try{visible=await projectWorkspace(source,user,master,delivery,now);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
+  return {source,visible,master,delivery,revision:envelope.revision};
+}
 async function putSnapshot(request,env,session,now) {
   const expected=Number(request.headers.get('X-WG-Version'));
-  const length=Number(request.headers.get('X-WG-Size'));
+  let length=Number(request.headers.get('X-WG-Size')),incoming=request.body;
   if(!Number.isSafeInteger(expected)||expected<0||!Number.isSafeInteger(length)||length<1||length>MAX_BYTES||!request.body)fail(400,'Taille ou version invalide.');
   const row=await state(env);if(row.version!==expected)fail(409,'Une autre copie a changé. Verrouille puis rouvre WolfGuard pour la récupérer.');
   let rotation=null;
   const rotationToken=request.headers.get('X-WG-Rotation');
+  if(row.users_enabled&&session.user.role!=='admin'){
+    if(rotationToken)fail(403,'Seul le propriétaire peut changer le chiffrement partagé.');
+    const scoped=await scopedSnapshot(row,env,session.user,now);
+    let wanted;try{wanted=await openEnvelope(await boundedJSON(request.body),scoped.delivery);}catch(error){if(error instanceof Failure)throw error;fail(400,'Copie chiffrée invalide.');}
+    const merged=await mergeScopedWorkspace(scoped.source,scoped.visible,wanted,session.user,scoped.master,scoped.delivery,now,fail);
+    const text=JSON.stringify(await sealEnvelope(merged,scoped.master,scoped.revision+1));length=encoder.encode(text).length;incoming=new Response(text).body;
+  }
   if(rotationToken){rotation=await env.DB.prepare('SELECT * FROM rotations WHERE token_hash=? AND generation=? AND version=? AND expires_at>?').bind(await digest(rotationToken),session.generation,expected,now).first();if(!rotation)fail(409,'Changement de code expiré. Réessaie.');}
   const objectKey='snapshots/'+random(32), nonce=random(8);
-  const body=await encryptedStream(request.body,length,nonce,env), cipherLength=length+Math.ceil(length/BLOCK)*16;
+  const body=await encryptedStream(incoming,length,nonce,env), cipherLength=length+Math.ceil(length/BLOCK)*16;
   try {
     // Workers require known-length streams for R2 uploads.
     let upload=body,pump;
@@ -213,15 +238,20 @@ export async function handleAPI(request,env,clock=Date.now) {
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
-        if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request),random,pinHash,verifyPIN,issueSession,digest});
+        if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});
         else if(path==='/api/vault'&&request.method==='GET'){
           const row=await state(env);if(!row.object_key)fail(404,'Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
+          if(row.users_enabled&&session.user.role!=='admin'){
+            const scoped=await scopedSnapshot(row,env,session.user,now);
+            response=json(await sealEnvelope(scoped.visible,scoped.delivery,scoped.revision));response.headers.set('X-WG-Version',String(row.version));
+          }else{
           const object=await env.BUCKET.get(row.object_key);if(!object?.body)fail(503,'Copie distante indisponible.');
           const {body,length}=await decryptedStream(object,env);
           response=new Response(body,{headers:{'Content-Type':'application/json','Content-Length':String(length),'X-WG-Version':String(row.version)}});
+          }
         }else if(path==='/api/vault'&&request.method==='PUT')response=await putSnapshot(request,env,session,now);
         else if(path==='/api/rotation'&&request.method==='POST'){
           if((await state(env)).owner_user_id)fail(409,'Modifie ton code personnel depuis les paramètres de sécurité.');

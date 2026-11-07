@@ -64,7 +64,7 @@ export async function stopRemoteOwners(env,owners,now){
 }
 export async function handleAccessAPI(request,env,now,session,h){
   const path=new URL(request.url).pathname,{fail,json,body}=h;
-  if(session.user?.role!=='admin')fail(403,'Cette gestion est réservée aux administrateurs.');
+  if(session.user?.role!=='admin'&&!(request.method==='GET'&&session.user?.permissions?.grants?.includes('access.read')&&(session.user.permissions.expiresAt===null||session.user.permissions.expiresAt>now)))fail(403,'Cette gestion est réservée aux administrateurs.');
   if(path==='/api/access'&&request.method==='GET'){
     await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND expires_at>? AND active_at>?)').bind(now,now-IDLE_MS).run();
     const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.expires_at>? AND s.active_at>? AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation,now,now-IDLE_MS).all();

@@ -22,7 +22,7 @@ const PRIMARY_WORKSPACE_SECTIONS = ['library', 'scan-passive', 'scan-active', 's
 const workspaceModules = (() => {
   const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);
   const has = id => installed.has(id);
-  const allows = section => section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools'));
+  const allows = section => (!window.WolfGuardAccess||WolfGuardAccess.allows(section))&&(section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools')));
   return {
     has,
     allows,
@@ -30,7 +30,7 @@ const workspaceModules = (() => {
       return PRIMARY_WORKSPACE_SECTIONS.filter(allows).length > 1;
     },
     get landingSection() {
-      return has('memo') ? 'library' : has('tools') ? 'tools' : 'modules';
+      return has('memo')&&allows('library')?'library':has('tools')&&allows('tools')?'tools':PRIMARY_WORKSPACE_SECTIONS.find(allows)||'modules';
     },
     allowsItem: item => !item.consolidatedInto && item.type !== 'task' && allows(['vault', 'protocol'].includes(item.type) ? item.type : 'library')
   };
@@ -76,6 +76,7 @@ function moduleManagerHTML() {
 }
 
 function renderModulesWorkspace() {
+  if(window.WolfGuardAccess?.restricted()&&!PRIMARY_WORKSPACE_SECTIONS.some(section=>workspaceModules.allows(section))){$('#content').innerHTML='<section class="permission-empty"><h2>Votre compte est prêt</h2><p>Aucun espace ne vous a encore été attribué. Demandez au propriétaire de vous accorder les droits nécessaires.</p><button type="button" class="secondary" data-wg-click="openSettings()">Paramètres et sécurité</button></section>';return;}
   $('#content').innerHTML = moduleManagerHTML();
   $('#app').classList.add('modules-only');
 }

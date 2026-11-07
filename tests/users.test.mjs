@@ -80,7 +80,7 @@ test('personal code changes retain the non-extractable workspace key and revoke 
     const response=await s.api('users/change-code',{oldCode:'12345678',code:'23456789'},a.token);assert.equal(response.status,200);const changed=await response.json();
     assert.equal((await s.api('touch',{},a.token)).status,401);assert.equal((await s.api('touch',{},b.token)).status,401);
     assert.equal((await s.api('touch',{},changed.token)).status,200);assert.equal((await s.api('touch',{},owner.token)).status,200);
-    assert.deepEqual((await s.login('alice@example.test','23456789')).workspace,s.material);
+    assert.deepEqual((await s.login('alice@example.test','23456789')).workspace,a.workspace);assert.notDeepEqual(a.workspace,s.material);
   }finally{s.env.DB.db.close();}
 });
 
@@ -163,7 +163,7 @@ test('admin supplies only an email; a one-time invitation lets its user choose t
     assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'short'})).status,400);
     assert.deepEqual(await(await s.api('account/complete',{ticket,username:'new@example.test',code:'12345678'})).json(),{ok:true});
     assert.equal((await s.api('account/inspect',{ticket})).status,410);assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'23456789'})).status,410);
-    const member=await s.login('new@example.test','12345678');assert.deepEqual(member.workspace,s.material);assert.equal(member.user.role,'member');assert.equal(member.user.credentialPending,false);
+    const member=await s.login('new@example.test','12345678');assert.notDeepEqual(member.workspace,s.material);assert.deepEqual(member.user.permissions.grants,[]);assert.equal(member.user.role,'member');assert.equal(member.user.credentialPending,false);
     assert.equal((await s.api('access',undefined,member.token)).status,403);
     assert.equal(s.env.DB.db.prepare('SELECT version FROM vault').get().version,1);
   }finally{s.env.DB.db.close();}
@@ -179,7 +179,7 @@ test('reset immediately revokes sessions and the old code, invalidates previous 
     assert.equal((await s.api('login',{username:'alice@example.test',code:'12345678'})).status,401);s.advance(5001);
     const next=await(await s.api('users/reset-code',{id},owner.token)).json();assert.equal((await s.api('account/inspect',{ticket:reset.invitation.ticket})).status,410);
     assert.equal((await s.api('account/complete',{ticket:next.invitation.ticket,username:'alice@example.test',code:'23456789'})).status,200);
-    const active=await s.login('alice@example.test','23456789');assert.deepEqual(active.workspace,s.material);assert.equal((await s.api('touch',{},owner.token)).status,200);
+    const active=await s.login('alice@example.test','23456789');assert.notDeepEqual(active.workspace,s.material);assert.equal((await s.api('touch',{},owner.token)).status,200);
     assert.equal((await s.api('users/reset-code',{id:owner.user.id},owner.token)).status,409);
   }finally{s.env.DB.db.close();}
 });
@@ -214,7 +214,7 @@ test('an unbound invitation creates a member with their chosen email and code ex
     assert.equal((await s.api('account/complete',{ticket,username:'cantin.bruno@gmx.fr',code:'12345678'})).status,409);
     assert.equal((await s.api('account/inspect',{ticket})).status,200);
     assert.equal((await s.api('account/complete',{ticket,username:' MEMBER@EXAMPLE.TEST ',code:'12345678',role:'admin'})).status,200);
-    const member=await s.login('member@example.test','12345678');assert.equal(member.user.role,'member');assert.deepEqual(member.workspace,s.material);
+    const member=await s.login('member@example.test','12345678');assert.equal(member.user.role,'member');assert.notDeepEqual(member.workspace,s.material);assert.deepEqual(member.user.permissions.grants,[]);
     assert.equal((await s.api('users/invite',{},member.token)).status,403);
     assert.equal((await s.api('users/revoke-invitation',{id:invitation.id},member.token)).status,403);
     assert.equal((await s.api('account/inspect',{ticket})).status,410);

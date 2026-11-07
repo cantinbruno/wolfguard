@@ -130,7 +130,8 @@ async function openSettings(initialTab = 'security') {
   const multipleDatabases = databaseFiles.length > 1;
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
-  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'history'].includes(initialTab)&&(!['users','access'].includes(initialTab)||admin) ? initialTab : 'security';
+  const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
+  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'history'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -141,8 +142,8 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${admin?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('key-round')}<span>Utilisateurs</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${admin?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Accès</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('key-round')}<span>Utilisateurs</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Accès</span></button>
           <button type="button" class="settings-tab" id="settings-tab-history" data-settings-tab="history" role="tab" aria-controls="settings-history" aria-selected="false" tabindex="-1">${settingsIcon('history')}<span>Historique</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
         </nav>

@@ -23,7 +23,7 @@ const webScanWorkspace = (() => {
     if(known)bar.value=Math.min(execution.total,Math.max(0,execution.completed||0));else bar.removeAttribute('value');
     $('#wgScanExecutionCount').textContent=known?(execution.completed||0)+' / '+execution.total+({'vulnerability':' contrôles','map':' adresses'}[view.kind]||' tests'):'';
     for(const control of root.querySelectorAll('#scanTarget,#wgScanPorts,#wgScanIdentify,#wgAgentTimeout,#wgAgentConcurrency,[data-wg-profile]'))control.disabled=loading;
-    const exportButton=$('#wgScanExport');if(exportButton)exportButton.disabled=loading||phase==='error'||!view.report||view.busy;
+    const exportButton=$('#wgScanExport');if(exportButton)exportButton.disabled=!!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+view.kind+'.export')||loading||phase==='error'||!view.report||view.busy;
   }
   const fresh=()=>Object.fromEntries(Object.keys(scanInsights.definitions).map(kind=>[kind,make(kind)]));
   let views=fresh();
@@ -45,7 +45,7 @@ const webScanWorkspace = (() => {
       for(const button of brief.querySelectorAll('[data-report-filter]'))button.onclick=()=>{view.query='';view.page=0;view.auditSeverity='all';if(view.kind==='passive'){resetPassiveFilters(view);view.passiveCategory=button.dataset.reportFilter;view.filter='all';view.tab='overview';}else{view.filter=button.dataset.reportFilter;view.tab='rows';}draw(view,passive);$('#wgScanTab-'+view.tab).focus({preventScroll:true});};
     }else{stamp.textContent='Aucun relevé chargé';brief.innerHTML='';dossier.innerHTML='';}
     $('#wgScanReference').disabled=!known;
-    $('#wgScanExport').disabled=!known||view.busy;
+    $('#wgScanExport').disabled=!!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+view.kind+'.export')||!known||view.busy;
     // These sections render their own metrics and overview below.
     if(view.kind==='map'||view.kind==='vulnerability')return;
     const hosts=hostRows(view.report);
@@ -160,6 +160,7 @@ const webScanWorkspace = (() => {
     syncWorkflow(view);
   }
   async function exportData(view,kind,token){
+    if(window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.export')){appNotify('L’export de ces rapports ne fait pas partie de vos droits.');return;}
     if(!view.report||view.busy)return;
     const report=structuredClone(view.report),reference=view.reference?structuredClone(view.reference):null;
     view.busy=true;draw(view,kind==='passive');

@@ -1,6 +1,7 @@
 'use strict';
 
 const topNavigation = (() => {
+  let permissionSignature=null,resizeObserver=null;
   let navigation;
   const labels = {
     library: 'Mémo',
@@ -44,6 +45,8 @@ const topNavigation = (() => {
     if (navigation) return;
     navigation = $('.global-tabs');
     if (!navigation) return;
+    permissionSignature=availablePrimarySections().join(',');
+    navigation.hidden=false;
     navigation.classList.add('section-navigation');
     navigation.setAttribute('aria-label', 'Espaces de travail');
     $('#app').classList.toggle('single-module', !workspaceModules.canSwitch);
@@ -70,11 +73,12 @@ const topNavigation = (() => {
       return button;
     });
     navigation.replaceChildren(...buttons);
-    new ResizeObserver(()=>{positionIndicator();navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});}).observe(navigation);
+    resizeObserver?.disconnect();resizeObserver=new ResizeObserver(()=>{positionIndicator();navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});});resizeObserver.observe(navigation);
     setActive(state.section);
   }
   return {
     init,
+    refresh(){const signature=availablePrimarySections().join(',');if(!navigation||signature===permissionSignature)return;permissionSignature=signature;navigation=null;init();},
     setActive
   };
 })();

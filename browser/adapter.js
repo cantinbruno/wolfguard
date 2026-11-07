@@ -35,6 +35,7 @@ const webWorkspace = (() => {
     if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(() => { if (session && !sessionExpired()) cloud.touch().catch(() => lock()); }, 25000); }
     resetSessionSettings(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
     state.vaultKey = result.key; sessionAccessCode = '';
+    topNavigation.refresh?.();
     updateMFAIndicator();
   }
   async function resumeAfterReload() {
@@ -231,6 +232,7 @@ const webWorkspace = (() => {
       let payload = structuredClone(base);
       const result = change(payload);
       validate(payload);
+      window.WolfGuardAccess?.assertChanges(base,payload);
       for(const version of Array.isArray(backupOrganization)?backupOrganization:backupOrganization?[backupOrganization]:[])await storage.preserveOrganization(current.envelope,version);
       let encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
       if(cloud.enabled){
@@ -270,6 +272,10 @@ const webWorkspace = (() => {
           const choice=operation.action==='delete'?'':String(operation.record?.value||'');
           sessionStorage.setItem(agentChoiceKey(),choice);agentChoice=choice;settingsCache.set('scanAgentId',choice);return false;
         }
+        if(cloud.enabled&&!cloud.isAdmin()&&operation.store==='activity')return false;
+        if(cloud.enabled&&!cloud.isAdmin()&&operation.store==='settings'){
+          const id=operation.record?.key||operation.id;if(id){const value=operation.action==='delete'?null:operation.record?.value;settingsCache.set(id,value);try{sessionStorage.setItem('wolfguard-pref:'+cloud.currentUser().id+':'+id,JSON.stringify(value));}catch{}}return false;
+        }
         return true;
       });
       if(!records.length)return Promise.resolve(true);
@@ -294,7 +300,7 @@ const webWorkspace = (() => {
       for (const record of payload.items) if (record.linkedItemIds) record.linkedItemIds = record.linkedItemIds.filter(target => target !== id);
       payload.activity = payload.activity.filter(record => record.itemId !== id);
     }); }
-    updateItem(id,update) { return commit(payload => { const item = payload.items.find(record => record.id === id && !isDeleted(record)); if (item) update(item); return structuredClone(item); }); }
+    updateItem(id,update) { if(window.WolfGuardAccess?.restricted()){const item=session.payload.items.find(row=>row.id===id);if(item&&!WolfGuardAccess.action(item,'edit','items',session.payload.folders)){const changed=structuredClone(item);update(changed);const before=structuredClone(item);for(const field of ['viewCount','lastViewedAt']){delete changed[field];delete before[field];}if(!shared.sameValue(before,changed)){try{WolfGuardAccess.reject();}catch(error){return Promise.reject(error);}}return Promise.resolve(structuredClone(item));}}return commit(payload => { const item = payload.items.find(record => record.id === id && !isDeleted(record)); if (item) update(item); return structuredClone(item); }); }
     saveEditedItem(item,base) { return commit(payload=>{const index=payload.items.findIndex(row=>row.id===item.id);if(index<0)payload.items.push(structuredClone(item));else payload.items[index]=structuredClone(item);return true;},{editBase:base}); }
     async flush() { await queue; return true; }
   }
@@ -654,6 +660,7 @@ const webWorkspace = (() => {
   async function exportWorkspace() {
     assertFreshSession();
     const current=session; if (!current) return;
+    if(window.WolfGuardAccess?.restricted()&&['library','vault'].some(section=>current.payload.items.some(row=>(row.type==='vault'?'vault':'library')===section)&&!WolfGuardAccess.can(section+'.export'))){appNotify('L’export de toutes les données visibles ne fait pas partie de vos droits.');return;}
     await queue;
     if(session!==current)return;
     if(cloud.enabled&&cloud.hasUsers()){
