@@ -111,10 +111,40 @@ async function chatHistory(action='',value){
   if(!/^(?:\?id=[a-f0-9]{32}|\/(?:save|delete|purge))?$/.test(action))throw new Error('Adresse d’historique invalide.');
   return value===undefined?(await request('chat/history'+action)).data:post('chat/history'+action,value);
 }
+async function chatSettings(value){
+  if(!enabled||!token)throw new Error('Connecte-toi pour utiliser le chatbot.');
+  return value===undefined?(await request('chat/settings')).data:post('chat/settings',value);
+}
+async function chatCompletion(messages,{signal,onToken=()=>{}}={}){
+  if(!enabled||!token)throw new Error('Connecte-toi pour utiliser le chatbot.');
+  const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),95000);
+  const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+  let reader,content='',done=false,truncated=false;
+  try{
+    if(controller.signal.aborted)throw new DOMException('Réponse arrêtée.','AbortError');
+    const response=await fetch(API_ORIGIN+'/api/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':'application/json'},body:JSON.stringify({messages}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+    if(!response.ok){const data=await response.json().catch(()=>({})),error=new Error(data.error||'Le service IA est indisponible.');error.code=response.status===401||response.status===403&&['ACCESS_BLOCKED','ACCOUNT_DISABLED'].includes(data.code)?'CLOUD_ACCESS':'CLOUD_ERROR';if(error.code==='CLOUD_ACCESS'&&credential===token)window.dispatchEvent?.(new CustomEvent('wolfguard-access-revoked',{detail:error.message}));throw error;}
+    if(!response.headers.get('Content-Type')?.includes('text/event-stream')||!response.body)throw new Error('Réponse du service IA invalide.');
+    reader=response.body.getReader();const decoder=new TextDecoder();let buffer='';
+    while(!done){
+      const part=await reader.read();if(signal?.aborted||credential!==token)throw new DOMException('Réponse arrêtée.','AbortError');
+      buffer+=part.done?decoder.decode():decoder.decode(part.value,{stream:true});if(buffer.length>262144)throw new Error('Réponse du service IA invalide.');
+      let index;while((index=buffer.indexOf('\n'))!==-1){const line=buffer.slice(0,index).replace(/\r$/,'');buffer=buffer.slice(index+1);if(!line.startsWith('data:'))continue;const data=JSON.parse(line.slice(5));
+        if(data.type==='error')throw new Error(data.message||'La réponse a été interrompue.');
+        if(data.type==='token'&&typeof data.content==='string'){content+=data.content;if(content.length>12000)throw new Error('Réponse trop longue.');onToken({type:'token',content});}
+        if(data.type==='done'){done=true;truncated=!!data.truncated;break;}
+      }
+      if(part.done&&!done)throw new Error('La réponse a été interrompue. Réessaie.');
+    }
+    if(!content.trim())throw new Error('Le service IA a renvoyé une réponse vide.');
+    return {content,truncated};
+  }catch(error){if(signal?.aborted||credential!==token)throw new DOMException('Réponse arrêtée.','AbortError');if(error.name==='AbortError')throw new Error('Le service IA a mis trop de temps à répondre. Réessaie.');if(error instanceof TypeError)throw new Error('Connexion à l’API IA impossible. Vérifie ta connexion.');throw error;}
+  finally{controller.abort();await reader?.cancel().catch(()=>{});reader?.releaseLock();clearTimeout(timeout);signal?.removeEventListener('abort',abort);}
+}
 function clear(){
   if(token)request('logout',{method:'POST'}).catch(()=>{});
   token='';version=0;user=null;usersEnabled=false;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,chatSettings,chatCompletion,clear});
 })();

@@ -11,7 +11,7 @@ export async function handleChatHistory(request,env,now,session,{fail,json,body}
   if(path==='/api/chat/history/purge'&&request.method==='POST'){
     if(user.role!=='admin')fail(403,'Seul l’administrateur peut effacer tous les historiques.');
     const data=await body();if(data.confirm!=='DELETE_ALL_CHAT_HISTORY')fail(400,'Confirme la suppression de tous les historiques.');
-    await env.DB.batch([env.DB.prepare('UPDATE chat_history_state SET epoch=epoch+1 WHERE id=1'),env.DB.prepare('DELETE FROM chat_conversations')]);
+    await env.DB.batch([env.DB.prepare('UPDATE chat_history_state SET epoch=epoch+1 WHERE id=1'),env.DB.prepare('DELETE FROM chat_conversations'),env.DB.prepare("UPDATE chat_api_usage SET lease_until=0,lease='' ")]);
     return json({ok:true});
   }
   const state=await env.DB.prepare('SELECT epoch FROM chat_history_state WHERE id=1').first();

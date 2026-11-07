@@ -1,4 +1,0 @@
-app/vendor/browser-ai/* text eol=lf
-docs/vendor/browser-ai/* text eol=lf
-app/vendor/browser-ai/*.wasm -text
-docs/vendor/browser-ai/*.wasm -text

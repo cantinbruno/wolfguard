@@ -12,6 +12,45 @@ import {validSubscription,decisionMessage,inspectMessage} from '../server/lib/wo
 import {buildPushPayload} from '../server/vendor/webpush.mjs';
 import {profilePolicy} from '../server/lib/wolfguard/permissions.mjs';
 
+test('remote chat uses a fixed model without an agent and keeps the provider key server-side',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const added=await s.createMember('api-chat@example.test','12345678',owner.token);let member=await s.login('api-chat@example.test','12345678');
+    assert.equal((await s.api('chat/settings')).status,401);
+    assert.equal((await s.api('chat/settings',undefined,member.token)).status,403);
+    const policy=profilePolicy('none');policy.grants=['ai.use'];
+    await s.api('users/permissions',{id:added.user.id,revision:1,policy},owner.token);member=await s.login('api-chat@example.test','12345678');
+    assert.equal((await s.api('chat/settings',{key:'x'.repeat(32),revision:0},member.token)).status,403);
+    assert.equal((await s.api('chat/completions',{messages:[{role:'user',content:'Hi'}]},member.token)).status,503);
+    const key='synthetic_private_provider_key_123456789',calls=[];let providerStatus=200;
+    s.env.LOCAL_TEST_ORIGIN='http://127.0.0.1:4178';
+    s.env.CHAT_TEST_FETCH=async(url,options)=>{
+      calls.push({url,options,data:JSON.parse(options.body)});
+      if(providerStatus!==200)return Response.json({error:key},{status:providerStatus});
+      if(!calls.at(-1).data.stream)return Response.json({choices:[{message:{content:'OK'}}]});
+      return new Response('data: {"choices":[{"delta":{"reasoning":"PRIVATE REASONING","content":"Bonjour"}}]}\n\ndata: {"choices":[{"delta":{"content":" été"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',{headers:{'Content-Type':'text/event-stream'}});
+    };
+    providerStatus=401;const rejected=await s.api('chat/settings',{key,revision:0},owner.token);assert.equal(rejected.status,502);assert.ok(!(await rejected.text()).includes(key));
+    assert.equal((await(await s.api('chat/settings',undefined,owner.token)).json()).configured,false);
+    providerStatus=200;const configured=await(await s.api('chat/settings',{key,revision:0},owner.token)).json();assert.equal(configured.configured,true);assert.ok(!JSON.stringify(configured).includes(key));
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM chat_api_config').get());assert.ok(!disk.includes(key));
+    const input={messages:[{role:'user',content:'PRIVATE QUESTION',attachment:'PRIVATE VAULT'}],model:'arbitrary',url:'https://evil.invalid',key:'ATTACKER KEY'};
+    const response=await s.api('chat/completions',input,member.token);assert.equal(response.status,200);assert.match(response.headers.get('Content-Type'),/text\/event-stream/);
+    const blocked=await s.api('chat/completions',input,member.token);assert.equal(blocked.status,429);
+    const stream=await response.text();assert.ok(stream.includes('Bonjour'));assert.ok(stream.includes('été'));assert.ok(stream.includes('"type":"done"'));assert.ok(!stream.includes(key)&&!stream.includes('PRIVATE REASONING'));
+    const upstream=calls.at(-1);assert.equal(upstream.url,'https://api.groq.com/openai/v1/chat/completions');assert.equal(upstream.options.headers.Authorization,'Bearer '+key);assert.equal(upstream.data.model,'openai/gpt-oss-120b');assert.equal(upstream.data.include_reasoning,false);assert.deepEqual(upstream.data.messages.at(-1),{role:'user',content:'PRIVATE QUESTION'});assert.ok(!JSON.stringify(upstream.data).includes('PRIVATE VAULT'));assert.ok(!JSON.stringify(upstream.data).includes(member.user.id));
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM scan_agents').get().n,0);
+    assert.equal(s.env.DB.db.prepare('SELECT lease_until FROM chat_api_usage WHERE user_id=?').get(member.user.id).lease_until,0);
+    providerStatus=429;const quota=await s.api('chat/completions',input,member.token);assert.equal(quota.status,429);assert.ok(!(await quota.text()).includes(key));
+    providerStatus=200;const cancelled=await s.api('chat/completions',input,member.token);await cancelled.body.cancel();assert.equal(s.env.DB.db.prepare('SELECT lease_until FROM chat_api_usage WHERE user_id=?').get(member.user.id).lease_until,0);
+    for(let i=0;i<7;i++){const r=await s.api('chat/completions',input,member.token);if(r.ok)await r.text();}
+    assert.equal((await s.api('chat/completions',input,member.token)).status,429);
+    assert.equal((await s.api('chat/settings',{remove:true,revision:0},owner.token)).status,409);
+    assert.equal((await s.api('chat/settings',{remove:true,revision:1},owner.token)).status,200);
+    assert.equal((await(await s.api('chat/settings',undefined,member.token)).json()).configured,false);
+  }finally{s.env.DB.db.close();}
+});
+
 test('classic MFA uses the existing six-digit code even when a previous Duo setup and browser phone exist',async()=>{
   const s=await setup();try{
     const phone=await phoneSetup(s),stored=s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(phone.owner.user.id).otp_secret_cipher;

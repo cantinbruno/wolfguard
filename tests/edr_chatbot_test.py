@@ -1,4 +1,4 @@
-"""Real EDR relay and standalone browser chat: lifecycle, mobile and lock cleanup."""
+"""Real EDR relay and remote API chat: lifecycle, mobile and lock cleanup."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -15,7 +15,7 @@ def run():
     server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start()
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],env={**os.environ,'WG_TEST_CHAT_API':'1'},stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def agent_api(path,data,token):
         with urlopen(Request(backend+'/api/agent/'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','Authorization':'Agent '+token})) as response:return json.load(response)
@@ -23,7 +23,6 @@ def run():
         with sync_playwright() as p:
             browser=p.chromium.launch();context=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce');errors=[]
             context.route(API+'/**',lambda route:route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' +urlsplit(route.request.url).query if urlsplit(route.request.url).query else ''))))
-            context.route('**/js/ai/worker.js*',lambda route:route.fulfill(content_type='text/javascript',body="self.onmessage=({data})=>setTimeout(()=>self.postMessage({id:data.id,type:'complete',content:'Réponse intégrée <script>window.injected=true</script>',device:'wasm'}),500);"))
             chat_calls=[];context.on('request',lambda request:chat_calls.append(request.url) if '/api/ai' in request.url else None)
             page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto('http://127.0.0.1:4178/?sync-test');ready(page)
@@ -47,10 +46,11 @@ def run():
                 page.locator('[data-edr-audit]').click()
             pending=retry.value.json();expect(page.locator('#edrPosts')).to_contain_text('Audit en cours');expect(page.locator('#edrMetrics article').filter(has_text='Alertes relevées').locator('strong')).to_have_text('1')
             page.evaluate("async id=>await WolfGuardCloud.agentRequest('scans/cancel',{id})",pending['id'])
-            page.locator('[data-section=chatbot]').click();expect(page.locator('#aiPrepare')).to_have_text('IA prête');expect(page.locator('#aiSend')).to_be_enabled();page.wait_for_function('()=>!sectionTransition.active');page.locator('#aiPrompt').fill('Question test');expect(page.locator('#aiPrompt')).to_have_value('Question test')
+            page.evaluate("async()=>WolfGuardCloud.chatSettings({key:'gsk_test_fixture_key_not_real_12345',revision:0})")
+            page.locator('[data-section=chatbot]').click();expect(page.locator('#aiSend')).to_be_enabled();page.wait_for_function('()=>!sectionTransition.active');page.locator('#aiPrompt').fill('Question test');expect(page.locator('#aiPrompt')).to_have_value('Question test')
             page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible()
-            expect(page.locator('.ai-message[data-role=assistant]')).to_contain_text('Réponse intégrée');assert not page.evaluate('window.injected===true');assert not chat_calls
-            page.locator('#aiPrompt').fill('À annuler');page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible();page.locator('#aiStop').click();expect(page.locator('#aiSend')).to_be_enabled(timeout=10000);expect(page.locator('#aiPrompt')).to_have_value('À annuler')
+            expect(page.locator('.ai-message[data-role=assistant]')).to_contain_text('Réponse personnelle');assert not page.evaluate('window.injected===true');assert not chat_calls
+            expect(page.locator('#aiSend')).to_be_enabled();page.locator('#aiPrompt').fill('À annuler');page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible();page.locator('#aiStop').click();expect(page.locator('#aiSend')).to_be_enabled(timeout=10000);expect(page.locator('#aiPrompt')).to_have_value('À annuler')
             for section in ['edr','chatbot']:
                 page.locator('[data-section='+section+']').click();page.wait_for_function('()=>!sectionTransition.active')
                 expected={'edr':'rgb(116, 227, 190)','chatbot':'rgb(221, 176, 255)'}[section]
@@ -64,7 +64,7 @@ def run():
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
             page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=chatbot]').click();expect(page.locator('.ai-message')).to_have_count(0)
             assert not errors,errors
-            browser.close();print('PASS: EDR real audit and alert proof, standalone browser chat, escaped replies, cancellation, mobile layout, lock clears conversation')
+            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, remote API chat, escaped replies, cancellation, mobile layout, lock clears conversation')
     finally:process.terminate();process.wait(timeout=5);server.shutdown()
 
 if __name__=='__main__':run()

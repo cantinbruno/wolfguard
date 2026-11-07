@@ -9,7 +9,7 @@ async function client(run){
   try{
     globalThis.location=new URL('http://localhost/?sync-test');
     globalThis.window={addEventListener(){}};
-    globalThis.setTimeout=(callback,delay)=>{assert.equal(delay,45000);deadlines.set(++timer,callback);return timer;};
+    globalThis.setTimeout=(callback,delay)=>{assert.ok([45000,95000].includes(delay));deadlines.set(++timer,callback);return timer;};
     globalThis.clearTimeout=id=>deadlines.delete(id);
     const cloud=await import('../browser/cloud.js?test='+crypto.randomUUID());
     cloud.restoreSession({token:'a'.repeat(64),version:1});
@@ -119,4 +119,22 @@ test('chat and push test routes use the authenticated client and reject arbitrar
  for(const path of ['ai','ai?id='+('c'.repeat(32)),'ai/cancel','users/push/test'])await cloud.agentRequest(path,path.includes('?')?undefined:{});
  assert.deepEqual(calls,['/api/ai','/api/ai','/api/ai/cancel','/api/users/push/test']);
  await assert.rejects(cloud.agentRequest('ai/arbitrary',{}),/Adresse agent invalide/);
+}));
+
+test('chat API streams tokens through the session relay, without provider credentials',()=>client(async(cloud,deadlines)=>{
+  let target,options;
+  globalThis.fetch=async(url,value)=>{options=value;assert.ok(url.endsWith('/api/chat/completions'));return new Response(new ReadableStream({start(c){target=c;}}),{headers:{'Content-Type':'text/event-stream'}});};
+  const updates=[],pending=cloud.chatCompletion([{role:'user',content:'PRIVATE QUESTION'}],{onToken:item=>updates.push(item.content)});
+  await Promise.resolve();const encode=item=>new TextEncoder().encode('data: '+JSON.stringify(item)+'\n\n');
+  target.enqueue(encode({type:'token',content:'Bonjour'}));await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(updates,['Bonjour']);assert.equal(deadlines.size,1);
+  target.enqueue(encode({type:'token',content:' été'}));target.enqueue(encode({type:'done',truncated:false}));target.close();
+  assert.deepEqual(await pending,{content:'Bonjour été',truncated:false});assert.equal(options.headers.Authorization,'Bearer '+'a'.repeat(64));assert.deepEqual(Object.keys(JSON.parse(options.body)),['messages']);assert.equal(options.signal.aborted,true);
+}));
+
+test('truncated API streams fail and cancellation releases a stalled reader',()=>client(async cloud=>{
+  globalThis.fetch=async()=>new Response('data: {"type":"token","content":"Incomplete"}\n\n',{headers:{'Content-Type':'text/event-stream'}});
+  await assert.rejects(cloud.chatCompletion([{role:'user',content:'Hi'}]),/interrompue/);
+  const controller=new AbortController();
+  globalThis.fetch=async(_url,{signal})=>new Response(new ReadableStream({start(c){signal.addEventListener('abort',()=>c.error(new DOMException('Stopped','AbortError')));}}),{headers:{'Content-Type':'text/event-stream'}});
+  const pending=cloud.chatCompletion([{role:'user',content:'Hi'}],{signal:controller.signal});await Promise.resolve();controller.abort();await assert.rejects(pending,{name:'AbortError'});
 }));

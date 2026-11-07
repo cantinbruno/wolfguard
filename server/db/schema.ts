@@ -89,3 +89,10 @@ export const duoConfig=sqliteTable('duo_config',{
 export const duoRequests=sqliteTable('duo_requests',{
   id:text('id').primaryKey(),stateHash:text('state_hash').notNull().unique(),ticketHash:text('ticket_hash').notNull().unique(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),userVersion:integer('user_version').notNull(),generation:integer('generation').notNull(),configRevision:integer('config_revision').notNull(),otpBinding:text('otp_binding').notNull(),nonce:text('nonce').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
 },table=>[index('duo_requests_user_created').on(table.userId,table.createdAt)]);
+
+export const chatApiConfig=sqliteTable('chat_api_config',{
+  id:integer('id').primaryKey(),keyCipher:text('key_cipher'),revision:integer('revision').notNull().default(0)
+});
+export const chatApiUsage=sqliteTable('chat_api_usage',{
+  userId:text('user_id').primaryKey().references(()=>users.id,{onDelete:'cascade'}),windowStart:integer('window_start').notNull(),requests:integer('requests').notNull(),lease:text('lease').notNull(),leaseUntil:integer('lease_until').notNull()
+});

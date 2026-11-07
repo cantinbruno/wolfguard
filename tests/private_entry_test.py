@@ -38,7 +38,6 @@ def run():
             context.add_init_script("globalThis.cspViolations=[];document.addEventListener('securitypolicyviolation',event=>cspViolations.push({directive:event.effectiveDirective,blocked:event.blockedURI}));")
             # Stub inference only: the real private-entry CSP must permit the
             # module worker and its message exchange without downloading weights.
-            context.route('**/js/ai/worker.js*',lambda route:route.fulfill(content_type='text/javascript',body="self.onmessage=({data})=>self.postMessage({id:data.id,type:'ready',device:'wasm'});"))
             calls=[];errors=[]
             def proxy(route):
                 calls.append(urlsplit(route.request.url).path)
@@ -69,11 +68,10 @@ def run():
             page.wait_for_function('()=>!document.querySelector("#app").inert')
             assert page.locator('script[src*="push-device"]').count()==0
             assert page.evaluate("async()=>!(await navigator.serviceWorker.getRegistration('/'))")
-            assert page.evaluate("async()=>(await WolfGuardBrowserAI.prepare()).type")=='ready'
+            assert not page.workers
             manifest=context.new_cdp_session(page).send('Page.getAppManifest')
             assert manifest['url'].endswith('/phone-manifest.json') and not manifest['errors'],manifest
             assert not page.evaluate('cspViolations'),page.evaluate('cspViolations')
-            page.evaluate('WolfGuardBrowserAI.dispose()')
             page.reload();expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function('()=>!document.querySelector("#app").inert')
             page.set_viewport_size({'width':390,'height':844});page.reload()
@@ -86,7 +84,7 @@ def run():
             assert not errors,errors
             assert not (ROOT/'docs/browser/not-found.html').exists()
             browser.close()
-        print('PASS: private encrypted entry, AI worker, manifest, no browser push registration, native DNS failures, reload, mobile and API outage verified')
+        print('PASS: private encrypted entry, no local AI worker, manifest, no browser push registration, native DNS failures, reload, mobile and API outage verified')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

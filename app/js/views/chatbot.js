@@ -2,16 +2,17 @@
 
 const chatbotWorkspace=(()=>{
   let generation=0,messages=[],active=false,ownerKey=null,conversation=null,epoch=null,items=[],timer=0;
-  const engine=()=>window.WolfGuardBrowserAI;
+  const engine=()=>window.WolfGuardChatAPI;
   function reset(clear=false){generation++;clearTimeout(timer);if(active){engine()?.cancel();active=false;if(messages.at(-1)?.role==='user')messages.pop();}if(clear){messages=[];ownerKey=null;conversation=null;epoch=null;items=[];engine()?.dispose();}}
   async function render(){
     reset();if(ownerKey!==state.vaultKey){messages=[];conversation=null;epoch=null;items=[];ownerKey=state.vaultKey;}
     const token=generation,key=state.vaultKey,root=document.createElement('section');root.className='chatbot-workspace';$('#content').replaceChildren(root);
     const live=()=>token===generation&&root.isConnected&&state.vaultKey===key;
-    root.innerHTML='<header class="security-workspace-heading"><div><span class="security-kicker">ASSISTANT INTÉGRÉ</span><h1>Chatbot IA</h1><p>Ton assistant gratuit, directement dans le navigateur.</p></div><button type="button" id="aiClear">Nouvelle conversation</button></header><div class="ai-layout"><aside class="ai-history" aria-label="Historique personnel"><h2>Mes conversations</h2><p id="aiHistoryStatus" role="status"></p><div id="aiHistoryList"></div><button type="button" id="aiDelete" disabled>Supprimer cette conversation</button><button type="button" id="aiPurge" class="ai-danger" hidden>Effacer tous les historiques</button></aside><div class="ai-chat-pane"><section class="ai-browser-info"><div><strong>Autonome sur cet appareil</strong><p>Aucun agent à démarrer, aucun autre ordinateur à laisser allumé.</p></div><span class="ai-model-name">Qwen 3.5 · 2B</span><button type="button" id="aiPrepare">Démarrer l’IA</button></section><details class="ai-setup"><summary>Premier démarrage et confidentialité</summary><p>Le premier démarrage télécharge le moteur et le modèle Qwen 3.5 · 2B (environ 1,3 Go) depuis Hugging Face. Utilise de préférence le Wi-Fi. Le navigateur conserve les fichiers en cache si l’espace le permet ; ils pourront être téléchargés à nouveau si ce cache est vidé.</p><p>Les réponses sont calculées sur l’appareil qui ouvre cette page. Tes messages ne sont envoyés ni à un agent ni à un service d’IA. Les conversations sont enregistrées dans ton historique personnel, chiffré sur le serveur WolfGuard. L’administrateur peut supprimer tous les historiques. Sans connexion à un compte, elles restent en mémoire jusqu’au verrouillage. Aucun mémo, secret du coffre ou audit n’est joint automatiquement.</p><p>Ce modèle léger convient aux questions courantes. La vitesse dépend du téléphone ou de l’ordinateur ; les analyses complexes peuvent nécessiter un modèle plus puissant.</p></details><div id="aiDownload" class="ai-download" hidden><progress id="aiProgress" max="100" aria-label="Chargement du modèle"></progress><span id="aiDownloadLabel">Chargement du moteur…</span></div><div id="aiMessages" class="ai-messages" role="log" aria-label="Conversation" aria-live="polite"></div><p id="aiStatus" role="status" aria-live="polite"></p><form id="aiForm" class="ai-composer"><label for="aiPrompt">Ton message</label><textarea id="aiPrompt" rows="3" maxlength="3000" placeholder="Pose une question ou décris ton problème…" required></textarea><div><span>Vérifie les réponses et les commandes proposées avant de les utiliser.</span><button type="button" id="aiStop" hidden>Arrêter</button><button type="submit" id="aiSend">Envoyer</button></div></form></div></div>';
-    const find=selector=>root.querySelector(selector),isReady=()=>engine().ready;
+    root.innerHTML='<header class="security-workspace-heading"><div><span class="security-kicker">ASSISTANT INTÉGRÉ</span><h1>Chatbot IA</h1><p>Des réponses en direct, avec une API IA rapide.</p></div><button type="button" id="aiClear">Nouvelle conversation</button></header><div class="ai-layout"><aside class="ai-history" aria-label="Historique personnel"><h2>Mes conversations</h2><p id="aiHistoryStatus" role="status"></p><div id="aiHistoryList"></div><button type="button" id="aiDelete" disabled>Supprimer cette conversation</button><button type="button" id="aiPurge" class="ai-danger" hidden>Effacer tous les historiques</button></aside><div class="ai-chat-pane"><section class="ai-api-info"><div><strong>Assistant connecté</strong><p>Aucun modèle à télécharger. Aucun agent à démarrer.</p></div><span class="ai-model-name">GPT-OSS 120B · Groq</span></section><details id="aiConfig" class="ai-setup" hidden><summary>Configurer l’API IA</summary><form id="aiConfigForm" class="ai-config-form"><p>Crée une clé dans <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">Groq Console</a>, puis saisis-la ici. Elle sera testée et conservée chiffrée côté serveur. L’offre gratuite comporte des quotas.</p><label for="aiApiKey">Clé API Groq</label><input id="aiApiKey" type="password" autocomplete="off" maxlength="256" placeholder="gsk_…" required><div><button id="aiConfigSave" type="submit">Tester et enregistrer</button><button id="aiConfigRemove" type="button" hidden>Retirer la clé</button></div><p id="aiConfigStatus" role="status"></p></form></details><details class="ai-setup"><summary>Confidentialité et historique</summary><p>Les messages de la conversation ouverte sont transmis à Groq pour générer la réponse. Aucun mémo, secret du coffre ou audit n’est joint automatiquement. Tes conversations sont enregistrées dans ton historique personnel, chiffré sur le serveur WolfGuard. L’administrateur peut supprimer tous les historiques.</p></details><div id="aiMessages" class="ai-messages" role="log" aria-label="Conversation" aria-live="polite"></div><p id="aiStatus" role="status" aria-live="polite"></p><form id="aiForm" class="ai-composer"><label for="aiPrompt">Ton message</label><textarea id="aiPrompt" rows="3" maxlength="3000" placeholder="Pose une question ou décris ton problème…" required></textarea><div><span>Vérifie les réponses et les commandes proposées avant de les utiliser.</span><button type="button" id="aiStop" hidden>Arrêter</button><button type="submit" id="aiSend">Envoyer</button></div></form></div></div>';
+    const find=selector=>root.querySelector(selector);
     const cloud=typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud,account=cloud?.enabled&&cloud.currentUser()?.id,remote=!!account;
-    let busy=false,partial='',operation=0,historyBusy=false,historyReady=!remote;
+    let busy=false,partial='',operation=0,historyBusy=false,historyReady=!remote,settings=null,configBusy=false,frame=0;
+    const isReady=()=>remote&&settings?.configured;
     const newId=()=>crypto.randomUUID().replaceAll('-','');
     const status=text=>{if(live())find('#aiStatus').textContent=text;};
     function clearConversation(){messages=[];conversation=null;partial='';}
@@ -48,35 +49,47 @@ const chatbotWorkspace=(()=>{
     function draw(){
       if(!live())return;
       const log=find('#aiMessages');log.replaceChildren();
-      if(!messages.length){const empty=document.createElement('div');empty.className='ai-welcome';empty.innerHTML='<span aria-hidden="true">'+workspaceSectionIcon('chatbot')+'</span><h2>Comment puis-je t’aider ?</h2><p>Pose ta question. Le modèle démarre ici, sans agent.</p><div class="ai-suggestions"><button type="button">À quoi sert le DNS ?</button><button type="button">Comment vérifier mon pare-feu Windows ?</button></div>';log.append(empty);for(const button of empty.querySelectorAll('button'))button.onclick=()=>{find('#aiPrompt').value=button.textContent;find('#aiPrompt').focus();};}
+      if(!messages.length){const empty=document.createElement('div');empty.className='ai-welcome';empty.innerHTML='<span aria-hidden="true">'+workspaceSectionIcon('chatbot')+'</span><h2>Comment puis-je t’aider ?</h2><p>Pose ta question. Écris ton message pour obtenir une réponse en direct.</p><div class="ai-suggestions"><button type="button">À quoi sert le DNS ?</button><button type="button">Comment vérifier mon pare-feu Windows ?</button></div>';log.append(empty);for(const button of empty.querySelectorAll('button'))button.onclick=()=>{find('#aiPrompt').value=button.textContent;find('#aiPrompt').focus();};}
       for(const message of [...messages,...(partial?[{role:'assistant',content:partial}]:[])]){
         const article=document.createElement('article');article.className='ai-message';article.dataset.role=message.role;
         const heading=document.createElement('strong');heading.textContent=message.role==='user'?'Toi':'WolfGuard IA';
         const body=document.createElement('div');body.className='ai-message-content';body.textContent=message.content;article.append(heading,body);
         if(message.role==='assistant'&&!busy){const copy=document.createElement('button');copy.type='button';copy.textContent='Copier';copy.onclick=()=>copyText(message.content);article.append(copy);}log.append(article);
       }
-      drawHistory();find('#aiSend').disabled=busy||historyBusy||!historyReady;find('#aiStop').hidden=!busy;find('#aiClear').disabled=busy||historyBusy;find('#aiPrepare').disabled=busy||isReady();find('#aiPrepare').textContent=isReady()?'IA prête':busy?'Chargement…':'Réessayer le chargement';log.scrollTop=log.scrollHeight;
+      if(partial&&busy)log.lastElementChild.dataset.streaming='true';
+      drawHistory();find('#aiSend').disabled=busy||historyBusy||!historyReady||!isReady();find('#aiStop').hidden=!busy;find('#aiClear').disabled=busy||historyBusy;log.scrollTop=log.scrollHeight;
     }
     function update(data){
-      if(!live())return;
-      if(data.type==='token'){partial=data.content;draw();return;}
-      if(data.type==='generating'){find('#aiDownload').hidden=true;find('#aiStatus').textContent='Réponse en cours sur cet appareil…';return;}
-      if(data.type==='status'){find('#aiStatus').textContent=data.message;return;}
-      find('#aiDownload').hidden=false;
-      if(data.type==='progress'&&data.file?.endsWith('.gguf')){
-        find('#aiProgress').value=Math.min(100,Number(data.progress)||0);
-        find('#aiDownloadLabel').textContent='Téléchargement du modèle · '+Math.round(data.loaded/1048576)+' / '+Math.round(data.total/1048576)+' Mo';
-        if(data.progress>=100)find('#aiStatus').textContent='Préparation du modèle…';
-      }else find('#aiStatus').textContent='Chargement du moteur et du modèle…';
+      if(!live()||data.type!=='token')return;
+      partial=data.content;
+      if(frame)return;frame=requestAnimationFrame(()=>{frame=0;if(!live()||!busy)return;
+        const log=find('#aiMessages');let article=log.querySelector('[data-streaming]');
+        if(!article){article=document.createElement('article');article.className='ai-message';article.dataset.role='assistant';article.dataset.streaming='true';const title=document.createElement('strong');title.textContent='WolfGuard IA';const body=document.createElement('div');body.className='ai-message-content';article.append(title,body);log.append(article);}
+        article.querySelector('.ai-message-content').textContent=partial;log.scrollTop=log.scrollHeight;
+      });
     }
-    function errorMessage(error){
-      if(error.name==='AbortError')return 'Génération arrêtée.';
-      if(/Conversation trop longue|réponse vide/i.test(error.message))return error.message;
-      if(/context|n_ctx|token.*limit/i.test(error.message))return 'Cette conversation est trop longue. Démarre une nouvelle conversation.';
-      if(/memory|allocation|ArrayBuffer|out of bounds/i.test(error.message))return 'La mémoire disponible ne suffit pas. Ferme les autres onglets et réessaie sur un appareil disposant de plus de mémoire.';
-      if(/fetch|network|download|HTTP|load file/i.test(error.message))return 'Le modèle n’a pas pu être téléchargé. Vérifie ta connexion et l’espace disponible, puis réessaie.';
-      return 'L’IA ne peut pas démarrer. Recharge la page ou essaie un navigateur plus récent.';
+    function errorMessage(error){return error.name==='AbortError'?'Réponse arrêtée.':error.message||'Le service IA est indisponible. Réessaie.';}
+    async function loadSettings(){
+      if(!remote){status('Connecte-toi à ton compte pour utiliser le chatbot.');return;}
+      settings=await cloud.chatSettings();if(!live())return;
+      const admin=cloud.currentUser()?.role==='admin';find('#aiConfig').hidden=!admin;find('#aiConfigRemove').hidden=!settings.configured;
+      if(!settings.configured&&admin)find('#aiConfig').open=true;
+      status(settings.configured?'API IA prête.':'L’administrateur doit configurer la clé API pour activer le chatbot.');draw();
     }
+    find('#aiConfigForm').onsubmit=async event=>{
+      event.preventDefault();if(configBusy||busy||!settings)return;configBusy=true;find('#aiConfigSave').disabled=true;find('#aiConfigStatus').textContent='Test de la connexion à Groq…';
+      const input=find('#aiApiKey'),apiKey=input.value;input.value='';
+      try{settings=await cloud.chatSettings({key:apiKey,revision:settings.revision});if(!live())return;find('#aiConfigStatus').textContent='Connexion vérifiée. API IA activée pour tous les utilisateurs.';find('#aiConfigRemove').hidden=false;status('API IA prête.');draw();}
+      catch(error){if(live())find('#aiConfigStatus').textContent=error.message;}
+      finally{configBusy=false;if(live())find('#aiConfigSave').disabled=false;}
+    };
+    find('#aiConfigRemove').onclick=async()=>{
+      if(configBusy||busy||!settings)return;
+      if(!await appConfirm('Désactiver l’API IA pour tous les utilisateurs ?', {title:'Retirer la clé API',confirmLabel:'Retirer'}))return;
+      if(!live())return;configBusy=true;
+      try{settings=await cloud.chatSettings({remove:true,revision:settings.revision});if(!live())return;find('#aiConfigRemove').hidden=true;find('#aiConfigStatus').textContent='Clé supprimée. Les historiques sont conservés.';status('API IA désactivée.');draw();}
+      catch(error){if(live())find('#aiConfigStatus').textContent=error.message;}finally{configBusy=false;}
+    };
     find('#aiClear').onclick=()=>{clearConversation();status('Nouvelle conversation.');draw();find('#aiPrompt').focus();};
     find('#aiDelete').onclick=async()=>{
       if(!conversation?.revision||busy||historyBusy)return;
@@ -93,34 +106,27 @@ const chatbotWorkspace=(()=>{
       catch(error){status(error.message);}finally{if(live()){historyBusy=false;drawHistory();}}
     };
     find('#aiStop').onclick=()=>engine().cancel();
-    async function prepare(){
-      if(busy||!live()||isReady())return;const run=++operation;busy=true;active=true;draw();status('Chargement du modèle sur cet appareil…');
-      try{await engine().prepare(data=>{if(run===operation)update(data);});if(live()&&run===operation)status('IA prête sur cet appareil.');}
-      catch(error){if(live()&&run===operation)status(errorMessage(error));}
-      finally{if(live()&&run===operation){active=false;busy=false;find('#aiDownload').hidden=true;draw();}}
-    }
-    find('#aiPrepare').onclick=prepare;
     find('#aiForm').onsubmit=async event=>{
-      event.preventDefault();if(busy||historyBusy||!live())return;
+      event.preventDefault();if(busy||historyBusy||!live()||!isReady())return;
       const content=find('#aiPrompt').value.trim();if(!content)return;
       if(remote){historyBusy=true;drawHistory();try{await refreshHistory();}catch(error){status('Historique indisponible : '+error.message);return;}finally{historyBusy=false;if(live())drawHistory();}if(!live()||!historyReady)return;}
       if(messages.length>=14||messages.reduce((sum,message)=>sum+message.content.length,0)+content.length>10000){status('Cette conversation est longue. Démarre une nouvelle conversation.');return;}
       const run=++operation,current=()=>live()&&run===operation;
-      busy=true;active=true;partial='';messages.push({role:'user',content});find('#aiPrompt').value='';draw();status(isReady()?'Réponse en cours sur cet appareil…':'Chargement du modèle…');let completed=false;
-      try{const result=await engine().generate(messages,data=>{if(current())update(data);});if(!current())return;partial='';messages.push({role:'assistant',content:result.content});completed=true;status('Réponse calculée sur cet appareil.');}
-      catch(error){if(current()){if(partial){messages.push({role:'assistant',content:partial});completed=true;partial='';}status(errorMessage(error));}}
+      busy=true;active=true;partial='';messages.push({role:'user',content});find('#aiPrompt').value='';draw();status('Réponse de l’API en cours…');let completed=false,truncated=false,interrupted=false;
+      try{const result=await engine().generate(messages,data=>{if(current())update(data);});if(!current())return;partial='';messages.push({role:'assistant',content:result.content});completed=true;truncated=result.truncated;status(truncated?'Réponse limitée en longueur.':'Réponse reçue.');}
+      catch(error){if(current()){interrupted=true;if(partial.trim()){messages.push({role:'assistant',content:partial});completed=true;partial='';}status(errorMessage(error));}}
       finally{if(current()){
         if(!completed){messages.pop();find('#aiPrompt').value=content;}
-        else if(remote){try{await saveConversation();if(current())status('Conversation enregistrée dans ton historique personnel.');}catch(error){if(current()){status('Réponse conservée à l’écran, mais historique non enregistré : '+error.message);await refreshHistory().catch(()=>{});}}}
-        if(current()){active=false;busy=false;find('#aiDownload').hidden=true;draw();}
+        else if(remote){try{await saveConversation();if(current())status(interrupted?'Réponse interrompue. La partie reçue a été enregistrée.':truncated?'Conversation enregistrée. Réponse limitée en longueur.':'Conversation enregistrée dans ton historique personnel.');}catch(error){if(current()){status('Réponse conservée à l’écran, mais historique non enregistré : '+error.message);await refreshHistory().catch(()=>{});}}}
+        if(current()){active=false;busy=false;draw();}
       }}
     };
     find('#aiPrompt').onkeydown=event=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();find('#aiForm').requestSubmit();}};
-    async function poll(){if(!live())return;try{await refreshHistory();}catch{}if(live())timer=setTimeout(poll,15000);}
+    async function poll(){if(!live())return;try{await refreshHistory();if(!busy)await loadSettings();}catch{}if(live())timer=setTimeout(poll,15000);}
     find('#aiHistoryStatus').textContent=remote?'Chargement de ton historique…':'Connecte-toi à ton compte pour conserver ton historique.';
-    status(isReady()?'IA prête sur cet appareil.':'Chargement automatique du modèle…');draw();
+    status('Connexion à l’API IA…');draw();
     if(remote){try{await refreshHistory();}catch(error){if(live())find('#aiHistoryStatus').textContent=error.message;}if(live())timer=setTimeout(poll,15000);}
-    if(live())prepare();
+    if(live())try{await loadSettings();}catch(error){status(errorMessage(error));}
   }
   return {render,reset};
 })();

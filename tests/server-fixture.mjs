@@ -19,6 +19,16 @@ class Bucket {
   async delete(key){this.objects.delete(key);}
 }
 const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
+if(process.env.WG_TEST_CHAT_API==='1')env.CHAT_TEST_FETCH=async(_url,options)=>{
+  const data=JSON.parse(options.body);
+  if(options.headers.Authorization.includes('invalid'))return Response.json({error:'secret provider detail'},{status:401});
+  if(!data.stream)return Response.json({choices:[{message:{content:'OK'}}]});
+  const prompt=data.messages.at(-1).content;
+  if(prompt==='QUOTA')return Response.json({error:'secret provider detail'},{status:429,headers:{'Retry-After':'30'}});
+  const answer='Réponse personnelle '+prompt+' <script>window.injected=true</script>',encode=value=>new TextEncoder().encode('data: '+JSON.stringify(value)+'\n\n');
+  let step=0,timer;
+  return new Response(new ReadableStream({start(controller){options.signal.addEventListener('abort',()=>controller.error(new DOMException('Stopped','AbortError')),{once:true});},async pull(controller){await new Promise(resolve=>{timer=setTimeout(resolve,prompt.includes('obsolète')?8000:prompt.includes('annuler')?3000:800);});if(options.signal.aborted){controller.close();return;}if(step++===0)controller.enqueue(encode({choices:[{delta:{content:answer.slice(0,12)}}]}));else if(step===2)controller.enqueue(encode({choices:[{delta:{content:answer.slice(12)},finish_reason:'stop'}]}));else{controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));controller.close();}},cancel(){clearTimeout(timer);}}),{headers:{'Content-Type':'text/event-stream'}});
+};
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
 env.MFA_REQUIRED=process.env.WG_TEST_MFA_REQUIRED;
 env.MFA_PUSH_PRIMARY=process.env.WG_TEST_PUSH_PRIMARY;
@@ -43,7 +53,8 @@ const server=createServer(async(req,res)=>{
     if(req.url==='/__test/push-messages'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(pushMessages));return;}
     if(req.url==='/__test/fail-upload'){env.BUCKET.failNext=true;res.end('ok');return;}
     if(req.url.startsWith('/__test/advance/')){offset+=Number(req.url.split('/').pop());res.end('ok');return;}
-    const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
+    const disconnect=new AbortController();res.on('close',()=>{if(!res.writableFinished)disconnect.abort();});
+    const request=new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,signal:disconnect.signal,...(['GET','HEAD'].includes(req.method)?{}:{body:Readable.toWeb(req),duplex:'half'})});
     if(req.url==='/api/setup')fixtureCode=(await request.clone().json()).code;
     const snapshot=req.url==='/api/vault'&&req.method==='PUT'?await request.clone().json():null;
     const response=await handleAPI(request,env,()=>Date.now()+offset);
