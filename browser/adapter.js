@@ -414,7 +414,7 @@ const webWorkspace = (() => {
   function enrollRequiredMFA(info,password){
     return new Promise((resolve,reject)=>{
       const dialog=document.createElement('dialog');dialog.className='app-dialog web-mfa-enrollment';dialog.setAttribute('aria-labelledby','webEnrollTitle');
-      dialog.innerHTML='<span class="web-mfa-required-label">OBLIGATOIRE · PROPRE À TON COMPTE</span><h2 id="webEnrollTitle">Configure ta double authentification</h2><p>'+esc(info.username)+' · Aucun accès à l’espace avant la validation des six chiffres.</p><p>Scanne ce QR code avec WALLIX Authenticator ou une autre application compatible pour obtenir ton code à six chiffres.</p><canvas id="webEnrollQR" role="img" aria-label="QR code personnel Authenticator"></canvas><label>Ou saisis cette clé temporelle (TOTP)<input id="webEnrollSecret" readonly spellcheck="false" value="'+esc(info.secret)+'"></label><button type="button" class="settings-btn" id="webEnrollCopy">Copier la clé</button><form id="webEnrollForm"><label>Code Authenticator de 6 chiffres<input id="webEnrollOTP" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><p role="alert" id="webEnrollError"></p><div class="app-dialog-actions"><button type="button" id="webEnrollCancel">Annuler</button><button type="submit" class="primary">Valider ma MFA</button></div></form>';
+      dialog.innerHTML='<span class="web-mfa-required-label">OBLIGATOIRE · PROPRE À TON COMPTE</span><h2 id="webEnrollTitle">Configure ta double authentification</h2><p>'+esc(info.username)+' · Aucun accès à l’espace avant la validation des six chiffres.</p><p>Scanne ce QR code avec ton application d’authentification pour obtenir ton code à six chiffres.</p><canvas id="webEnrollQR" role="img" aria-label="QR code personnel Authenticator"></canvas><label>Ou saisis cette clé temporelle (TOTP)<input id="webEnrollSecret" readonly spellcheck="false" value="'+esc(info.secret)+'"></label><button type="button" class="settings-btn" id="webEnrollCopy">Copier la clé</button><form id="webEnrollForm"><label>Code Authenticator de 6 chiffres<input id="webEnrollOTP" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><p role="alert" id="webEnrollError"></p><div class="app-dialog-actions"><button type="button" id="webEnrollCancel">Annuler</button><button type="submit" class="primary">Valider ma MFA</button></div></form>';
       document.body.append(dialog);drawAuthenticatorQR(dialog.querySelector('#webEnrollQR'),info.uri);dialog.showModal();let done=false,working=false;
       const finish=(value,error)=>{if(done)return;done=true;password='';info.secret='';info.uri='';dialog.querySelectorAll('input,textarea').forEach(input=>input.value='');dialog.close();dialog.remove();if(error)reject(error);else resolve(value);};
       const cancel=()=>finish(null,new Error('Configuration MFA annulée. Reconnecte-toi pour la reprendre.'));
@@ -426,7 +426,7 @@ const webWorkspace = (() => {
           const result=await cloud.login(password,undefined,dialog.querySelector('#webEnrollOTP').value);if(done){cloud.clear();return;}
           if(!result.token||!Array.isArray(result.recoveryCodes))throw new Error('La configuration a changé. Recommence la connexion.');
           info.secret='';info.uri='';password='';
-          dialog.innerHTML='<h2 id="webEnrollTitle">Ton Authenticator est prêt</h2><p>La double authentification est activée. Utilise les six chiffres de ton application, notamment WALLIX Authenticator.</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Continuer</button></div>';
+          dialog.innerHTML='<h2 id="webEnrollTitle">Ton Authenticator est prêt</h2><p>La double authentification est activée. Utilise les six chiffres de ton application d’authentification.</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Continuer</button></div>';
           dialog.querySelector('textarea').value=result.recoveryCodes.join('\n');delete result.recoveryCodes;
           dialog.querySelector('#webEnrollSaved').onchange=event=>dialog.querySelector('#webEnrollContinue').disabled=!event.target.checked;
           dialog.querySelector('#webEnrollContinue').onclick=()=>finish(result);
@@ -456,7 +456,7 @@ const webWorkspace = (() => {
       if(info.otpSetupRequired){mfaWaiting=true;info=await enrollRequiredMFA(info,password);}
       if(info.otpRequired){
         mfaWaiting=true;
-        let otp=await appPrompt('Saisis les 6 chiffres affichés dans WALLIX Authenticator ou ton application compatible, ou un code de secours.','',{title:'Vérification MFA',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
+        let otp=await appPrompt('Saisis le code à 6 chiffres de ton application d’authentification, ou un code de secours.','',{title:'Vérification MFA',confirmLabel:'Vérifier',autocomplete:'one-time-code'});
         if(otp===null)throw new Error('Connexion annulée.');
         try{info=await cloud.login(password,undefined,otp.trim());}finally{otp='';}
       }
@@ -710,7 +710,7 @@ const webWorkspace = (() => {
     const root=$('#webMFASettings');if(!root)return;const mfa=cloud.currentUser()?.mfa;
     root.dataset.state=mfa?.complete?'complete':'missing';
     root.querySelector('#webMFAState').textContent=mfa?.complete?'MFA activée':'MFA à terminer';
-    root.querySelector('#webMFADescription').textContent='Après ton code personnel à huit chiffres, saisis les six chiffres de ton application Authenticator, notamment WALLIX Authenticator. Ton QR code existant reste valable.';
+    root.querySelector('#webMFADescription').textContent='Après ton code personnel à huit chiffres, saisis les six chiffres de ton application d’authentification. Ton QR code existant reste valable.';
     const step=root.querySelector('#webMFAStepOTP');step.dataset.done=String(!!mfa?.authenticator);step.querySelector('span').textContent=mfa?.authenticator?'Activé':'À configurer';
   }
   async function mountOTPSettings(){
@@ -721,7 +721,7 @@ const webWorkspace = (() => {
     let enabled=false,pending=false,required=false;
     function render(){
       if(!live())return;
-      if(enabled&&required){root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>Ton code à six chiffres est déjà activé. Après ton code personnel à huit chiffres, utilise celui de WALLIX Authenticator ou de ton application compatible.</p><p class="access-help">La désactivation est bloquée par la politique de sécurité. Conserve tes codes de secours pour récupérer ton accès.</p>';return;}
+      if(enabled&&required){root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>Ton code à six chiffres est déjà activé. Après ton code personnel à huit chiffres, utilise celui de ton application d’authentification.</p><p class="access-help">La désactivation est bloquée par la politique de sécurité. Conserve tes codes de secours pour récupérer ton accès.</p>';return;}
       root.innerHTML='<h4>Authenticator · Code à 6 chiffres</h4><p>'+(enabled?'Ton application Authenticator est activée. Ses six chiffres permettent de te connecter sans enregistrer le téléphone dans le navigateur.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p><form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
       root.querySelector('form').onsubmit=async event=>{
         event.preventDefault();if(pending)return;pending=true;

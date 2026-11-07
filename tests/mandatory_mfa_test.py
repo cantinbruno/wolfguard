@@ -60,7 +60,7 @@ def run():
             enter(owner,CODE);owner_secret=enroll(owner)
             owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
             if codes_only:
-                expect(owner.locator('#webMFADescription')).to_contain_text('WALLIX Authenticator')
+                expect(owner.locator('#webMFADescription')).to_contain_text('application d’authentification')
                 expect(owner.locator('#webMFAStepPhone,#webDuoSettings')).to_have_count(0)
                 expect(owner.locator('#webPhoneSettings')).to_have_count(0)
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
@@ -93,6 +93,6 @@ def run():
             assert not errors,errors
             browser.close()
     finally:process.terminate();process.wait(timeout=10);server.shutdown();server.server_close()
-    print('PASS: mandatory MFA with existing TOTP only, no browser association, private account factors, repeated logins and honest WALLIX settings' if codes_only else 'PASS: mandatory own MFA at invited signup, no workspace before OTP, unique secrets, recovery acknowledgement, push without OTP before approval, explicit OTP backup and verified reload')
+    print('PASS: mandatory MFA with existing TOTP only, no browser association, private account factors, repeated logins and generic authenticator settings' if codes_only else 'PASS: mandatory own MFA at invited signup, no workspace before OTP, unique secrets, recovery acknowledgement, push without OTP before approval, explicit OTP backup and verified reload')
 
 if __name__=='__main__':run()
