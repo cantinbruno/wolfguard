@@ -14,10 +14,11 @@ from push_fixture import configure_push,approve_latest
 ROOT=Path(__file__).resolve().parents[1]
 
 def run():
+    codes_only=os.environ.get('WG_TEST_MFA_CODES_ONLY')=='1'
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MFA_REQUIRED':'1','WG_TEST_PUSH_PRIMARY':'1','WG_TEST_PHONE_REQUIRED':'1','WG_TEST_PUSH':'1','WG_TEST_MANUAL_USERS':'1'})
+    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MFA_REQUIRED':'1','WG_TEST_PUSH_PRIMARY':'1','WG_TEST_PHONE_REQUIRED':'0' if codes_only else '1','WG_TEST_PUSH':'1','WG_TEST_MANUAL_USERS':'1'})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def api(path,data,token=None,method='POST',headers=None):
         raw=json.dumps(data).encode();h={'Origin':origin,'Content-Type':'application/json',**({'Authorization':'Bearer '+token} if token else {}),**(headers or {})}
@@ -30,6 +31,7 @@ def run():
                 c.route(API+'/**',lambda route:route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path)))
                 c.on('page',lambda page:page.on('pageerror',lambda error:errors.append(str(error))))
                 configure_push(c,origin)
+                if codes_only:c.add_init_script("globalThis.browserEnrollCalls=0;if(navigator.serviceWorker)navigator.serviceWorker.register=async()=>{browserEnrollCalls++;throw new Error('Browser registration must not be needed for TOTP');};")
                 return c
             owner=context().new_page();owner.goto(origin+'/?sync-test');ready(owner)
             encrypted=owner.evaluate("""async()=>{const c=await import('./browser/crypto.js');const result=await c.create({version:2,items:[{id:'private-note',type:'memo',title:'Private fixture',content:'<p>Only after MFA</p>'}],folders:[],settings:[],activity:[]},'99887766');return {envelope:result.envelope,workspace:await c.workspaceMaterial('99887766',result.salt)}}""")
@@ -46,10 +48,21 @@ def run():
                 page.locator('#webEnrollOTP').fill(otp(secret,time.time()));page.locator('#webEnrollForm button[type=submit]').click()
                 expect(page.locator('#webEnrollRecovery')).to_be_visible(timeout=15000);codes=page.locator('#webEnrollRecovery').input_value().splitlines();assert len(codes)==8
                 expect(page.locator('#app')).to_be_hidden();expect(page.locator('#webEnrollContinue')).to_be_disabled()
-                page.locator('#webEnrollSaved').check();page.locator('#webEnrollContinue').click();expect(page.locator('#webPhoneEnrollRegister')).to_be_visible();expect(page.locator('#app')).to_be_hidden();page.locator('#webPhoneEnrollRegister').click();approve_latest(page,origin,backend)
+                page.locator('#webEnrollSaved').check();page.locator('#webEnrollContinue').click()
+                if codes_only:
+                    expect(page.locator('#app')).to_be_visible(timeout=20000);expect(page.locator('#webPhoneEnrollRegister')).to_have_count(0)
+                    assert page.evaluate('WolfGuardCloud.currentUser().mfa.primary')=='authenticator'
+                    assert page.evaluate('WolfGuardCloud.currentUser().mfa.complete')
+                    assert page.evaluate('browserEnrollCalls')==0
+                else:
+                    expect(page.locator('#webPhoneEnrollRegister')).to_be_visible();expect(page.locator('#app')).to_be_hidden();page.locator('#webPhoneEnrollRegister').click();approve_latest(page,origin,backend)
                 return secret
             enter(owner,CODE);owner_secret=enroll(owner)
             owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
+            if codes_only:
+                expect(owner.locator('#webMFADescription')).to_contain_text('WALLIX Authenticator')
+                expect(owner.locator('#webMFAStepPhone')).to_contain_text('Facultatif')
+                expect(owner.locator('#webPhoneSettings')).to_contain_text('n’envoie aucune demande dans WALLIX Authenticator')
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
             owner.locator('#settings-tab-users').click();owner.locator('#wgUserInvite').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()
@@ -66,13 +79,20 @@ def run():
             assert guest.evaluate('WolfGuardCloud.currentUser().mfa.authenticator')
             guest.reload();expect(guest.locator('#app')).to_be_visible(timeout=20000);expect(guest.locator('.web-mfa-enrollment')).to_have_count(0)
             with urlopen(backend+'/__test/advance/30001'):pass
-            guest.evaluate('lockApplication()');ready(guest);enter(guest,'12345678');approve_latest(guest,origin,backend)
+            guest.evaluate('lockApplication()');ready(guest);enter(guest,'12345678')
+            if codes_only:
+                expect(guest.locator('.web-push-dialog,#webPhoneEnrollRegister')).to_have_count(0)
+                expect(guest.locator('.app-dialog-input')).to_be_visible();guest.locator('.app-dialog-input').fill(otp(guest_secret,time.time()+30.001));guest.locator('.app-dialog-submit').click();expect(guest.locator('#app')).to_be_visible(timeout=20000)
+            else:approve_latest(guest,origin,backend)
             with urlopen(backend+'/__test/advance/30001'):pass
-            guest.evaluate('lockApplication()');ready(guest);enter(guest,'12345678');expect(guest.locator('.web-push-dialog')).to_be_visible();expect(guest.locator('.app-dialog-input')).to_have_count(0)
-            guest.locator('#webPushRecovery').click();expect(guest.locator('.app-dialog-input')).to_be_visible();guest.locator('.app-dialog-input').fill(otp(guest_secret,time.time()+60.002));guest.locator('.app-dialog-submit').click();expect(guest.locator('#app')).to_be_visible(timeout=20000)
+            guest.evaluate('lockApplication()');ready(guest);enter(guest,'12345678')
+            if not codes_only:
+                expect(guest.locator('.web-push-dialog')).to_be_visible();expect(guest.locator('.app-dialog-input')).to_have_count(0);guest.locator('#webPushRecovery').click()
+            expect(guest.locator('.app-dialog-input')).to_be_visible();guest.locator('.app-dialog-input').fill(otp(guest_secret,time.time()+60.002));guest.locator('.app-dialog-submit').click();expect(guest.locator('#app')).to_be_visible(timeout=20000)
+            if codes_only:assert guest.evaluate('browserEnrollCalls')==0
             assert not errors,errors
             browser.close()
     finally:process.terminate();process.wait(timeout=10);server.shutdown();server.server_close()
-    print('PASS: mandatory own MFA at invited signup, no workspace before OTP, unique secrets, recovery acknowledgement, push without OTP before approval, explicit OTP backup and verified reload')
+    print('PASS: mandatory MFA with existing TOTP only, no browser association, private account factors, repeated logins and honest WALLIX settings' if codes_only else 'PASS: mandatory own MFA at invited signup, no workspace before OTP, unique secrets, recovery acknowledgement, push without OTP before approval, explicit OTP backup and verified reload')
 
 if __name__=='__main__':run()
