@@ -4,7 +4,6 @@ import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
 import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode,revokeUserSessions} from './users.mjs';
 import {consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from './otp.mjs';
-import {pushDevice,startPush,handlePushLogin} from './push.mjs';
 import {open as openRecord} from './access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -56,7 +55,7 @@ async function verifyPIN(code,env,now,verifier,pinVerifier) {
       .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
   }
   if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
-  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.pushRequired&&!result.setupRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes,pushRequired:!!result.pushRequired,pushDevice:result.device}:{})};
+  return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.setupRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
   if(requiresMFA(env)&&user&&!user.otp_secret_cipher)fail(403,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
@@ -64,7 +63,7 @@ async function issueSession(env,generation,now,request,user=null) {
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   const issued=await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expires_at<=? OR active_at<=? OR generation<>?').bind(now,now-IDLE_MS,generation),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) SELECT ?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version) SELECT ?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ?))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null),
     await connectionStatement(env,request,hash,now,context)
   ]);
   if(Number(issued[1]?.meta?.changes)!==1){await env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash).run();fail(401,'Ce compte a changé. Reconnecte-toi.');}
@@ -75,13 +74,13 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp')
     .bind(now,hash,now,now-IDLE_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   const path=new URL(request.url).pathname;
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
   if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
-  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,phone:!!session.user_push,complete:!!session.user_otp&&!!session.user_push,required:requiresMFA(env)}}:{id:null,username:'Configuration initiale',role:'admin'};
+  const user=session.user_id?{id:session.user_id,username:await openRecord(session.user_name,'WolfGuard users v1:name:'+session.user_id,env),role:session.user_role,mfa:{authenticator:!!session.user_otp,complete:!!session.user_otp,required:requiresMFA(env)}}:{id:null,username:'Configuration initiale',role:'admin'};
   return {...session,hash,access:context,user};
 }
 async function storageKey(env) { return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']); }
@@ -163,8 +162,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
       }else if(path.startsWith('/api/push/')){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
-        response=await handlePushLogin(request,env,now,{fail,json,body:()=>smallJSON(request),finish:async(user,deviceId,generation)=>{const current=await state(env);if(current.generation!==generation)fail(401,'Ce compte a changé. Reconnecte-toi.');user.push_device_id=deviceId;return finishLogin(request,env,now,current,user);}});
+        fail(410,'La validation push est retirée. Utilise les six chiffres de ton application Authenticator.');
       }else if(path==='/api/setup'&&request.method==='POST'){
         await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
@@ -189,16 +187,11 @@ export async function handleAPI(request,env,clock=Date.now) {
             }
             if(user.otp_secret_cipher&&otp===undefined)return {user,partial:true};
             if(user.disabled_at===null&&!await consumeOTP(user,otp,env,now))return false;
-            const device=await pushDevice(env,user.id);user.push_device_id=device?.id||null;
             if(lookup&&!user.pin_lookup)await env.DB.prepare('UPDATE users SET pin_lookup=? WHERE id=? AND pin_lookup IS NULL').bind(lookup,user.id).run();
-            // A single-use recovery code can recover a lost phone. Ordinary OTPs
-            // always require the enrolled phone's separate signed approval.
-            if(user.disabled_at===null&&device&&!(typeof otp==='string'&&/^[a-f0-9]{16}$/.test(otp)))return {user,partial:true,pushRequired:true,device};
             return {user};
           }),user=row.loginUser;
           if(row.otpSetupRequired){response=json({otpSetupRequired:true,...await prepareOTPEnrollment(user,env,now),username:(await publicUser(user,env)).username});}
           else if(row.otpRequired){response=json({otpRequired:true});}
-          else if(row.pushRequired){response=await startPush(request,env,now,row,user,row.pushDevice,{fail,json});}
           else {
           if(row.recoveryCodes)await revokeUserSessions(env,user.id,now);
           response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});

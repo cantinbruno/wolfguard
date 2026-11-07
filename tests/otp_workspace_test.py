@@ -48,8 +48,8 @@ def run():
             recovery = page.get_by_role('textbox', name='Codes de secours')
             expect(recovery).to_be_visible()
             codes = recovery.input_value().splitlines(); assert len(codes)==8
-            expect(page.locator('#webMFAState')).to_contain_text('MFA incomplète')
-            expect(page.locator('#webPhoneCode')).to_be_visible()
+            expect(page.locator('#webMFAState')).to_contain_text('MFA activée')
+            expect(page.locator('#webPhoneSettings')).to_have_count(0)
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':900})
                 page.wait_for_timeout(200)

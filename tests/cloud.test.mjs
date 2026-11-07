@@ -86,14 +86,12 @@ test('OTP login sends no username and cannot accept a session before the second 
   assert.deepEqual(requests,[{code:'12345678'},{code:'12345678',otp:'123456'}]);
 }));
 
-test('push challenges stay anonymous until an approved poll returns a session',()=>client(async cloud=>{
-  let index=0;const bodies=[];
-  const replies=[{pushRequired:true,ticket:'b'.repeat(64),expiresAt:Date.now()+120000},{pending:true},{token:'d'.repeat(64),version:4,usersEnabled:true,user:{id:'u',username:'alice@example.test',role:'member'}}];
-  globalThis.fetch=async(url,options)=>{assert.equal(options.headers.Authorization,undefined);bodies.push(JSON.parse(options.body));return {ok:true,headers:new Headers(),json:async()=>replies[index++]};};
-  const pending=await cloud.login('12345678',undefined,'123456');assert.equal(pending.pushRequired,true);assert.equal(cloud.hasSession(),false);
-  assert.equal((await cloud.pollPush(pending.ticket)).pending,true);assert.equal(cloud.hasSession(),false);
-  assert.ok((await cloud.pollPush(pending.ticket)).token);assert.equal(cloud.hasSession(),true);
-  assert.deepEqual(bodies[1],{ticket:pending.ticket});assert.equal(cloud.currentUser().username,'alice@example.test');
+test('mandatory application enrollment stays anonymous until the six digits are confirmed',()=>client(async cloud=>{
+  let index=0;
+  const replies=[{otpSetupRequired:true,secret:'synthetic',uri:'otpauth://totp/test'},{token:'d'.repeat(64),version:4,usersEnabled:true,user:{id:'u',username:'alice@example.test',role:'member'}}];
+  globalThis.fetch=async(_url,options)=>{assert.equal(options.headers.Authorization,undefined);return {ok:true,headers:new Headers(),json:async()=>replies[index++]};};
+  assert.equal((await cloud.login('12345678')).otpSetupRequired,true);assert.equal(cloud.hasSession(),false);
+  await cloud.login('12345678',undefined,'123456');assert.equal(cloud.hasSession(),true);
 }));
 
 test('revoked sessions and blocked IPs notify the app, while a wrong login code does not',()=>client(async cloud=>{

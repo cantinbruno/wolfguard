@@ -1,6 +1,5 @@
 import {seal,open,stopRemoteOwners} from './access.mjs';
 import {handleOTP,requiresMFA} from './otp.mjs';
-import {handlePushSettings} from './push.mjs';
 const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -56,8 +55,7 @@ async function availableCode(code,id,env,pinHash,fail){
   return lookup;
 }
 export async function publicUser(row,env){
-  const phone=!!await env.DB.prepare('SELECT id FROM push_devices WHERE user_id=?').bind(row.id).first();
-  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&phone,required:requiresMFA(env)}};
+  return {id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env),role:row.role,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,complete:!!row.otp_secret_cipher,required:requiresMFA(env)}};
 }
 export async function handleAccountAPI(request,env,now,h){
   const {fail,json,body,digest,pinHash,random}=h,path=new URL(request.url).pathname;
@@ -134,7 +132,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(!vault.users_enabled)fail(409,'Crée d’abord le compte administrateur à la connexion.');
   if(path==='/api/users/otp'||path.startsWith('/api/users/otp/'))return handleOTP(request,env,now,session,{...h,revokeOthers});
-  if(path==='/api/users/push'||path.startsWith('/api/users/push/'))return handlePushSettings(request,env,now,session,{...h,revokeOthers});
+  if(path==='/api/users/push'||path.startsWith('/api/users/push/'))fail(410,'La MFA utilise uniquement une application Authenticator.');
   if(path==='/api/users/change-code'&&request.method==='POST'){
     const data=await body(),row=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
     if(!codeOK(data.code))fail(400,'Le nouveau code doit contenir 8 chiffres.');

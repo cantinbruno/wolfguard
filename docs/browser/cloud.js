@@ -62,15 +62,13 @@ export function clearAccountInvitation(){accountTicket='';}
 export async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 export async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 function acceptLogin(data){
-  if(data.otpRequired||data.pushRequired||data.otpSetupRequired){detach();return data;}
+  if(data.otpRequired||data.otpSetupRequired){detach();return data;}
   token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 export async function login(code,username,otp){
   const data=await post('login',{code,...(username===undefined?{}:{username}),...(otp===undefined?{}:{otp})},{anonymous:true});
   return acceptLogin(data);
 }
-export async function pollPush(ticket){const data=await post('push/poll',{ticket},{anonymous:true});return data.pending?data:acceptLogin(data);}
-export async function cancelPush(ticket){return post('push/cancel',{ticket},{anonymous:true});}
 export async function initialize(code){
   if(!activation)throw new Error('Le partage doit être activé une seule fois depuis le lien privé sur ton appareil principal.');
   const data=await post('setup',{code},{anonymous:true,headers:{'Content-Type':'application/json','X-WG-Activation':activation}});
@@ -103,7 +101,7 @@ export async function changePersonalCode(oldCode,code){const data=await post('us
 export async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove))?|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:users(?:\/(?:create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|otp(?:\/(?:setup|enable|disable))?))?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 export function clear(){
