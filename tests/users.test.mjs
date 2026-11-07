@@ -413,7 +413,8 @@ test('mandatory push enrollment cannot access the workspace, cannot replace a ph
     assert.equal((await s.api('push/decision',{id:row.id,deviceId,decision:'approve',signature:await ownerPhone.sign(decisionMessage(row,'approve'))})).status,403);
     const signature=b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(decisionMessage(row,'approve'))));
     assert.equal((await s.api('push/decision',{id:row.id,deviceId,decision:'approve',signature})).status,200);
-    const login=await(await s.api('push/poll',{ticket:request.ticket})).json();assert.ok(login.token);assert.equal(login.user.username,'push-user@example.test');assert.equal(login.user.mfa.complete,true);
+    const login=await(await s.api('push/poll',{ticket:request.ticket})).json();assert.ok(login.token);assert.equal(login.user.username,'push-user@example.test');assert.equal(login.user.mfa.complete,true);assert.equal(login.user.mfa.primary,'push');assert.equal(login.user.mfa.backup,'authenticator');
+    const settings=await(await s.api('users/push',undefined,login.token)).json();assert.equal(settings.required,true);assert.equal(settings.primary,'push');
     assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
     s.advance(30001);s.env.PUSH_TEST_SEND=async()=>{throw new Error('Synthetic unavailable phone');};
     const unavailable=await(await s.api('login',{code:'12345678'})).json();assert.ok(unavailable.pushRequired&&unavailable.deliveryFailed&&!unavailable.token);

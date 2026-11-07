@@ -52,7 +52,16 @@ def run():
             expect(page.locator('.ai-message[data-role=assistant]')).to_contain_text('Réponse intégrée');assert not page.evaluate('window.injected===true');assert not chat_calls
             page.locator('#aiPrompt').fill('À annuler');page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible();page.locator('#aiStop').click();expect(page.locator('#aiSend')).to_be_enabled(timeout=10000);expect(page.locator('#aiPrompt')).to_have_value('À annuler')
             for section in ['edr','chatbot']:
-                page.locator('[data-section='+section+']').click();page.set_viewport_size({'width':390,'height':844});page.wait_for_function('()=>!sectionTransition.active');assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
+                page.locator('[data-section='+section+']').click();page.wait_for_function('()=>!sectionTransition.active')
+                expected={'edr':'rgb(116, 227, 190)','chatbot':'rgb(221, 176, 255)'}[section]
+                assert page.locator('.security-workspace-heading h1').evaluate('(element)=>getComputedStyle(element).color')==expected
+                assert page.locator('#app').evaluate('(element)=>getComputedStyle(element).getPropertyValue("--workspace-accent").trim()')=={'edr':'#74e3be','chatbot':'#ddb0ff'}[section]
+                tab=page.locator('[data-section='+section+']')
+                assert tab.evaluate('(element)=>getComputedStyle(element).getPropertyValue("--button-accent").trim()')=={'edr':'#74e3be','chatbot':'#ddb0ff'}[section]
+                page.screenshot(path=str(ROOT/'.cache'/(section+'-desktop.png')))
+                for width in [390,320]:
+                    page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
             page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=chatbot]').click();expect(page.locator('.ai-message')).to_have_count(0)
             assert not errors,errors
             browser.close();print('PASS: EDR real audit and alert proof, standalone browser chat, escaped replies, cancellation, mobile layout, lock clears conversation')

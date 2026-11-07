@@ -74,6 +74,39 @@
   --section-accent: var(--workspace-vault);
 }
 
+#app[data-primary-section="edr"] {
+  --workspace-accent: var(--workspace-edr);
+  --ui-accent: var(--workspace-edr);
+}
+
+#app[data-primary-section="chatbot"] {
+  --workspace-accent: var(--workspace-chatbot);
+  --ui-accent: var(--workspace-chatbot);
+}
+
+:root:has(#app:is([data-primary-section="edr"], [data-primary-section="chatbot"]):not(.hidden)) {
+  --ui-accent-hover: color-mix(in srgb, var(--ui-accent) 75%, white);
+  --ui-accent-soft: color-mix(in srgb, var(--ui-accent) 15%, var(--ui-sidebar));
+  --ui-highlight: var(--ui-accent);
+  --ui-highlight-hover: var(--ui-accent-hover);
+  --ui-highlight-soft: var(--ui-accent-soft);
+}
+
+:root:has(#app[data-primary-section="edr"]:not(.hidden)), .section-accent-edr {
+  --ui-accent: var(--workspace-edr);
+  --accent: var(--workspace-edr);
+  --section-accent: var(--workspace-edr);
+}
+
+:root:has(#app[data-primary-section="chatbot"]:not(.hidden)), .section-accent-chatbot {
+  --ui-accent: var(--workspace-chatbot);
+  --accent: var(--workspace-chatbot);
+  --section-accent: var(--workspace-chatbot);
+}
+
+.workspace-section-button[data-section="edr"] { --button-accent: var(--workspace-edr); }
+.workspace-section-button[data-section="chatbot"] { --button-accent: var(--workspace-chatbot); }
+
 /* Main header. */
 .topbar .brand-logo {
   --brand-mark-size: min(var(--logo-column), 84px);
