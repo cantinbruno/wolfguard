@@ -5,22 +5,14 @@ import {readFileSync} from 'node:fs';
 import {can} from '../server/lib/wolfguard/permissions.mjs';
 import {chatMessages,providerEvents} from '../server/lib/wolfguard/chat-api.mjs';
 
-test('chat permission is independent of agent read, pairing and online presence',()=>{
+test('retired chatbot stays inaccessible even with the old permission',()=>{
   const user={role:'member',permissions:{grants:['ai.use'],expiresAt:null}};
   const window={addEventListener(){}},context={window,WolfGuardCloud:{enabled:true,hasUsers:()=>true,currentUser:()=>user},WolfGuardPermissions:{can},document:{body:{}},MutationObserver:class{observe(){}}};
   vm.runInNewContext(readFileSync(new URL('../browser/access-control.js',import.meta.url),'utf8'),context);
-  assert.equal(window.WolfGuardAccess.allows('chatbot'),true);
+  assert.equal(window.WolfGuardAccess.allows('chatbot'),false);
   assert.equal(window.WolfGuardAccess.allows('edr'),false);
   assert.equal(window.WolfGuardAccess.can('agents.read'),false);
   user.permissions.grants=[];assert.equal(window.WolfGuardAccess.allows('chatbot'),false);
-});
-
-test('API transport cancels on lock and never starts a model worker',async()=>{
-  let calls=0,signal;
-  const context={window:{},AbortController,WolfGuardCloud:{chatCompletion:(_messages,options)=>{calls++;signal=options.signal;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new DOMException('Stopped','AbortError'))));}}};
-  vm.runInNewContext(readFileSync(new URL('../app/js/ai/client.js',import.meta.url),'utf8'),context);
-  const api=context.window.WolfGuardChatAPI,pending=api.generate([{role:'user',content:'Hello'}]);
-  await assert.rejects(api.generate([]),/déjà/);api.dispose();await assert.rejects(pending,{name:'AbortError'});assert.equal(calls,1);assert.ok(signal.aborted);
 });
 
 test('upstream SSE tolerates split UTF-8, CRLF and many events per network chunk',async()=>{

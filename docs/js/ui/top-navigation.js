@@ -12,8 +12,7 @@ const topNavigation = (() => {
     tools: 'Outils',
     remote: 'Prise en main',
     vault: 'Coffre-fort',
-    edr: 'EDR',
-    chatbot: 'Chatbot IA'
+    edr: 'EDR'
   };
 
   function positionIndicator() {

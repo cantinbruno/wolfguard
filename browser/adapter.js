@@ -575,7 +575,7 @@ const webWorkspace = (() => {
   async function lock() {
     if (locking) return;
     window.remoteDesktopWorkspace?.reset();
-    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof chatbotWorkspace!=='undefined')chatbotWorkspace.reset(true);
+    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();
     locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
     const forgotten = tabSession?.forget().catch(() => {});
     clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
@@ -882,7 +882,7 @@ const webWorkspace = (() => {
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
     window.addEventListener('pagehide',() => { window.remoteDesktopWorkspace?.reset();
-    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof chatbotWorkspace!=='undefined')chatbotWorkspace.reset(true);if(sessionExpired()){tabSession.forget().catch(()=>{});cloud.clear();}else{updateReloadTicket();cloud?.detach();}epoch++;session=null;sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(sessionExpired()){tabSession.forget().catch(()=>{});cloud.clear();}else{updateReloadTicket();cloud?.detach();}epoch++;session=null;sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');

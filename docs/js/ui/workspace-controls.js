@@ -27,7 +27,6 @@ function workspaceNavigationIcon(name) {
 
 function workspaceSectionIcon(section) {
   if (section === 'edr') return settingsIcon('shield-check');
-  if (section === 'chatbot') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9H3l2-5a9 9 0 1 1 16-4Z"/><path d="M8 10h8M8 14h5"/></svg>';
   if (section === 'remote') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5m1-15 5 3-3 1-1 3Z"/></svg>';
   if (section === 'scan-map') return protocolFamilyIcon('network');
   if (section === 'scan-vulnerability') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6Z"/><path d="m8 12 3 3 5-6"/></svg>';

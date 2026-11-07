@@ -1,4 +1,4 @@
-"""Real EDR relay and remote API chat: lifecycle, mobile and lock cleanup."""
+"""Real EDR relay, retired chatbot, mobile layout and lock lifecycle."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -15,7 +15,7 @@ def run():
     server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start()
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
-    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],env={**os.environ,'WG_TEST_CHAT_API':'1'},stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def agent_api(path,data,token):
         with urlopen(Request(backend+'/api/agent/'+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json','Authorization':'Agent '+token})) as response:return json.load(response)
@@ -23,7 +23,7 @@ def run():
         with sync_playwright() as p:
             browser=p.chromium.launch();context=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce');errors=[]
             context.route(API+'/**',lambda route:route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' +urlsplit(route.request.url).query if urlsplit(route.request.url).query else ''))))
-            chat_calls=[];context.on('request',lambda request:chat_calls.append(request.url) if '/api/ai' in request.url else None)
+            chat_calls=[];context.on('request',lambda request:chat_calls.append(request.url) if '/api/chat' in request.url or '/api/ai' in request.url else None)
             page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto('http://127.0.0.1:4178/?sync-test');ready(page)
             page.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'07942685');await s.write(result.envelope,0)}""")
@@ -46,12 +46,11 @@ def run():
                 page.locator('[data-edr-audit]').click()
             pending=retry.value.json();expect(page.locator('#edrPosts')).to_contain_text('Audit en cours');expect(page.locator('#edrMetrics article').filter(has_text='Alertes relevées').locator('strong')).to_have_text('1')
             page.evaluate("async id=>await WolfGuardCloud.agentRequest('scans/cancel',{id})",pending['id'])
-            page.evaluate("async()=>WolfGuardCloud.chatSettings({key:'gsk_test_fixture_key_not_real_12345',revision:0})")
-            page.locator('[data-section=chatbot]').click();expect(page.locator('#aiSend')).to_be_enabled();page.wait_for_function('()=>!sectionTransition.active');page.locator('#aiPrompt').fill('Question test');expect(page.locator('#aiPrompt')).to_have_value('Question test')
-            page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible()
-            expect(page.locator('.ai-message[data-role=assistant]')).to_contain_text('Réponse personnelle');assert not page.evaluate('window.injected===true');assert not chat_calls
-            expect(page.locator('#aiSend')).to_be_enabled();page.locator('#aiPrompt').fill('À annuler');page.locator('#aiSend').click();expect(page.locator('#aiStop')).to_be_visible();page.locator('#aiStop').click();expect(page.locator('#aiSend')).to_be_enabled(timeout=10000);expect(page.locator('#aiPrompt')).to_have_value('À annuler')
-            for section in ['edr','chatbot']:
+            expect(page.locator('[data-section=chatbot],#aiConfig,#aiPrompt')).to_have_count(0)
+            assert not page.evaluate('workspaceModules.allows("chatbot")')
+            assert page.evaluate('async()=>await openSection("chatbot")') is False
+            expect(page.locator('#edrPosts')).to_be_visible()
+            for section in ['edr']:
                 page.locator('[data-section='+section+']').click();page.wait_for_function('()=>!sectionTransition.active')
                 expected={'edr':'rgb(116, 227, 190)','chatbot':'rgb(221, 176, 255)'}[section]
                 assert page.locator('.security-workspace-heading h1').evaluate('(element)=>getComputedStyle(element).color')==expected
@@ -62,9 +61,9 @@ def run():
                 for width in [390,320]:
                     page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
-            page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=chatbot]').click();expect(page.locator('.ai-message')).to_have_count(0)
+            page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_be_visible();expect(page.locator('[data-section=chatbot]')).to_have_count(0);assert not chat_calls
             assert not errors,errors
-            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, remote API chat, escaped replies, cancellation, mobile layout, lock clears conversation')
+            browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR real audit and alert proof, chatbot removed, no AI calls, mobile layout, lock and reload')
     finally:process.terminate();process.wait(timeout=5);server.shutdown()
 
 if __name__=='__main__':run()
