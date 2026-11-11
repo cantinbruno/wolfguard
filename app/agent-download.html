@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Installer WolfGuard Agent</title>
+  <link rel="stylesheet" href="css/agent-download.css">
+  <script src="js/agent-installer.js" defer></script>
+  <script src="js/agent-download.js" defer></script>
+</head>
+<body>
+  <main>
+    <span class="brand">WOLFGUARD</span>
+    <span class="eyebrow">INSTALLATION D’UN POSTE</span>
+    <h1>Installer WolfGuard Agent</h1>
+    <p id="agentDownloadDescription">Vérification du lien de téléchargement…</p>
+    <button id="agentDownloadButton" type="button" disabled>Télécharger l’installateur</button>
+    <p id="agentDownloadExpiry" class="expiry" aria-live="off"></p>
+    <p id="agentDownloadStatus" role="status" aria-live="polite"></p>
+    <ol>
+      <li>Télécharge l’installateur sur le poste à ajouter.</li>
+      <li id="agentDownloadInstruction">Ouvre le fichier téléchargé.</li>
+      <li>Le poste apparaît automatiquement dans WolfGuard.</li>
+    </ol>
+    <p class="note">Ce lien permet d’ajouter un seul poste. Il ne donne pas accès aux données de ton espace.</p>
+  </main>
+</body>
+</html>

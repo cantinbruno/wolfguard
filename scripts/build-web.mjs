@@ -89,6 +89,14 @@ function normalizePublishedText(folder) {
   }
 }
 normalizePublishedText(output);
+// Shareable agent invitations are public; keep their assets versioned and
+// integrity-checked without exposing the private application entry key.
+const agentDownloadPage=path.join(output,'agent-download.html');
+writeFileSync(agentDownloadPage,readFileSync(agentDownloadPage,'utf8').replace(/<(script|link)\b[^>]*(?:src|href)="([^"?]+)"[^>]*>/g,(tag,_name,filename)=>{
+  if(!/\.(?:js|css)$/.test(filename))return tag;
+  const integrity=createHash('sha384').update(readFileSync(path.join(output,filename))).digest('base64');
+  return tag.replace('"'+filename+'"','"'+filename+'?wg='+revision+'"').slice(0,-1)+' integrity="sha384-'+integrity+'" crossorigin="anonymous">';
+}));
 html = html.replace(/<(script|link)\b[^>]*(?:src|href)="([^"?]+)(?:\?[^\"]*)?"[^>]*>/g,(tag,_name,filename)=>{
   if (!/\.(?:js|css)$/.test(filename)) return tag;
   const integrity=createHash('sha384').update(readFileSync(path.join(output,filename))).digest('base64');

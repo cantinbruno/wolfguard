@@ -223,3 +223,5 @@ Les tests natifs qui ouvrent une fenêtre et injectent des clics ou touches sont
 - Paramètres affiche la taille des données chiffrées et celle des fichiers suivis du dépôt, hors historique Git, dépendances et caches. Le regroupement des rendus et la recherche par dossiers améliorent la navigation, tout en conservant les animations.
 
 Après publication, mettre à jour les agents déjà installés pour disposer de la cartographie automatique et du transfert de fichiers. L’hébergement GitHub Pages, le domaine et le lien privé sont conservés.
+
+Dans **Agents → Ajouter un poste**, choisir le système puis **Créer un lien de téléchargement** et **Copier le lien**. Ce lien s’ouvre directement sur le poste à ajouter, sans le lien privé de l’application. L’installateur téléchargé vérifie l’empreinte de l’agent et l’associe automatiquement. Le lien permet une association unique pendant dix minutes ; après expiration, en créer un nouveau.

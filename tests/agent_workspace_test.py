@@ -3,8 +3,8 @@ from functools import partial
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from urllib.parse import urlsplit
-import json,os,subprocess,zipfile
+from urllib.parse import urlsplit,parse_qs,urlencode
+import base64,json,os,subprocess,time,zipfile
 from playwright.sync_api import sync_playwright,expect
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -50,19 +50,55 @@ def run():
             assert first.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1')
             first.screenshot(path=str(ROOT/'.cache/agent-download-mobile.png'),full_page=True)
             first.set_viewport_size({'width':1280,'height':900})
+            spare_pair_codes=[]
             for platform,filename in [('linux','WolfGuard-Agent-Linux.zip'),('darwin','WolfGuard-Agent-macOS.zip'),('win32','WolfGuard-Agent-Windows.exe')]:
                 first.locator('[data-agent-platform="'+platform+'"]').click();first.locator('#wgAgentDownload').evaluate('el=>el.closest("details").open=true')
                 expect(first.locator('[data-agent-platform="'+platform+'"]')).to_have_attribute('aria-pressed','true')
                 with first.expect_download() as download:first.locator('#wgAgentDownload').click()
                 assert download.value.suggested_filename==filename
                 assert Path(download.value.path()).read_bytes()==(ROOT/'app/downloads'/filename).read_bytes()
+                expect(first.locator('#wgAgentShareLink')).to_be_hidden()
+                first.locator('#wgAgentShare').click();expect(first.locator('#wgAgentShareLink')).to_be_visible()
+                shared_url=first.locator('#wgAgentShareURL').input_value();parts=urlsplit(shared_url);ticket=parse_qs(parts.fragment)
+                assert parts.path=='/agent-download.html' and set(parse_qs(parts.query))=={'v'}
+                assert set(ticket)=={'code','platform','expires'} and ticket['platform']==[platform]
+                assert len(ticket['code'][0])==32 and CODE not in shared_url and 'b'*64 not in shared_url
+                # Capture clipboard writes in the page, leaving the user's clipboard untouched.
+                first.evaluate("copyText=async value=>{window.copiedAgentLink=value;return true}")
+                first.locator('#wgAgentShareCopy').click();expect(first.locator('#wgAgentSetupStatus')).to_contain_text('copié')
+                assert first.evaluate('window.copiedAgentLink')==shared_url
+                public=b.new_page();public.on('pageerror',lambda error:errors.append(str(error)));public_requests=[]
+                public.on('request',lambda request:public_requests.append(request.url))
+                public.goto(shared_url);expect(public.locator('#agentDownloadButton')).to_be_enabled()
+                expect(public.locator('#agentDownloadDescription')).to_contain_text({'win32':'Windows','linux':'Linux','darwin':'macOS'}[platform])
+                public.set_viewport_size({'width':320,'height':720});assert public.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                with public.expect_download() as shared_download:public.locator('#agentDownloadButton').click()
+                assert shared_download.value.suggested_filename==('Installer-WolfGuard.cmd' if platform=='win32' else 'Installer-WolfGuard.sh')
+                installer_text=Path(shared_download.value.path()).read_text()
+                if platform=='win32':installer_text=base64.b64decode(installer_text.split('-EncodedCommand ')[1].strip()).decode('utf-16-le')
+                expected_hash=json.loads((ROOT/'app/downloads/agent-integrity.json').read_text())[filename]
+                assert ticket['code'][0] in installer_text and expected_hash in installer_text and '--pair-code' in installer_text
+                assert not any('/api/' in url or ticket['code'][0] in urlsplit(url).query for url in public_requests),public_requests
+                public.close();code=ticket['code'][0]
+                if runner is None:
+                    # Consume this shared invitation before creating another;
+                    # the API deliberately caps unconsumed invitations at three.
+                    runner=subprocess.Popen([str(node),str(ROOT/'tests/agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+                    runner.stdin.write(json.dumps({'backend':backend,'code':code}));runner.stdin.close();assert runner.stdout.readline().strip()=='ready'
+                else:spare_pair_codes.append(code)
+                for width in [320,390,1440]:
+                    first.set_viewport_size({'width':width,'height':1000})
+                    assert first.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1')
+            rejected=b.new_page();rejected.goto(shared_url.split('#')[0]+'#'+urlencode({'code':'invalid','platform':'win32','expires':ticket['expires'][0]}))
+            expect(rejected.locator('#agentDownloadButton')).to_be_disabled();expect(rejected.locator('#agentDownloadStatus')).to_contain_text('Lien invalide')
+            rejected.goto(shared_url.split('#')[0]+'#'+urlencode({'code':code,'platform':'win32','expires':int(time.time()*1000)-1}))
+            expect(rejected.locator('#agentDownloadButton')).to_be_disabled();expect(rejected.locator('#agentDownloadExpiry')).to_have_text('Lien expiré');rejected.close()
+            print('PASS: shareable Windows/Linux/macOS installers without private application access, clipboard, pinned checksums, expiry, invalid links and 320px layout')
             assert download.value.suggested_filename=='WolfGuard-Agent-Windows.exe'
             installer=Path(download.value.path()).read_bytes()
             assert installer==(ROOT/'app/downloads/WolfGuard-Agent-Windows.exe').read_bytes()
             assert installer[:2]==b'MZ'
             expect(first.locator('#settings-agents')).to_contain_text('Le poste utilisé pour les scans et la prise en main.')
-            runner=subprocess.Popen([str(node),str(ROOT/'tests/agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
-            runner.stdin.write(json.dumps({'backend':backend,'code':code}));runner.stdin.close();assert runner.stdout.readline().strip()=='ready'
             expect(first.locator('#wgAgentSelect')).to_be_enabled(timeout=20000)
             windows_id=first.locator('#wgAgentSelect').input_value()
             first.locator('#wgAgentSelect').select_option(windows_id)
@@ -169,7 +205,7 @@ def run():
             # This tab's agent selection is reused by every section and reload.
             extra=[]
             for platform,name in [('linux','Poste Linux'),('darwin','Poste macOS')]:
-                ticket=first.evaluate("async()=>await WolfGuardCloud.agentRequest('agents/pair',{})")
+                ticket={'code':spare_pair_codes.pop()}
                 response=a.request.post(backend+'/api/agent/enroll',data={'code':ticket['code'],'name':name,'platform':platform})
                 assert response.status==200
                 enrolled=response.json();extra.append(enrolled)

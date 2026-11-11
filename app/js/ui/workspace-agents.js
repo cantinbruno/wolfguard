@@ -26,19 +26,20 @@ const workspaceAgents = (() => {
     unmount();const token=generation,key=state.vaultKey;
     const live=()=>generation===token&&root.isConnected&&state.vaultKey===key&&!$('#app').classList.contains('hidden');
     const find=selector=>root.querySelector(selector),admin=()=>!!cloud()?.isAdmin();
-    let agents=[],selected=null,busy=false,refreshing=null,firstLoad=true,stale=false,tab='fleet',expanded='',expiresAt=0,knownIds=new Set(),listHTML='',pickerHTML='';
+    let agents=[],selected=null,busy=false,refreshing=null,firstLoad=true,stale=false,tab='fleet',expanded='',expiresAt=0,shareExpiresAt=0,knownIds=new Set(),listHTML='',pickerHTML='';
     root.innerHTML=`<header class="settings-panel-head agent-manager-heading"><div><div class="settings-heading">${settingsIcon('monitor')}<h3>Agents</h3></div><p>Le poste utilisé pour les scans et la prise en main.</p></div><button type="button" class="settings-btn settings-btn-icon" id="wgAgentRefresh" aria-label="Actualiser les postes" title="Actualiser">${settingsIcon('refresh-cw')}</button></header>
       <section class="agent-manager-current" aria-labelledby="wgAgentCurrentTitle"><span class="agent-manager-current-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div class="agent-manager-current-copy"><span class="agent-manager-eyebrow">POSTE UTILISÉ</span><h4 id="wgAgentCurrentTitle">Chargement…</h4><p id="wgAgentCurrentDetail">Recherche de tes postes associés.</p></div><span id="wgAgentSettingsPresence" class="agent-manager-presence" data-state="loading" role="status">Chargement…</span><label class="agent-manager-switch"><span>Changer de poste</span><select id="wgAgentSelect" class="settings-select" disabled><option>Chargement…</option></select></label></section>
       <p id="wgAgentConnectionNotice" class="settings-agent-notice" role="status" hidden></p><p id="wgAgentSetupError" class="settings-agent-error" role="alert"></p><p id="wgAgentSetupStatus" role="status" aria-live="polite"></p>
       <nav class="agent-manager-tabs" role="tablist" aria-label="Gestion des agents"><button type="button" role="tab" id="wgAgentTab-fleet" data-agent-tab="fleet" aria-controls="wgAgentFleetPanel" aria-selected="true">Mes postes <span id="wgAgentCount">—</span></button><button type="button" role="tab" id="wgAgentAdd" data-agent-tab="connect" aria-controls="wgAgentConnect" aria-selected="false" tabindex="-1">${settingsIcon('download')}Ajouter un poste</button></nav>
       <section id="wgAgentFleetPanel" role="tabpanel" aria-labelledby="wgAgentTab-fleet"><div class="agent-manager-list-heading"><span>POSTES ASSOCIÉS</span><span id="wgAgentFleetSummary">Chargement…</span></div><div id="wgAgentManage" class="agent-manager-list"><p class="settings-agent-note">Chargement des postes…</p></div><p class="agent-manager-list-note">Le poste utilisé est commun aux scans passif, actif, cartographie et vulnérabilités.</p></section>
-      <section id="wgAgentConnect" role="tabpanel" aria-labelledby="wgAgentAdd" hidden><div class="agent-manager-install-head"><h4>Ajouter un poste</h4><p>Un installateur personnel, aucune saisie de code.</p></div><div class="agent-manager-platforms" role="group" aria-label="Système du poste">${Object.entries(downloads).map(([id,item])=>'<button type="button" class="agent-manager-platform" data-agent-platform="'+id+'" aria-pressed="false">'+platformIcon(id)+'<span>'+item.name+'</span></button>').join('')}</div><input type="hidden" id="wgAgentPlatform"><section class="agent-manager-install-step"><h4>Installer et associer</h4><p id="wgAgentInstructions"></p><button type="button" class="settings-btn primary" id="wgAgentPair">Télécharger l’installateur personnel</button><div id="wgAgentPairCode" class="agent-manager-pair" hidden><small></small><a class="settings-btn" id="wgAgentConnectPair">Associer un agent déjà installé</a><progress id="wgAgentPairProgress" max="600" value="600" aria-label="Durée de validité"></progress><p id="wgAgentPairFeedback" role="status"></p></div><div id="wgAgentNewPost" class="agent-manager-new-post" hidden><div><strong></strong><p>Le poste est prêt.</p></div><button type="button" class="settings-btn" id="wgAgentViewPosts">Voir mes postes</button></div><p id="wgAgentCapacity" class="settings-agent-notice" hidden>Limite de 200 postes atteinte.</p><details><summary>Fichiers d’installation et mise à jour</summary><small id="wgAgentDownloadHelp"></small><a id="wgAgentDownload" class="settings-btn" download></a></details></section><section class="agent-manager-install-step"><h4>Retirer l’agent Windows</h4><p>Exécute ce fichier sur le poste à désinstaller.</p><a id="wgAgentUninstall" class="settings-btn" download href="downloads/WolfGuard-Agent-Uninstall.cmd">Télécharger le désinstalleur</a></section></section>`;
+      <section id="wgAgentConnect" role="tabpanel" aria-labelledby="wgAgentAdd" hidden><div class="agent-manager-install-head"><h4>Ajouter un poste</h4><p>Un installateur personnel, aucune saisie de code.</p></div><div class="agent-manager-platforms" role="group" aria-label="Système du poste">${Object.entries(downloads).map(([id,item])=>'<button type="button" class="agent-manager-platform" data-agent-platform="'+id+'" aria-pressed="false">'+platformIcon(id)+'<span>'+item.name+'</span></button>').join('')}</div><input type="hidden" id="wgAgentPlatform"><section class="agent-manager-install-step"><h4>Installer et associer</h4><p id="wgAgentInstructions"></p><div class="agent-manager-install-actions"><button type="button" class="settings-btn primary" id="wgAgentPair">Télécharger l’installateur personnel</button><button type="button" class="settings-btn" id="wgAgentShare">Créer un lien de téléchargement</button></div><div id="wgAgentShareLink" class="agent-manager-share" hidden><label for="wgAgentShareURL">Lien à ouvrir sur le poste à ajouter</label><input id="wgAgentShareURL" type="url" readonly spellcheck="false"><button type="button" class="settings-btn" id="wgAgentShareCopy">Copier le lien</button><p id="wgAgentShareExpiry"></p><p>Valable dix minutes pour associer un seul poste, sans code à saisir.</p></div><div id="wgAgentPairCode" class="agent-manager-pair" hidden><small></small><a class="settings-btn" id="wgAgentConnectPair">Associer un agent déjà installé</a><progress id="wgAgentPairProgress" max="600" value="600" aria-label="Durée de validité"></progress><p id="wgAgentPairFeedback" role="status"></p></div><div id="wgAgentNewPost" class="agent-manager-new-post" hidden><div><strong></strong><p>Le poste est prêt.</p></div><button type="button" class="settings-btn" id="wgAgentViewPosts">Voir mes postes</button></div><p id="wgAgentCapacity" class="settings-agent-notice" hidden>Limite de 200 postes atteinte.</p><details><summary>Fichiers d’installation et mise à jour</summary><small id="wgAgentDownloadHelp"></small><a id="wgAgentDownload" class="settings-btn" download></a></details></section><section class="agent-manager-install-step"><h4>Retirer l’agent Windows</h4><p>Exécute ce fichier sur le poste à désinstaller.</p><a id="wgAgentUninstall" class="settings-btn" download href="downloads/WolfGuard-Agent-Uninstall.cmd">Télécharger le désinstalleur</a></section></section>`;
     const error=message=>{if(live())find('#wgAgentSetupError').textContent=message;};
     const status=message=>{if(live())find('#wgAgentSetupStatus').textContent=message;};
     const platform=find('#wgAgentPlatform');
     platform.value=/Mac/i.test(navigator.userAgentData?.platform||navigator.platform)?'darwin':/Linux/i.test(navigator.userAgentData?.platform||navigator.platform)?'linux':'win32';
     function showDownload(){
       const item=downloads[platform.value],link=find('#wgAgentDownload');
+      if(find('#wgAgentShareLink').dataset.platform!==platform.value){shareExpiresAt=0;find('#wgAgentShareLink').hidden=true;find('#wgAgentShareURL').value='';}
       find('#wgAgentConnectPair').hidden=false;
       link.href='downloads/'+item.file+'?v='+encodeURIComponent(downloadRevision);link.innerHTML=settingsIcon('download')+'Télécharger pour '+item.name;
       find('#wgAgentDownloadHelp').textContent=item.help;find('#wgAgentInstructions').textContent=item.instruction;
@@ -57,6 +58,12 @@ const workspaceAgents = (() => {
     const lastSeen=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'Non renseignée':date.toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',year:'numeric'});};
     function clearCode(){const area=find('#wgAgentPairCode');area.hidden=true;expiresAt=0;find('#wgAgentConnectPair').removeAttribute('href');find('#wgAgentPair').textContent='Télécharger l’installateur personnel';}
     function updatePairing(){
+      if(shareExpiresAt){
+        const remaining=Math.max(0,Math.ceil((shareExpiresAt-Date.now())/1000));
+        find('#wgAgentShareExpiry').textContent=remaining?'Expire dans '+Math.floor(remaining/60)+' min '+String(remaining%60).padStart(2,'0')+' s':'Lien expiré. Crée un nouveau lien.';
+        find('#wgAgentShareCopy').disabled=!remaining;
+        if(!remaining)find('#wgAgentShareURL').value='';
+      }
       if(!expiresAt)return;
       const remaining=Math.max(0,Math.ceil((expiresAt-Date.now())/1000));
       if(!remaining){clearCode();status('Le code d’association a expiré. Tu peux en générer un nouveau.');return;}
@@ -89,6 +96,7 @@ const workspaceAgents = (() => {
       const limit=agents.length>=200;find('#wgAgentCapacity').hidden=!limit;
       find('#wgAgentAdd').hidden=!(admin()||cloud()?.can?.('agents.pair'));
       find('#wgAgentPair').disabled=busy||!available()||limit||!(admin()||cloud()?.can?.('agents.pair'));
+      find('#wgAgentShare').disabled=find('#wgAgentPair').disabled;
       for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!(admin()||cloud()?.can?.('agents.revoke'));
       for(const button of root.querySelectorAll('[data-agent-start]'))button.hidden=!(admin()||cloud()?.can('agents.pair'));
       if(firstLoad){showTab(agents.length||!admin()?'fleet':'connect');firstLoad=false;}
@@ -138,25 +146,41 @@ const workspaceAgents = (() => {
       finally{busy=false;if(live())await refresh();}
     };
     find('#wgAgentPair').disabled=!available();
-    function downloadInstaller(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/octet-stream'})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-    find('#wgAgentPair').onclick=async()=>{
-      if(busy||!live())return;busy=true;renderAgents();error('');
-      try{
-        const integrity=await fetch('downloads/agent-integrity.json',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Fichiers d’installation indisponibles.');return response.json();});
-        const pairing=await cloud().agentRequest('agents/pair',{});if(!live())return;if(!/^[a-f0-9]{32}$/.test(pairing.code))throw new Error('Association invalide.');
-        const item=downloads[platform.value],hash=integrity[item.file];if(!/^[a-f0-9]{64}$/.test(hash))throw new Error('Empreinte de l’agent indisponible.');
-        const url=new URL('downloads/'+item.file,location.href).href;let script,name;
-        if(platform.value==='win32'){
-          const powershell="$ErrorActionPreference='Stop';$stage=Join-Path $env:TEMP ('WolfGuard-install-'+[guid]::NewGuid().ToString('N'));New-Item -ItemType Directory -Path $stage|Out-Null;try{$exe=Join-Path $stage 'WolfGuard-Agent.exe';Invoke-WebRequest -UseBasicParsing -Uri '"+url+"' -OutFile $exe;if((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant() -ne '"+hash+"'){throw 'Integrite de l agent invalide'};Start-Process -FilePath $exe -ArgumentList '--pair-code','"+pairing.code+"' -WindowStyle Hidden;Write-Host 'Agent installe. Le poste apparait dans WolfGuard.'}catch{Write-Host $_.Exception.Message;exit 1}";
-          const bytes=new Uint8Array(powershell.length*2);for(let i=0;i<powershell.length;i++){bytes[i*2]=powershell.charCodeAt(i)&255;bytes[i*2+1]=powershell.charCodeAt(i)>>8;}let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
-          script='@echo off\r\npowershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+btoa(binary)+'\r\n';name='Installer-WolfGuard.cmd';
-        }else{
-          const quote=value=>"'"+value.replaceAll("'","'\\''")+"'";
-          script='#!/bin/sh\nset -eu\numask 077\nstage=$(mktemp -d)\ntrap \'rm -rf -- "$stage"\' EXIT HUP INT TERM\ncurl --fail --location --proto \'=https\' '+quote(url)+' -o "$stage/agent.zip"\nif command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum "$stage/agent.zip" | cut -d \' \' -f1); else actual=$(shasum -a 256 "$stage/agent.zip" | cut -d \' \' -f1); fi\n[ "$actual" = '+quote(hash)+' ] || exit 1\nunzip -q "$stage/agent.zip" -d "$stage/app"\nsh "$stage/app/Start-Agent.sh" --pair-code '+pairing.code+'\n';name='Installer-WolfGuard.sh';
-        }
-        downloadInstaller(script,name);find('#wgAgentPairCode').hidden=false;find('#wgAgentConnectPair').href='wolfguard-agent://pair?code='+pairing.code;find('#wgAgentConnectPair').hidden=platform.value!=='win32';find('#wgAgentPairFeedback').textContent=platform.value==='win32'?'Ouvre Installer-WolfGuard.cmd sur le poste.':'Sur le poste, lance sh Installer-WolfGuard.sh.';expiresAt=pairing.expiresAt;updatePairing();
-      }catch(exception){error(exception.message);}finally{busy=false;if(live())await refresh();}
+    find('#wgAgentShare').disabled=!available();
+    find('#wgAgentShareCopy').onclick=async()=>{
+      if(!live()||Date.now()>=shareExpiresAt)return;
+      const input=find('#wgAgentShareURL'),copied=await copyText(input.value);
+      if(!live())return;
+      if(copied)status('Lien de téléchargement copié.');
+      else{input.focus();input.select();status('Sélectionne et copie le lien de téléchargement.');}
     };
+    async function prepareInstaller(share){
+      if(busy||!live()||!(admin()||cloud()?.can?.('agents.pair')))return;
+      const target=platform.value;busy=true;renderAgents();error('');
+      try{
+        const pairing=await cloud().agentRequest('agents/pair',{});
+        if(!live())return;
+        if(!/^[a-f0-9]{32}$/.test(pairing.code)||!Number.isSafeInteger(pairing.expiresAt))throw new Error('Association invalide.');
+        if(platform.value!==target)throw new Error('Le système a changé. Recommence pour le système choisi.');
+        if(share){
+          const link=new URL('agent-download.html',location.href);link.searchParams.set('v',downloadRevision);
+          link.hash=new URLSearchParams({code:pairing.code,platform:target,expires:String(pairing.expiresAt)}).toString();
+          find('#wgAgentShareURL').value=link.href;
+          find('#wgAgentShareLink').dataset.platform=target;find('#wgAgentShareLink').hidden=false;
+          shareExpiresAt=pairing.expiresAt;updatePairing();status('Lien prêt pour un poste '+downloads[target].name+'.');
+        }else{
+          const installer=await WolfGuardAgentInstaller.prepare(target,pairing.code);
+          if(!live())return;
+          WolfGuardAgentInstaller.download(installer);
+          find('#wgAgentPairCode').hidden=false;find('#wgAgentConnectPair').href='wolfguard-agent://pair?code='+pairing.code;
+          find('#wgAgentConnectPair').hidden=target!=='win32';
+          find('#wgAgentPairFeedback').textContent=target==='win32'?'Ouvre Installer-WolfGuard.cmd sur le poste.':'Sur le poste, lance sh Installer-WolfGuard.sh.';
+          expiresAt=pairing.expiresAt;updatePairing();
+        }
+      }catch(exception){error(exception.message);}finally{busy=false;if(live())await refresh();}
+    }
+    find('#wgAgentPair').onclick=()=>prepareInstaller(false);
+    find('#wgAgentShare').onclick=()=>prepareInstaller(true);
     async function poll(){if(live())updatePairing();await refresh();if(live())timer=setTimeout(poll,3000);}
     if(available())poll();else{renderAgents();find('#wgAgentCurrentDetail').textContent='L’association est disponible sur le site après saisie de ton code.';}
   }

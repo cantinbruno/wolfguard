@@ -69,6 +69,11 @@
 .agent-manager-platform i{width:6px;height:6px;border:1px solid #a8c8e844;border-radius:50%;margin-left:auto}
 .agent-manager-platform[aria-pressed="true"] i{border-color:var(--agent-accent);background:var(--agent-accent)}
 .agent-manager-install-step{border:1px solid var(--ui-border);border-radius:9px;padding:16px;margin-top:13px;background:var(--ui-sidebar)}
+.agent-manager-install-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.agent-manager-share{margin-top:14px;padding:14px;border:1px solid var(--ui-border);border-radius:8px;min-width:0}
+.agent-manager-share label{display:block;font-size:11px;color:var(--ui-muted)}
+.agent-manager-share input{display:block;width:100%;min-width:0;margin:8px 0 10px;border:1px solid var(--ui-border);border-radius:6px;padding:9px;background:var(--ui-code);color:var(--ui-text);font:11px/1.5 Consolas,monospace}
+.agent-manager-share p{font-size:11px;color:var(--ui-muted);margin:8px 0 0}
 .agent-manager-step-title{display:flex;align-items:center;gap:9px;margin-bottom:15px}
 .agent-manager-step-title>span{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;background:#a8c8e80a;border:1px solid #a8c8e82b;color:var(--agent-accent);font-size:10px}
 .agent-manager-step-title h4{margin:0;font-size:12px;font-weight:500}

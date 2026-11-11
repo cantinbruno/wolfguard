@@ -1,0 +1,9 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0d1521;color:#edf3fa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(100%,520px);padding:36px;border:1px solid #2c4056;border-radius:18px;background:#142131;box-shadow:0 24px 80px #0003}
+.brand{display:block;color:#a7c8e8;font-size:13px;font-weight:750;letter-spacing:.18em;margin-bottom:38px}
+.eyebrow{color:#9bb1ca;font-size:11px;letter-spacing:.12em}h1{font-size:30px;line-height:1.2;font-weight:650;letter-spacing:-.035em;margin:12px 0 18px}
+p,li{font-size:14px;line-height:1.7;color:#b6c6d9}button{display:block;width:100%;border:1px solid #8eb9e0;border-radius:9px;background:#9ec8ed;color:#101e2d;padding:14px 18px;font:600 14px system-ui;cursor:pointer;margin-top:24px}
+button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:3px solid #fff;outline-offset:4px}.expiry{font-size:12px;text-align:center;font-variant-numeric:tabular-nums}
+[role=status]{color:#e5d2a0;overflow-wrap:anywhere}ol{padding-left:20px;margin:28px 0 0}li+li{margin-top:10px}.note{border-top:1px solid #2c4056;padding-top:20px;margin-top:28px;font-size:12px}
+@media(max-width:420px){body{padding:14px}main{padding:24px}h1{font-size:26px}}
