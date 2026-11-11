@@ -34,6 +34,11 @@ export async function confirmOTPEnrollment(user,code,env,now){
   const changed=await env.DB.prepare('UPDATE users SET otp_secret_cipher=otp_pending_cipher,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=?,otp_recovery_cipher=? WHERE id=? AND otp_pending_cipher=? AND otp_pending_until>? AND otp_secret_cipher IS NULL AND code_version=? AND disabled_at IS NULL AND credential_pending=0 RETURNING *').bind(step,recovery,user.id,user.otp_pending_cipher,now,user.code_version).first();
   return changed?{user:changed,recoveryCodes}:null;
 }
+export async function matchesOTP(user,code,env,now){
+  if(!user.otp_secret_cipher||user.disabled_at!==null||user.credential_pending)return false;
+  if(typeof code==='string'&&/^[a-f0-9]{16}$/.test(code)&&user.otp_recovery_cipher)return (await open(user.otp_recovery_cipher,recoveryContext(user.id),env)).includes(await recoveryHash(code));
+  return await matchingStep(await open(user.otp_secret_cipher,context(user.id),env),code,now,user.otp_last_step)!==null;
+}
 export async function consumeOTP(user,code,env,now){
   if(!user.otp_secret_cipher)return true;
   if(typeof code==='string'&&/^[a-f0-9]{16}$/.test(code)&&user.otp_recovery_cipher){

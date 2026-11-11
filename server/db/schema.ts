@@ -8,17 +8,17 @@ export const vault = sqliteTable('vault', {
   usersEnabled:integer('users_enabled').notNull().default(0),workspaceKeyCipher:text('workspace_key_cipher'),ownerUserId:text('owner_user_id')
 });
 export const sessions = sqliteTable('sessions', {
-  tokenHash: text('token_hash').primaryKey(), generation: integer('generation').notNull(),
+  tokenHash: text('token_hash').primaryKey(), tokenCipher:text('token_cipher'), generation: integer('generation').notNull(),
   expiresAt: integer('expires_at').notNull(), activeAt: integer('active_at').notNull(),userId:text('user_id'),userVersion:integer('user_version').notNull().default(0)
-});
+},table=>[uniqueIndex('sessions_one_account').on(table.userId).where(sql`${table.userId} IS NOT NULL`)]);
 export const users = sqliteTable('users', {
   id:text('id').primaryKey(),nameHash:text('name_hash').notNull().unique(),nameCipher:text('name_cipher').notNull(),role:text('role').notNull(),
   pinSalt:text('pin_salt').notNull(),pinHash:text('pin_hash').notNull(),codeVersion:integer('code_version').notNull().default(1),
   disabledAt:integer('disabled_at'),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),lastLogin:integer('last_login'),
   credentialPending:integer('credential_pending').notNull().default(0),inviteHash:text('invite_hash'),inviteExpiresAt:integer('invite_expires_at'),
-  pinLookup:text('pin_lookup').unique(),otpSecretCipher:text('otp_secret_cipher'),otpPendingCipher:text('otp_pending_cipher'),otpPendingUntil:integer('otp_pending_until'),otpLastStep:integer('otp_last_step').notNull().default(-1),otpRecoveryCipher:text('otp_recovery_cipher'),
+  pinLookup:text('pin_lookup'),otpSecretCipher:text('otp_secret_cipher'),otpPendingCipher:text('otp_pending_cipher'),otpPendingUntil:integer('otp_pending_until'),otpLastStep:integer('otp_last_step').notNull().default(-1),otpRecoveryCipher:text('otp_recovery_cipher'),
   permissionsCipher:text('permissions_cipher'),permissionRevision:integer('permission_revision').notNull().default(1)
-});
+},table=>[index('users_pin_lookup_index').on(table.pinLookup)]);
 export const userInvitations = sqliteTable('user_invitations', {
   id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),
   createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),permissionsCipher:text('permissions_cipher')
@@ -45,7 +45,7 @@ export const accessBlocks = sqliteTable('access_blocks', {
 });
 export const scanAgents = sqliteTable('scan_agents', {
   id: text('id').primaryKey(), nameCipher: text('name_cipher').notNull(), tokenHash: text('token_hash').notNull().unique(),
-  generation: integer('generation').notNull(), createdAt: integer('created_at').notNull(), lastSeen: integer('last_seen').notNull(), revokedAt: integer('revoked_at')
+  generation: integer('generation').notNull(), createdAt: integer('created_at').notNull(), lastSeen: integer('last_seen').notNull(), revokedAt: integer('revoked_at'), restricted:integer('restricted').notNull().default(0)
 });
 export const scanPairings = sqliteTable('scan_pairings', {
   tokenHash: text('token_hash').primaryKey(), generation: integer('generation').notNull(), expiresAt: integer('expires_at').notNull()
@@ -63,11 +63,14 @@ export const scanJobs = sqliteTable('scan_jobs', {
 export const remoteSessions = sqliteTable('remote_sessions', {
   id:text('id').primaryKey(),agentId:text('agent_id').notNull(),generation:integer('generation').notNull(),ownerHash:text('owner_hash').notNull(),status:text('status').notNull(),
   createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),viewerUntil:integer('viewer_until').notNull(),agentUntil:integer('agent_until').notNull(),
-  leaseHash:text('lease_hash'),frameRevision:integer('frame_revision').notNull().default(0),inputSeq:integer('input_seq').notNull().default(0),inputAck:integer('input_ack').notNull().default(0),messageCipher:text('message_cipher'),mode:text('mode').notNull().default('desktop'),terminalCipher:text('terminal_cipher')
+  leaseHash:text('lease_hash'),frameRevision:integer('frame_revision').notNull().default(0),inputSeq:integer('input_seq').notNull().default(0),inputAck:integer('input_ack').notNull().default(0),messageCipher:text('message_cipher'),mode:text('mode').notNull().default('desktop'),terminalCipher:text('terminal_cipher'),transferSeq:integer('transfer_seq').notNull().default(0)
 },table=>[uniqueIndex('remote_one_active_agent').on(table.agentId).where(sql`${table.status} IN ('requested','preparing','active')`)]);
 export const remoteInputs = sqliteTable('remote_inputs', {
   sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),inputCipher:text('input_cipher').notNull()
 },table=>[primaryKey({columns:[table.sessionId,table.seq]})]);
+export const remoteFileCommands=sqliteTable('remote_file_commands',{
+  sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),specCipher:text('spec_cipher').notNull(),resultCipher:text('result_cipher')
+},table=>[primaryKey({columns:[table.sessionId,table.seq]}),uniqueIndex('remote_files_one_pending').on(table.sessionId).where(sql`${table.status} IN ('queued','running')`)]);
 export const terminalCommands=sqliteTable('terminal_commands',{
   sessionId:text('session_id').notNull(),seq:integer('seq').notNull(),createdAt:integer('created_at').notNull(),status:text('status').notNull(),specCipher:text('spec_cipher').notNull(),resultCipher:text('result_cipher'),revision:integer('revision').notNull().default(0),cancelRequested:integer('cancel_requested').notNull().default(0)
 },table=>[primaryKey({columns:[table.sessionId,table.seq]}),uniqueIndex('terminal_one_pending_command').on(table.sessionId).where(sql`${table.status} IN ('queued','running')`)]);

@@ -51,7 +51,7 @@ def run():
             def navigate(section):
                 page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste de test',timeout=15000)
-            expect(page.locator('#wgRemoteHint')).to_contain_text('sans confirmation locale')
+            expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             expect(page.locator('#wgAgentSelect')).to_have_count(0);expect(page.locator('#wgRemoteSession')).to_be_hidden()
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
@@ -60,12 +60,12 @@ def run():
             page.set_viewport_size({'width':1440,'height':1000})
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible()
             assert started==[{'agentId':agent['id']}];expect(page.locator('#wgRemoteCanvas')).to_be_hidden();assert inputs==[]
-            expect(page.locator('#wgRemoteWaiting')).to_contain_text('l’icône de l’agent')
+            expect(page.locator('#wgRemoteWaiting')).to_contain_text('Connexion au poste')
             control['status']='preparing';expect(page.locator('#wgRemoteSessionState')).to_contain_text('Préparation',timeout=10000)
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             expect(page.locator('#wgRemoteStatus')).to_contain_text('Connexion établie')
-            page.evaluate("""async()=>{const c=await import('./browser/crypto.js'),snapshot=await WolfGuardCloud.load(),opened=await c.open(snapshot,'07942685');opened.payload.items.push({id:'multiuser-remote-note',type:'memo',title:'Autre personne',content:'Test partagé'});await WolfGuardCloud.save(await c.seal(opened.payload,opened.key,opened.salt,snapshot.revision+1));await webWorkspace.refreshShared();}""")
+            page.evaluate("""async()=>{const c=await import('./browser/crypto.js'),snapshot=await WolfGuardCloud.load(),identity=await WolfGuardCloud.me(true),material=await c.importWorkspaceMaterial(identity.workspace),opened=await c.openWithKey(snapshot,material.key,material.salt);opened.payload.items.push({id:'multiuser-remote-note',type:'memo',title:'Autre personne',content:'Test partagé'});await WolfGuardCloud.save(await c.seal(opened.payload,opened.key,opened.salt,snapshot.revision+1));await webWorkspace.refreshShared();}""")
             expect(page.locator('#wgRemoteCanvas')).to_be_visible();assert stopped==[]
             page.locator('#wgRemoteCanvas').click(position={'x':100,'y':80});page.keyboard.type('abc');page.keyboard.press('Control+c')
             page.wait_for_timeout(300)
@@ -117,7 +117,7 @@ def run():
                 agent['platform']=platform;page.wait_for_timeout(3600)
                 expect(page.locator('#wgRemoteAgent')).to_contain_text({'linux':'Linux','darwin':'macOS','win32':'Windows'}[platform])
             agent['capabilities']=[];page.wait_for_timeout(3600);expect(page.locator('#wgRemoteConnect')).to_be_disabled()
-            expect(page.locator('#wgRemoteHint')).to_contain_text('nouvel agent')
+            expect(page.locator('#wgRemoteHint')).to_contain_text('Mets à jour')
             agent['capabilities']=['remote-desktop-v1'];page.wait_for_timeout(3600)
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             control['outage']=True;expect(page.locator('#wgRemoteSession')).to_be_hidden(timeout=15000)

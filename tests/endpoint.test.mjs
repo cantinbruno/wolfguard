@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {setup} from './endpoint-fixture.mjs';
-import {profilePolicy} from '../server/lib/wolfguard/permissions.mjs';
+import {profilePolicy,can} from '../server/lib/wolfguard/permissions.mjs';
 import {endpointSnapshot,endpointHealth} from '../server/lib/wolfguard/endpoint-spec.mjs';
 import {collectEndpoint,executeEndpointAction,runEndpointProtection} from '../agent/endpoint.mjs';
 import {collectPosixEndpoint} from '../agent/endpoint-posix.mjs';
@@ -98,15 +98,15 @@ test('initial invitation profiles are retained, while delegated account managers
   const s=await fixture();try{
     const invitation=await(await s.api('users/invite',{profile:'endpoint-manager'},s.owner.token)).json();
     const complete=await s.api('account/complete',{ticket:invitation.invitation.ticket,username:'invited-fleet@example.test',code:'12345678'});assert.equal(complete.status,200);
-    const fleet=await s.login('invited-fleet@example.test','12345678');assert.equal(fleet.user.permissions.profile,'endpoint-manager');assert.ok(fleet.user.permissions.grants.includes('edr.manage'));assert.ok(!fleet.user.permissions.grants.includes('remote.terminal'));assert.ok(!fleet.user.permissions.grants.includes('vault.secrets'));
+    const fleet=await s.login('invited-fleet@example.test','12345678');assert.equal(fleet.user.permissions.profile,'endpoint-manager');assert.ok(can(fleet.user,'edr.manage'));assert.ok(!can(fleet.user,'remote.terminal'));assert.ok(!can(fleet.user,'vault.secrets'));
     assert.equal((await s.api('users/create',{username:'forbidden@example.test',profile:'full'},fleet.token)).status,403);
-    const added=await s.createMember('delegate@example.test','24681357',s.owner.token),policy=profilePolicy('none');policy.grants=['users.read','users.manage','users.permissions','agents.read','edr.read'];
+    const added=await s.createMember('delegate@example.test','24681357',s.owner.token),policy=profilePolicy('none');policy.sections.users='write';policy.sections.agents='read';policy.sections.edr='read';
     assert.equal((await s.api('users/permissions',{id:added.user.id,revision:1,policy},s.owner.token)).status,200);const delegate=await s.login('delegate@example.test','24681357');
     assert.equal((await s.api('users/create',{username:'overreach@example.test',profile:'full'},delegate.token)).status,403);
     assert.equal((await s.api('users/create',{username:'allowed@example.test',profile:'none'},delegate.token)).status,201);
     assert.equal((await s.api('users/reset-code',{id:s.owner.user.id},delegate.token)).status,403);
     assert.equal((await s.api('users/permissions',{id:added.user.id,revision:2,policy:profilePolicy('full')},delegate.token)).status,403);
     const users=await(await s.api('users',undefined,s.owner.token)).json();assert.ok(users.users.every(row=>Number.isSafeInteger(row.sessions)));
-    const personal=profilePolicy('reader');assert.ok(personal.grants.includes('vault.secrets'));assert.ok(!personal.grants.includes('vault.all'));
+    const personal=profilePolicy('reader');assert.ok(can({role:'member',permissions:personal},'vault.secrets'));assert.ok(!can({role:'member',permissions:personal},'vault.all'));
   }finally{s.env.DB.db.close();}
 });

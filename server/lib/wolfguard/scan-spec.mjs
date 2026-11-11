@@ -68,8 +68,8 @@ export function scanSpec(raw){
   if(workspace&& !['active','map'].includes(workspace))throw new Error('Section incompatible avec un scan actif.');
   const mode=raw.mode||'tcp';if(!['tcp','discovery','icmp'].includes(mode))throw new Error('Mode de scan invalide.');
   const supplied=Array.isArray(raw.ports)&&raw.ports.every(Number.isInteger)?raw.ports.join(','):raw.ports;
-  const target=workspace==='map'&&typeof raw.target==='string'?raw.target.trim():singleTarget(raw.target);
-  const addresses=workspace==='map'?targets(target):target.includes(':')||/^[\d.]+$/.test(target)?[localAddress(target)]:[],selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
+  const target=workspace==='map'?typeof raw.target==='string'&&raw.target.trim()?raw.target.trim():'auto':singleTarget(raw.target);
+  const addresses=workspace==='map'?(target==='auto'?[]:targets(target)):target.includes(':')||/^[\d.]+$/.test(target)?[localAddress(target)]:[],selected=mode==='icmp'?[]:ports(mode==='discovery'?(supplied||raw.discoveryPorts||'22,80,443,445,3389'):supplied);
   if(workspace==='map'&&mode!=='discovery')throw new Error('La cartographie utilise la découverte réseau.');
   if(mode==='discovery'&&selected.length>8)throw new Error('Maximum huit ports de découverte.');
   if(addresses.length*Math.max(1,selected.length)>4096)throw new Error('Maximum 4096 tests : réduis la plage ou les ports.');

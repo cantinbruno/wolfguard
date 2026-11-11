@@ -19,6 +19,7 @@ async function renderVaultCatalog() {
   }));
 
   $('#detailHost').innerHTML = `<div class="workspace-catalog section-catalog catalog-vault">
+    <div class="vault-personal-banner" role="note">${settingsIcon('lock')}<div><strong>Coffre-fort individuel</strong><span>Les autres utilisateurs et administrateurs n’ont pas accès à ton coffre.</span></div></div>
     <header class="workspace-catalog-heading">${workspaceNavigationButton()}<div><h2>${esc(folder?.name || 'Coffre-fort')}</h2><p id="workspaceResultsCount" role="status" aria-live="polite"></p></div></header>
     <div class="catalog-controls"><label class="workspace-catalog-search">${PROTOCOL_ICONS.search}<input id="workspaceLocalSearch" type="search" maxlength="200" aria-label="Rechercher dans le coffre" placeholder="Rechercher dans le coffre" value="${esc(view.query)}">${collectionSearchClearHTML('clearWorkspaceSearch')}</label>
       <label class="catalog-select"><span>Tri</span><select id="workspaceCatalogSort"><option value="title" ${view.sort === 'title' ? 'selected' : ''}>Titre A–Z</option><option value="recent" ${view.sort === 'recent' ? 'selected' : ''}>Modification récente</option></select></label>

@@ -101,11 +101,11 @@ def run():
             # Delayed tab responses cannot roll the encrypted cache backwards.
             assert third.evaluate("""async()=>{const s=await import('./browser/storage.js'),before=await s.read();await s.cacheShared({...before,iv:'old-test-cache'},1);return (await s.read()).iv===before.iv}""")
             third.evaluate('lockApplication()');expect(third.locator('#lock')).to_be_visible()
-            first.evaluate("async()=>await setSetting('still-connected',true)")
-            assert first.evaluate("async()=>await setting('still-connected')") is True
+            first.evaluate('async()=>{try{await WolfGuardCloud.touch()}catch{}}')
+            expect(first.locator('#lock')).to_be_visible()
             assert not errors,errors
             browser.close()
-            print('PASS: encrypted caches never regress and locking one tab leaves the other sessions connected')
+            print('PASS: encrypted caches never regress and locking one shared account session revokes its other tabs')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

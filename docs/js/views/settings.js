@@ -104,10 +104,8 @@ async function setSettingsTab(name, focus = false) {
   });
   dialog.querySelectorAll('[data-settings-panel]').forEach(panel => panel.classList.toggle('hidden', panel.dataset.settingsPanel !== name));
   dialog.querySelector('.settings-main').scrollTop = 0;
-  webScanHistory.unmount();
   workspaceAccess.unmount();
   workspaceUsers.unmount();
-  if (name === 'history') webScanHistory.mount(dialog.querySelector('#settings-history'));
   if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
   if (focus) button.focus();
@@ -116,7 +114,7 @@ async function setSettingsTab(name, focus = false) {
 async function openSettings(initialTab = 'security') {
   sectionTransition.cancel();
   const n = (await activeItems()).length;
-  const autoLock = Number(await setting('autoLockMinutes', 0));
+  const autoLock = 0;
   const lastBackup = await setting('lastBackup', null);
   const backupDate = lastBackup ? new Date(lastBackup) : null;
   const backupLabel = backupDate && !Number.isNaN(backupDate.getTime()) ? backupDate.toLocaleDateString('fr-FR', {
@@ -131,10 +129,13 @@ async function openSettings(initialTab = 'security') {
   const connectionLabel = workspaceConnectionLabel();
   const databaseFiles = db?.native ? db.storageFiles() : [];
   const multipleDatabases = databaseFiles.length > 1;
+  // Total size of the encrypted repository (workspace envelope + attachments).
+  const totalBytes = typeof webWorkspace!=='undefined'?webWorkspace.storageBytes():databaseFiles.reduce((sum,file)=>sum+(file.size||0),0);
+  const totalLabel = totalBytes ? (totalBytes > 1048576 ? (totalBytes/1048576).toFixed(1)+' Mo' : Math.max(1,Math.round(totalBytes/1024))+' Ko') : '—';
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['security', 'data', 'interface', 'users', 'access', 'history'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -147,7 +148,6 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
           <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-history" data-settings-tab="history" role="tab" aria-controls="settings-history" aria-selected="false" tabindex="-1">${settingsIcon('history')}<span>Historique</span></button>
           
         </nav>
         <div class="settings-workspace">
@@ -158,26 +158,23 @@ async function openSettings(initialTab = 'security') {
       </aside>
       <div class="settings-main">
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
-        <section class="settings-panel hidden" id="settings-history" data-settings-panel="history" role="tabpanel" aria-labelledby="settings-tab-history"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
         
         <section class="settings-panel hidden" id="settings-security" data-settings-panel="security" role="tabpanel" aria-labelledby="settings-tab-security">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Sécurité</h3></div><span class="settings-status">Session active</span></header>
+          <h4 class="settings-group-title">Mon code</h4>
           <div class="settings-row">
             ${settingsIcon('key-round')}
-            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">Code à 4 chiffres</div></div>
+            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">8 chiffres · Protège l’espace</div></div>
             <button type="button" class="settings-btn settings-control" id="changeCodeBtn">${settingsIcon('key-round')}Modifier</button>
           </div>
           <div id="changeCodeArea"></div>
+          <h4 class="settings-group-title">Session</h4>
           <div class="settings-row">
             ${settingsIcon('lock')}
-            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Verrouillage automatique</label><div class="settings-row-desc">Délai d’inactivité</div></div>
-            <select id="autoLockSelect" class="settings-select settings-control">
-              <option value="0" ${autoLock===0?'selected':''}>Désactivé</option>
-              <option value="5" ${autoLock===5?'selected':''}>5 minutes</option>
-              <option value="15" ${autoLock===15?'selected':''}>15 minutes</option>
-              <option value="30" ${autoLock===30?'selected':''}>30 minutes</option>
-              <option value="60" ${autoLock===60?'selected':''}>1 heure</option>
+            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Durée de la session</label><div class="settings-row-desc">Indéfinie · Une nouvelle ouverture reprend la première session</div></div>
+            <select id="autoLockSelect" class="settings-select settings-control" disabled>
+              <option value="0" selected>Indéfinie</option>
             </select>
           </div>
           <div class="settings-row">
@@ -196,6 +193,8 @@ async function openSettings(initialTab = 'security') {
           ${multipleDatabases ? '<div class="settings-database-list">' + databaseFiles.map(file => '<div class="settings-database-file"><div><strong>' + esc(file.name) + '</strong><code>' + esc(file.path) + '</code><span>' + (file.id === 'main' ? 'Reglages partages' : file.itemCount.toLocaleString('fr-FR') + ' element(s)') + '</span></div><button type="button" class="settings-btn" data-storage-folder="' + esc(file.id) + '" aria-label="Afficher le dossier ' + esc(file.name) + '">' + settingsIcon('folder-open') + 'Dossier</button></div>').join('') + '</div>' : ''}
           <dl class="settings-data-facts">
             <div><dt>Éléments</dt><dd>${n.toLocaleString('fr-FR')}</dd></div>
+            <div><dt>Données chiffrées</dt><dd>${esc(totalLabel)}</dd></div>
+            <div><dt>Dépôt complet</dt><dd id="wgRepositorySize">Chargement…</dd></div>
             <div><dt>Dernière sauvegarde</dt><dd>${esc(backupLabel)}</dd></div>
           </dl>
           <div class="settings-file-actions">
@@ -203,7 +202,7 @@ async function openSettings(initialTab = 'security') {
             <button type="button" class="settings-btn" id="reloadBaseBtn">${settingsIcon('refresh-cw')}Recharger</button>
             <button type="button" class="settings-btn" id="changeBaseBtn">${settingsIcon('folder-open')}${desktopBridge.available?(multipleDatabases?'Afficher les dossiers':'Afficher le dossier'):'Changer de base'}</button>
           </div>
-          <h4 class="settings-group-title">Sauvegardes</h4>
+          <h4 class="settings-group-title">Copie et restauration</h4>
           <div class="settings-row">
             ${settingsIcon('download')}
             <div class="settings-row-copy"><div class="settings-row-title">${multipleDatabases?'Copie de toutes les bases':'Copie de la base'}</div><div class="settings-row-desc">${desktopBridge.available?(multipleDatabases?'Sauvegarde complete dans un fichier SQLite':'Base SQLite'):'Fichier ITW'}</div></div>
@@ -218,6 +217,7 @@ async function openSettings(initialTab = 'security') {
         </section>
         <section class="settings-panel hidden" id="settings-interface" data-settings-panel="interface" role="tabpanel" aria-labelledby="settings-tab-interface">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('sliders-horizontal')}<h3>Interface</h3></div><span class="settings-status settings-status-interface">Local</span></header>
+          <h4 class="settings-group-title">Navigation</h4>
           <div class="settings-row settings-width-row">
             ${settingsIcon('sliders-horizontal')}
             <div class="settings-row-copy"><label class="settings-row-title" for="navigationWidth">Largeur de navigation</label><div class="settings-row-desc">190 à 520 px</div></div>
@@ -227,6 +227,7 @@ async function openSettings(initialTab = 'security') {
               <button type="button" class="settings-btn settings-btn-icon" id="resetWidthBtn" title="Rétablir la largeur par défaut" aria-label="Rétablir la largeur par défaut">${settingsIcon('rotate-ccw')}</button>
             </div>
           </div>
+          <h4 class="settings-group-title">Réinitialisation</h4>
           <div class="settings-row">
             ${settingsIcon('rotate-ccw')}
             <div class="settings-row-copy"><div class="settings-row-title">Réglages d’interface</div><div class="settings-row-desc">Largeur et dossiers repliés</div></div>
@@ -239,6 +240,7 @@ async function openSettings(initialTab = 'security') {
   `);
 
   const dialog = $('#modalRoot .modal');
+  fetch('build-info.json',{cache:'no-cache'}).then(response=>response.ok?response.json():null).then(info=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent=Number.isSafeInteger(info?.repositoryBytes)?(info.repositoryBytes/1048576).toLocaleString('fr-FR',{maximumFractionDigits:1})+' Mo':'Indisponible';}).catch(()=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent='Indisponible';});
   dialog.classList.add('settings-modal');
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
@@ -338,22 +340,7 @@ async function openSettings(initialTab = 'security') {
     feedback(localWorkspaceError, true);
     updateDataStatus('error')
   }
-  let savedAutoLock = autoLock;
-  $('#autoLockSelect').onchange = async e => {
-    const select = e.target;
-    select.disabled = true;
-    try {
-      await setSetting('autoLockMinutes', Number(select.value));
-      savedAutoLock = Number(select.value);
-      await scheduleAutoLock();
-      feedback('Verrouillage mis à jour.');
-    } catch {
-      select.value = String(savedAutoLock);
-      feedback('Impossible d’enregistrer le réglage.', true);
-    } finally {
-      select.disabled = false
-    }
-  };
+  // Sessions are indefinite; the locked-in select is informational only.
   const updateWidth = value => {
     const updated = applyExplorerWidth(value);
     $('#navigationWidth').value = String(updated);

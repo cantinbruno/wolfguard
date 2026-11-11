@@ -3,6 +3,8 @@
 const webScanAgent = (() => {
   const emptySelection = () => ({passive: '', active: '', map: '', vulnerability: ''});
   let timer = 0, generation = 0, jobIds = emptySelection(), jobAgents = emptySelection();
+  // Shared per-section history so each scan tab shows its own recent jobs.
+  const scanAgentHistory={passive:[],active:[],map:[],vulnerability:[]};
   const labels = {queued: 'En attente de l’agent', running: 'Scan en cours', completed: 'Scan terminé', cancelled: 'Scan arrêté', failed: 'Collecte en échec', expired: 'Agent non disponible à temps', lost: 'Connexion à l’agent perdue'};
   function fromJob(data,agent={}) {
     const kind=data.workspace||data.spec?.workspace||data.strategy,definition=scanInsights.definitions[kind];
@@ -10,6 +12,8 @@ const webScanAgent = (() => {
     const raw=data.report,name=definition.short+' · '+(agent.name||data.agentName||'Agent');
     let report=raw?.results?.length?webScanModel.parse(JSON.stringify(raw),definition.strategy,name,kind):{format:'wolfguard-scan',version:1,strategy:definition.strategy,workspace:kind,name,warnings:(raw?.warnings||[]).map(value=>String(value).slice(0,500)),rows:[]};
     report.target=report.target||raw?.target||data.spec?.target||data.target||'';
+    report.network=raw?.network||null;
+    report.software=(Array.isArray(raw?.software)?raw.software:[]).slice(0,200).map(item=>({name:String(item.name||'').slice(0,160),version:String(item.version||'').slice(0,100),source:String(item.source||'').slice(0,160)}));
     report.source='Agent · '+workspaceAgents.platformName(raw?.platform||agent.platform||data.platform);
     report.importedAt=new Date(data.createdAt).toISOString();report.capturedAt=raw?.startedAt||'';
     report.startedAt=raw?.startedAt||'';report.finishedAt=raw?.finishedAt||'';
@@ -35,7 +39,7 @@ const webScanAgent = (() => {
     const status = (text, error = false) => { if (live()) { find('#wgAgentStatus').textContent = text; find('#wgAgentStatus').classList.toggle('is-error', error); } };
     function render() {
       if (!live()) return;
-      const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):agent?.capabilities?.includes('network-scan-v3');
+      const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):kind==='map'?agent?.capabilities?.includes('network-auto-map-v1'):agent?.capabilities?.includes('network-scan-v3');
       find('#wgAgentName').textContent = agent ? agent.name + ' · ' + workspaceAgents.platformName(agent.platform) : 'Aucun agent sélectionné';
       if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis la fenêtre Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
       running = jobs.find(job => ['queued', 'running'].includes(job.status));
@@ -46,10 +50,10 @@ const webScanAgent = (() => {
       find('#wgAgentPresence').textContent = agent ? agent.online ? '● Connecté' : '○ Hors ligne' : 'À configurer dans les paramètres';
       find('#wgAgentPresence').dataset.online = String(!!agent?.online);
       find('#wgAgentPresence').hidden = !agent;
-      let validTarget=kind!=='map'||!!values().target.trim();if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
-      find('#wgAgentLaunch').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.run') || !validTarget || busy || !agent?.online || !!running || !compatible;
+      let validTarget=true;if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
+      find('#wgAgentLaunch').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.write') || !validTarget || busy || !agent?.online || !!running || !compatible;
       const otherScan=running&&(running.workspace||running.strategy)!==kind;
-      find('#wgAgentStop').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.cancel') || busy || !running || !!otherScan;
+      find('#wgAgentStop').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.write') || busy || !running || !!otherScan;
       find('#wgAgentStop').hidden = !running || !!otherScan;
       find('#wgAgentStop').textContent = 'Arrêter';
       find('#wgAgentLaunch').title=otherScan?'Poste occupé : '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan')+'. Son arrêt se fait depuis sa propre rubrique.':'';
@@ -97,7 +101,9 @@ const webScanAgent = (() => {
         agent = snapshot.selected;
         if (selected !== (agent?.id || '')) { if(selected){values().preparing=true;values().execution=null;} selected = agent?.id || ''; jobAgents[kind] = selected; lastResult = ''; jobs = []; jobIds[kind] = ''; }
         const id = selected;
-        if (id) { const response = await request('scans?agentId=' + id); if (!live() || selected !== id || action !== actionRevision) return; jobs = response.jobs; } else jobs = [];
+        if (id) { const response = await request('scans?agentId=' + id); if (!live() || selected !== id || action !== actionRevision) return; jobs = response.jobs;
+          scanAgentHistory[kind]=jobs.filter(job=>(job.workspace||job.strategy)===kind).slice(0,20).map(job=>({id:job.id,kind,revision:job.revision,status:job.status,createdAt:job.createdAt,completed:job.completed,total:job.total,target:job.target||'',agentName:agent?.name||''})); }
+        else { jobs = []; scanAgentHistory[kind]=[]; }
         render(); await result();
       } catch (error) { if (live() && action === actionRevision) { agent = null; jobs = []; render(); status(error.message, true); onExecution({status:'error',title:'Suivi du scan interrompu',message:error.message}); } }
       finally { refreshing = false; }
@@ -112,7 +118,7 @@ const webScanAgent = (() => {
         const v = values(), chosen = (await workspaceAgents.snapshot()).selected;
         if (!live()) return;
         if (!chosen || chosen.id !== selected) throw new Error('L’agent commun a changé. Vérifie le poste affiché avant de relancer.');
-        const data = {agentId: selected, strategy, workspace: kind, ...(strategy === 'active' ? {target: kind==='active'?webScanModel.singleTarget(v.target):v.target, mode: v.profile === 'discovery' ? 'discovery' : 'tcp', ports: v.profile === 'discovery' ? '22,80,443,445,3389' : v.profile === 'web' ? '80,443,8000,8080,8443' : v.profile === 'custom' ? v.ports : webScanModel.NETWORK_PORTS, identifyServices: v.identify, timeoutMs: v.agentTimeoutMs ?? 1500, concurrency: v.agentConcurrency ?? 16} : {passiveScope: kind === 'vulnerability' ? 'security' : 'neighbours',...(kind==='passive'?{target:webScanModel.singleTarget(v.target)}:{})})};
+        const data = {agentId: selected, strategy, workspace: kind, ...(strategy === 'active' ? {target: kind==='active'?webScanModel.singleTarget(v.target):'auto', mode: v.profile === 'discovery' ? 'discovery' : 'tcp', ports: v.profile === 'discovery' ? '22,80,443,445,3389' : v.profile === 'web' ? '80,443,8000,8080,8443' : v.profile === 'custom' ? v.ports : webScanModel.NETWORK_PORTS, identifyServices: v.identify, timeoutMs: v.agentTimeoutMs ?? 1500, concurrency: v.agentConcurrency ?? 16} : {passiveScope: kind === 'vulnerability' ? 'security' : 'neighbours',...(kind==='passive'?{target:webScanModel.singleTarget(v.target)}:{})})};
         const job = await request('scans', data); if (!live()) return;
         jobIds[kind] = job.id; lastResult = '';
         jobs=[{id:job.id,workspace:kind,strategy,status:'queued',revision:0,createdAt:Date.now(),completed:0,total:0},...jobs];
@@ -123,5 +129,5 @@ const webScanAgent = (() => {
     find('#wgAgentStop').onclick = async () => { if (busy || !running || !live() || (running.workspace||running.strategy)!==kind) return; const id=running.id;busy = true; render(); try { await request('scans/cancel', {id}); status('Arrêt demandé. L’agent interrompt les tests à sa prochaine mise à jour.'); } catch (error) { status(error.message, true); } finally { busy = false; if (live()) await refresh(); } };
     if (workspaceAgents.available()) poll(); else { render(); status(''); }
   }
-  return {mount, reset, fromJob};
+  return {mount, reset, fromJob, scanAgentHistory};
 })();

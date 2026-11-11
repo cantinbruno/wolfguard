@@ -28,7 +28,7 @@ def run():
             browser=p.chromium.launch(headless=True);errors=[]
             def context():
                 c=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce')
-                c.route(API+'/**',lambda route:route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path)))
+                c.route(API+'/**',lambda route:route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else ''))))
                 c.on('page',lambda page:page.on('pageerror',lambda error:errors.append(str(error))))
                 configure_push(c,origin)
                 if codes_only:c.add_init_script("globalThis.browserEnrollCalls=0;if(navigator.serviceWorker)navigator.serviceWorker.register=async()=>{browserEnrollCalls++;throw new Error('Browser registration must not be needed for TOTP');};")
@@ -64,10 +64,10 @@ def run():
                 expect(owner.locator('#webMFAStepPhone,#webDuoSettings')).to_have_count(0)
                 expect(owner.locator('#webPhoneSettings')).to_have_count(0)
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
-            owner.locator('#settings-tab-users').click();owner.locator('#wgUserInvite').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
+            owner.locator('#settings-tab-users').click();owner.locator('#wgUserAdd').click();owner.locator('#wgUserName').fill('personal-mfa@example.test');owner.locator('#wgUserSave').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()
             guest=context().new_page();guest.goto(invitation);expect(guest.locator('#webAccountSetupForm')).to_be_visible(timeout=15000)
-            expect(guest.locator('#webAccountSetupForm')).to_contain_text('MFA est obligatoire')
+            expect(guest.locator('#webAccountSetupForm')).to_contain_text('Authenticator')
             guest.locator('#webAccountUsername').fill('personal-mfa@example.test');guest.locator('#webAccountCode').fill('12345678');guest.locator('#webAccountConfirm').fill('12345678');guest.locator('#webAccountSetupForm button[type=submit]').click()
             expect(guest.locator('#webEnrollSecret')).to_be_visible(timeout=20000)
             for width in [1440,390,320]:

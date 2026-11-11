@@ -3,7 +3,6 @@
 /* MODAL */
 function modal(title, body) {
   if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
-  if (typeof webScanHistory !== 'undefined') webScanHistory.unmount();
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();
   $('#modalRoot').innerHTML = `<div class="modal-wrap"><div class="modal"><h2>${esc(title)}</h2>${body}</div></div>`;
@@ -14,7 +13,6 @@ function modal(title, body) {
 
 function closeModal() {
   if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
-  if (typeof webScanHistory !== 'undefined') webScanHistory.unmount();
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();
   $('#modalRoot').innerHTML = ''

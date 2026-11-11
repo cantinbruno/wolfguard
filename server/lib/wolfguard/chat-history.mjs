@@ -7,7 +7,7 @@ const context=(user,id)=>'WolfGuard chat history v1:'+user+':'+id;
 export async function handleChatHistory(request,env,now,session,{fail,json,body}){
   const user=session.user,url=new URL(request.url),path=url.pathname;
   if(!user?.id)fail(403,'Connecte-toi à ton compte pour conserver tes conversations.');
-  requirePermission(user,'ai.use',fail,now);
+  requirePermission(user,'tools.write',fail,now);
   if(path==='/api/chat/history/purge'&&request.method==='POST'){
     if(user.role!=='admin')fail(403,'Seul l’administrateur peut effacer tous les historiques.');
     const data=await body();if(data.confirm!=='DELETE_ALL_CHAT_HISTORY')fail(400,'Confirme la suppression de tous les historiques.');

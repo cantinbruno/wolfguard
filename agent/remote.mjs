@@ -2,9 +2,11 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {desktopInput,desktopFrame} from '../server/lib/wolfguard/remote-spec.mjs';
 import {prepareDesktopRuntime} from './remote-runtime.mjs';
 import {openNativeDesktop} from './remote-native.mjs';
+import {executeFileSession} from './files.mjs';
 import {executeTerminalSession} from './terminal.mjs';
 
 export async function executeRemoteSession(client,session,{signal,onStatus=()=>{},directory,openDesktop=openNativeDesktop,prepare=prepareDesktopRuntime,intervalMs=32,captureIntervalMs=66}={}){
+  if(session.mode==='files')return executeFileSession(client,session,{signal,onStatus});
   if(session.mode==='terminal')return executeTerminalSession(client,session,{signal,onStatus});
   const cancel=new AbortController(),external=()=>cancel.abort();signal?.addEventListener('abort',external,{once:true});if(signal?.aborted)cancel.abort();
   const deadline=setTimeout(()=>cancel.abort(),Math.max(0,Math.min(20*60000,session.expiresAt-Date.now())));

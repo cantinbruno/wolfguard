@@ -45,7 +45,7 @@ export async function* providerEvents(body){
 export async function handleChatAPI(request,env,now,session,{fail,json,body}){
   const user=session.user,path=new URL(request.url).pathname;
   if(!user?.id)fail(403,'Connecte-toi à ton compte pour utiliser le chatbot.');
-  requirePermission(user,'ai.use',fail,now);
+  requirePermission(user,'tools.write',fail,now);
   const settings=await env.DB.prepare('SELECT * FROM chat_api_config WHERE id=1').first();
   if(path==='/api/chat/settings'){
     if(request.method==='GET')return json(publicSettings(settings));

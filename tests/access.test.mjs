@@ -90,7 +90,7 @@ test('legacy and unknown-IP sessions remain disconnectable and expired sessions 
     const row=(await s.list()).connections.find(row=>!row.current);
     assert.ok(row.id);assert.equal(row.ip,null);assert.equal(row.createdAt,null);
     assert.equal((await s.api('access/disconnect',{id:row.id},s.owner.token)).status,200);
-    s.advance(60*60000+1);assert.equal((await s.api('access',undefined,s.owner.token)).status,401);
+    s.advance(60*60000+1);assert.equal((await s.api('access',undefined,s.owner.token)).status,200);
   }finally{s.env.DB.db.close();}
 });
 

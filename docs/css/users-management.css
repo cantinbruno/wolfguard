@@ -77,6 +77,20 @@
 .permission-owner{padding:16px;border:1px solid #446354;border-radius:9px;background:#142b2666;font-size:12px;line-height:1.8}.permission-owner strong{color:#9de3c4}.permission-owner p{font-size:11px;color:var(--ui-muted);margin:6px 0 0}
 .users-manager .permission-save-notice:empty{display:none}
 .users-account-security{padding:18px 20px;border-top:1px solid var(--ui-border)}
+.users-detail-placeholder{display:grid;place-content:center;gap:10px;min-height:260px;color:var(--ui-muted);text-align:center;font-size:12px}
+.users-detail-placeholder svg{width:34px;height:34px;margin:0 auto;opacity:.5}
+.users-restricted-badge{color:#efcd9a;border-color:#7d6a45}
+.vault-personal-banner{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 16px;border:1px solid #446354;border-radius:10px;background:#142b2666;color:#9de3c4}
+.vault-personal-banner svg{width:20px;height:20px;flex:none}
+.vault-personal-banner strong{display:block;font-size:12px}
+.vault-personal-banner span{font-size:11px;color:var(--ui-muted)}
+.permission-row{display:grid;grid-template-columns:minmax(140px,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--ui-border);border-radius:9px;background:var(--ui-page)}
+.permission-row-name{font-size:12px;font-weight:600}
+.permission-row-levels{display:flex;gap:6px}
+.permission-row-levels button{padding:7px 12px;font-size:11px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-sidebar);color:var(--ui-muted);cursor:pointer}
+.permission-row-levels button[aria-pressed=true]{border-color:var(--users-accent);background:color-mix(in srgb,var(--users-accent) 12%,var(--ui-sidebar));color:var(--users-accent);font-weight:600}
+.permission-admin-switch{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;margin:0 0 10px}
+@media(max-width:640px){.permission-row{grid-template-columns:minmax(0,1fr)}.permission-row-levels{flex-wrap:wrap}}
 .users-account-security .access-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .users-manager .users-stale{margin:14px 20px;padding:12px;border:1px solid #7d6a45;border-radius:8px;color:#efcd9a;font-size:11px;line-height:1.8}
 .users-stale button{margin-top:8px}

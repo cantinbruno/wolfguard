@@ -1,4 +1,4 @@
-﻿param([ValidateSet('collect','enable-protection','quick-scan')][string]$Operation='collect')
+param([ValidateSet('collect','enable-protection','quick-scan')][string]$Operation='collect')
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false)
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
@@ -47,8 +47,14 @@ try{
   }
 }catch{$report.warnings+='Historique des détections Defender indisponible.'}
 try{
-  $events=@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational';Id=1121,1123,1126;StartTime=(Get-Date).AddDays(-7)} -MaxEvents 40 -ErrorAction SilentlyContinue -ErrorVariable blockErrors)
+  $events=@(Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-Windows Defender/Operational';Id=1116,1117,1118,1119,1121,1123,1126,5001,5004,5007,1015;StartTime=(Get-Date).AddDays(-7)} -MaxEvents 120 -ErrorAction SilentlyContinue -ErrorVariable blockErrors)
   if(@($blockErrors|Where-Object{$_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*'}).Count){$report.warnings+='Journal des blocages Defender inaccessible ou incomplet.'}
-  foreach($row in $events){$report.events+=@{id='defender-block:'+([string]$row.RecordId)+':'+$row.TimeCreated.ToUniversalTime().ToString('o');occurredAt=$row.TimeCreated.ToUniversalTime().ToString('o');provider='Microsoft Defender';title=switch($row.Id){1121{'Comportement bloqué par une règle de réduction de surface d''attaque'}1123{'Accès à un dossier protégé bloqué'}1126{'Connexion bloquée par la protection réseau'}};resource='';detail=([string]$row.Message).Substring(0,[Math]::Min(1600,([string]$row.Message).Length));status='blocked';severity='high'}}
+  foreach($row in $events){
+    $title=switch($row.Id){1116{'Menace détectée (journal Defender)'}1117{'Action entreprise sur la menace'}1118{'Action en échec sur la menace'}1119{'Action en échec sur la menace'}1121{'Comportement bloqué par une règle de réduction de surface d''attaque'}1123{'Accès à un dossier protégé bloqué'}1126{'Connexion bloquée par la protection réseau'}5001{'Protection en temps réel désactivée'}5004{'Analyse antivirus interrompue'}5007{'Configuration de Defender modifiée'}1015{'Analyse démarrée'}default{''}}
+    if(-not $title){continue}
+    $status=switch($row.Id){1116{'alert'}1118{'failed'}1119{'failed'}5001{'failed'}5004{'info'}5007{'info'}1015{'alert'}1121{'blocked'}1123{'blocked'}1126{'blocked'}default{'info'}}
+    $severity=switch($row.Id){1116{'high'}1119{'high'}5001{'high'}default{'medium'}}
+    $report.events+=@{id='defender-log:'+([string]$row.RecordId)+':'+$row.TimeCreated.ToUniversalTime().ToString('o');occurredAt=$row.TimeCreated.ToUniversalTime().ToString('o');provider='Microsoft Defender';title=$title;resource='';detail=([string]$row.Message).Substring(0,[Math]::Min(1600,([string]$row.Message).Length));status=$status;severity=$severity}
+  }
 }catch{$report.warnings+='Journal des blocages Defender indisponible.'}
 $report|ConvertTo-Json -Depth 7 -Compress

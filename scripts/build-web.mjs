@@ -10,7 +10,7 @@ const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
 // One permission model is used by server checks and the browser controls.
 writeFileSync(path.join(root,'browser/permissions.js'),readFileSync(path.join(root,'server/lib/wolfguard/permissions.mjs'),'utf8'));
-const allowed = new Set(['.exe','.zip','.html','.css','.js','.json','.svg','.txt','.md','.wasm']);
+const allowed = new Set(['.exe','.zip','.cmd','.html','.css','.js','.json','.svg','.txt','.md','.wasm']);
 // A build must preserve the private URL. Never generate a replacement silently.
 const entryFile=siteAccessFile;
 if(!existsSync(entryFile))throw new Error('Clé du lien privé absente. Restaurer site-access.json dans la configuration privée de WolfGuard avant de publier.');
@@ -24,6 +24,7 @@ function verify(directory) {
     if (entry.isDirectory()) verify(filename);
     else {
       if (!allowed.has(path.extname(entry.name).toLowerCase())) throw new Error('Fichier non publiable : ' + path.relative(source, filename));
+      if(path.extname(entry.name).toLowerCase()==='.cmd'&&filename!==path.join(source,'downloads','WolfGuard-Agent-Uninstall.cmd'))throw new Error('Désinstalleur non autorisé.');
       if(path.extname(entry.name).toLowerCase()==='.zip'&&!['Windows','Linux','macOS'].some(platform=>filename===path.join(source,'downloads','WolfGuard-Agent-'+platform+'.zip')))throw new Error('Archive non autorisée dans le site.');
       if(path.extname(entry.name).toLowerCase()==='.exe'&&filename!==path.join(source,'downloads','WolfGuard-Agent-Windows.exe'))throw new Error('Exécutable non autorisé dans le site.');
       digest.update(path.relative(root,filename)); digest.update(readFileSync(filename));
@@ -31,6 +32,8 @@ function verify(directory) {
   }
 }
 execFileSync('python',[path.join(root,'scripts/package-agent.py')],{cwd:root,stdio:'inherit'});
+const uninstall=readFileSync(path.join(root,'agent/Uninstaller.ps1'),'utf8');
+writeFileSync(path.join(source,'downloads','WolfGuard-Agent-Uninstall.cmd'),'@echo off\r\npowershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+Buffer.from(uninstall,'utf16le').toString('base64')+'\r\nif errorlevel 1 pause\r\n');
 verify(source);
 verify(path.join(root,'browser'));
 digest.update(readFileSync(fileURLToPath(import.meta.url)));
@@ -117,4 +120,7 @@ rmSync(path.join(output,'browser','not-found.html'));
 writeFileSync(path.join(output,'robots.txt'),'User-agent: *\nDisallow: /\n');
 writeFileSync(path.join(output, '.nojekyll'), '');
 writeFileSync(path.join(output, 'CNAME'), 'wolfguard.wavetools.fr\n');
+const tracked=execFileSync('git',['ls-files','-z'],{cwd:root}).toString().split('\0').filter(Boolean);
+const repositoryBytes=tracked.reduce((sum,file)=>{const target=path.join(root,file);return sum+(existsSync(target)&&lstatSync(target).isFile()?lstatSync(target).size:0);},0);
+writeFileSync(path.join(output,'build-info.json'),JSON.stringify({repositoryBytes,files:tracked.length})+'\n');
 console.log('Application originale et adaptation navigateur publiables dans docs/.');

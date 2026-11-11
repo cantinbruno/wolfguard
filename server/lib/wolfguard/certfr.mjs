@@ -15,6 +15,7 @@ const families=[
   ['fortios',/\bforti(?:os|gate)\b/i],['fortiproxy',/\bfortiproxy\b/i],['pan-os',/\bpan[- ]os\b/i],
   ['esxi',/\besxi\b/i],['vcenter',/\bvcenter\b/i],['exchange',/\bexchange(?: server)?\b/i],['iis',/\b(?:microsoft[- ]iis|internet information services)\b/i],
   ['windows-server',/\bwindows server\b/i],['windows',/\bwindows\b/i],['macos',/\bmac\s?os\b/i],['debian',/\bdebian\b/i],['ubuntu',/\bubuntu\b/i],['linux-kernel',/\b(?:linux kernel|noyau linux)\b/i]
+  ,['office',/\b(?:microsoft (?:365|office)|office (?:365|20\d\d)|office)\b/i],['acrobat',/\b(?:adobe (?:acrobat|reader)|acrobat)\b/i],['sevenzip',/\b7[- ]?zip\b/i],['python',/\bpython\b/i],['nodejs',/\bnode\.?js\b/i],['java',/\b(?:java|jdk|jre|openjdk)\b/i],['forticlient',/\bforticlient\b/i],['vmware-tools',/\bvmware tools\b/i],['eset',/\beset\b/i]
 ];
 const vendors={'apache-httpd':'apache',tomcat:'apache',fortios:'fortinet',fortiproxy:'fortinet','pan-os':'palo alto',esxi:'vmware',vcenter:'vmware',windows:'microsoft','windows-server':'microsoft',iis:'microsoft',exchange:'microsoft',edge:'microsoft',macos:'apple',firefox:'mozilla',chrome:'google'};
 export function productFamily(name){
@@ -26,6 +27,12 @@ function sameFamily(name,id){return (productFamily(name)||genericFamily(name))==
 function candidateTitle(entry,family){
   if(family.startsWith('generic:')){const term=family.slice(8).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return new RegExp('(?:^|[^a-z0-9])'+term+'(?:$|[^a-z0-9])').test(entry.search);}
   return entry.family===family||!!vendors[family]&&entry.search.includes(vendors[family]);
+}
+function candidatePriority(entry,family){
+  if(entry.family===family)return 0;
+  if(family==='office'&&/microsoft/.test(entry.search))return 1;
+  if(family==='acrobat'&&/adobe/.test(entry.search))return 1;
+  return 2;
 }
 function version(value){const m=/^(\d+(?:\.\d+){1,3})(?:p(\d+))?$/i.exec(String(value));return m?[...m[1].split('.').map(Number),...(m[2]===undefined?[]:[Number(m[2])])]:null;}
 function compare(a,b){for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return Math.sign(d);}return 0;}
@@ -101,7 +108,7 @@ export async function consultCERTFR(report,env,now=Date.now()){
   let index;try{index=await catalog(env,now,deadline);}catch{return {...base,status:'unavailable',message:'Le CERT-FR n’a pas pu être consulté. L’applicabilité des vulnérabilités reste inconnue.'};}
   base.catalogCheckedAt=new Date(index.fetchedAt).toISOString();base.stale=index.stale;
   const titles=index.entries.map(entry=>({...entry,family:productFamily(entry.title),search:normalize(entry.title)}));
-  const queues=observed.products.map(product=>{const matches=titles.filter(entry=>candidateTitle(entry,product.family)),alerts=matches.filter(entry=>entry.kind==='alerte'),advisories=matches.filter(entry=>entry.kind==='avis');return [...alerts.slice(0,2),...advisories,...alerts.slice(2)];});
+  const queues=observed.products.map(product=>{const matches=titles.filter(entry=>candidateTitle(entry,product.family)).sort((a,b)=>candidatePriority(a,product.family)-candidatePriority(b,product.family)||b.modifiedAt.localeCompare(a.modifiedAt)),alerts=matches.filter(entry=>entry.kind==='alerte'),advisories=matches.filter(entry=>entry.kind==='avis');return [...alerts.slice(0,2),...advisories,...alerts.slice(2)];});
   const candidates=new Map(queues.flat().map(entry=>[entry.reference,entry]));base.candidates=candidates.size;
   const selected=new Map();for(let depth=0;selected.size<20&&depth<Math.max(0,...queues.map(queue=>queue.length));depth++)for(const queue of queues){const row=queue[depth];if(row)selected.set(row.reference,row);if(selected.size>=20)break;}
   base.omitted=Math.max(0,candidates.size-selected.size);

@@ -55,7 +55,7 @@ const workspaceAccess=(()=>{
     },{signal});
     find('#wgAccessBlockForm').onsubmit=event=>{event.preventDefault();const ip=find('#wgAccessBlockIP').value.trim();if(ip)perform('block',{ip},ip);};
     find('#wgAccessRefresh').onclick=refresh;
-    async function poll(){try{await refresh();}finally{if(live())timer=setTimeout(poll,15000);}}
+    async function poll(){try{await refresh();}finally{if(live())timer=setTimeout(poll,20000);}}
     render();poll();
   }
   return {mount,unmount};

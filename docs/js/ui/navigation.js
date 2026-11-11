@@ -24,6 +24,7 @@ async function openSection(section, itemId = null, options = {}) {
     rememberPrimaryWorkspace(section);
     if (options.tool && ['ip', 'hash', 'text'].includes(options.tool)) networkToolsView.tool = options.tool;
     if (options.resume?.section === 'tools') networkToolsView.tool = ['ip', 'hash', 'text'].includes(options.resume.tool) ? options.resume.tool : 'ip';
+    if(isScanSection(state.section)&&state.section!==section)webScanHistory.unmount();
     if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
@@ -486,7 +487,13 @@ async function renderUnifiedExplorer(detailHtml = '') {
   if (state.section !== 'protocol') initWorkspaceTreeSearch(folders);
 }
 
+let renderWorkspaceQueued = 0;
 async function renderWorkspace() {
+  // Coalesce rapid successive calls (folder navigation, network refresh,
+  // shared-workspace updates) into a single paint to keep transitions smooth.
+  const ticket = ++renderWorkspaceQueued;
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  if (ticket !== renderWorkspaceQueued) return;
   if (state.section === 'modules') renderModulesWorkspace();
   else if (isScanSection(state.section)) await renderScanWorkspace();
   else if (state.section === 'remote') await remoteDesktopWorkspace.render();

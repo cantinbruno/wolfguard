@@ -66,6 +66,15 @@
 .wgscan:is([data-phase="loading"], [data-phase="error"]) .scan-review-layout { display: block; }
 .wgscan:is([data-phase="loading"], [data-phase="error"]) .scan-review-summary { display: none; }
 .wgscan .scan-output { margin-top: 24px; }
+.wgscan[data-history="true"] .scan-output{display:block!important}
+.wgscan[data-history="true"] :is(.scan-setup,.scan-report-strip,.scan-report-brief,.wgscan-metrics,#wgScanIntelligence,.scan-execution){display:none!important}
+.scan-software-inventory{margin:18px 0;padding:16px;border:1px solid var(--ws-border);border-radius:12px;overflow:auto}
+.scan-software-inventory summary{cursor:pointer;font-weight:600}
+.scan-software-inventory table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+.scan-software-inventory :is(th,td){text-align:left;padding:9px;border-bottom:1px solid var(--ws-border);overflow-wrap:anywhere}
+.wgscan[data-kind="map"] .scan-report-brief{display:none}
+.wgscan[data-kind="map"] .scan-report-strip{padding:12px 18px;margin-bottom:12px}
+.wgscan[data-kind="map"] .scan-report-strip h2{font-size:17px;margin:5px 0}
 @media(max-width: 650px) {
   .scan-setup-heading { padding: 20px 20px 0; }
   .scan-setup-fields { padding: 18px 20px 20px; }

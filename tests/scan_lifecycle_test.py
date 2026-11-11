@@ -19,7 +19,7 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','security-audit-v1']}
+    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','network-auto-map-v1','security-audit-v1']}
     jobs=[{'id':f'{100+index:032x}','workspace':kind,'strategy':'active' if kind in ['active','map'] else 'passive',
            'target':'192.168.1.20' if kind!='vulnerability' else '', 'createdAt':int(time.time()*1000)-86400000,
            'status':'completed','revision':2,'completed':1,'total':1}
@@ -85,7 +85,8 @@ def run():
                 expect(page.locator('.scan-setup')).to_be_visible()
                 page.wait_for_timeout(3200)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
-                if kind!='vulnerability':page.locator('#scanTarget').fill('192.168.1.10')
+                if kind in ['passive','active']:page.locator('#scanTarget').fill('192.168.1.10')
+                if kind=='map':expect(page.locator('#scanTarget')).to_have_value('auto')
                 expect(page.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000)
                 with page.expect_request(lambda request:request.method=='POST' and request.url.endswith('/scans')):page.locator('#wgAgentLaunch').click()
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','loading')

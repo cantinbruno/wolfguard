@@ -67,8 +67,8 @@ export async function handleAccessAPI(request,env,now,session,h){
   const permission=request.method==='GET'?'access.read':'access.manage';
   if(session.user?.role!=='admin'&&!(session.user?.permissions?.grants?.includes(permission)&&(session.user.permissions.expiresAt===null||session.user.permissions.expiresAt>now)))fail(403,'Ton profil ne permet pas cette gestion des connexions.');
   if(path==='/api/access'&&request.method==='GET'){
-    await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND expires_at>? AND active_at>?)').bind(now,now-IDLE_MS).run();
-    const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.expires_at>? AND s.active_at>? AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation,now,now-IDLE_MS).all();
+    await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND active_at IS NOT NULL)').run();
+    const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.active_at IS NOT NULL AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation).all();
     const blocked=await env.DB.prepare('SELECT * FROM access_blocks ORDER BY created_at DESC').all();
     const connections=[];
     for(const row of rows.results){

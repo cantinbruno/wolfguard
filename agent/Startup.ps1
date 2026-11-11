@@ -1,4 +1,5 @@
 ﻿param([switch]$Remove)
+# Démarrage automatique par défaut : appliqué à l'installation si absent.
 $ErrorActionPreference = 'Stop'
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $taskName = 'WolfGuard-Scan-Agent'

@@ -7,8 +7,8 @@ import {homedir,hostname} from 'node:os';
 import {AgentClient,agentDirectory,diskCredentialStore} from './agent.mjs';
 import {fixedProcess} from './network.mjs';
 
-const FILES=['agent.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
-const SPECS=['scan-spec.mjs','remote-spec.mjs','terminal-spec.mjs','ai-input.mjs','endpoint-spec.mjs'];
+const FILES=['agent.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
+const SPECS=['scan-spec.mjs','remote-spec.mjs','files-spec.mjs','terminal-spec.mjs','ai-input.mjs','endpoint-spec.mjs'];
 const xml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const systemd=value=>'"'+String(value).replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('%','%%').replaceAll('$','$$')+'"';
 async function safeDirectory(directory,rootOnly=false){
@@ -70,8 +70,8 @@ async function main(){
   if(args[0]==='--install-protection'){await installProtection(args[1]||'',Number(args[2]));return;}
   if(process.getuid?.()===0)throw new Error('Installe d’abord l’agent dans la session utilisateur. Utilise --install-protection uniquement pour son composant système.');
   const directory=agentDirectory(),store=diskCredentialStore(directory);let credential=await store.load();
-  if(!credential||args.includes('--pair')){
-    const prompt=createInterface({input:process.stdin,output:process.stdout});let code;try{code=(await prompt.question('Code temporaire WolfGuard > Agents : ')).trim().toLowerCase();}finally{prompt.close();}
+  if(!credential||args.includes('--pair')||args.includes('--pair-code')){
+    let code=args.includes('--pair-code')?args[args.indexOf('--pair-code')+1]:null;if(!code){const prompt=createInterface({input:process.stdin,output:process.stdout});try{code=(await prompt.question('Code temporaire WolfGuard > Agents : ')).trim().toLowerCase();}finally{prompt.close();}}
     if(!/^[a-f0-9]{32}$/.test(code))throw new Error('Code temporaire invalide.');
     const client=new AgentClient();credential={api:client.origin,...await client.post('enroll',{code,name:hostname(),platform:process.platform})};await store.save(credential);
   }

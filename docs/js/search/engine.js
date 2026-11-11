@@ -191,24 +191,26 @@ window.WorkspaceSearch = class WorkspaceSearch {
       const folders = new Map((await this.options.readFolders()).map(folder => [folder.id, folder]));
       const documents = new Map();
       const engine = new MiniSearch({
-        fields: ['title', 'technology', 'keywords', 'port', 'body'],
+        fields: ['title', 'technology', 'keywords', 'port', 'path', 'body'],
+        storeFields: ['title','path','port'],
         tokenize: text => WorkspaceSearch.tokens(text),
         processTerm: term => WorkspaceSearch.term(term),
         searchOptions: {
           combineWith: 'AND',
           boost: {
-            title: 8,
-            technology: 5,
-            keywords: 3,
-            port: 10,
+            title: 10,
+            technology: 6,
+            keywords: 4,
+            port: 12,
+            path: 5,
             body: 1
           },
           prefix: term => term.length >= 2 && !/^\d/.test(term),
           fuzzy: term => /^[a-z][a-z-]{3,}$/.test(term) ? (term.length >= 8 ? 2 : 1) : false,
           maxFuzzy: 2,
           weights: {
-            fuzzy: 0.25,
-            prefix: 0.65
+            fuzzy: 0.35,
+            prefix: 0.7
           }
         }
       });
@@ -246,6 +248,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
             path: path.join(' / '),
             port: String(protocol?.port || ''),
             keywords: [tags, protocol?.service, protocol?.transport, vault ? '' : (item.attachments || []).map(attachment => attachment.name).join(' ')].filter(Boolean).join(' '),
+            pathIndexed: path.join(' / '),
             favorite: !!item.favorite,
             updatedAt: item.updatedAt || item.createdAt || '',
             fingerprint: WorkspaceSearch.fingerprint(item),
@@ -362,10 +365,18 @@ window.WorkspaceSearch = class WorkspaceSearch {
     return rows.map(row => {
       const document = cache.documents.get(row.id);
       const titleTerms = WorkspaceSearch.tokens(document.title).map(WorkspaceSearch.term);
+      const pathTerms = WorkspaceSearch.tokens(document.path || '').map(WorkspaceSearch.term);
       let score = row.score;
       if (phrase && document.titleFold === phrase) score += 5000;
       else if (phrase && document.titleFold.includes(phrase)) score += 500;
-      if (parsed.terms.length && parsed.terms.every(term => titleTerms.includes(term))) score += 100;
+      if (parsed.terms.length && parsed.terms.every(term => titleTerms.includes(term))) score += 150;
+      if (parsed.terms.length > 1) {
+        // Proximity boost: every term found inside the folder path means the
+        // entry is a strong structural match (like navigating the tree).
+        const pathHits = parsed.terms.filter(term => pathTerms.includes(term)).length;
+        score += pathHits * 60;
+      }
+      if (document.favorite) score += 40;
       if (parsed.terms.length === 1 && /^\d+$/.test(parsed.terms[0]) && document.port.split(/[^\d]+/).includes(parsed.terms[0])) score += 1000;
       return {
         ...row,

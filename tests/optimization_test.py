@@ -138,10 +138,12 @@ def run():
             page.clock.fast_forward(57*60000)
             expect(page.locator('#app')).to_be_visible()
             page.clock.fast_forward(61000)
+            expect(page.locator('#app')).to_be_visible()
+            page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
             assert page.evaluate("state.vaultKey===null && !sessionStorage.getItem('wolfguard-tab-session-v1')")
             assert not errors, errors
-            print('PASS: the timer still locks exactly after inactivity and clears the reload ticket')
+            print('PASS: indefinite session remains open and manual locking clears the reload ticket')
             print(json.dumps(metrics))
             browser.close()
     finally:

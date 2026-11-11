@@ -18,7 +18,7 @@ test('remote chat uses a fixed model without an agent and keeps the provider key
     const added=await s.createMember('api-chat@example.test','12345678',owner.token);let member=await s.login('api-chat@example.test','12345678');
     assert.equal((await s.api('chat/settings')).status,401);
     assert.equal((await s.api('chat/settings',undefined,member.token)).status,403);
-    const policy=profilePolicy('none');policy.grants=['ai.use'];
+    const policy=profilePolicy('none');policy.sections.tools='write';
     await s.api('users/permissions',{id:added.user.id,revision:1,policy},owner.token);member=await s.login('api-chat@example.test','12345678');
     assert.equal((await s.api('chat/settings',{key:'x'.repeat(32),revision:0},member.token)).status,403);
     assert.equal((await s.api('chat/completions',{messages:[{role:'user',content:'Hi'}]},member.token)).status,503);
@@ -73,7 +73,7 @@ test('chat histories are private per user, encrypted, resumable and only the adm
     const added=await s.createMember('chat@example.test','12345678',owner.token),member=await s.login('chat@example.test','12345678');
     assert.equal((await s.api('chat/history')).status,401);
     assert.equal((await s.api('chat/history',undefined,member.token)).status,403);
-    const policy=profilePolicy('none');policy.grants=['ai.use'];
+    const policy=profilePolicy('none');policy.sections.tools='write';
     assert.equal((await s.api('users/permissions',{id:added.user.id,revision:1,policy},owner.token)).status,200);
     member.token=(await s.login('chat@example.test','12345678')).token;
     const data={id:'c'.repeat(32),epoch:0,revision:0,messages:[{role:'user',content:'PRIVATE CHAT TITLE'},{role:'assistant',content:'PRIVATE ANSWER'}]};
@@ -85,7 +85,7 @@ test('chat histories are private per user, encrypted, resumable and only the adm
     const relogin=await s.login('chat@example.test','12345678');
     const detail=await(await s.api('chat/history?id='+data.id,undefined,relogin.token)).json();assert.deepEqual(detail.messages,data.messages);assert.equal(detail.revision,1);
     const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM chat_conversations').all());assert.ok(!disk.includes('PRIVATE CHAT TITLE')&&!disk.includes('PRIVATE ANSWER'));
-    assert.equal((await s.api('chat/history/save',data,member.token)).status,409);
+    assert.equal((await s.api('chat/history/save',data,relogin.token)).status,409);
     assert.equal((await s.api('chat/history/save',{...data,revision:1,messages:[...data.messages,{role:'user',content:'Suite'},{role:'assistant',content:'La suite'}]},member.token)).status,200);
     assert.equal((await s.api('chat/history/purge',{confirm:'DELETE_ALL_CHAT_HISTORY'},member.token)).status,403);
     assert.equal((await s.api('chat/history/purge',{},owner.token)).status,400);
@@ -138,7 +138,7 @@ test('first admin migration retains the encrypted workspace, requires a distinct
     const old=await(await s.api('login',{code:'07942685'})).json();
     const result=await s.initialize();assert.equal(result.status,200);const admin=await result.json();assert.equal(admin.user.role,'admin');
     const login=await s.login('CANTIN.BRUNO@GMX.FR','09876543');const imported=await importWorkspaceMaterial(login.workspace);
-    assert.equal(imported.key.extractable,false);assert.deepEqual((await openWithKey(s.encrypted.envelope,imported.key,imported.salt)).payload,s.payload);
+    assert.equal(imported.key.extractable,false);assert.deepEqual((await openWithKey(await(await s.api('vault',undefined,login.token)).json(),imported.key,imported.salt)).payload.items,s.payload.items.map(item=>({...item,accessLevel:'write'})));
     assert.equal((await s.api('touch',{},old.token)).status,401);
     assert.equal((await s.api('login',{code:'07942685'})).status,401);
     assert.equal((await s.api('users/initialize',{username:'takeover'},login.token)).status,409);
@@ -234,7 +234,7 @@ test('provisioning creates exactly one owner from the existing verifier; first l
     assert.equal((await s.api('login',{code:'07942685'})).status,200);
     const owner=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(owner.usersEnabled,false);assert.equal(owner.user.id,rows[0].id);
     const response=await s.api('users/initialize',{username:'cantin.bruno@gmx.fr',code:'07942685',oldCode:'07942685',workspace:s.material,version:1},owner.token);assert.equal(response.status,200);
-    const active=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(active.usersEnabled,true);assert.deepEqual(active.workspace,s.material);
+    const active=await s.login('cantin.bruno@gmx.fr','07942685');assert.equal(active.usersEnabled,true);assert.notDeepEqual(active.workspace,s.material);
     assert.equal((await s.api('touch',{},s.owner.token)).status,401);
     const after=s.env.DB.db.prepare('SELECT * FROM vault').get();assert.equal(after.object_key,before.object_key);assert.equal(after.version,before.version);assert.equal(after.generation,before.generation);
     await s.api('status');assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM users').get().n,1);
@@ -265,7 +265,7 @@ test('admin supplies only an email; a one-time invitation lets its user choose t
     assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'short'})).status,400);
     assert.deepEqual(await(await s.api('account/complete',{ticket,username:'new@example.test',code:'12345678'})).json(),{ok:true});
     assert.equal((await s.api('account/inspect',{ticket})).status,410);assert.equal((await s.api('account/complete',{ticket,username:'new@example.test',code:'23456789'})).status,410);
-    const member=await s.login('new@example.test','12345678');assert.notDeepEqual(member.workspace,s.material);assert.deepEqual(member.user.permissions.grants,[]);assert.equal(member.user.role,'member');assert.equal(member.user.credentialPending,false);
+    const member=await s.login('new@example.test','12345678');assert.notDeepEqual(member.workspace,s.material);assert.equal(member.user.permissions.admin,false);assert.equal(Object.values(member.user.permissions.sections).every(level=>level==='deny'),true);assert.equal(member.user.role,'member');assert.equal(member.user.credentialPending,false);
     assert.equal((await s.api('access',undefined,member.token)).status,403);
     assert.equal(s.env.DB.db.prepare('SELECT version FROM vault').get().version,1);
   }finally{s.env.DB.db.close();}
@@ -316,7 +316,7 @@ test('an unbound invitation creates a member with their chosen email and code ex
     assert.equal((await s.api('account/complete',{ticket,username:'cantin.bruno@gmx.fr',code:'12345678'})).status,409);
     assert.equal((await s.api('account/inspect',{ticket})).status,200);
     assert.equal((await s.api('account/complete',{ticket,username:' MEMBER@EXAMPLE.TEST ',code:'12345678',role:'admin'})).status,200);
-    const member=await s.login('member@example.test','12345678');assert.equal(member.user.role,'member');assert.notDeepEqual(member.workspace,s.material);assert.deepEqual(member.user.permissions.grants,[]);
+    const member=await s.login('member@example.test','12345678');assert.equal(member.user.role,'member');assert.notDeepEqual(member.workspace,s.material);assert.equal(member.user.permissions.admin,false);assert.equal(Object.values(member.user.permissions.sections).every(level=>level==='deny'),true);
     assert.equal((await s.api('users/invite',{},member.token)).status,403);
     assert.equal((await s.api('users/revoke-invitation',{id:invitation.id},member.token)).status,403);
     assert.equal((await s.api('account/inspect',{ticket})).status,410);
@@ -360,27 +360,18 @@ test('unbound invitation issuance and redemption respect the account limit',asyn
   }finally{s.env.DB.db.close();}
 });
 
-test('code-only login identifies each account, migrates legacy verifiers and rejects duplicate codes atomically',async()=>{
+test('identical codes select the account by its own MFA and reject replay or ambiguous factors',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    await s.createMember('alice@example.test','12345678',owner.token);
-    const alice=await(await s.api('login',{code:'12345678'})).json();assert.equal(alice.user.username,'alice@example.test');
-    const vault=await(await s.api('login',{code:'09876543'})).json();assert.equal(vault.user.role,'admin');
-    s.env.DB.db.exec('UPDATE users SET pin_lookup=NULL');
-    assert.equal((await s.api('login',{code:'12345678'})).status,200);
-    assert.ok(s.env.DB.db.prepare('SELECT pin_lookup FROM users WHERE id=?').get(alice.user.id).pin_lookup);
-    const invitation=(await(await s.api('users/create',{username:'bob@example.test'},owner.token)).json()).invitation;
-    assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'bob@example.test',code:'12345678'})).status,409);
-    assert.equal((await s.api('account/inspect',{ticket:invitation.ticket})).status,200);
-    assert.equal((await s.api('users/change-code',{oldCode:'09876543',code:'12345678'},owner.token)).status,409);
-    assert.equal((await s.api('account/complete',{ticket:invitation.ticket,username:'bob@example.test',code:'23456789'})).status,200);
-    // Two pre-migration accounts with the same old code must never pick one.
-    s.env.DB.db.exec('UPDATE users SET pin_lookup=NULL');
-    s.env.DB.db.prepare('UPDATE users SET pin_salt=(SELECT pin_salt FROM users WHERE id=?),pin_hash=(SELECT pin_hash FROM users WHERE id=?) WHERE id=?').run(alice.user.id,alice.user.id,owner.user.id);
-    assert.equal((await s.api('login',{code:'12345678'})).status,401);
+    const a=await s.createMember('alice@example.test','12345678',owner.token),b=await s.createMember('bob@example.test','12345678',owner.token);
+    const secrets=[encodeSecret(new Uint8Array(20).fill(1)),encodeSecret(new Uint8Array(20).fill(2))];
+    for(const [i,account] of [a,b].entries())s.env.DB.db.prepare('UPDATE users SET otp_secret_cipher=? WHERE id=?').run(await seal(secrets[i],'WolfGuard OTP v1:'+account.user.id,s.env),account.user.id);
+    assert.deepEqual(await(await s.api('login',{code:'12345678'})).json(),{otpRequired:true});
+    for(let i=0;i<2;i++){s.advance(60000);const otp=await otpAt(secrets[i],Math.floor(s.clock()/30000)),reply=await s.api('login',{code:'12345678',otp});assert.equal(reply.status,200);assert.equal((await reply.json()).user.id,[a,b][i].user.id);assert.equal((await s.api('login',{code:'12345678',otp})).status,401);s.advance(5001);}
+    s.env.DB.db.prepare('UPDATE users SET otp_secret_cipher=? WHERE id=?').run(await seal(secrets[0],'WolfGuard OTP v1:'+b.user.id,s.env),b.user.id);s.advance(60000);
+    assert.equal((await s.api('login',{code:'12345678',otp:await otpAt(secrets[0],Math.floor(s.clock()/30000))})).status,401);
   }finally{s.env.DB.db.close();}
 });
-
 test('TOTP matches RFC 6238 SHA-1 vectors including dates beyond 2038, with limited clock drift',async()=>{
   const secret=encodeSecret(new TextEncoder().encode('12345678901234567890'));
   for(const [seconds,code]of [[59,'287082'],[1111111109,'081804'],[1111111111,'050471'],[1234567890,'005924'],[2000000000,'279037'],[20000000000,'353130']])assert.equal(await otpAt(secret,Math.floor(seconds/30)),code);
@@ -400,7 +391,7 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
     const enabled=await s.api('users/otp/enable',{code:'09876543',otp},owner.token);assert.equal(enabled.status,200);
     const {recoveryCodes}=await enabled.json();assert.equal(recoveryCodes.length,8);assert.equal(new Set(recoveryCodes).size,8);
     const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM users').all());assert.ok(!disk.includes(enrollment.secret));for(const code of recoveryCodes)assert.ok(!disk.includes(code));
-    assert.equal((await s.api('touch',{},other.token)).status,401);
+    assert.equal((await s.api('touch',{},other.token)).status,200);
     assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
     // A password-only success never clears failures from wrong OTP attempts.
     assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);
@@ -408,7 +399,7 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
     assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);
     assert.equal(s.env.DB.db.prepare('SELECT failures FROM vault').get().failures,2);s.advance(10001);
     s.advance(60000);step=Math.floor(s.clock()/30000);otp=await otpAt(enrollment.secret,step);
-    const good=await s.api('login',{code:'09876543',otp});assert.equal(good.status,200);const logged=await good.json();assert.ok(logged.token);assert.deepEqual(logged.workspace,s.material);
+    const good=await s.api('login',{code:'09876543',otp});assert.equal(good.status,200);const logged=await good.json();assert.ok(logged.token);assert.notDeepEqual(logged.workspace,s.material);
     assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);
     const recovery=await s.api('login',{code:'09876543',otp:recoveryCodes[0]});assert.equal(recovery.status,200);
     assert.equal((await s.api('login',{code:'09876543',otp:recoveryCodes[0]})).status,401);s.advance(5001);
@@ -442,7 +433,7 @@ test('mandatory MFA enrolls every account before issuing a session and each new 
     s.advance(30000);step=Math.floor(s.clock()/30000);
     const ownOTP=await otpAt(other.secret,step),ownerOTP=await otpAt(challenge.secret,step);
     if(ownOTP!==ownerOTP){assert.equal((await s.api('login',{code:'12345678',otp:ownerOTP})).status,401);s.advance(10001);}
-    const renewed=await s.api('login',{code:'12345678',otp:await otpAt(other.secret,Math.floor(s.clock()/30000))});assert.equal(renewed.status,200);assert.notEqual((await renewed.json()).token,member.token);
+    const renewed=await s.api('login',{code:'12345678',otp:await otpAt(other.secret,Math.floor(s.clock()/30000))});assert.equal(renewed.status,200);assert.equal((await renewed.json()).token,member.token);
     // An already verified session survives a refresh without a new OTP.
     assert.equal((await s.api('me',undefined,member.token)).status,200);
     assert.equal((await s.api('users/reset-otp',{id:member.user.id},owner.token)).status,200);
@@ -466,19 +457,15 @@ test('OTP setup expires, rejects wrong passwords and cannot be managed for anoth
   }finally{s.env.DB.db.close();}
 });
 
-test('concurrent invitations cannot assign the same code to separate accounts',async()=>{
+test('concurrent invitations may assign the same eight digit code to separate accounts',async()=>{
   const s=await setup();try{
-    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    const invitations=[];for(const username of ['alice@example.test','bob@example.test'])invitations.push({username,...await(await s.api('users/create',{username},owner.token)).json()});
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543'),invitations=[];
+    for(const username of ['alice@example.test','bob@example.test'])invitations.push({username,...await(await s.api('users/create',{username},owner.token)).json()});
     const results=await Promise.all(invitations.map(({username,invitation})=>s.api('account/complete',{username,ticket:invitation.ticket,code:'12345678'})));
-    assert.deepEqual(results.map(response=>response.status).sort(),[200,409]);
-    const loser=invitations[results.findIndex(response=>response.status===409)];
-    assert.equal((await s.api('account/inspect',{ticket:loser.invitation.ticket})).status,200);
-    assert.equal((await s.api('account/complete',{username:loser.username,ticket:loser.invitation.ticket,code:'23456789'})).status,200);
-    assert.equal((await s.api('login',{code:'12345678'})).status,200);
+    assert.deepEqual(results.map(reply=>reply.status),[200,200]);assert.deepEqual(await(await s.api('login',{code:'12345678'})).json(),{otpRequired:true});
+    for(const code of ['abcdefgh','1234567','123456789','12 34567'])assert.equal((await s.api('login',{code})).status,400);
   }finally{s.env.DB.db.close();}
 });
-
 test('resetting a member password retains OTP; only the owner can explicitly reset their Authenticator',async()=>{
   const s=await setup();try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
@@ -555,7 +542,7 @@ test('Push approval is primary without a preceding OTP and gates sessions and gi
     const decision={id:row.id,deviceId:p.deviceId,decision:'approve',signature:await p.sign(decisionMessage(row,'approve'))};
     assert.equal((await s.api('push/decision',decision)).status,200);
     assert.equal((await s.api('push/decision',decision)).status,410);
-    const polled=await s.api('push/poll',{ticket:request.ticket});assert.equal(polled.status,200);const logged=await polled.json();assert.ok(logged.token);assert.deepEqual(logged.workspace,s.material);
+    const polled=await s.api('push/poll',{ticket:request.ticket});assert.equal(polled.status,200);const logged=await polled.json();assert.ok(logged.token);assert.notDeepEqual(logged.workspace,s.material);
     assert.equal((await s.api('push/poll',{ticket:request.ticket})).status,410);
     assert.equal((await s.api('vault',undefined,logged.token)).status,200);
     const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_requests').all())+JSON.stringify(s.env.DB.db.prepare('SELECT * FROM push_devices').all());

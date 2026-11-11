@@ -55,7 +55,7 @@ test('chat relay encrypts messages and responses, isolates users and agents, and
     await executeAI({post:(path,data)=>agentAPI(path,data).then(response=>response.json())},claimed.ai,{chat:async()=>'<script>PRIVATE LOCAL ANSWER</script>'});
     const result=await(await s.api('ai?id='+job.id,undefined,owner.token)).json();assert.equal(result.status,'completed');assert.equal(result.content,'<script>PRIVATE LOCAL ANSWER</script>');
     assert.ok(!s.env.DB.db.prepare('SELECT result_cipher FROM ai_jobs').get().result_cipher.includes('PRIVATE LOCAL ANSWER'));
-    const policy=profilePolicy('none');policy.grants=['ai.use','agents.read'];
+    const policy=profilePolicy('none');policy.sections.tools='write';policy.sections.agents='read';
     assert.equal((await s.api('users/permissions',{id:member.user.id,policy,revision:1},owner.token)).status,200);
     login=await s.login('ai-user@example.test','12345678');assert.equal((await s.api('ai?id='+job.id,undefined,login.token)).status,404);
     const next=await(await s.api('ai',input,owner.token)).json();const cancelled=await(await agentAPI('poll',{capabilities:['ai-chat-v1']})).json();await s.api('ai/cancel',{id:next.id},owner.token);

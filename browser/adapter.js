@@ -7,10 +7,12 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false;
+  let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false,setupUsername='';
   window.addEventListener('wolfguard-user-changed',()=>{if(session&&cloud?.hasSession()){session.payload=hydrateVaultHomes(session.payload);window.workspaceSearch?.invalidate();}});
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
-  const IDLE_MS = 60 * 60000, SESSION_MS = 8 * 60 * 60000;
+  // Sessions stay open until the user locks the space; a second opening of the
+  // same account reattaches to the existing server session.
+  const IDLE_MS = Infinity, SESSION_MS = Infinity;
   function updateMFAIndicator(){
     const button=$('#settingsBtn'),mfa=cloud?.currentUser()?.mfa,pending=!!(session&&cloud?.enabled&&cloud.hasUsers()&&mfa&&!mfa.complete);
     button?.classList.toggle('web-mfa-pending',pending);if(button)button.title=pending?'Paramètres · MFA à configurer':'Paramètres';
@@ -83,24 +85,15 @@ const webWorkspace = (() => {
     }
   }
   function sessionExpired() {
-    if (!session || !sessionClock) return false;
-    const wall=Date.now(), mono=performance.now(), clock=sessionClock;
-    return wall<clock.started || wall<clock.active || wall-clock.active>=IDLE_MS || mono-clock.monotonicActive>=IDLE_MS || wall-clock.started>=SESSION_MS || mono-clock.monotonicStart>=SESSION_MS;
+    // No automatic expiry: only an explicit lock ends the session.
+    return !session;
   }
   function assertFreshSession() {
     if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
   }
   function armSessionTimer() {
-    if (!session || !sessionClock) { clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0; return; }
-    const wall=Date.now(),mono=performance.now(),clock=sessionClock;
-    const remaining=Math.min(IDLE_MS-(wall-clock.active),IDLE_MS-(mono-clock.monotonicActive),SESSION_MS-(wall-clock.started),SESSION_MS-(mono-clock.monotonicStart));
-    const delay=Math.max(1,remaining),due=mono+delay;
-    // An earlier pending check is safe to keep: it rechecks the exact deadlines
-    // and rearms itself if needed. Activity still updates both clocks on every
-    // trusted event, without recreating a timer on every pointer movement.
-    if(autoLockTimer!==null && sessionTimerDue>0 && sessionTimerDue<=due)return;
-    clearTimeout(autoLockTimer);sessionTimerDue=due;
-    autoLockTimer=setTimeout(()=>{autoLockTimer=null;sessionTimerDue=0;if(sessionExpired())lock();else armSessionTimer();},delay);
+    // Indefinite sessions need no deadline timer.
+    clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0;
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
@@ -433,7 +426,7 @@ const webWorkspace = (() => {
       dialog.querySelector('form').onsubmit=async event=>{
         event.preventDefault();if(working)return;working=true;const button=dialog.querySelector('[type=submit]');button.disabled=true;
         try{
-          const result=await cloud.login(password,undefined,dialog.querySelector('#webEnrollOTP').value);if(done){cloud.clear();return;}
+          const result=await cloud.login(password,info.username,dialog.querySelector('#webEnrollOTP').value);if(done){cloud.clear();return;}
           if(!result.token||!Array.isArray(result.recoveryCodes))throw new Error('La configuration a changé. Recommence la connexion.');
           info.secret='';info.uri='';password='';
           dialog.innerHTML='<h2 id="webEnrollTitle">Ton Authenticator est prêt</h2><p>La double authentification est activée. Utilise les six chiffres de ton application d’authentification.</p><p>Enregistre ces codes de secours dans un endroit sûr. Chaque code ne peut servir qu’une fois si tu perds ton téléphone.</p><textarea id="webEnrollRecovery" readonly rows="8" aria-label="Codes de secours personnels"></textarea><label class="web-mfa-backup-check"><input id="webEnrollSaved" type="checkbox">J’ai enregistré mes codes de secours</label><div class="app-dialog-actions"><button type="button" class="primary" id="webEnrollContinue" disabled>Continuer</button></div>';
@@ -462,7 +455,16 @@ const webWorkspace = (() => {
       result.payload=await upgrade(result);
       await cloud.initialize(password);
     }else{
-      let info=await cloud.login(password);
+      let info=await cloud.login(password,setupUsername||undefined);setupUsername='';
+      if(info.accountSelection){
+        mfaWaiting=true;
+        let username=await appPrompt('Ce code est partagé par plusieurs comptes. Saisis ton adresse e-mail pour identifier ton compte, puis ton code MFA.','', {title:'Choisir ton compte',confirmLabel:'Continuer',placeholder:'prenom.nom@exemple.fr'});
+        if(username===null)throw new Error('Connexion annulée.');
+        username=username.trim().toLowerCase();
+        let otp=await appPrompt('Saisis le code à 6 chiffres de ton application d’authentification, ou un code de secours.','', {title:'Vérification MFA',confirmLabel:'Se connecter',autocomplete:'one-time-code'});
+        if(otp===null)throw new Error('Connexion annulée.');
+        try{info=await cloud.login(password,username,otp.trim());}finally{otp='';}
+      }
       if(info.otpSetupRequired){mfaWaiting=true;info=await enrollRequiredMFA(info,password);}
       if(info.otpRequired){
         mfaWaiting=true;
@@ -484,8 +486,11 @@ const webWorkspace = (() => {
     }
     if(result.envelope.version!==cryptography.WORKSPACE_VERSION){result.envelope=await cryptography.seal(result.payload,result.key,result.salt,result.envelope.revision+1);remote=false;}
     if(!remote)await cloud.save(result.envelope);
-    const identity=await cloud.me();
-    if(!identity.usersEnabled)await configureUsers(password,result);
+    let identity=await cloud.me(true);
+    if(!identity.usersEnabled){await configureUsers(password,result);identity=await cloud.me(true);}
+    // Binding accounts replaces the original common key with this account's
+    // scoped delivery key before any UI or reload ticket can retain the result.
+    if(identity.workspace){try{if(identity.workspace.salt!==result.envelope.salt){const material=await cryptography.importWorkspaceMaterial(identity.workspace);result=await cryptography.openWithKey(await cloud.load(),material.key,material.salt);result.payload=await upgrade(result);}}finally{identity.workspace.key='';}}
     if(previous && (previous.iv!==result.envelope.iv || previous.salt!==result.envelope.salt))await storage.preserve(previous);
     await storage.cacheShared(result.envelope,cloud.currentVersion());
     return result;
@@ -493,7 +498,7 @@ const webWorkspace = (() => {
   async function showAccountSetup(){
     accountSetupActive=true;
     const form=document.createElement('form');form.id='webAccountSetupForm';form.className='user-setup-form';
-    form.innerHTML='<span class="user-setup-badge">Invitation à usage unique</span><h2>Bienvenue dans WolfGuard</h2><p>Saisis ton adresse e-mail et choisis ton code personnel pour rejoindre l’espace partagé. Tu configureras ensuite ton propre Authenticator : la MFA est obligatoire avant tout accès. Le lien est à usage unique.</p><label>Adresse e-mail<input id="webAccountUsername" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label><label>Code personnel de 8 chiffres<input id="webAccountCode" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le code<input id="webAccountConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert">Vérification du lien…</p><div class="actions"><button type="submit" class="primary" disabled>Continuer vers ma MFA</button><button type="button" class="secondary" id="webAccountCancel">Retour à la connexion</button></div>';
+    form.innerHTML='<span class="user-setup-badge">Invitation à usage unique</span><h2>Bienvenue dans WolfGuard</h2><p>Ton e-mail, ton code à 8 chiffres, puis ton Authenticator.</p><label>Adresse e-mail<input id="webAccountUsername" type="email" inputmode="email" autocomplete="email" maxlength="254" required></label><label>Code personnel de 8 chiffres<input id="webAccountCode" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><label>Confirmer le code<input id="webAccountConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{8}" minlength="8" maxlength="8" required></label><p class="user-setup-error" role="alert">Vérification du lien…</p><div class="actions"><button type="submit" class="primary" disabled>Continuer vers ma MFA</button><button type="button" class="secondary" id="webAccountCancel">Retour à la connexion</button></div>';
     $('#lockError').before(form);
     const submit=form.querySelector('[type=submit]'),error=form.querySelector('[role=alert]');
     $('#webAccountCancel').onclick=()=>{cloud.clearAccountInvitation();form.reset();form.remove();accountSetupActive=false;showGate();};
@@ -503,7 +508,8 @@ const webWorkspace = (() => {
       if(code!==$('#webAccountConfirm').value){error.textContent='Les codes ne correspondent pas.';return;}
       submit.disabled=true;error.textContent='';
       try{
-        await cloud.completeAccountInvitation(username,code);
+        if(!/^[0-9]{8}$/.test(code))throw new Error('Saisis exactement 8 chiffres.');
+        await cloud.completeAccountInvitation(username,code);setupUsername=username;
         form.reset();form.remove();accountSetupActive=false;
         $('#webUsername').value=username;$('#webPassword').value=code;$('#webConfirm').value='';
         await authenticate({preventDefault(){}});
@@ -607,6 +613,21 @@ const webWorkspace = (() => {
     const anchor=document.createElement('a'); anchor.href=url; anchor.download='WolfGuard-'+new Date().toISOString().slice(0,10)+'.wgweb'; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url),1000);
   }
+  async function exportRecovery(value){
+    assertFreshSession();const current=session;if(!current)return;
+    if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())throw new Error('Les copies historiques du propriétaire ne sont pas accessibles depuis ce compte.');
+    // Old PIN-encrypted copies remain portable as-is. Copies made with the
+    // account delivery key must be re-encrypted with a chosen, verified PIN.
+    if(!cloud.enabled||!cloud.hasUsers()||value.salt!==current.envelope.salt){download(value);return;}
+    const restored=await cryptography.openWithKey(value,current.key,current.salt);
+    let code=await appPrompt('Ton code personnel protège cette copie exportée.','',{title:'Exporter la copie de récupération',inputType:'password',confirmLabel:'Exporter'});if(code===null)return;
+    try{
+      await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
+      const payload=structuredClone(restored.payload),backup=await cryptography.create(payload,code,value.revision);
+      for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
+      backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,value.revision);if(session===current)download(backup.envelope);
+    }finally{code='';}
+  }
   async function exportWorkspace() {
     assertFreshSession();
     const current=session; if (!current) return;
@@ -636,6 +657,14 @@ const webWorkspace = (() => {
       try{
         const restored=await cryptography.open(backup,code),payload=await upgrade(restored);
         const current=session;if(!current)throw new Error('Espace verrouillé.');
+        if(cloud.hasUsers()){
+          const home=cloud.currentUser()?.vaultHome,oldHomes=new Set(payload.folders.filter(folder=>WolfGuardPermissions.isVaultHome(folder.id)).map(folder=>folder.id));
+          if(home){
+            payload.folders=payload.folders.filter(folder=>!oldHomes.has(folder.id)).map(folder=>folder.section==='vault'?{...folder,parentId:!folder.parentId||oldHomes.has(folder.parentId)?home.id:folder.parentId}:folder);
+            payload.items=payload.items.map(item=>item.type==='vault'&&(!item.folderId||oldHomes.has(item.folderId))?{...item,folderId:home.id}:item);
+            payload.folders.push(structuredClone(current.payload.folders.find(folder=>folder.id===home.id)||home));
+          }
+        }
         for(const item of payload.items.filter(item=>item.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],restored.key),current.key);
         await storage.preserve(current.envelope,true);
         await commit(target=>{for(const store of STORES)target[store]=payload[store];},{replace:true});
@@ -695,11 +724,12 @@ const webWorkspace = (() => {
   ensureSecuritySettings=async () => !!session;
   scheduleAutoLock=async () => armSessionTimer();
   registerActivityForAutoLock=() => {
+    // Activity tracking no longer locks the space; it only refreshes the reload
+    // ticket so a reloaded tab resumes its indefinite session.
     for(const name of ['mousedown','keydown','touchstart','wheel','pointermove'])document.addEventListener(name,event=>{
-      if(!session)return;
-      if(sessionExpired()){event.preventDefault();event.stopImmediatePropagation();lock();return;}
-      if(event.isTrusted){sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();armSessionTimer();updateReloadTicket();}
-    },{capture:true,passive:false});
+  if(!session||!event.isTrusted)return;
+  sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();updateReloadTicket();
+    },{capture:true,passive:true});
   };
   // Older desktop listeners must not re-enable the keypad during a web timeout.
   refreshPinLockout=renderKeypad;
@@ -781,20 +811,21 @@ const webWorkspace = (() => {
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
-    idle.replaceChildren(new Option('1 heure','60',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='1 heure d’inactivité · Rafraîchissement conservé dans cet onglet · Session limitée à 8 heures';
+    idle.replaceChildren(new Option('Indéfinie','0',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Durée indéfinie · Une deuxième ouverture du compte reprend la première session · Le verrouillage reste manuel';
+    if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())return;
     const recovery=await storage.readRecovery().catch(()=>null);
     if(recovery && session && $('#settings-data')){
       const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
       button.textContent='Exporter la copie de secours';
-      button.onclick=()=>{try{download(cryptography.validateEnvelope(recovery));}catch(error){appNotify(error.message,{kind:'error'});}};
+      button.onclick=()=>exportRecovery(cryptography.validateEnvelope(recovery)).catch(error=>appNotify(error.message,{kind:'error'}));
       $('#settings-data').append(button);
     }
     for(const recovery of await storage.recoveries()){
       if(!session || !$('#settings-data'))break;
       const button=document.createElement('button');button.type='button';button.className='settings-btn';
       button.textContent=recovery.key==='memo-consolidation-before-v1'?'Exporter avant le regroupement des fiches':recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
-      button.onclick=()=>download(cryptography.validateEnvelope(recovery.envelope));$('#settings-data').append(button);
+      button.onclick=()=>exportRecovery(cryptography.validateEnvelope(recovery.envelope)).catch(error=>appNotify(error.message,{kind:'error'}));$('#settings-data').append(button);
     }
   };
   window.openAccountMFA=async()=>{
@@ -908,6 +939,6 @@ const webWorkspace = (() => {
     booting=false;renderKeypad();if(!resumed)$('#lock').focus({preventScroll:true});
     if(invited)await showAccountSetup();
   }
-  return {start,refreshShared};
+  return {start,refreshShared,storageBytes:()=>session?new TextEncoder().encode(JSON.stringify(session.envelope||envelope||{})).length:0};
 })();
 webWorkspace.start().catch(error => { $('#startupSplash')?.remove();$('#lock').classList.remove('hidden');$('#lockError').textContent=error.message; });

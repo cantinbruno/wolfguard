@@ -171,7 +171,7 @@ def run():
             navigate(page,'active');page.locator('#wgScanNew').click();page.locator('[data-wg-profile=custom]').click();page.locator('#wgScanPorts').fill('22,8443')
             page.locator('.wgscan-agent-options summary').click()
             page.locator('#wgAgentTimeout').fill('2300');feed_report(page,XML,'Services');page.locator('[data-wg-tab=changes]').click();page.locator('#wgScanReference').click()
-            navigate(page,'map');page.locator('#wgScanNew').click();page.locator('#scanTarget').fill('192.0.2.0/24');page.locator('.wgscan-agent-options summary').click();page.locator('#wgAgentTimeout').fill('700');feed_report(page,XML,'Réseau')
+            navigate(page,'map');page.locator('#wgScanNew').click();expect(page.locator('#scanTarget')).to_have_value('auto');page.locator('.wgscan-agent-options summary').click();page.locator('#wgAgentTimeout').fill('700');feed_report(page,XML,'Réseau')
             for kind in ['map','passive','vulnerability']:
                 navigate(page,kind);page.locator('[data-wg-tab=changes]').click()
                 expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Aucune référence')
@@ -179,7 +179,7 @@ def run():
             expect(page.locator('#scanTarget')).to_have_value('192.0.2.50')
             expect(page.locator('#wgScanPorts')).to_have_value('22,8443');expect(page.locator('#wgAgentTimeout')).to_have_value('2300')
             expect(page.locator('#wgScanReferenceLabel')).to_contain_text('Services')
-            navigate(page,'map');expect(page.locator('#scanTarget')).to_have_value('192.0.2.0/24');expect(page.locator('#wgAgentTimeout')).to_have_value('700')
+            navigate(page,'map');expect(page.locator('#scanTarget')).to_have_value('auto');expect(page.locator('#wgAgentTimeout')).to_have_value('700')
             navigate(page,'passive');expect(page.locator('#scanTarget')).to_have_value('inconnu.example.local')
             print('PASS: editing a search keeps the caret and focus; all four scans keep independent targets, options, reports and references')
 

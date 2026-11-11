@@ -7,7 +7,7 @@ const keyFor=material=>crypto.subtle.importKey('raw',from64(material.key),'AES-G
 const aad=env=>encoder.encode(env.version===3?JSON.stringify([env.format,env.version,env.cipher,env.kdf,env.iterations,env.revision,env.salt,env.iv]):`${env.format}|${env.version}|AES-256-GCM|PBKDF2-SHA256`);
 export async function canonicalMaterial(row,env){return openRecord(row.workspace_key_cipher,'WolfGuard users v1:workspace-key',env);}
 export async function deliveryMaterial(row,user,env){
-  const material=await canonicalMaterial(row,env);if(!user||user.role==='admin')return material;
+  const material=await canonicalMaterial(row,env);if(!user)return material;
   const raw=await crypto.subtle.importKey('raw',from64(material.key),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const derive=label=>crypto.subtle.sign('HMAC',raw,encoder.encode('WolfGuard scoped workspace v1:'+user.id+':'+(user.permission_revision||1)+':'+label));
   return {key:to64(await derive('key')),salt:to64((new Uint8Array(await derive('salt'))).slice(0,16))};
@@ -54,13 +54,14 @@ export async function projectWorkspace(source,user,master,delivery,now){
       else {if(row.vaultBlobEnc)row.vaultBlobEnc=await rewrap(row.vaultBlobEnc,master,delivery,true);if(row.passwordEnc)row.passwordEnc=await rewrap(row.passwordEnc,master,delivery,true);}
     }
   }
-  return {version:2,items,folders,settings:source.settings.filter(row=>/^(?:memo-[a-z-]+-version|procedure-[a-z-]+-version|autoLockMinutes|theme|fontSize|density)$/.test(row.key)).map(row=>structuredClone(row)),activity:source.activity.filter(row=>row.itemId&&itemIds.has(row.itemId)).map(row=>structuredClone(row))};
+  return {version:2,items,folders,settings:source.settings.filter(row=>user.role==='admin'||/^(?:memo-[a-z-]+-version|procedure-[a-z-]+-version|autoLockMinutes|theme|fontSize|density)$/.test(row.key)).map(row=>structuredClone(row)),activity:source.activity.filter(row=>row.itemId&&itemIds.has(row.itemId)).map(row=>structuredClone(row))};
 }
 function denied(fail){fail(403,'Cette modification dépasse les droits accordés à ton compte.',{code:'PERMISSION_DENIED'});}
 export async function mergeScopedWorkspace(source,visible,wanted,user,master,delivery,now,fail){
   try{validateWorkspace(wanted);}catch(error){fail(400,error.message);}
   const output={...source,items:[...source.items],folders:[...source.folders],activity:[...source.activity]};
   const visibleIds=new Set(visible.items.map(row=>row.id));
+  const allowedTargets=new Set([...visibleIds,...wanted.items.map(row=>row.id)]);
   for(const collection of ['folders','items']){
     const oldMap=new Map(visible[collection].map(row=>[row.id,row])),newMap=new Map(wanted[collection].map(row=>[row.id,row])),canonical=new Map(source[collection].map(row=>[row.id,row]));
     for(const id of new Set([...oldMap.keys(),...newMap.keys()])){
@@ -71,13 +72,13 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
       const section=recordSection(before||after,collection);
       if(before&&after&&recordSection(after,collection)!==section)denied(fail);
       const action=!before?'create':!after||!!before.deletedAt!==!!after.deletedAt?'delete':'edit';
-      if(!can(user,section+'.'+action,now)||before&&recordLevel(user,canonical.get(id),collection,source.folders,now)!=='write'||after&&recordLevel(user,after,collection,wanted.folders,now)!=='write')denied(fail);
+      if(!can(user,section+'.'+action,now)||!can(user,section+'.write',now)||before&&recordLevel(user,canonical.get(id),collection,source.folders,now)!=='write'||after&&recordLevel(user,after,collection,wanted.folders,now)!=='write')denied(fail);
       const parentField=collection==='folders'?'parentId':'folderId';
-      if(after?.[parentField]&&after[parentField]!==before?.[parentField]){const destination=wanted.folders.find(row=>row.id===after[parentField]);if(!destination||recordLevel(user,destination,'folders',wanted.folders,now)!=='write'||recordSection(destination,'folders')!==section)denied(fail);}
+      if(after?.[parentField]&&after[parentField]!==before?.[parentField]){const destination=wanted.folders.find(row=>row.id===after[parentField]);if(!destination||!can(user,section+'.write',now)||recordLevel(user,destination,'folders',wanted.folders,now)!=='write'||recordSection(destination,'folders')!==section)denied(fail);}
       // A folder operation must never move, delete or expose hidden descendants.
       if(collection==='folders'&&before&&(!after||before.parentId!==after.parentId||!!before.deletedAt!==!!after.deletedAt)){
         for(const [kind,rows]of [['folders',source.folders],['items',source.items]])for(const row of rows){
-          let parent=kind==='folders'?row.parentId:row.folderId;const seen=new Set();while(parent&&!seen.has(parent)){if(parent===id){if(recordLevel(user,row,kind,source.folders,now)!=='write'||!can(user,recordSection(row,kind)+'.'+(action==='delete'?'delete':'edit'),now))denied(fail);break;}seen.add(parent);parent=source.folders.find(f=>f.id===parent)?.parentId;}
+          let parent=kind==='folders'?row.parentId:row.folderId;const seen=new Set();while(parent&&!seen.has(parent)){if(parent===id){if(recordLevel(user,row,kind,source.folders,now)!=='write'||!can(user,recordSection(row,kind)+'.write',now)||!can(user,recordSection(row,kind)+'.'+(action==='delete'?'delete':'edit'),now))denied(fail);break;}seen.add(parent);parent=source.folders.find(f=>f.id===parent)?.parentId;}
         }
       }
       const index=output[collection].findIndex(row=>row.id===id);
@@ -89,7 +90,7 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
         const field=collection==='items'?'folderId':'parentId';if(original?.[field]&&!before[field])next[field]=original[field];
       }
       if(collection==='items'){
-        if(after.linkedItemIds)next.linkedItemIds=[...new Set([...after.linkedItemIds.filter(target=>visibleIds.has(target)),...(original?.linkedItemIds||[]).filter(target=>!visibleIds.has(target))])];
+        if(after.linkedItemIds)next.linkedItemIds=[...new Set([...after.linkedItemIds.filter(target=>allowedTargets.has(target)),...(original?.linkedItemIds||[]).filter(target=>!visibleIds.has(target))])];
         if(section==='vault')for(const field of secretFields){
           if(same(before?.[field],after[field])){if(original&&field in original)next[field]=original[field];else delete next[field];}
           else {if(!can(user,'vault.secrets',now))denied(fail);if(['vaultBlobEnc','passwordEnc'].includes(field)&&after[field]){try{next[field]=await rewrap(after[field],delivery,master);}catch{fail(400,'Secret chiffré invalide.');}}}
@@ -99,6 +100,7 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
     }
   }
   // Preferences remain local for members. Shared settings are owner-controlled.
+  if(user.role==='admin')output.settings=structuredClone(wanted.settings);
   const knownActivity=new Set(source.activity.map(row=>row.id));
   output.activity.push(...wanted.activity.filter(row=>!knownActivity.has(row.id)&&visibleIds.has(row.itemId)).map(row=>structuredClone(row)));
   const folderMap=new Map(output.folders.map(row=>[row.id,row]));

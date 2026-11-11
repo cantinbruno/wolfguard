@@ -1,5 +1,5 @@
 /* Shared scan history in Settings: metadata stays compact; reports are exported on demand. */
-#settings-history [hidden]{display:none!important}
+#settings-history [hidden],#wgScanHistory [hidden]{display:none!important}
 .scan-history-heading{flex-wrap:wrap;gap:14px}
 .scan-history-intro{font-size:12px;line-height:1.8;color:var(--ui-muted);margin:0 0 22px}
 .scan-history-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:19px}

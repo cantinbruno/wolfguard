@@ -1,12 +1,12 @@
 import {seal,open} from './access.mjs';
-import {PERMISSION_GROUPS,PERMISSION_PROFILES,normalizePolicy,profilePolicy,can,canManagePolicy} from './permissions.mjs';
+import {PERMISSION_SECTIONS,PERMISSION_PROFILES,SECTION_LEVELS,normalizePolicy,profilePolicy,can,canManagePolicy} from './permissions.mjs';
 export async function userPolicy(row,env){return row.permissions_cipher?normalizePolicy(await open(row.permissions_cipher,'WolfGuard permissions v1:'+row.id,env)):profilePolicy('legacy');}
 export async function policyCipher(policy,id,env){return seal(normalizePolicy(policy),'WolfGuard permissions v1:'+id,env);}
 export async function permissionAPI(path,request,env,now,session,vault,h){
   const {fail,json,body,random,revokeUserSessions}=h;
   if(!can(session.user,'users.permissions',now))fail(403,'Ton profil ne permet pas d’attribuer les droits.');
   if(request.method==='GET'){
-    if(path==='/api/users/permissions')return json({groups:PERMISSION_GROUPS,profiles:PERMISSION_PROFILES,defaultProfile:'none'});
+    if(path==='/api/users/permissions')return json({sections:PERMISSION_SECTIONS,levels:SECTION_LEVELS,profiles:PERMISSION_PROFILES,defaultProfile:'reader'});
     if(path==='/api/users/permissions/audit'){
       const rows=await env.DB.prepare('SELECT id,created_at,details_cipher FROM permission_audit ORDER BY created_at DESC,id DESC LIMIT 100').all(),events=[];
       for(const row of rows.results)events.push({id:row.id,createdAt:row.created_at,...await open(row.details_cipher,'WolfGuard permissions audit v1:'+row.id,env)});

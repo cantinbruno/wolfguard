@@ -37,11 +37,13 @@ def run():
             first.goto('http://127.0.0.1:4178/?sync-test');ready(first)
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'07942685');await s.write(result.envelope,0)}""")
             first.goto('http://127.0.0.1:4178/?sync-test&agent-test#activate='+('b'*64));unlock(first)
-            first.locator('#agentsBtn').click();first.locator('#wgAgentPair').click()
-            expect(first.locator('#wgAgentPairCode code')).to_have_text(__import__('re').compile(r'^[a-f0-9]{32}$'))
+            first.locator('#agentsBtn').click()
+            with first.expect_download() as linked:first.locator('#wgAgentPair').click()
+            assert linked.value.suggested_filename=='Installer-WolfGuard.cmd'
+            expect(first.locator('#wgAgentConnectPair')).to_have_attribute('href',__import__('re').compile(r'^wolfguard-agent://pair\?code=[a-f0-9]{32}$'))
             expect(first.locator('#wgAgentConnect')).to_be_visible()
             expect(first.locator('.agent-manager-empty')).to_have_count(1)
-            code=first.locator('#wgAgentPairCode code').inner_text()
+            code=first.locator('#wgAgentConnectPair').get_attribute('href').split('code=')[1]
             first.screenshot(path=str(ROOT/'.cache/agent-download-desktop.png'),full_page=True)
             first.set_viewport_size({'width':390,'height':844})
             assert first.evaluate('document.documentElement.scrollWidth<=innerWidth')
@@ -49,7 +51,7 @@ def run():
             first.screenshot(path=str(ROOT/'.cache/agent-download-mobile.png'),full_page=True)
             first.set_viewport_size({'width':1280,'height':900})
             for platform,filename in [('linux','WolfGuard-Agent-Linux.zip'),('darwin','WolfGuard-Agent-macOS.zip'),('win32','WolfGuard-Agent-Windows.exe')]:
-                first.locator('[data-agent-platform="'+platform+'"]').click()
+                first.locator('[data-agent-platform="'+platform+'"]').click();first.locator('#wgAgentDownload').evaluate('el=>el.closest("details").open=true')
                 expect(first.locator('[data-agent-platform="'+platform+'"]')).to_have_attribute('aria-pressed','true')
                 with first.expect_download() as download:first.locator('#wgAgentDownload').click()
                 assert download.value.suggested_filename==filename
@@ -104,7 +106,7 @@ def run():
             print('PASS: sonde TCP reelle en boucle locale, progression puis resultat identique sur un second navigateur avec le code')
             second.set_viewport_size({'width':390,'height':844});assert second.evaluate('document.documentElement.scrollWidth<=innerWidth')
             second.screenshot(path=str(ROOT/'.cache/agent-active-mobile.png'),full_page=True)
-            navigate(first,'map');first.locator('#scanTarget').fill('127.0.0.1')
+            navigate(first,'map');expect(first.locator('#scanTarget')).to_have_value('auto')
             expect(first.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000);first.locator('#wgAgentLaunch').click()
             expect(first.locator('#wgAgentProgress span')).to_contain_text('Scan termin',timeout=30000)
             expect(first.locator('[data-map-address]')).to_have_count(1)
@@ -149,7 +151,7 @@ def run():
             expect(first.locator('#scanTarget')).to_have_value('192.168.10.1')
             expect(first.locator('#wgScanReportStamp')).to_contain_text('Agent · Windows')
             print('PASS: a scan cannot stop another workspace, even via a forced click; only its own running job can be cancelled')
-            first.locator('#settingsBtn').click();first.locator('#settings-tab-history').click()
+            first.locator('#wgScanShowHistory').click();first.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))")
             expect(first.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
             assert first.locator('.scan-history-item').count()>=5
             for kind in ['passive','active','map','vulnerability']:
@@ -162,7 +164,7 @@ def run():
                 assert all('Agent integration' in report and 'Agent · Windows' in report for report in reports)
                 assert any('Cartographie du réseau' in report for report in reports)
                 assert any('Scan de vulnérabilités' in report for report in reports)
-            first.locator('#closeSettingsBtn,#closeAgentsBtn').click()
+            first.locator('#wgScanNew').click()
             print('PASS: Settings history exports actual agent results from all four scan workspaces as one valid ZIP')
             # This tab's agent selection is reused by every section and reload.
             extra=[]
@@ -210,10 +212,10 @@ def run():
             first.keyboard.press('Home');expect(first.locator('#wgAgentFleetPanel')).to_be_visible()
             first.locator('#wgAgentAdd').click()
             first.locator('#wgAgentPair').click();expect(first.locator('#wgAgentPairCode')).to_be_visible()
-            first.evaluate('window.__agentRealNow=Date.now;Date.now=()=>window.__agentRealNow()+301000')
+            first.evaluate('window.__agentRealNow=Date.now;Date.now=()=>window.__agentRealNow()+601000')
             try:
                 expect(first.locator('#wgAgentPairCode')).to_be_hidden(timeout=10000)
-                expect(first.locator('#wgAgentPairCode code')).to_have_text('')
+                expect(first.locator('#wgAgentConnectPair')).not_to_have_attribute('href',__import__('re').compile('.+'))
                 expect(first.locator('#wgAgentSetupStatus')).to_contain_text('expiré')
             finally:first.evaluate('Date.now=window.__agentRealNow;delete window.__agentRealNow')
             first.route(API+'/api/agents',lambda route:route.fulfill(status=503,json={'error':'Service temporairement indisponible'}))

@@ -88,8 +88,9 @@ def run():
             page.evaluate("active=>sessionStorage.setItem('resume-test-offset',String(active+59*60000-Date.now()))",active)
             page.reload(); unlocked(page)
             page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+61000))")
-            assert page.evaluate("async()=>{try{await all('items');return false}catch{return true}}")
-            expect(page.locator('#app')).not_to_be_visible(); ready(page)
+            assert page.evaluate("async()=>!!await all('items')")
+            expect(page.locator('#app')).to_be_visible()
+            page.evaluate('lockApplication()');ready(page)
             assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
             assert page.evaluate('state.vaultKey===null')
             page.keyboard.type(CODE); unlocked(page)
@@ -103,7 +104,7 @@ def run():
             expect(page.locator('.settings-modal')).not_to_be_visible(timeout=15000)
             page.reload(); unlocked(page)
             assert page.evaluate("async()=>!!await get('items','resume-note')")
-            print('PASS: new tabs stay locked, changing tab preserves the session, refresh does not reset the one-hour timeout, and manual locking clears the ticket')
+            print('PASS: new tabs stay locked, changing tab preserves the session, indefinite sessions survive refresh, and manual locking clears the ticket')
             local.close()
 
             a = browser.new_context(reduced_motion='reduce'); b = browser.new_context(reduced_motion='reduce')
@@ -111,7 +112,7 @@ def run():
             for context in [a, b]:
                 def proxy(route):
                     calls.append(urlsplit(route.request.url).path)
-                    route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
+                    route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
                 context.route(API+'/**', proxy)
             first = a.new_page(); first.on('pageerror', lambda error: errors.append(str(error)))
             first.goto(url); ready(first); seed(first)

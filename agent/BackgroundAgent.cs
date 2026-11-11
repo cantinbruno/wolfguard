@@ -73,11 +73,23 @@ namespace WolfGuard {
         process.Kill();process.WaitForExit(5000);
       }catch{}
     }
+    static bool NeedsUpgrade(){
+      try{
+        string path=Path.Combine(Home,"launcher.path");
+        if(!File.Exists(path))return true;
+        string installed=File.ReadAllText(path).Trim(),self=Assembly.GetExecutingAssembly().Location;
+        if(!File.Exists(installed))return true;
+        if(String.Equals(Path.GetFullPath(installed),Path.GetFullPath(self),StringComparison.OrdinalIgnoreCase))return false;
+        return Hash(File.ReadAllBytes(installed))!=Hash(File.ReadAllBytes(self));
+      }catch{return true;}
+    }
     static void Register(string executable){
       if(Elevated){
         dynamic scheduler=Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service"));scheduler.Connect();dynamic task=scheduler.NewTask(0);task.RegistrationInfo.Description="WolfGuard : protection du poste et gestion en arrière-plan";task.Principal.UserId=Sid;task.Principal.LogonType=3;task.Principal.RunLevel=1;task.Settings.ExecutionTimeLimit="PT0S";task.Settings.DisallowStartIfOnBatteries=false;task.Settings.StopIfGoingOnBatteries=false;task.Settings.StartWhenAvailable=true;dynamic trigger=task.Triggers.Create(9);trigger.UserId=Sid;dynamic action=task.Actions.Create(0);action.Path=executable;action.Arguments="--background";scheduler.GetFolder("\\").RegisterTaskDefinition("WolfGuard-Endpoint-"+Sid,task,6,null,null,3,null);
         using(RegistryKey startup=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))startup.DeleteValue("WolfGuardAgent",false);
       }else using(RegistryKey startup=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))startup.SetValue("WolfGuardAgent","\""+executable+"\" --background");
+      // Autostart is applied by default at installation time; the site offers
+      // a standalone uninstaller instead of an opt-in checkbox.
       using(RegistryKey protocol=Registry.CurrentUser.CreateSubKey(@"Software\Classes\wolfguard-agent")){
         protocol.SetValue("","URL:WolfGuard Agent");protocol.SetValue("URL Protocol","");using(RegistryKey command=protocol.CreateSubKey(@"shell\open\command"))command.SetValue("","\""+executable+"\" \"%1\"");
       }
@@ -123,7 +135,7 @@ namespace WolfGuard {
         if(args.Length==2&&args[0]=="--render-logo"){AgentWindow.SavePng(AgentWindow.LogoBitmap(256),args[1]);return 0;}
         if(args.Length==2&&args[0]=="--verify-extraction"){AgentWindow.VerifyExtraction(args[1]);return 0;}
         if(args.Length==1&&args[0]=="--stop")return Send("stop")?0:1;
-        string code=PairCode(args);if(Elevated){Send("stop");Thread.Sleep(1500);}else if(Send(code??"status"))return 0;
+        string code=PairCode(args);if(Elevated||NeedsUpgrade()){if(Send("stop"))Thread.Sleep(1500);}else if(Send(code??"status"))return 0;
         using(Mutex mutex=new Mutex(false,@"Local\WolfGuardAgent-"+Sid)){
           bool acquired=false;try{acquired=mutex.WaitOne(0);}catch(AbandonedMutexException){acquired=true;}
           if(!acquired){StopLegacyWindow();try{acquired=mutex.WaitOne(8000);}catch(AbandonedMutexException){acquired=true;}}

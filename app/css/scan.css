@@ -1598,3 +1598,35 @@
     flex-basis: 100%
   }
 }
+.wgscan-history-panel{display:grid;gap:8px}
+.wgscan-history-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-sidebar);color:var(--ui-text);cursor:pointer;text-align:left}
+.wgscan-history-row:hover{border-color:var(--ui-accent)}
+.wgscan-history-row strong{font-size:12px}
+.wgscan-history-row small{margin-left:auto;color:var(--ui-muted);font-size:10px}
+.wgscan-history-row .wgscan-badge{flex:none}
+@media(max-width:600px){.wgscan-history-row{flex-wrap:wrap}}
+/* Radial network map */
+.wgscan-net-ring{fill:none;stroke:currentColor;stroke-opacity:.12;stroke-dasharray:4 7}
+.wgscan-net-background circle:last-of-type{}
+.wgscan-net-core{fill:currentColor;fill-opacity:.22;stroke:currentColor;stroke-width:1.5}
+.wgscan-network-origin text{font-size:11px;font-weight:600;fill:var(--ui-text)}
+.wgscan-net-core-sub{font-size:9px;fill:var(--ui-muted)}
+.wgscan-net-subnet{font-size:10px;fill:var(--ui-muted);font-family:ui-monospace,monospace}
+.wgscan-net-node-label{font-size:9px;fill:var(--ui-muted);font-family:ui-monospace,monospace}
+.wgscan-network-node circle{transition:stroke-width .15s ease}
+.wgscan-network-node:hover circle{stroke-width:3}
+.wgscan-metrics article{border-radius:14px}
+.wgscan-metrics strong{font-size:26px;letter-spacing:-.5px}
+.wgscan-metrics article:nth-child(1){border-left:3px solid #7fb5e8}
+.wgscan-metrics article:nth-child(2){border-left:3px solid #9de3c4}
+.wgscan-metrics article:nth-child(3){border-left:3px solid #efcd9a}
+.wgscan-metrics article:nth-child(4){border-left:3px solid #e0a76a}
+.wgscan-badge{font-variant-numeric:tabular-nums}
+.wgscan-table-wrap table tbody tr:hover{background:color-mix(in srgb,var(--ui-accent) 6%,transparent)}
+.wgscan-table-wrap td code{font-size:12px}
+.certfr-recap{display:flex;gap:8px;margin:12px 0}
+.certfr-recap-head{display:flex;gap:8px;flex-wrap:wrap}
+.certfr-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--ui-border);background:var(--ui-page);font-size:11px}
+.certfr-pill[data-tone=high]{border-color:#a05c4d;color:#e8a79a;background:#38252b66}
+.certfr-finding[data-applicability=version-in-range]{border-left:3px solid #a05c4d}
+.certfr-cve-count{margin-left:auto;font-size:10px;color:var(--ui-muted)}

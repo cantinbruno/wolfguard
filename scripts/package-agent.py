@@ -25,11 +25,15 @@ FILES={
 EXE=ROOT/'app/downloads/WolfGuard-Agent-Windows.exe'
 MANIFEST=ROOT/'agent/windows-build.json'
 POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mjs','agent/network.mjs','agent/posix.mjs','agent/security-rules.mjs','server/lib/wolfguard/scan-spec.mjs']}
-for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
+for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
+FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
+POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
 FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
-POSIX_FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
+POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
+POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
+FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
 FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
 POSIX_FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
 POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})
@@ -108,6 +112,8 @@ def package():
         output=ROOT/'app/downloads'/filename
         output.parent.mkdir(parents=True,exist_ok=True)
         if not output.exists() or output.read_bytes()!=payload:output.write_bytes(payload)
+    integrity={name:hashlib.sha256(data).hexdigest() for name,data in packages.items()};integrity[EXE.name]=hashlib.sha256(binary).hexdigest()
+    (ROOT/'app/downloads/agent-integrity.json').write_text(json.dumps(integrity,sort_keys=True)+'\n',encoding='utf8')
     print('Agent Windows, Linux et macOS prepare depuis les seuls fichiers source autorises.')
 
 if __name__=='__main__':package()

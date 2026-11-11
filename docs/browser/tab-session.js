@@ -1,7 +1,7 @@
 // A reload ticket is scoped to this tab. PINs and clear workspace data are never
 // stored here; IndexedDB holds only a temporary, non-extractable CryptoKey.
-export const IDLE_MS = 60 * 60000;
-export const SESSION_MS = 8 * 60 * 60000;
+export const IDLE_MS = Number.MAX_SAFE_INTEGER;
+export const SESSION_MS = Number.MAX_SAFE_INTEGER;
 const HANDLE = 'wolfguard-tab-session-v1';
 const PREFIX = 'tab-session:';
 const validId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -41,7 +41,7 @@ export function createTabSession(storage) {
     if (!validClock(clock) || key.extractable !== false || key.algorithm?.name !== 'AES-GCM') throw new Error('Session invalide.');
     const id = [...crypto.getRandomValues(new Uint8Array(32))].map(value => value.toString(16).padStart(2, '0')).join('');
     const saved = {id, clock: {started: clock.started, active: clock.active}, cloud, scope, view};
-    const value = {key, salt, started: clock.started, expiresAt: Math.min(clock.active + IDLE_MS, clock.started + SESSION_MS)};
+    const value = {key, salt, started: clock.started, expiresAt: Number.MAX_SAFE_INTEGER};
     await transaction(store => store.put(value, PREFIX + id));
     if (token !== generation) { await transaction(store => store.delete(PREFIX + id)); return false; }
     try { sessionStorage.setItem(HANDLE, JSON.stringify(saved)); }
@@ -54,7 +54,7 @@ export function createTabSession(storage) {
     try { sessionStorage.setItem(HANDLE, JSON.stringify(ticket)); } catch { forget().catch(() => {}); return; }
     if (Date.now() - syncedAt < 1000) return;
     syncedAt = Date.now();
-    record = {...record, expiresAt: Math.min(clock.active + IDLE_MS, clock.started + SESSION_MS)};
+    record = {...record, expiresAt: Number.MAX_SAFE_INTEGER};
     const id = ticket.id, value = record, token = generation;
     pending = pending.catch(() => {}).then(() => token === generation ? transaction(store => store.put(value, PREFIX + id)) : undefined).catch(() => {
       if (token === generation) { generation++; ticket = null; record = null; try { sessionStorage.removeItem(HANDLE); } catch {} }

@@ -41,7 +41,7 @@ def run():
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
             def navigate(section):page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste terminal',timeout=15000)
-            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteHint')).to_contain_text('PowerShell')
+            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteTerminal')).to_be_visible();expect(page.locator('#wgTerminalCommand')).to_be_disabled()
             assert started==[{'agentId':agent['id'],'mode':'terminal'}]
             expect(page.locator('#wgRemoteModeDesktop')).to_be_disabled();expect(page.locator('#wgRemoteViewport')).to_be_hidden();expect(page.locator('#wgRemoteTextForm')).to_be_hidden()
@@ -61,7 +61,7 @@ def run():
             page.locator('#wgTerminalCommand').press('ArrowUp');expect(page.locator('#wgTerminalCommand')).to_have_value(control['commands'][0]['command'])
             page.locator('#wgRemoteDisconnect').click();expect(page.locator('#wgRemoteSession')).to_be_hidden();assert len(stopped)==1
             agent['capabilities']=['remote-desktop-v1'];page.locator('#wgRemoteModeDesktop').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
-            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteConnect')).to_be_disabled();expect(page.locator('#wgRemoteHint')).to_contain_text('nouvel agent')
+            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteConnect')).to_be_disabled();expect(page.locator('#wgRemoteHint')).to_contain_text('Mets à jour')
             agent['capabilities'].append('remote-terminal-v1');page.locator('#wgRemoteModeDesktop').click();page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             control['status']='requested';control['commands']=[];control['sequence']=0;page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible();navigate('library');page.wait_for_timeout(500);assert len(stopped)==2
             assert not errors,errors

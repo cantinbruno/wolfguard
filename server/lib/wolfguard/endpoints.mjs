@@ -1,3 +1,4 @@
+import {accessibleAgent,administrator} from './agent-access.mjs';
 import {can,canAgent,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {endpointSnapshot,endpointPolicy,endpointHealth,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMANDS} from './endpoint-spec.mjs';
@@ -13,7 +14,7 @@ export async function handleEndpointAPI(request,env,now,h){
   async function issuerAllowed(command){
     const row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=?').bind(command.requested_by,command.user_version).first();
     if(!row)return false;const user={id:row.id,role:row.role,permissions:await userPolicy(row,env)};
-    return can(user,'edr.manage',now)&&canAgent(user,command.agent_id,now);
+    return can(user,'edr.manage',now)&&await accessibleAgent(env,user,command.agent_id,now);
   }
   async function claim(agent,canEnforce){
     await env.DB.prepare("UPDATE endpoint_commands SET status='expired' WHERE agent_id=? AND status IN ('queued','running') AND expires_at<=?").bind(agent.id,now).run();
@@ -57,7 +58,7 @@ export async function handleEndpointAPI(request,env,now,h){
   if(!canReadEndpoints(user,now))fail(403,'Ton compte ne peut pas consulter la protection des postes.',{code:'PERMISSION_DENIED'});
   const permit=async id=>{
     if(!idOK(id))fail(400,'Poste invalide.');
-    if(!canAgent(user,id,now))fail(403,'Ce poste ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});
+    if(!await accessibleAgent(env,user,id,now))fail(403,'Ce poste ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(id,session.generation).first();if(!agent)fail(404,'Poste introuvable.');return agent;
   };
   if(path==='/api/edr'&&request.method==='GET'){
@@ -68,7 +69,7 @@ export async function handleEndpointAPI(request,env,now,h){
     const endpoints=[];
     // Decode only authorized endpoints. No scan-history or report fan-out.
     for(const row of rows.results){
-      if(!canAgent(user,row.id,now))continue;
+      if(!await accessibleAgent(env,user,row.id,now))continue;
       const metadata=await open(row.name_cipher,row.id+':name'),snapshot=row.snapshot_cipher?await open(row.snapshot_cipher,row.id+':endpoint-state'):null,online=row.last_seen>now-90000,fresh=online&&!!row.received_at&&now-row.received_at<120000&&now-row.collected_at<120000;
       endpoints.push({id:row.id,...metadata,online,lastSeen:row.last_seen,receivedAt:row.received_at||null,collectedAt:row.collected_at||null,health:endpointHealth(snapshot,fresh),snapshot:snapshot?{...snapshot,events:undefined}:null,alerts:row.alerts,blocks:row.blocks,policy:row.policy_cipher?await open(row.policy_cipher,row.id+':endpoint-policy'):{...DEFAULT_ENDPOINT_POLICY},revision:row.revision||0});
     }
@@ -94,7 +95,7 @@ export async function handleEndpointAPI(request,env,now,h){
   if(path==='/api/edr/policy'){
     let policy;try{policy=endpointPolicy(data.policy);}catch(error){fail(400,error.message);}
     if(!Number.isSafeInteger(data.revision)||data.revision<0)fail(400,'Révision de politique invalide.');
-    const cipher=await seal(policy,agent.id+':endpoint-policy'),current=await authorize(request,env,now);requirePermission(current.user,'edr.manage',fail,now);if(!canAgent(current.user,agent.id,now))fail(403,'Le périmètre de postes a changé.');
+    const cipher=await seal(policy,agent.id+':endpoint-policy'),current=await authorize(request,env,now);requirePermission(current.user,'edr.manage',fail,now);if(!await accessibleAgent(env,current.user,agent.id,now))fail(403,'Le périmètre de postes a changé.');
     const result=await env.DB.prepare(`INSERT INTO endpoint_policies(agent_id,revision,policy_cipher,updated_by,updated_at)
       SELECT ?,1,?,?,? WHERE ?=0 AND NOT EXISTS(SELECT 1 FROM endpoint_policies WHERE agent_id=?)
       ON CONFLICT(agent_id) DO UPDATE SET revision=endpoint_policies.revision+1,policy_cipher=excluded.policy_cipher,updated_by=excluded.updated_by,updated_at=excluded.updated_at WHERE endpoint_policies.revision=?`)
@@ -107,7 +108,7 @@ export async function handleEndpointAPI(request,env,now,h){
     if(!ENDPOINT_COMMANDS.includes(data.action))fail(400,'Action de protection inconnue.');
     const queued=await env.DB.prepare("SELECT COUNT(*) n FROM endpoint_commands WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first();if(queued.n>=3)fail(429,'Trois actions sont déjà en attente pour ce poste.');
     if(!user.id)fail(403,'Active les comptes personnels avant de gérer les protections.');
-    const current=await authorize(request,env,now);requirePermission(current.user,'edr.manage',fail,now);if(!canAgent(current.user,agent.id,now))fail(403,'Le périmètre de postes a changé.');
+    const current=await authorize(request,env,now);requirePermission(current.user,'edr.manage',fail,now);if(!await accessibleAgent(env,current.user,agent.id,now))fail(403,'Le périmètre de postes a changé.');
     const id=random(16),insert=await env.DB.prepare(`INSERT INTO endpoint_commands(id,agent_id,generation,requested_by,user_version,action,status,created_at,updated_at,expires_at)
       SELECT ?,?,?,?,?,?,'queued',?,?,? WHERE
       (SELECT COUNT(*) FROM endpoint_commands WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?)<3

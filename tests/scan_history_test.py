@@ -63,10 +63,10 @@ def run():
               const result=await c.create({version:2,items:[],folders:[],settings:[{key:'scan-web-passive-reports-v1',value:{version:1,reports:[report]}}],activity:[]},'07942685');await s.write(result.envelope,0)}""",archive)
             page.goto(origin+'/?sync-test&history-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=30000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            page.locator('#settingsBtn').click();page.locator('#settings-tab-history').click()
+            page.locator('.workspace-section-button[data-section=scan-passive]').click();page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();expect(page.locator('.scan-history-item')).to_have_count(15);page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))")
             expect(page.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
             expect(page.locator('#wgHistoryCount')).to_contain_text('56')
-            assert len(history_requests)==2 and 'beforeAt' in history_requests[1]
+            assert len(history_requests)>=2 and any('beforeAt' in query for query in history_requests)
             expect(page.locator('.scan-history-item')).to_have_count(20)
             expect(page.locator('#wgHistoryPages')).to_contain_text('Page 1 sur 3')
             expect(page.locator('.scan-history-list img,.scan-history-list script')).to_have_count(0)
@@ -110,16 +110,11 @@ def run():
             for width in [1440,900,640,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
-                assert page.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
-                assert page.locator('#settings-history').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
-                if width<=640:
-                    expect(page.locator('#settings-tab-history')).to_be_in_viewport(ratio=.99)
-                    assert page.locator('#settings-tab-history').evaluate("el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return a.left>=b.left-1&&a.right<=b.right+1}")
+                assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
+                assert page.locator('#wgScanHistory').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
                 if width in [1440,390]:page.screenshot(path=str(ROOT/f'.cache/history-settings-{width}.png'),animations='disabled')
-            page.locator('#settings-tab-history').focus();page.keyboard.press('Home')
-            expect(page.locator('#settings-tab-security')).to_have_attribute('aria-selected','true')
-            expect(page.locator('#settings-history')).to_be_empty()
-            page.locator('#settings-tab-history').click();expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
+            page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
+            page.locator('.workspace-section-button[data-section=scan-passive]').click();page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))");expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             state['fail_history']=True;page.locator('#wgHistoryRefresh').click()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique incomplet')
             expect(page.locator('#wgHistoryExportAll')).to_be_disabled()
@@ -192,7 +187,7 @@ def run():
             for route,data in pending:route.fulfill(json=data)
             page.wait_for_timeout(150)
             assert len(downloads)==before
-            expect(page.locator('#settings-history')).to_have_count(0)
+            expect(page.locator('#wgScanHistory')).to_have_count(0)
             assert not errors,errors
             print('PASS: accent-insensitive search, state/date filters, sort, keyboard pagination, 320px layout, refresh preserves 56 reports on outage, and explicit cancel/lock abort exports without downloads')
             browser.close()

@@ -123,9 +123,16 @@ async function ping(address,timeout,signal){
   const args=windows?['-n','1','-w',String(timeout),address]:mac?['-n','-c','1','-W',String(timeout),address]:['-n',...(address.includes(':')?['-6']:[]),'-c','1','-W',String(Math.max(1,Math.ceil(timeout/1000))),address];
   try{const output=await fixedProcess(file,args,{signal,timeout:timeout+1500,maxBytes:16000});const replied=windows?/(?:Reply from|R.ponse de)[^\r\n]*(?:TTL=|temps[=<]|time[=<])/i.test(output):/\bbytes from\b/i.test(output);return {address,port:null,transport:'ICMP',status:replied?'reachable':'no-response',latencyMs:Math.round(performance.now()-started),detail:replied?'Réponse ICMP reçue.':'Aucune réponse ICMP identifiable.',source:'agent-icmp'};}catch{return {address,port:null,transport:'ICMP',status:'no-response',detail:'Aucune réponse ICMP ; cela ne prouve pas l’absence de la machine.',source:'agent-icmp'};}
 }
+export function automaticMap(interfaces=networkInterfaces()){
+  const interfacesFound=Object.entries(interfaces).flatMap(([name,entries])=>(entries||[]).filter(entry=>!entry.internal&&entry.family==='IPv4'&&/^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(entry.address)).map(entry=>({name,...entry}))).sort((a,b)=>Number(/virtual|vmware|vbox|hyper-v|vpn|docker|vethernet/i.test(a.name))-Number(/virtual|vmware|vbox|hyper-v|vpn|docker|vethernet/i.test(b.name)));
+  const chosen=interfacesFound[0];if(!chosen)throw new Error('Aucune interface IPv4 privée disponible pour la cartographie automatique.');
+  const prefix=Math.max(24,Math.min(32,Number(chosen.cidr?.split('/')[1])||24)),mask=(0xffffffff<<(32-prefix))>>>0,n=chosen.address.split('.').reduce((value,part)=>(value*256+Number(part))>>>0,0),network=(n&mask)>>>0,target=[24,16,8,0].map(shift=>(network>>>shift)&255).join('.')+'/'+prefix;
+  return {target,origin:{address:chosen.address,interfaceName:chosen.name,cidr:chosen.cidr||target},interfaces:interfacesFound.map(entry=>({name:entry.name,address:entry.address,cidr:entry.cidr}))};
+}
 export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity,lookup=dnsLookup,cacheOptions={}}={}){
-  const spec=scanSpec(raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false,software=[];
-  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings,...(software.length?{software}:{})});
+  const mapping=raw.workspace==='map'&&(!raw.target||raw.target==='auto')?automaticMap():null;
+  const spec=scanSpec(mapping?{...raw,target:mapping.target}:raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false,software=[];
+  const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',...(mapping?{network:mapping}:{}),startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings,...(software.length?{software}:{})});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
   if(spec.strategy==='passive'){
     const snapshot=await (spec.passiveScope==='security'?securityCollector:passiveCollector)(signal);

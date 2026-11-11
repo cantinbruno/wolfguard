@@ -39,7 +39,7 @@ def run(backend=None):
             for context in [a,b]:
                 def proxy(route):
                     calls.append(urlsplit(route.request.url).path)
-                    route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
+                    route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
                 context.route(API+'/**',proxy)
             first=a.new_page();first.on('pageerror',lambda e:errors.append(str(e)))
             first.goto(url);ready(first)
@@ -67,20 +67,20 @@ def run(backend=None):
             }""")
             first.keyboard.type(CODE)
             expect(first.locator('#lockError')).to_contain_text('Conservation',timeout=20000)
-            assert first.evaluate("async()=>{const snapshot=await (await import('./browser/storage.js')).read();return (await (await import('./browser/crypto.js')).open(snapshot,'07942685')).payload.folders.find(f=>f.id==='memo-root').name}")=='Réseau'
+            assert first.evaluate("async()=>{const snapshot=await (await import('./browser/storage.js')).read();const c=await import('./browser/crypto.js'),info=await WolfGuardCloud.login('07942685'),material=await c.importWorkspaceMaterial(info.workspace);try{return (await c.openWithKey(snapshot,material.key,material.salt)).payload.folders.find(f=>f.id==='memo-root').name;}finally{WolfGuardCloud.detach();}}")=='Réseau'
             print('PASS: sauvegarde avant rangement indisponible, migration annulee sans modification partielle')
             unlock(first)
             expect(first.locator('#webSaveState')).to_contain_text('Synchronisé')
             assert first.evaluate("async()=>(await all('items')).filter(item=>!item.referenceCatalogId).length")==3
             assert first.evaluate("async()=>(await all('items')).filter(item=>item.referenceCatalogId===MEMO_PORT_REFERENCE).length")==1
             assert first.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
-            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685').catch(()=>c.openWithKey(copy.envelope,state.vaultKey,Uint8Array.from(atob(copy.envelope.salt),c=>c.charCodeAt(0))))).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'
             assert first.evaluate("async()=>!(await get('items','mail-form'))")
             assert first.evaluate("async()=>{const rows=await all('folders');return !rows.some(f=>!f.deletedAt&&/^(09|10)\\s*·/.test(f.name))}")
-            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.items.some(row=>row.id==='mail-form')}")
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685').catch(()=>c.openWithKey(copy.envelope,state.vaultKey,Uint8Array.from(atob(copy.envelope.salt),c=>c.charCodeAt(0))))).payload.items.some(row=>row.id==='mail-form')}")
             assert first.evaluate("async()=>!(await get('items','blank-stp'))")
             assert first.evaluate("async data=>{const s=await import('./browser/storage.js');return (await s.recoveries()).find(row=>row.key==='memo-cleanup-before-v2').envelope.data===data}",original_backup['data'])
-            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685')).payload.items.some(row=>row.id==='blank-stp')}")
+            assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685').catch(()=>c.openWithKey(copy.envelope,state.vaultKey,Uint8Array.from(atob(copy.envelope.salt),c=>c.charCodeAt(0))))).payload.items.some(row=>row.id==='blank-stp')}")
             print('PASS: nettoyage des mails et dossiers 09/10 avec copie chiffree complete avant suppression')
             print('PASS: activation avec le code existant et transfert automatique du memo et du coffre')
 
@@ -101,7 +101,7 @@ def run(backend=None):
             # Existing encrypted archives are retained when the scan UI only offers export.
             archive={'version':1,'reports':[{'name':'Releve partage de test','rows':[{'address':'192.0.2.77','transport':'ARP','status':'observed'}]}]}
             first.evaluate("async value=>put('settings',{key:'scan-web-passive-reports-v1',value})",archive)
-            second.evaluate('lockApplication()');unlock(second)
+            second.reload();expect(second.locator('#app')).to_be_visible(timeout=20000);second.wait_for_function('()=>!document.querySelector("#app").inert')
             assert second.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value")==archive
             second.evaluate("openSection('scan-passive')");second.wait_for_function('()=>!sectionTransition.active')
             expect(second.locator('#wgScanSave,#wgScanSaved')).to_have_count(0)
@@ -113,7 +113,7 @@ def run(backend=None):
             result=second.evaluate("""async()=>{const item=structuredClone(window.staleEdit);item.title='Conflit du second appareil';try{await db.saveEditedItem(item,window.staleEdit);return 'incorrect'}catch(e){return e.message}}""")
             assert 'autre personne' in result.lower(),result
             assert second.evaluate("async()=>!!(await (await import('./browser/storage.js')).recoveries()).find(r=>r.key==='cloud-pending')")
-            second.evaluate('lockApplication()');unlock(second)
+            second.reload();expect(second.locator('#app')).to_be_visible(timeout=20000);second.wait_for_function('()=>!document.querySelector("#app").inert')
             assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Modification du premier appareil'
             print('PASS: conflit entre appareils refuse, copie non synchronisee conservee, reouverture a jour')
 
@@ -130,8 +130,8 @@ def run(backend=None):
             first.locator('#oldAccessCode').fill(CODE);first.locator('#newAccessCode').fill('09876543');first.locator('#confirmAccessCode').fill('09876543')
             first.locator('#webChangePassword').click()
             expect(first.locator('#modalRoot')).to_be_empty(timeout=20000)
-            first.evaluate('lockApplication()');unlock(first,'09876543')
-            second.evaluate('lockApplication()');unlock(second,'09876543')
+            first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000)
+            second.reload();ready(second);unlock(second,'09876543')
             assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
             print('PASS: nouveau code personnel sur les deux appareils, cle partagee conservee')
 

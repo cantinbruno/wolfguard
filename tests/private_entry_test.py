@@ -41,7 +41,7 @@ def run():
             calls=[];errors=[]
             def proxy(route):
                 calls.append(urlsplit(route.request.url).path)
-                route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
+                route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
             context.route(API+'/**',proxy)
             page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             def ready():

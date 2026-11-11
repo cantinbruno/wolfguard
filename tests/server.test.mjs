@@ -67,17 +67,18 @@ test('two independent sessions recover identical ciphertext; immutable uploads u
   assert.deepEqual(edits.map(r=>r.status).sort(),[200,409]);
   assert.equal((await s.env.DB.prepare('SELECT version FROM vault').first()).version,2);
   assert.equal(s.env.BUCKET.objects.size,2);
-  s.advance(60*60000+1);assert.equal((await s.api('vault','GET',undefined,a.token)).status,401);
+  s.advance(60*60000+1);assert.equal((await s.api('vault','GET',undefined,a.token)).status,200);
   s.env.DB.db.close();
 });
 
-test('sessions survive refresh-sized gaps, expire after one idle hour and retain an eight-hour hard limit',async()=>{
+test('sessions remain available indefinitely until explicitly revoked',async()=>{
   const s=setup(),auth=await activate(s);
   try{
     for(let minute=10;minute<480;minute+=10){s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);}
-    s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token)).status,401);
+    s.advance(365*86400000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);
     const fresh=await login(s);s.advance(59*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
-    s.advance(60*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,401);
+    s.advance(60*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
+    await s.api('logout','POST',{},fresh.token);assert.equal((await s.api('touch','POST',{},fresh.token)).status,401);
   }finally{s.env.DB.db.close();}
 });
 

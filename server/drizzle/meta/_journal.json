@@ -127,6 +127,13 @@
       "when": 1794079400202,
       "tag": "0017_endpoint-protection",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794394029597,
+      "tag": "0018_account_sessions_agents_files",
+      "breakpoints": true
     }
   ]
 }

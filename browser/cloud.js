@@ -15,7 +15,7 @@ export const currentVersion = () => version;
 export const currentUser=()=>user;
 export const hasUsers=()=>usersEnabled;
 export const isAdmin=()=>!enabled||user?.role==='admin';
-export const can=key=>!enabled||user?.role==='admin'||!!(user?.permissions&&(user.permissions.expiresAt===null||user.permissions.expiresAt>Date.now())&&user.permissions.grants.includes(key));
+export const can=key=>!enabled||(typeof WolfGuardPermissions!=='undefined'?WolfGuardPermissions.can(user,key):user?.role==='admin');
 export function sessionState() { return token ? {token, version,user,usersEnabled} : null; }
 export function restoreSession(value) {
   if (!enabled || !/^[a-f0-9]{64}$/.test(value?.token || '') || !Number.isSafeInteger(value.version) || value.version < 1) throw new Error('Session de reprise invalide.');
@@ -63,7 +63,7 @@ export function clearAccountInvitation(){accountTicket='';}
 export async function inspectAccountInvitation(){return post('account/inspect',{ticket:accountTicket},{anonymous:true});}
 export async function completeAccountInvitation(username,code){const result=await post('account/complete',{ticket:accountTicket,username,code},{anonymous:true});accountTicket='';return result;}
 function acceptLogin(data){
-  if(data.otpRequired||data.otpSetupRequired){detach();return data;}
+  if(data.accountSelection||data.otpRequired||data.otpSetupRequired){detach();return data;}
   token=data.token;version=data.version;initialized=true;acceptIdentity(data);return data;
 }
 export async function login(code,username,otp){
@@ -96,13 +96,13 @@ export async function save(envelope,rotation){
   version=data.version;if(data.token)token=data.token;
 }
 export async function prepareRotation(oldCode,newCode){return (await post('rotation',{oldCode,newCode,version})).rotation;}
-export async function me(){const data=(await request('me')).data;acceptIdentity(data);return data;}
+export async function me(withWorkspace=false){const data=(await request(withWorkspace?'me?workspace=1':'me')).data;acceptIdentity(data);return data;}
 export async function initializeUsers(value){const data=await post('users/initialize',{...value,version});acceptIdentity(data);return data;}
 export async function changePersonalCode(oldCode,code){const data=await post('users/change-code',{oldCode,code});token=data.token;acceptIdentity(data);return data;}
 export async function touch(){if(token)acceptIdentity(await post('touch',{}));}
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke|restricted))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   return value===undefined?(await request(path,{signal})).data:post(path,value,{signal});
 }
 export async function chatHistory(action='',value){

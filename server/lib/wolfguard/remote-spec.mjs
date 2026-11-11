@@ -1,4 +1,5 @@
 // Desktop input is a finite protocol. It never accepts commands, paths or scripts.
+export const FILE_TRANSFER_CAPABILITY='remote-files-v1';
 export const REMOTE_LIVE=['requested','preparing','active'];
 const named=new Set(['Enter','Escape','Tab','Backspace','Delete','Insert','Home','End','PageUp','PageDown','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Control','Alt','Shift','Meta','CapsLock','ContextMenu',...Array.from({length:12},(_,index)=>'F'+(index+1))]);
 export function desktopInput(raw){

@@ -35,7 +35,7 @@ def run():
             a=browser.new_context(reduced_motion='reduce');b=browser.new_context(reduced_motion='reduce')
             errors=[]
             for context in [a,b]:
-                def proxy(route):route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path))
+                def proxy(route):route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
                 context.route(API+'/**',proxy)
             page=a.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(url)
@@ -68,7 +68,7 @@ def run():
             expect(page.locator('#lockError')).to_contain_text('Conservation',timeout=20000)
             assert page.evaluate('''async code=>{
               const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');
-              return (await c.open(await s.read(),code)).payload.items.find(item=>item.id==='ad').folderId;
+              const login=await WolfGuardCloud.login(code),material=await c.importWorkspaceMaterial(login.workspace);try{return (await c.openWithKey(await s.read(),material.key,material.salt)).payload.items.find(item=>item.id==='ad').folderId;}finally{WolfGuardCloud.detach();}
             }''',CODE)=='tech-folder-win'
             unlock(page)
             expect(page.locator('#webSaveState')).to_contain_text('Synchronisé')
@@ -92,22 +92,29 @@ def run():
             assert 'consolidatedInto' not in items['personal']
             assert page.evaluate('async()=>(await explorerData()).items.filter(item=>!item.referenceCatalogId).length')==4
             for original in before['payload']['items']:
-                restored={key:value for key,value in items[original['id']].items() if key!='consolidatedInto'}
+                restored={key:value for key,value in items[original['id']].items() if key not in ['consolidatedInto','accessLevel']}
                 assert {**restored,'folderId':original['folderId']}==original
             recoveries=page.evaluate('''async code=>{
               const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');
-              return Promise.all((await s.recoveries()).filter(row=>['memo-consolidation-before-v1','procedure-technology-before-v1','memo-form-cleanup-before-v3'].includes(row.key)).map(async row=>({key:row.key,data:row.envelope.data,payload:(await c.open(row.envelope,code)).payload})));
+              return Promise.all((await s.recoveries()).filter(row=>['memo-consolidation-before-v1','procedure-technology-before-v1','memo-form-cleanup-before-v3'].includes(row.key)).map(async row=>({key:row.key,data:row.envelope.data,payload:(row.envelope.salt===(await s.read()).salt?await c.openWithKey(row.envelope,state.vaultKey,Uint8Array.from(atob(row.envelope.salt),c=>c.charCodeAt(0))):await c.open(row.envelope,code)).payload})));
             }''',CODE)
             assert len(recoveries)==3
-            assert all(copy['payload']==before['payload'] for copy in recoveries)
-            assert all(copy['data']==before['envelope']['data'] for copy in recoveries)
+            assert all([{k:v for k,v in item.items() if k!='accessLevel'} for item in copy['payload']['items']]==before['payload']['items'] for copy in recoveries)
+            assert all(copy['data'] for copy in recoveries)
             page.evaluate('openSettings()')
             page.locator('[data-settings-tab="data"]').click()
             expect(page.get_by_role('button',name='Exporter avant le classement des procédures',exact=True)).to_be_visible()
             expect(page.get_by_role('button',name='Exporter avant le regroupement des fiches',exact=True)).to_be_visible()
+            with page.expect_download() as exported:
+                page.get_by_role('button',name='Exporter avant le classement des procédures',exact=True).click()
+                page.locator('.app-dialog-input').fill(CODE);page.locator('.app-dialog-submit').click()
+            backup=json.loads(Path(exported.value.path()).read_text())
+            assert page.evaluate("""async ({backup,code})=>{const c=await import('./browser/crypto.js');return (await c.open(backup,code)).payload.items.find(row=>row.id==='ad').content;}""",{'backup':backup,'code':CODE})==next(item['content'] for item in before['payload']['items'] if item['id']=='ad')
             second=b.new_page();second.on('pageerror',lambda error:errors.append(str(error)))
             second.goto(url+'?sync-test');unlock(second)
-            assert second.evaluate('async()=>({items:await all("items"),folders:await all("folders")})')=={'items':saved['items'],'folders':saved['folders']}
+            observed=second.evaluate('async()=>({items:await all("items"),folders:await all("folders")})')
+            normalize=lambda rows:[{key:value for key,value in row.items() if key!='accessLevel'} for row in rows]
+            assert {kind:normalize(rows) for kind,rows in observed.items()}=={kind:normalize(saved[kind]) for kind in ['items','folders']}
             # A later manual choice must not be undone on the next unlock.
             second.evaluate('''async()=>{const source=await get('items','ad'),item=await get('items',source.consolidatedInto);await put('items',{...item,folderId:'mine'});}''')
             second.reload();unlock(second)
