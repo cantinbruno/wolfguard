@@ -60,7 +60,7 @@ def run():
             assert counts['sources']==740, counts
             assert counts['references']==1 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
-            assert page.locator('.workspace-section-button').count()==10
+            assert page.locator('.workspace-section-button').count()==11
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')

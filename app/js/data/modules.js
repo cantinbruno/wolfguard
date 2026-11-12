@@ -17,7 +17,7 @@ function libraryFacets() {
 const SCAN_WORKSPACE_KINDS={'scan-passive':'passive','scan-active':'active','scan-map':'map','scan-vulnerability':'vulnerability'};
 function isScanSection(section) { return Object.hasOwn(SCAN_WORKSPACE_KINDS,section); }
 
-const PRIMARY_WORKSPACE_SECTIONS = ['library', 'vault', 'tools', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'edr', 'remote'];
+const PRIMARY_WORKSPACE_SECTIONS = ['library', 'vault', 'tools', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'edr', 'remote', 'agents'];
 
 const workspaceModules = (() => {
   const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);

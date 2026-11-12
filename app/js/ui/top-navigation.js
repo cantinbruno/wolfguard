@@ -4,10 +4,10 @@ const topNavigation = (() => {
   let permissionSignature=null,resizeObserver=null;
   let navigation, securityNavigation, securityButton;
   let lastSecuritySection = null;
-  const isSecuritySection = section => isScanSection(section) || section === 'edr';
-  const agentsAllowed = () => workspaceModules.has('tools') && (!window.WolfGuardAccess || WolfGuardAccess.can('agents.read'));
-  const signature = () => availablePrimarySections().join(',') + ':' + agentsAllowed();
+  const isSecuritySection = section => isScanSection(section) || ['agents','edr','remote'].includes(section);
+  const signature = () => availablePrimarySections().join(',');
   const labels = {
+    agents: 'Agents',
     library: 'Mémo',
     'scan-passive': 'Scan passif',
     'scan-active': 'Scan actif',
@@ -66,19 +66,9 @@ const topNavigation = (() => {
       securityNavigation.setAttribute('aria-label', 'Sécurité');
       $('.topbar').after(securityNavigation);
     }
-    const agentsButton = $('#agentsBtn');
-    if (agentsButton) {
-      agentsButton.className = 'workspace-security-agent';
-      if (!agentsButton.querySelector('.workspace-section-label')) {
-        const label = document.createElement('span');
-        label.className = 'workspace-section-label';
-        label.textContent = 'Agents';
-        agentsButton.append(label);
-      }
-      agentsButton.hidden = !agentsAllowed();
-    }
+    $('#agentsBtn')?.remove();
     const sections = availablePrimarySections();
-    const securitySections = sections.filter(isSecuritySection);
+    const securitySections = [...(sections.includes('agents') ? ['agents'] : []), ...sections.filter(section => isSecuritySection(section) && section !== 'agents')];
     securityButton = null;
     navigation.hidden=false;
     navigation.classList.add('section-navigation');
@@ -88,6 +78,7 @@ const topNavigation = (() => {
       button.type = 'button';
       button.className = 'workspace-section-button';
       button.dataset.section = section;
+      if (section === 'agents') button.id = 'agentsBtn';
       const icon = document.createElement('span');
       icon.className = 'workspace-section-icon';
       icon.setAttribute('aria-hidden', 'true');
@@ -104,25 +95,20 @@ const topNavigation = (() => {
       if (isSecuritySection(section)) continue;
       buttons.push(makeButton(section));
     }
-    if (securitySections.length || agentsAllowed()) {
+    if (securitySections.length) {
       securityButton = document.createElement('button');
       securityButton.type = 'button';
       securityButton.className = 'workspace-section-button workspace-security-button';
       securityButton.textContent = 'Sécurité';
       securityButton.setAttribute('aria-controls', 'securityNavigation');
       securityButton.onclick = () => {
-        const target = securitySections.includes(lastSecuritySection) ? lastSecuritySection : securitySections[0];
-        if (target) switchPrimaryWorkspace(target).catch(console.error);
-        else {
-          securityNavigation.hidden = false;
-          securityButton.setAttribute('aria-expanded', 'true');
-          openAgentsInterface();
-        }
+        const target = securitySections.includes('agents') ? 'agents' : securitySections.includes(lastSecuritySection) ? lastSecuritySection : securitySections[0];
+        switchPrimaryWorkspace(target).catch(console.error);
       };
       const securityIndex = sections.findIndex(isSecuritySection);
       buttons.splice(securityIndex < 0 ? buttons.length : securityIndex, 0, securityButton);
     }
-    securityNavigation.replaceChildren(...(agentsButton ? [agentsButton] : []), ...securitySections.map(makeButton));
+    securityNavigation.replaceChildren(...securitySections.map(makeButton));
     navigation.replaceChildren(...buttons);
     navigation.hidden = buttons.length < 2 && !securityButton;
     $('#app').classList.toggle('single-module', navigation.hidden);

@@ -1,4 +1,5 @@
 """Headless terminal UI: mode, streaming, cancellation, escaping and lifecycle."""
+from site_fixture import open_security
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -39,7 +40,7 @@ def run():
             page.evaluate("""async id=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[{key:'scanAgentId',value:id}],activity:[]},'07942685');await s.write(result.envelope,0)}""",agent['id'])
             page.goto(origin+'/?sync-test&terminal-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            def navigate(section):page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
+            def navigate(section):open_security(page);page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste terminal',timeout=15000)
             page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteTerminal')).to_be_visible();expect(page.locator('#wgTerminalCommand')).to_be_disabled()

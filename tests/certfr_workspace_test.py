@@ -1,5 +1,5 @@
 """Browser -> authenticated scan -> CERT-FR match -> safe links and PDF."""
-from site_fixture import open_security
+from site_fixture import open_security, open_agent_manager
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -33,7 +33,7 @@ def run():
             created=api('scans',{'agentId':agent['id'],'workspace':'active','strategy':'active','target':'192.0.2.1','mode':'tcp','ports':'22','identifyServices':True})
             job=api('agent/poll',{},auth)['job']
             api('agent/update',{'id':job['id'],'lease':job['lease'],'revision':job['revision']+1,'status':'completed','completed':1,'total':1,'report':{'strategy':'active','workspace':'active','results':[{'address':'192.0.2.1','port':22,'transport':'TCP','status':'open','product':'OpenSSH','version':'9.7p1','detail':'SSH-2.0-OpenSSH_9.7p1'}],'warnings':[]}},auth)
-            open_security(page);page.locator('#agentsBtn').click();expect(page.locator('#wgAgentCurrentTitle')).to_have_text('Poste CERT-FR');page.locator('#closeAgentsBtn').click()
+            open_agent_manager(page);expect(page.locator('#wgAgentCurrentTitle')).to_have_text('Poste CERT-FR');page.locator('#closeAgentsBtn').click()
             navigate(page,'active');page.locator('.wgscan-agent-history summary').click();expect(page.locator('#wgAgentHistory option')).to_have_count(2,timeout=15000);page.locator('#wgAgentHistory').select_option(created['id'])
             panel=page.locator('#wgScanIntelligence');expect(panel).to_contain_text('CVE-2024-6387',timeout=20000);expect(panel).to_contain_text('Version dans la plage publiée')
             source=panel.locator('a[href="https://cert.cyber.gouv.fr/avis/CERTFR-2026-AVI-0001/"]');expect(source).to_have_count(1);expect(source).to_have_attribute('rel','noopener noreferrer')

@@ -16,7 +16,7 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => isScanSection(section) || ['remote','edr'].includes(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const primarySectionFor = section => isScanSection(section) || ['remote','edr','agents'].includes(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
 const availablePrimarySections = () => PRIMARY_WORKSPACE_SECTIONS.filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
@@ -129,7 +129,7 @@ async function switchPrimaryWorkspace(section) {
     return true;
   }
   if (target === 'library') return openSection('library');
-  if (isScanSection(target) || ['remote','edr'].includes(target)) return openSection(target);
+  if (isScanSection(target) || ['remote','edr','agents'].includes(target)) return openSection(target);
   if (target === 'modules') return openSection('modules');
   if (target === 'vault') return openSection('vault', null, {
     resume: primaryWorkspaces.vault

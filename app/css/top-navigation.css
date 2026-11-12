@@ -428,7 +428,8 @@
   .topbar .top-actions{width:100%!important}
 }
 
-.workspace-security-button {--button-accent: var(--workspace-edr)}
+.workspace-security-button, .workspace-section-button[data-section="agents"] {--button-accent: var(--workspace-edr)}
+:root:has(#app[data-primary-section="agents"]:not(.hidden)), #app[data-primary-section="agents"] {--workspace-accent: var(--workspace-edr); --ui-accent: var(--workspace-edr)}
 
 #securityNavigation[hidden] {display: none !important}
 .security-navigation button[hidden] {display: none !important}

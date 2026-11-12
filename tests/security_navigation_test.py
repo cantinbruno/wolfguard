@@ -29,17 +29,20 @@ def run():
             expect(security).to_be_hidden()
             expect(page.locator('.global-tabs [data-section^="scan-"],.global-tabs [data-section="edr"]')).to_have_count(0)
             expect(page.locator('.topbar #agentsBtn')).to_have_count(0)
-            expect(security.locator('button')).to_have_count(6)
+            expect(security.locator('button')).to_have_count(7)
 
             group.click()
             expect(security).to_be_visible()
             expect(group).to_have_attribute('aria-pressed', 'true')
-            for section in ['scan-active', 'scan-map', 'scan-vulnerability', 'edr', 'scan-passive']:
+            expect(page.locator('.agents-workspace h1')).to_have_text('Mes agents')
+            expect(page.locator('.global-tabs [data-section="remote"]')).to_have_count(0)
+            for section in ['scan-active', 'scan-map', 'scan-vulnerability', 'edr', 'remote', 'scan-passive']:
                 security.locator(f'[data-section="{section}"]').click()
                 page.wait_for_function('() => !sectionTransition.active')
                 expect(security.locator(f'[data-section="{section}"]')).to_have_attribute('aria-pressed', 'true')
                 expect(group).to_have_attribute('aria-pressed', 'true')
             security.locator('#agentsBtn').click()
+            page.locator('#agentsManage').click()
             expect(page.locator('#closeAgentsBtn')).to_be_visible()
             page.locator('#closeAgentsBtn').click()
             expect(page.locator('#agentsBtn')).to_be_focused()
@@ -51,7 +54,7 @@ def run():
             expect(security).to_be_hidden()
             group.click()
             page.wait_for_function('() => !sectionTransition.active')
-            expect(security.locator('[data-section="scan-map"]')).to_have_attribute('aria-pressed', 'true')
+            expect(security.locator('[data-section="agents"]')).to_have_attribute('aria-pressed', 'true')
 
             for width in [1920, 1440, 1024, 768, 390, 320]:
                 page.set_viewport_size({'width': width, 'height': 900})
@@ -66,14 +69,13 @@ def run():
               topNavigation.refresh();
             }""")
             expect(security.locator('[data-section]')).to_have_count(1)
-            expect(page.locator('#agentsBtn')).to_be_hidden()
+            expect(page.locator('#agentsBtn')).to_have_count(0)
             page.evaluate("""() => {
-              window.WolfGuardAccess = {can: () => true, allows: s => s === 'library'};
+              window.WolfGuardAccess = {can: () => true, allows: s => ['library', 'agents'].includes(s)};
               topNavigation.refresh();
             }""")
             group.click()
-            expect(page.locator('#closeAgentsBtn')).to_be_visible()
-            page.locator('#closeAgentsBtn').click()
+            expect(page.locator('.agents-workspace')).to_be_visible()
             expect(page.locator('#agentsBtn')).to_be_visible()
             assert not errors, errors
             browser.close()

@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright,expect
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 CODE='07942685'
-from site_fixture import WolfGuardTestHandler, open_security
+from site_fixture import WolfGuardTestHandler, open_security, open_agent_manager
 from scan_workspace_test import pdf_text
 
 class Quiet(WolfGuardTestHandler):
@@ -37,7 +37,7 @@ def run():
             first.goto('http://127.0.0.1:4178/?sync-test');ready(first)
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'07942685');await s.write(result.envelope,0)}""")
             first.goto('http://127.0.0.1:4178/?sync-test&agent-test#activate='+('b'*64));unlock(first)
-            open_security(first);first.locator('#agentsBtn').click()
+            open_agent_manager(first)
             with first.expect_download() as linked:first.locator('#wgAgentPair').click()
             assert linked.value.suggested_filename=='Installer-WolfGuard.cmd'
             expect(first.locator('#wgAgentConnectPair')).to_have_attribute('href',__import__('re').compile(r'^wolfguard-agent://pair\?code=[a-f0-9]{32}$'))
@@ -210,7 +210,7 @@ def run():
                 assert response.status==200
                 enrolled=response.json();extra.append(enrolled)
                 a.request.post(backend+'/api/agent/poll',headers={'Authorization':'Agent '+enrolled['token']},data={'capabilities':['security-audit-v1']})
-                open_security(first);first.locator('#agentsBtn').click()
+                open_agent_manager(first)
                 expect(first.locator('#wgAgentSelect option[value="'+enrolled['id']+'"]')).to_have_count(1,timeout=15000)
                 first.locator('[data-agent-use="'+enrolled['id']+'"]').focus()
                 first.keyboard.press('Enter')
@@ -223,7 +223,7 @@ def run():
                     expect(first.locator('#wgAgentSelect,#wgAgentPair,#wgAgentManage,#wgAgentSettings,[data-passive-settings]')).to_have_count(0)
             first.reload();expect(first.locator('#app')).to_be_visible(timeout=30000);navigate(first,'active')
             expect(first.locator('#wgAgentName')).to_contain_text('Poste macOS',timeout=15000)
-            open_security(first);first.locator('#agentsBtn').click()
+            open_agent_manager(first)
             first.locator('#wgAgentSelect').select_option(windows_id)
             expect(first.locator('#wgAgentSetupStatus')).to_contain_text('Agent commun enregistré')
             for width in [1440,900,390,320]:

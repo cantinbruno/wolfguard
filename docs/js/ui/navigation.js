@@ -25,6 +25,7 @@ async function openSection(section, itemId = null, options = {}) {
     if (options.tool && ['ip', 'hash', 'text'].includes(options.tool)) networkToolsView.tool = options.tool;
     if (options.resume?.section === 'tools') networkToolsView.tool = ['ip', 'hash', 'text'].includes(options.resume.tool) ? options.resume.tool : 'ip';
     if(isScanSection(state.section)&&state.section!==section)webScanHistory.unmount();
+    if (state.section === 'agents' && section !== 'agents') agentsWorkspace.reset();
     if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
@@ -496,6 +497,7 @@ async function renderWorkspace() {
   if (ticket !== renderWorkspaceQueued) return;
   if (state.section === 'modules') renderModulesWorkspace();
   else if (isScanSection(state.section)) await renderScanWorkspace();
+  else if (state.section === 'agents') await agentsWorkspace.render();
   else if (state.section === 'remote') await remoteDesktopWorkspace.render();
   else if (state.section === 'edr') await edrWorkspace.render();
   else if (state.section === 'tools') await renderNetworkTools();

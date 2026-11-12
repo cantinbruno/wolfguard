@@ -26,6 +26,7 @@ function workspaceNavigationIcon(name) {
 }
 
 function workspaceSectionIcon(section) {
+  if (section === 'agents') return settingsIcon('monitor');
   if (section === 'edr') return settingsIcon('shield-check');
   if (section === 'remote') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8m-4-5v5m1-15 5 3-3 1-1 3Z"/></svg>';
   if (section === 'scan-map') return protocolFamilyIcon('network');

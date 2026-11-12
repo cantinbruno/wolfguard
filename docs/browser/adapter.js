@@ -591,7 +591,7 @@ const webWorkspace = (() => {
   async function lock() {
     if (locking) return;
     window.remoteDesktopWorkspace?.reset();
-    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();
+    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof agentsWorkspace!=='undefined')agentsWorkspace.reset();
     locking=true; epoch++; session=null; sessionClock=null; connectedWorkspaceReady=false;
     const forgotten = tabSession?.forget().catch(() => {});
     clearInterval(cloudHeartbeat);cloudHeartbeat=null;cloud?.clear();
@@ -905,7 +905,7 @@ const webWorkspace = (() => {
     $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
     const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status');status.innerHTML='<span id="webSaveLabel"></span><button type="button" id="webSharedRefresh" aria-label="Actualiser l’espace partagé" hidden>Actualiser</button>';document.body.append(status);
     $('#webSharedRefresh').onclick=()=>refreshShared({manual:true});
-    topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();$('#agentsBtn').onclick=()=>openAgentsInterface();
+    topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();
     document.addEventListener('click',event => { if (!event.target.closest('.search')) hideSearch(); });
     applyExplorerWidth(getExplorerWidth()); registerActivityForAutoLock();
     // Rich clipboard HTML must be sanitized before it enters the live editor.
@@ -923,7 +923,7 @@ const webWorkspace = (() => {
       if(storage && !session && event.data?.scope===accessScope())loadAttempts().then(renderKeypad);
     };
     window.addEventListener('pagehide',() => { window.remoteDesktopWorkspace?.reset();
-    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(sessionExpired()){tabSession.forget().catch(()=>{});cloud.clear();}else{updateReloadTicket();cloud?.detach();}epoch++;session=null;sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
+    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof agentsWorkspace!=='undefined')agentsWorkspace.reset();if(sessionExpired()){tabSession.forget().catch(()=>{});cloud.clear();}else{updateReloadTicket();cloud?.detach();}epoch++;session=null;sessionClock=null;clearTimeout(autoLockTimer);clearInterval(cloudHeartbeat);state.vaultKey=null;selectedEditorImage=null;resetPrimaryWorkspaces();$('#content').replaceChildren();closeModal();release(); });
     window.addEventListener('pageshow',event => { if (event.persisted) lock(); });
     window.addEventListener('unhandledrejection',event => { event.preventDefault(); appNotify(event.reason?.message || 'Opération impossible.',{kind:'error'}); });
     if (!isSecureContext || !crypto.subtle) throw new Error('Ouvre le site via HTTPS ou localhost.');

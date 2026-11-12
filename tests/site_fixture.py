@@ -30,3 +30,10 @@ def open_security(page):
     if page.locator("#securityNavigation").is_hidden():
         page.locator(".workspace-security-button").click()
         page.wait_for_function("() => !sectionTransition.active")
+
+
+def open_agent_manager(page):
+    open_security(page)
+    page.locator('#agentsBtn').click()
+    page.wait_for_function('() => !sectionTransition.active')
+    page.locator('#agentsManage').click()

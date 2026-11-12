@@ -60,6 +60,7 @@ def run():
             assert len(set(palette.values()))==len(palette)
             # Return through all sections after EDR: no previous accent may leak.
             for section in ['edr',*palette]:
+                if section.startswith('scan-') or section in ['remote','edr']:open_security(page)
                 page.locator('[data-section='+section+']').click();page.wait_for_function('()=>!sectionTransition.active')
                 expected=palette[section]
                 colours=page.evaluate("""section=>({app:getComputedStyle(document.querySelector('#app')).getPropertyValue('--workspace-accent').trim(),root:getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim(),tab:getComputedStyle(document.querySelector('[data-section="'+section+'"]')).getPropertyValue('--button-accent').trim(),content:getComputedStyle(document.querySelector('#content')).getPropertyValue('--ui-accent').trim(),classes:[...document.querySelector('#content').classList].filter(name=>name.startsWith('section-accent-'))})""",section)

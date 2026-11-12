@@ -68,7 +68,7 @@ const edrWorkspace=(()=>{
     async function refresh(){
       if(!live()||busy)return;busy=true;find('#edrRefresh').disabled=true;
       try{const result=await request('');if(!live())return;endpoints=result.endpoints;stale=false;if(selected&&!endpoints.some(row=>row.id===selected)){selected=null;policyDirty=false;find('#edrPostDetail').hidden=true;}
-        draw();if(!selected&&endpoints.length)await choose(endpoints[0].id);else if(selected)await loadEvents();status('Relevés reçus · '+new Date(result.serverTime).toLocaleTimeString('fr-FR')+' · Les postes hors ligne restent non confirmés.');
+        const preferred=await setting('scanAgentId','');if(!live())return;draw();if(!selected&&endpoints.length)await choose(endpoints.find(row=>row.id===preferred)?.id||endpoints[0].id);else if(selected)await loadEvents();status('Relevés reçus · '+new Date(result.serverTime).toLocaleTimeString('fr-FR')+' · Les postes hors ligne restent non confirmés.');
       }catch(error){if(live()){stale=true;status(error.message+' Les états précédents ne sont plus confirmés.');draw();}}
       finally{busy=false;if(live()){find('#edrRefresh').disabled=false;drawState();drawEvents();clearTimeout(timer);timer=setTimeout(refresh,15000);}}
     }

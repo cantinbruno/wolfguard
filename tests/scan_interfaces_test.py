@@ -1,4 +1,5 @@
 """Purpose-specific scan forms, map exploration and audit triage in the browser."""
+from site_fixture import open_agent_manager
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -51,7 +52,7 @@ def run():
                 page.screenshot(path=str(ROOT/f'.cache/scan-setup-{kind}-mobile.png'),animations='disabled')
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),kind
                 page.set_viewport_size({'width':1440,'height':1000})
-            page.locator('#agentsBtn').click()
+            open_agent_manager(page)
             expect(page.locator('#wgAgentSelect')).to_be_visible()
             page.locator('#closeAgentsBtn').click()
             print('PASS: four distinct forms and empty states, common agent managed only in settings')
