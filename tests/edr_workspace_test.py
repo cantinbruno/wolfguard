@@ -57,7 +57,7 @@ def run():
             assert not page.evaluate('workspaceModules.allows("chatbot")')
             assert page.evaluate('async()=>await openSection("chatbot")') is False
             expect(page.locator('#edrPostDetail')).to_be_visible()
-            palette={'library':'#ffc078','scan-passive':'#8fd5ff','scan-active':'#d1b5ff','scan-map':'#79ead0','scan-vulnerability':'#ff9b9b','tools':'#ffaddb','remote':'#9eafff','vault':'#91edbd','edr':'#f3dc78'}
+            palette={'library':'#9edcff','scan-passive':'#8fd5ff','scan-active':'#d1b5ff','scan-map':'#79ead0','scan-vulnerability':'#ff9b9b','tools':'#ffaddb','remote':'#9eafff','vault':'#91edbd','edr':'#f3dc78'}
             assert len(set(palette.values()))==len(palette)
             # Return through all sections after EDR: no previous accent may leak.
             for section in ['edr',*palette]:

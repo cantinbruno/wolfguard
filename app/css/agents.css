@@ -1,67 +1,153 @@
-.agents-workspace {max-width: 1440px; margin: 0 auto; padding: 28px; color: var(--ui-text)}
-.agents-heading {display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 24px}
-.agents-eyebrow {font-size: 11px; font-weight: 700; letter-spacing: .1em; color: var(--ui-muted)}
-.agents-heading h1 {font-size: 28px; margin: 8px 0}
-.agents-heading p, .agents-contact {color: var(--ui-muted); font-size: 13px}
-.agents-heading-actions {display: flex; flex-wrap: wrap; gap: 8px}
-.agents-heading-actions button {padding: 10px 14px; min-height: 40px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer}
-.agents-heading-actions .agents-primary {background: var(--workspace-edr); color: var(--ui-page); font-weight: 700}
+.agents-workspace {--agents-accent: var(--workspace-edr); --agents-line: color-mix(in srgb, var(--ui-border) 70%, transparent); max-width: 1480px; margin: 0 auto; padding: 30px; color: var(--ui-text)}
 .agents-workspace [hidden] {display: none !important}
+.agents-heading {display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 26px}
+.agents-heading-intro {display: flex; align-items: center; gap: 16px; min-width: 0}
+.agents-heading-icon, .agents-selected-icon {display: grid; place-items: center; flex: none; width: 52px; height: 52px; border: 1px solid color-mix(in srgb, var(--agents-accent) 25%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--agents-accent) 8%, var(--ui-sidebar)); color: var(--agents-accent)}
+.agents-heading-icon svg {width: 26px; height: 26px}
+.agents-heading h1 {font-size: 28px; font-weight: 650; letter-spacing: -.7px; margin: 0 0 6px}
+.agents-heading p {margin: 0; color: var(--ui-muted); font-size: 13px; line-height: 1.5}
+.agents-heading-actions {display: flex; flex-wrap: wrap; gap: 8px}
+.agents-heading-actions button, .agents-tool-heading button {display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 13px; min-height: 40px; border: 1px solid var(--agents-line); border-radius: 8px; background: var(--ui-surface); color: var(--ui-text); font-size: 12px; cursor: pointer}
+.agents-heading-actions button svg, .agents-tool-heading button svg {width: 16px; height: 16px; flex: none}
+.agents-heading-actions button:hover:enabled, .agents-tool-heading button:hover {background: var(--ui-raised); border-color: var(--agents-accent)}
+.agents-heading-actions .agents-primary {background: var(--agents-accent); border-color: var(--agents-accent); color: var(--ui-on-accent); font-weight: 700}
+.agents-heading-actions .agents-primary:hover:enabled {background: color-mix(in srgb, var(--agents-accent) 80%, white)}
+.agents-heading-actions button:disabled {opacity: .65; cursor: wait}
 .agents-metrics {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px}
-.agents-metrics article {padding: 16px 20px; background: var(--ui-sidebar); border: 1px solid var(--ui-border); border-radius: 8px}
-.agents-metrics span {display: block; color: var(--ui-muted); font-size: 12px}
-.agents-metrics strong {display: block; margin-top: 6px; font-size: 26px}
-#agentsStatus {min-height: 20px; margin: 14px 0; color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere}
-.agents-console {display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 20px; align-items: start}
-.agents-fleet, .agents-detail {min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-sidebar); overflow: hidden}
+.agents-metrics article {display: flex; align-items: center; gap: 14px; padding: 18px 20px; background: var(--ui-sidebar); border: 1px solid var(--agents-line); border-radius: 10px}
+.agents-metric-icon {display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 10px; background: var(--ui-surface); color: var(--agents-accent)}
+.agents-metric-icon svg {width: 19px; height: 19px}
+.agents-metrics article[data-state="online"] .agents-metric-icon {color: var(--workspace-vault); background: color-mix(in srgb, var(--workspace-vault) 8%, var(--ui-sidebar))}
+.agents-metrics article[data-state="offline"] .agents-metric-icon {color: var(--ui-subtle)}
+.agents-metrics article > div {display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 1; min-width: 0}
+.agents-metrics article > div > span {color: var(--ui-muted); font-size: 12px; line-height: 1.4}
+.agents-metrics strong {font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.7px}
+#agentsStatus {display: flex; align-items: baseline; gap: 8px; min-height: 18px; margin: 12px 2px 22px; color: var(--ui-subtle); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere}
+#agentsStatus::before {content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor}
+.agents-workspace[data-stale="true"] #agentsStatus {color: var(--workspace-audit)}
+.agents-workspace[data-stale="true"] .agents-metrics .agents-metric-icon {color: var(--ui-subtle); background: var(--ui-surface)}
+.agents-console {display: grid; grid-template-columns: minmax(250px, 310px) minmax(0, 1fr); gap: 20px; align-items: start}
+.agents-fleet, .agents-detail {min-width: 0; border: 1px solid var(--agents-line); border-radius: 12px; background: var(--ui-sidebar); overflow: hidden}
 .agents-fleet {position: sticky; top: 16px}
-.agents-fleet-filters {display: grid; gap: 8px; padding: 16px; border-bottom: 1px solid var(--ui-border)}
-.agents-fleet-filters label {font-size: 12px; color: var(--ui-muted)}
-.agents-fleet-filters :is(input,select) {box-sizing: border-box; min-width: 0; width: 100%; min-height: 38px; border: 1px solid var(--ui-border); border-radius: 6px; padding: 8px; background: var(--ui-surface); color: var(--ui-text)}
-#agentsList {max-height: 64vh; overflow-y: auto}
-.agents-fleet-row {box-sizing: border-box; display: grid; width: 100%; gap: 9px; padding: 16px; text-align: left; border: 0; border-bottom: 1px solid var(--ui-border); border-radius: 0; background: transparent; color: var(--ui-text); cursor: pointer}
-.agents-fleet-row[aria-pressed="true"] {background: color-mix(in srgb, var(--workspace-edr) 10%, var(--ui-sidebar)); box-shadow: inset 3px 0 var(--workspace-edr)}
-.agents-fleet-row:hover {background: var(--ui-raised)}
-.agents-fleet-name {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px}
+.agents-fleet-title {display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 18px 0; font-size: 14px; font-weight: 650}
+.agents-count {padding: 3px 8px; border-radius: 5px; background: var(--ui-surface); color: var(--ui-muted); font-size: 11px; font-variant-numeric: tabular-nums}
+.agents-fleet-filters {display: grid; gap: 8px; padding: 16px 18px; border-bottom: 1px solid var(--agents-line)}
+.agents-fleet-filters label {font-size: 11px; color: var(--ui-subtle)}
+.agents-filter-label {margin-top: 4px}
+.agents-search {position: relative; min-width: 0}
+.agents-search > svg {position: absolute; left: 11px; top: 12px; width: 15px; height: 15px; color: var(--ui-subtle); pointer-events: none}
+.agents-fleet-filters :is(input,select) {box-sizing: border-box; min-width: 0; width: 100%; min-height: 39px; border: 1px solid var(--agents-line); border-radius: 7px; padding: 9px 10px; background: var(--ui-page); color: var(--ui-text); font-size: 12px}
+.agents-search input {padding-left: 34px}
+.agents-search input::placeholder {color: var(--ui-subtle); opacity: 1}
+.agents-fleet-filters :is(input,select):focus-visible {outline: 2px solid var(--agents-accent); outline-offset: 2px}
+#agentsList {max-height: 62vh; overflow-y: auto; scrollbar-width: thin}
+.agents-fleet-row {box-sizing: border-box; display: flex; align-items: start; width: 100%; gap: 11px; padding: 18px; text-align: left; border: 0; border-bottom: 1px solid var(--agents-line); border-radius: 0; background: transparent; color: var(--ui-text); cursor: pointer}
+.agents-fleet-row:last-child {border-bottom: 0}
+.agents-fleet-row:hover {background: var(--ui-surface)}
+.agents-fleet-row[aria-pressed="true"] {background: color-mix(in srgb, var(--agents-accent) 7%, var(--ui-sidebar)); box-shadow: inset 3px 0 var(--agents-accent)}
+.agents-device-icon {display: grid; place-items: center; flex: none; width: 32px; height: 32px; border: 1px solid var(--agents-line); border-radius: 8px; background: var(--ui-surface); color: var(--ui-subtle)}
+.agents-device-icon svg {width: 17px; height: 17px}
+.agents-fleet-row[aria-pressed="true"] .agents-device-icon {color: var(--agents-accent); border-color: color-mix(in srgb, var(--agents-accent) 30%, transparent)}
+.agents-fleet-body {display: grid; flex: 1; min-width: 0; gap: 7px}
+.agents-fleet-name {display: block; font-size: 13px; line-height: 1.4}
 .agents-fleet-name strong, .agents-detail-heading h2 {overflow-wrap: anywhere; min-width: 0}
-.agents-fleet-row > span:not(.agents-fleet-name), .agents-fleet-row small {font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere}
+.agents-fleet-meta {display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--ui-muted)}
+.agents-fleet-body small {font-size: 10px; line-height: 1.5; color: var(--ui-subtle); overflow-wrap: anywhere}
 .agents-presence {display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ui-muted); white-space: nowrap}
-.agents-presence::before {content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor}
+.agents-presence::before {content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor}
 .agents-presence[data-state="online"] {color: var(--workspace-vault)}
-.agents-detail {padding: 22px}
-.agents-main {display: grid; gap: 16px; min-width: 0}
-.agents-action-grid {margin-top: 20px}
-.agents-action-grid button[aria-pressed="true"] {border-color: var(--workspace-edr); box-shadow: inset 0 -2px var(--workspace-edr)}
-.agents-tool-panel {min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-sidebar); scroll-margin-top: 12px; overflow: hidden}
-.agents-tool-heading {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--ui-border)}
-.agents-tool-heading h2 {margin: 0; font-size: 16px}
-.agents-tool-heading button {padding: 8px 12px; min-height: 38px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer}
-#agentToolHost {min-width: 0; padding: 16px}
+.agents-detail {padding: 24px}
+.agents-main {display: grid; gap: 20px; min-width: 0}
+.agents-detail-heading {display: flex; gap: 16px; align-items: center; padding-bottom: 22px; border-bottom: 1px solid var(--agents-line)}
+.agents-detail-heading > div {min-width: 0}
+.agents-selected-icon {width: 56px; height: 56px; border-radius: 12px}
+.agents-selected-icon svg {width: 27px; height: 27px}
+.agents-eyebrow {font-size: 9px; font-weight: 650; letter-spacing: .12em; color: var(--ui-subtle); overflow-wrap: anywhere}
+.agents-detail-heading h2 {font-size: 23px; font-weight: 650; letter-spacing: -.5px; margin: 6px 0 8px}
+.agents-detail-heading p {font-size: 12px; color: var(--ui-muted); margin: 0; line-height: 1.5}
+.agents-detail-heading .agents-contact {margin-top: 6px; font-size: 10px; color: var(--ui-subtle)}
+.agents-action-hint {margin: 20px 0 14px; font-size: 12px; color: var(--ui-muted)}
+.agents-action-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px}
+.agents-action-grid button {display: flex; flex-direction: column; align-items: stretch; gap: 9px; min-width: 0; padding: 16px; text-align: left; border: 1px solid var(--agents-line); border-radius: 9px; background: var(--ui-page); color: var(--ui-text); cursor: pointer; white-space: normal; overflow-wrap: anywhere; transition: border-color .15s, background-color .15s}
+.agents-action-grid button:hover:enabled {border-color: color-mix(in srgb, var(--agents-accent) 65%, var(--ui-border)); background: var(--ui-surface)}
+.agents-action-grid button[aria-pressed="true"] {border-color: var(--agents-accent); background: color-mix(in srgb, var(--agents-accent) 6%, var(--ui-page)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agents-accent) 15%, transparent)}
+.agents-action-grid button:disabled {cursor: default; color: var(--ui-muted)}
+.agents-action-title {display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 1.4}
+.agents-action-icon {display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 7px; background: var(--ui-surface); color: var(--agents-accent)}
+.agents-action-icon svg {width: 17px; height: 17px}
+.agents-action-grid button:disabled .agents-action-icon {color: var(--ui-subtle)}
+.agents-action-description {font-size: 11px; line-height: 1.6; color: var(--ui-muted)}
+.agents-action-grid small {display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--agents-line); font-size: 10px; line-height: 1.5; color: var(--ui-subtle)}
+.agents-action-grid .agents-action-ready {color: var(--agents-accent)}
+.agents-action-ready > span {display: inline-flex; flex: none}
+.agents-action-ready svg {width: 13px; height: 13px}
+.agents-tool-panel {min-width: 0; border: 1px solid color-mix(in srgb, var(--agents-accent) 40%, var(--ui-border)); border-radius: 12px; background: var(--ui-sidebar); scroll-margin-top: 12px; overflow: hidden}
+.agents-tool-heading {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--agents-line); background: color-mix(in srgb, var(--agents-accent) 5%, var(--ui-sidebar))}
+.agents-tool-heading > div {min-width: 0; flex: 1}
+.agents-tool-heading h2 {margin: 5px 0 0; font-size: 16px; font-weight: 650; overflow-wrap: anywhere}
+#agentToolHost {min-width: 0; padding: 20px}
 #agentToolHost > :is(.wgscan, .scan-page, .remote-workspace, .edr-workspace) {margin: 0; padding: 0; max-width: 100%; min-width: 0}
 #agentToolHost :is(.security-workspace-heading > div:first-child, #edrAgents, .edr-filters, #edrPosts, .remote-heading, .remote-explanation, .remote-modes, .remote-agent) {display: none !important}
 #agentToolHost .security-workspace-heading {justify-content: flex-end; margin-bottom: 12px}
 #agentToolHost .edr-console {display: block}
 #agentToolHost .edr-detail {min-width: 0; border: 0; padding: 0}
-.agents-detail-heading {display: flex; justify-content: space-between; gap: 16px; align-items: center}
-.agents-detail-heading h2 {font-size: 22px; margin: 8px 0}
-.agents-detail-heading p {font-size: 13px; color: var(--ui-muted)}
-.agents-detail-heading > svg {flex: none; width: 32px; height: 32px; color: var(--workspace-edr)}
-.agents-action-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px}
-.agents-action-grid button {display: flex; flex-direction: column; align-items: start; gap: 10px; min-width: 0; padding: 16px; text-align: left; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer; white-space: normal; overflow-wrap: anywhere}
-.agents-action-grid button:hover:enabled {border-color: var(--workspace-edr); background: var(--ui-raised)}
-.agents-action-grid button:disabled {cursor: default; color: var(--ui-muted)}
-.agents-action-title {display: flex; align-items: center; gap: 8px; font-size: 13px}
-.agents-action-title svg {flex: none; width: 16px; height: 16px}
-.agents-action-grid button > span:not(.agents-action-title), .agents-action-grid small {font-size: 12px; line-height: 1.5; color: var(--ui-muted)}
-.agents-action-grid small {margin-top: auto}
-.agents-action-grid .agents-action-ready {color: var(--workspace-vault)}
-.agents-empty {padding: 28px 18px; text-align: center; color: var(--ui-muted)}
-.agents-empty h2 {font-size: 16px; color: var(--ui-text)}
-.agents-empty p, .agents-notice {font-size: 13px; line-height: 1.6}
-.agents-empty-icon svg {width: 36px; height: 36px}
-.agents-notice {padding: 12px; border: 1px solid var(--ui-border); border-radius: 6px; color: var(--ui-muted)}
-.agents-workspace button:focus-visible {outline: 2px solid var(--workspace-edr); outline-offset: -3px}
-@media(max-width:1100px) {.agents-action-grid {grid-template-columns: repeat(2, minmax(0, 1fr))}.agents-heading {align-items: start; flex-direction: column}}
-@media(max-width:700px) {.agents-workspace {padding: 14px}.agents-console {grid-template-columns: minmax(0, 1fr)}#agentsList {max-height: 280px}.agents-detail {padding: 16px}.agents-metrics {gap: 6px}.agents-metrics article {padding: 12px 10px}.agents-metrics strong {font-size: 22px}.agents-heading-actions button {padding: 8px 10px}.agents-action-grid button {padding: 12px}}
-@media(max-width:360px) {.agents-action-grid {grid-template-columns: minmax(0, 1fr)}}
-@media(max-width:700px) {.agents-fleet {position: static}}
+.agents-empty {padding: 36px 20px; text-align: center; color: var(--ui-muted)}
+.agents-empty h2 {font-size: 16px; font-weight: 650; color: var(--ui-text)}
+.agents-empty p, .agents-notice {font-size: 12px; line-height: 1.7}
+.agents-empty-icon {display: grid; place-items: center; margin: 0 auto 20px; width: 64px; height: 64px; border-radius: 16px; background: var(--ui-surface); color: var(--agents-accent)}
+.agents-empty-icon svg {width: 30px; height: 30px}
+.agents-notice {margin: 18px 0 0; padding: 12px 14px; border: 1px solid var(--agents-line); border-left: 2px solid var(--agents-accent); border-radius: 6px; color: var(--ui-muted); background: var(--ui-page)}
+.agents-workspace button:focus-visible {outline: 2px solid var(--agents-accent); outline-offset: -3px}
+@media(min-width:1400px) {.agents-action-grid {grid-template-columns: repeat(3, minmax(0, 1fr))}}
+@media(max-width:1100px) {
+  .agents-workspace {padding: 24px}
+  .agents-heading {align-items: start; flex-direction: column; gap: 18px}
+  .agents-console {grid-template-columns: minmax(220px, 270px) minmax(0, 1fr); gap: 16px}
+  .agents-detail {padding: 20px}
+  .agents-metrics article {padding: 14px; gap: 10px}
+  .agents-metric-icon {width: 32px; height: 32px}
+  .agents-metrics article > div {gap: 8px}
+}
+@media(max-width:850px) {
+  .agents-console {grid-template-columns: minmax(0, 1fr)}
+  .agents-fleet {position: static}
+  #agentsList {max-height: 245px}
+  .agents-fleet-filters {grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end}
+  .agents-fleet-filters label {grid-row: 1; margin-top: 0}
+  .agents-fleet-filters label[for="agentsSearch"] {grid-column: 1}
+  .agents-fleet-filters label[for="agentsFilter"] {grid-column: 2}
+}
+@media(max-width:600px) {
+  .agents-workspace {padding: 16px 12px}
+  .agents-heading {margin-bottom: 20px}
+  .agents-heading-intro {gap: 12px}
+  .agents-heading-icon {width: 42px; height: 42px; border-radius: 10px}
+  .agents-heading h1 {font-size: 24px}
+  .agents-heading p {font-size: 11px}
+  .agents-heading-actions {gap: 6px}
+  .agents-heading-actions button {padding: 9px 10px; font-size: 11px; gap: 6px}
+  #agentsRefresh span {display: none}
+  .agents-metrics {gap: 6px}
+  .agents-metrics article {display: block; padding: 12px 10px}
+  .agents-metric-icon {display: none}
+  .agents-metrics article > div {display: grid; gap: 7px}
+  .agents-metrics article > div > span {font-size: 10px}
+  .agents-metrics strong {font-size: 23px}
+  #agentsStatus {margin-bottom: 16px; font-size: 10px}
+  .agents-fleet-title {padding: 16px 14px 0}
+  .agents-fleet-filters {padding: 14px}
+  .agents-fleet-row {padding: 14px}
+  .agents-detail {padding: 16px}
+  .agents-detail-heading {gap: 12px; padding-bottom: 18px}
+  .agents-selected-icon {width: 42px; height: 42px; border-radius: 10px}
+  .agents-selected-icon svg {width: 23px; height: 23px}
+  .agents-detail-heading h2 {font-size: 20px}
+  .agents-action-grid {gap: 8px}
+  .agents-action-grid button {padding: 12px}
+  .agents-action-title {flex-direction: column; align-items: start; gap: 8px; font-size: 12px}
+  .agents-action-description {font-size: 11px}
+  .agents-tool-heading, #agentToolHost {padding: 14px}
+  .agents-tool-heading button {font-size: 11px; padding: 8px}
+}
+@media(max-width:360px) {.agents-action-grid {grid-template-columns: minmax(0, 1fr)}.agents-action-title {flex-direction: row; align-items: center}}
+@media(prefers-reduced-motion:reduce) {.agents-action-grid button {transition: none}}

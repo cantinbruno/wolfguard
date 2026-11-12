@@ -51,7 +51,7 @@ const topNavigation = (() => {
       const icon = document.createElement('span');
       icon.className = 'workspace-section-icon';
       icon.setAttribute('aria-hidden', 'true');
-      icon.innerHTML = workspaceSectionIcon(section === 'security' ? 'agents' : section);
+      icon.innerHTML = workspaceSectionIcon(section === 'security' ? 'edr' : section);
       const label = document.createElement('span');
       label.className = 'workspace-section-label';
       label.textContent = labels[section];
