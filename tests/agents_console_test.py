@@ -12,7 +12,7 @@ from site_fixture import open_security
 
 ROOT = Path(__file__).resolve().parents[1]
 API = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
-CAPABILITIES = ['network-scan-v3', 'network-target-v1', 'network-auto-map-v1', 'network-topology-v1', 'security-audit-v1', 'endpoint-protection-v1', 'remote-desktop-v1', 'remote-terminal-v1', 'remote-files-v1']
+CAPABILITIES = ['auto-update-v1', 'network-scan-v3', 'network-target-v1', 'network-auto-map-v1', 'network-topology-v1', 'security-audit-v1', 'endpoint-protection-v1', 'remote-desktop-v1', 'remote-terminal-v1', 'remote-files-v1']
 
 
 def run():

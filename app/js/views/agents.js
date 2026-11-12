@@ -86,7 +86,7 @@ const agentsWorkspace = (() => {
     function updateHTML(agent) {
       const info = updateInfo(agent);
       const label = info.task?.running ? 'Mise à jour…' : info.current ? 'À jour' : 'Mettre à jour';
-      const message = info.task?.running || info.task?.status === 'failed' && !info.current ? info.task.message : info.current ? 'Version confirmée par le poste' : info.reason || (agent.version ? 'Nouvelle version disponible' : 'Version non remontée');
+      const message = info.task?.running || info.task?.status === 'failed' && !info.current ? info.task.message : info.current ? 'Version confirmée par le poste' : info.reason || 'Mise à jour automatique dès que le poste est disponible';
       const manual = agent.online && !agent.capabilities?.includes('remote-terminal-v1') && ['win32','linux','darwin'].includes(agent.platform);
       const file = {win32:'WolfGuard-Agent-Windows.exe',linux:'WolfGuard-Agent-Linux.zip',darwin:'WolfGuard-Agent-macOS.zip'}[agent.platform];
       return '<div class="agents-version-line"><code title="' + esc(agent.version || 'Version non remontée') + '">' + esc(agent.version?.slice(0,8) || 'Non remontée') + '</code>' + (manual ? '<a class="agents-update-button" href="downloads/' + file + '" download title="Télécharger l’agent récent à installer sur ce poste">Installer</a>' : '<button type="button" class="agents-update-button" data-agent-install-update="' + esc(agent.id) + '" data-current="' + info.current + '" ' + (!info.canUpdate ? 'disabled' : '') + ' title="' + esc(message) + '">' + label + '</button>') + '</div><small class="agents-update-status" data-agent-update-status="' + esc(agent.id) + '" data-state="' + (info.current ? 'completed' : info.task?.status || 'idle') + '" title="' + esc(message) + '" role="status">' + esc(message) + '</small>';
@@ -280,6 +280,7 @@ const agentsWorkspace = (() => {
           ['Visibilité',Object.hasOwn(agent,'restricted') ? agent.restricted ? 'Administrateurs uniquement' : 'Selon les droits d’accès au parc' : 'Selon les droits d’accès au parc']
         ]) + section('Agent et mises à jour',[
           ['Version installée',agent.version || 'Non remontée'],['Version publiée',!releaseStale ? publishedRelease?.version || 'Indisponible' : 'Indisponible'],
+          ['Mises à jour automatiques',agent.capabilities?.includes('auto-update-v1') ? 'Activées · vérification toutes les 5 minutes, site fermé compris' : agent.capabilities?.includes('remote-terminal-v1') ? 'Première mise à niveau automatique depuis le site' : 'Installation initiale d’un agent récent nécessaire'],
           ['État de la version',info.current ? 'À jour · confirmée par le poste' : releaseStale || !publishedRelease || stale ? 'À vérifier' : info.outdated ? 'Mise à jour disponible' : 'Version non remontée'],
           ['Dernière opération',info.task?.message || 'Aucune mise à jour en cours'],['Mise à jour à distance',info.reason || (info.current ? 'Dernière version installée' : info.task?.running ? 'En cours' : 'Disponible')]
         ]) + section('Protection du poste',[
@@ -343,7 +344,7 @@ const agentsWorkspace = (() => {
         stale = true; find('#agentsStatus').textContent = error.message + ' La disponibilité des postes n’est plus confirmée.';
       } finally {
         busy = false;
-        if (live()) { root.dataset.refreshing = 'false'; find('.agents-table-scroll').setAttribute('aria-busy', 'false'); find('#agentsRefresh').disabled = false; draw(); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
+        if (live()) { root.dataset.refreshing = 'false'; find('.agents-table-scroll').setAttribute('aria-busy', 'false'); find('#agentsRefresh').disabled = false; draw(); if(!stale&&!releaseStale)WolfGuardAgentUpdates.automatic(agents,{onChange:()=>{if(live())draw();}}); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
       }
     }
     find('#agentsSearch').oninput = event => { query = event.target.value.trim(); draw(); };

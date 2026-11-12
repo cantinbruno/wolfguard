@@ -28,18 +28,13 @@ POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mj
 for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
-for name in ['topology.mjs','version.mjs']:
+for name in ['topology.mjs','version.mjs','auto-update.mjs','update-command.mjs']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['agent/topology.ps1']='agent/topology.ps1'
-FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
-POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
-FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
-POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
-POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
-FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
-FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
-POSIX_FILES['server/lib/wolfguard/terminal-spec.mjs']='server/lib/wolfguard/terminal-spec.mjs'
+for name in ['files-spec.mjs','remote-spec.mjs','terminal-spec.mjs']:
+    FILES['server/lib/wolfguard/'+name]='server/lib/wolfguard/'+name
+    POSIX_FILES['server/lib/wolfguard/'+name]='server/lib/wolfguard/'+name
 POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})
 
 FILES['agent/endpoint.ps1']='agent/endpoint.ps1'

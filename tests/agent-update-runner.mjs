@@ -7,7 +7,7 @@ const enrolled=await client.post('enroll',{code:config.code,name:config.name,pla
 let updated=false;
 const post=client.post.bind(client);
 client.post=async(route,data,options)=>{
-  if(route==='poll')data={...data,version:updated?config.version:'0'.repeat(64),capabilities:updated?data.capabilities:data.capabilities.filter(value=>value!=='network-topology-v1')};
+  if(route==='poll')data={...data,version:updated?config.version:'0'.repeat(64),capabilities:updated?data.capabilities:data.capabilities.filter(value=>!['network-topology-v1','auto-update-v1'].includes(value))};
   return post(route,data,options);
 };
 process.stdout.write(JSON.stringify({id:enrolled.id})+'\n');

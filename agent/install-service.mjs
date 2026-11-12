@@ -8,7 +8,7 @@ import {AgentClient,agentDirectory,diskCredentialStore} from './agent.mjs';
 import {fixedProcess} from './network.mjs';
 import {AGENT_VERSION} from './version.mjs';
 
-const FILES=['agent.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','topology.mjs','version.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
+const FILES=['agent.mjs','auto-update.mjs','update-command.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','topology.mjs','version.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
 const SPECS=['scan-spec.mjs','remote-spec.mjs','files-spec.mjs','terminal-spec.mjs','ai-input.mjs','endpoint-spec.mjs'];
 const xml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const systemd=value=>'"'+String(value).replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('%','%%').replaceAll('$','$$')+'"';

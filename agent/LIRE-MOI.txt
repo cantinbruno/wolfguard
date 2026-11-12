@@ -1,6 +1,11 @@
 WolfGuard Agent - Windows 10/11 x64
 
 L'agent fonctionne en arriere-plan, sans fenetre ni icone a gerer.
+Les mises a jour de l'agent sont automatiques, meme lorsque le site est ferme.
+La version est verifiee toutes les cinq minutes quand le poste est disponible.
+Un scan ou une session distante en cours se termine avant la mise a jour.
+Le telechargement est verifie par SHA-256, puis l'agent redemarre sans perdre
+son association. En cas d'echec, une nouvelle tentative a lieu apres 15 minutes.
 Les postes, scans, alertes EDR, blocages et connexions se gerent sur le site.
 
 1. Telecharger puis ouvrir WolfGuard-Agent-Windows.exe normalement.

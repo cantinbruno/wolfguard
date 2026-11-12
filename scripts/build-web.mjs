@@ -8,6 +8,8 @@ import {siteAccessFile} from './private-paths.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
 const output = path.join(root, 'docs');
+const updateModule=readFileSync(path.join(root,'agent/update-command.mjs'),'utf8');
+writeFileSync(path.join(source,'js/agent-update-command.js'),'// Generated from agent/update-command.mjs.\nconst WolfGuardUpdateCommand = (() => {\n'+updateModule.replace(/^export /gm,'')+'\nreturn Object.freeze({UPDATE_ORIGIN,UPDATE_FILES,validateRelease,updateCommand});\n})();\n');
 // One permission model is used by server checks and the browser controls.
 writeFileSync(path.join(root,'browser/permissions.js'),readFileSync(path.join(root,'server/lib/wolfguard/permissions.mjs'),'utf8'));
 const allowed = new Set(['.exe','.zip','.cmd','.html','.css','.js','.json','.svg','.txt','.md','.wasm']);

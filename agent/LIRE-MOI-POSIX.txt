@@ -1,6 +1,11 @@
 WolfGuard Agent — Linux et macOS
 
 Le même agent exécute Scan passif, Scan actif, Cartographie et Vulnérabilités.
+Le service utilisateur vérifie automatiquement sa version toutes les cinq
+minutes lorsqu’il est disponible, même si le site est fermé. Les tâches en
+cours se terminent avant la mise à jour. Le téléchargement est vérifié par
+SHA-256, puis le service redémarre en conservant son association. En cas
+d’échec, la prochaine tentative a lieu après quinze minutes.
 
 1. Extraire l’archive dans un dossier personnel.
 2. Linux : ouvrir un terminal dans ce dossier et exécuter sh Start-Agent.sh

@@ -113,6 +113,7 @@ const workspaceAgents = (() => {
           find('#wgAgentConnectionNotice').hidden=true;
           if(added.length){find('#wgAgentNewPost').hidden=false;find('#wgAgentNewPost strong').textContent=added[0].name+' est maintenant associé';}
           renderAgents();
+          WolfGuardAgentUpdates.automatic(agents,{onChange:()=>{if(live())renderAgents();}});
         }catch(exception){
           if(!live())return;stale=true;const notice=find('#wgAgentConnectionNotice');notice.hidden=false;notice.textContent='Connexion au service indisponible. '+exception.message;
           if(firstLoad){showTab('connect');find('#wgAgentManage').textContent='Les postes n’ont pas pu être chargés.';}

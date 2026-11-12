@@ -168,8 +168,8 @@ test('agent pairing is one-use, scoped, encrypted, revocable and separate from v
   const list=await (await s.api('agents',undefined,s.user)).json();assert.equal(list.agents[0].name,'Poste confidentiel');assert.equal(list.agents[0].online,true);
   const audit={agentId:a.id,workspace:'vulnerability',strategy:'passive',passiveScope:'security'};
   assert.equal((await s.api('scans',audit,s.user)).status,409);
-  await s.api('agent/poll',{capabilities:['security-audit-v1']},a.auth);
-  assert.deepEqual((await (await s.api('agents',undefined,s.user)).json()).agents[0].capabilities,['security-audit-v1']);
+  await s.api('agent/poll',{capabilities:['security-audit-v1','auto-update-v1']},a.auth);
+  assert.deepEqual((await (await s.api('agents',undefined,s.user)).json()).agents[0].capabilities,['security-audit-v1','auto-update-v1']);
   const job=await (await s.api('scans',audit,s.user)).json();assert.ok(job.id);
   assert.equal((await (await s.api('scans?agentId='+a.id,undefined,s.user)).json()).jobs[0].workspace,'vulnerability');
   await s.api('scans/cancel',{id:job.id},s.user);

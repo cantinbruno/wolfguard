@@ -31,16 +31,17 @@ def run():
                 runner=subprocess.Popen([str(node),str(ROOT/'tests/agent-update-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
                 runner.stdin.write(json.dumps({'backend':backend,'code':ticket['code'],'name':name,'fail':fail,'version':release['version'],'hash':release['files']['WolfGuard-Agent-Windows.exe']}));runner.stdin.close()
                 agents.append(json.loads(runner.stdout.readline())['id']);runners.append(runner)
+            page.evaluate("""()=>{window.__updateAccess=WolfGuardAccess;window.WolfGuardAccess={...WolfGuardAccess,can:right=>right==='agents.write'?false:window.__updateAccess.can(right)}}""")
             open_security(page)
             expect(page.locator('[data-fleet-agent]')).to_have_count(2,timeout=15000)
             success,failure=agents
-            button=page.locator('[data-agent-install-update="'+success+'"]');expect(button).to_be_enabled()
-            page.evaluate("""async()=>{window.__updateAccess=WolfGuardAccess;window.WolfGuardAccess={...WolfGuardAccess,can:right=>right==='agents.write'?false:window.__updateAccess.can(right)};await agentsWorkspace.render()}""")
+            button=page.locator('[data-agent-install-update="'+success+'"]')
             expect(button).to_be_disabled()
             page.evaluate('async()=>{window.WolfGuardAccess=window.__updateAccess;await agentsWorkspace.render()}')
-            expect(button).to_be_enabled()
+            # Refreshing the inventory automatically upgrades both eligible old agents.
+            # No install button is clicked; the runner never executes an installer.
+            page.locator('#agentsRefresh').click()
             expect(page.locator('#agentActions')).to_have_count(0)
-            button.click();expect(button).to_be_disabled()
             status=page.locator('[data-agent-update-status="'+success+'"]');expect(status).to_have_attribute('data-state','completed',timeout=30000)
             expect(button).to_have_text('À jour',timeout=10000)
             expect(page.locator('[data-agent-row="'+success+'"] code')).to_have_text(release['version'][:8])
@@ -48,7 +49,6 @@ def run():
             page.locator('.workspace-section-button[data-section="library"]').click()
             page.wait_for_function('()=>!sectionTransition.active');open_security(page)
             expect(page.locator('[data-agent-install-update="'+success+'"]')).to_be_disabled()
-            page.locator('[data-agent-install-update="'+failure+'"]' ).click()
             failed=page.locator('[data-agent-update-status="'+failure+'"]');expect(failed).to_have_attribute('data-state','failed',timeout=15000);expect(failed).to_contain_text('Empreinte')
             current=page.evaluate("async()=>await WolfGuardCloud.agentRequest('agents')")['agents']
             assert next(item for item in current if item['id']==failure)['version']=='0'*64
@@ -58,7 +58,7 @@ def run():
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert not errors,errors
             browser.close()
-            print('PASS: legacy agent update through the real encrypted relay, same association, reported-version confirmation, checksum failure, reopen and mobile UI; no installer executed')
+            print('PASS: automatic legacy upgrades without install clicks, real encrypted relay, same association, confirmed version, checksum failure, permissions and mobile UI; no installer executed')
     finally:
         for runner in runners:runner.terminate();runner.wait(timeout=5)
         backend_process.terminate();backend_process.wait(timeout=5);server.shutdown();server.server_close()
