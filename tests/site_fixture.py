@@ -23,3 +23,10 @@ class WolfGuardTestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
         else:
             super().do_GET()
+
+
+def open_security(page):
+    """Enter the shared security section before using a destination or Agents."""
+    if page.locator("#securityNavigation").is_hidden():
+        page.locator(".workspace-security-button").click()
+        page.wait_for_function("() => !sectionTransition.active")

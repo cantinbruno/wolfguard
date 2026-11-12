@@ -2,7 +2,11 @@
 
 const topNavigation = (() => {
   let permissionSignature=null,resizeObserver=null;
-  let navigation;
+  let navigation, securityNavigation, securityButton;
+  let lastSecuritySection = null;
+  const isSecuritySection = section => isScanSection(section) || section === 'edr';
+  const agentsAllowed = () => workspaceModules.has('tools') && (!window.WolfGuardAccess || WolfGuardAccess.can('agents.read'));
+  const signature = () => availablePrimarySections().join(',') + ':' + agentsAllowed();
   const labels = {
     library: 'Mémo',
     'scan-passive': 'Scan passif',
@@ -32,13 +36,20 @@ const topNavigation = (() => {
     const active = primarySectionFor(section);
     navigation.dataset.activeSection = active;
     $('#app').dataset.primarySection = active;
-    for (const button of navigation.querySelectorAll('[data-section]')) {
+    const securityActive = isSecuritySection(active);
+    if (securityActive) lastSecuritySection = active;
+    securityNavigation.hidden = !securityActive;
+    securityButton?.classList.toggle('active', securityActive);
+    securityButton?.setAttribute('aria-pressed', String(securityActive));
+    securityButton?.setAttribute('aria-expanded', String(securityActive));
+    for (const button of [...navigation.querySelectorAll('[data-section]'), ...securityNavigation.querySelectorAll('[data-section]')]) {
       const selected = button.dataset.section === active;
       button.classList.toggle('active', selected);
       button.setAttribute('aria-pressed', String(selected));
     }
     positionIndicator();
     navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+    securityNavigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
     syncMemoDraftIndicator();
   }
 
@@ -46,18 +57,33 @@ const topNavigation = (() => {
     if (navigation) return;
     navigation = $('.global-tabs');
     if (!navigation) return;
-    permissionSignature=availablePrimarySections().join(',');
+    permissionSignature=signature();
+    securityNavigation = $('#securityNavigation');
+    if (!securityNavigation) {
+      securityNavigation = document.createElement('nav');
+      securityNavigation.id = 'securityNavigation';
+      securityNavigation.className = 'security-navigation';
+      securityNavigation.setAttribute('aria-label', 'Sécurité');
+      $('.topbar').after(securityNavigation);
+    }
+    const agentsButton = $('#agentsBtn');
+    if (agentsButton) {
+      agentsButton.className = 'workspace-security-agent';
+      if (!agentsButton.querySelector('.workspace-section-label')) {
+        const label = document.createElement('span');
+        label.className = 'workspace-section-label';
+        label.textContent = 'Agents';
+        agentsButton.append(label);
+      }
+      agentsButton.hidden = !agentsAllowed();
+    }
+    const sections = availablePrimarySections();
+    const securitySections = sections.filter(isSecuritySection);
+    securityButton = null;
     navigation.hidden=false;
     navigation.classList.add('section-navigation');
     navigation.setAttribute('aria-label', 'Espaces de travail');
-    $('#app').classList.toggle('single-module', !workspaceModules.canSwitch);
-    if (!workspaceModules.canSwitch) {
-      navigation.replaceChildren();
-      navigation.hidden = true;
-      setActive(state.section);
-      return;
-    }
-    const buttons = availablePrimarySections().map(section => {
+    const makeButton = section => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'workspace-section-button';
@@ -72,14 +98,40 @@ const topNavigation = (() => {
       button.append(icon, label);
       button.onclick = () => switchPrimaryWorkspace(section).catch(console.error);
       return button;
-    });
+    };
+    const buttons = [];
+    for (const section of sections) {
+      if (isSecuritySection(section)) continue;
+      buttons.push(makeButton(section));
+    }
+    if (securitySections.length || agentsAllowed()) {
+      securityButton = document.createElement('button');
+      securityButton.type = 'button';
+      securityButton.className = 'workspace-section-button workspace-security-button';
+      securityButton.textContent = 'Sécurité';
+      securityButton.setAttribute('aria-controls', 'securityNavigation');
+      securityButton.onclick = () => {
+        const target = securitySections.includes(lastSecuritySection) ? lastSecuritySection : securitySections[0];
+        if (target) switchPrimaryWorkspace(target).catch(console.error);
+        else {
+          securityNavigation.hidden = false;
+          securityButton.setAttribute('aria-expanded', 'true');
+          openAgentsInterface();
+        }
+      };
+      const securityIndex = sections.findIndex(isSecuritySection);
+      buttons.splice(securityIndex < 0 ? buttons.length : securityIndex, 0, securityButton);
+    }
+    securityNavigation.replaceChildren(...(agentsButton ? [agentsButton] : []), ...securitySections.map(makeButton));
     navigation.replaceChildren(...buttons);
+    navigation.hidden = buttons.length < 2 && !securityButton;
+    $('#app').classList.toggle('single-module', navigation.hidden);
     resizeObserver?.disconnect();resizeObserver=new ResizeObserver(()=>{positionIndicator();navigation.querySelector('.workspace-section-button.active')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});});resizeObserver.observe(navigation);
     setActive(state.section);
   }
   return {
     init,
-    refresh(){const signature=availablePrimarySections().join(',');if(!navigation||signature===permissionSignature)return;permissionSignature=signature;navigation=null;init();},
+    refresh(){if(!navigation||signature()===permissionSignature)return;navigation=null;init();},
     setActive
   };
 })();

@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright, expect
 
 ROOT=Path(__file__).resolve().parents[1]
 
-from site_fixture import WolfGuardTestHandler
+from site_fixture import WolfGuardTestHandler, open_security
 
 class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
@@ -83,7 +83,7 @@ def run():
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'backward' in page.evaluate('window.motionTrace.workspace')
             assert page.evaluate('window.motionTrace.slides.length')>=4
-            page.locator('.workspace-section-button[data-section=scan-passive]').click()
+            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function("()=>!sectionTransition.active")
             expect(page.locator('.workspace-section-button[data-section=scan-passive]')).to_have_attribute('aria-pressed','true')
             page.keyboard.press('Alt+5')

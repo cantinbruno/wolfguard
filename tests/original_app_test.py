@@ -12,7 +12,7 @@ PASSWORD = '01234567'
 NEW_PASSWORD = '08765432'
 LEGACY_PASSWORD = 'ancien mot de passe de test 643!'
 
-from site_fixture import WolfGuardTestHandler
+from site_fixture import WolfGuardTestHandler, open_security
 
 class Quiet(WolfGuardTestHandler):
     def log_message(self, *_args):
@@ -60,7 +60,7 @@ def run():
             assert counts['sources']==740, counts
             assert counts['references']==1 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
-            assert page.locator('.workspace-section-button').count()==9
+            assert page.locator('.workspace-section-button').count()==10
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)
             assert page.locator('#richEditor').count()==0
             print('PASS: interface originale, navigation originale, bibliotheque complete fournie')
@@ -87,11 +87,11 @@ def run():
             # Existing Checklist data must not prevent opening or saving the restored app.
             page.evaluate("setMode('edit')")
             page.locator('#richEditor').fill('Brouillon a conserver pendant les scans')
-            page.locator('.workspace-section-button[data-section=scan-passive]').click()
+            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTitle')).to_have_text('Scan passif du réseau')
             expect(page.locator('#toolboxShell,.scan-mode-navigation')).to_have_count(0)
-            page.locator('.workspace-section-button[data-section=scan-active]').click()
+            open_security(page);page.locator('.workspace-section-button[data-section=scan-active]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             page.locator('#scanTarget').fill('192.0.2.42')
             page.locator('.workspace-section-button[data-section=library]').click()
@@ -125,13 +125,13 @@ def run():
             page.evaluate("openSection('protocol')")
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.reader-document-heading h1')).to_have_text('Ports et services')
-            page.locator('.workspace-section-button[data-section=scan-passive]').click()
+            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTitle')).to_have_text('Scan passif du réseau')
             expect(page.locator('#scanStart')).to_have_count(0)
             expect(page.locator('#wgScanImport')).to_have_count(0)
             expect(page.locator('.scan-setup')).to_be_visible()
-            page.locator('.workspace-section-button[data-section=scan-active]').click()
+            open_security(page);page.locator('.workspace-section-button[data-section=scan-active]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#scanTarget')).to_have_value('192.0.2.42')
             expect(page.locator('#scanStart')).to_have_count(0)

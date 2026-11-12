@@ -228,8 +228,8 @@
   --logo-column: 64px;
   --settings-size: 48px;
   --header-gutter: 16px;
-  grid-template-columns: var(--logo-column) max-content minmax(140px, 1fr) var(--settings-size) var(--settings-size) !important;
-  grid-template-areas: "brand sections search agents settings" !important;
+  grid-template-columns: var(--logo-column) max-content minmax(140px, 1fr) var(--settings-size) !important;
+  grid-template-areas: "brand sections search settings" !important;
   grid-template-rows: 60px !important;
   padding: 6px 16px !important;
   gap: 16px !important;
@@ -369,7 +369,7 @@
 
 @media(max-width:1050px) {
   .topbar {
-    grid-template-columns: var(--logo-column) max-content minmax(140px, 1fr) var(--settings-size) var(--settings-size) !important;
+    grid-template-columns: var(--logo-column) max-content minmax(140px, 1fr) var(--settings-size) !important;
     gap: 10px !important;
     padding: 6px 16px !important;
     --logo-column: 64px;
@@ -381,8 +381,8 @@
     --logo-column: 40px;
     --settings-size: 36px;
     --header-gutter: 12px;
-    grid-template-columns: var(--logo-column) minmax(0, 1fr) var(--settings-size) var(--settings-size) !important;
-    grid-template-areas: "brand search agents settings" "sections sections sections sections" !important;
+    grid-template-columns: var(--logo-column) minmax(0, 1fr) var(--settings-size) !important;
+    grid-template-areas: "brand search settings" "sections sections sections" !important;
     grid-template-rows: 44px 44px !important;
     padding: 10px 12px !important;
     gap: 6px !important;
@@ -423,8 +423,47 @@
   }
 }
 
-.topbar #agentsBtn {grid-area:agents}
 @media(min-width:1151px) and (max-width:1500px){
-  .topbar{--logo-column:48px;--settings-size:40px;grid-template-columns:var(--logo-column) minmax(0,1fr) var(--settings-size) var(--settings-size)!important;grid-template-areas:"brand search agents settings" "sections sections sections sections"!important;grid-template-rows:48px 44px!important;padding:8px 16px!important;gap:6px!important}
+  .topbar{--logo-column:48px;--settings-size:40px;grid-template-columns:var(--logo-column) minmax(0,1fr) var(--settings-size)!important;grid-template-areas:"brand search settings" "sections sections sections"!important;grid-template-rows:48px 44px!important;padding:8px 16px!important;gap:6px!important}
   .topbar .top-actions{width:100%!important}
 }
+
+.workspace-security-button {--button-accent: var(--workspace-edr)}
+
+#securityNavigation[hidden] {display: none !important}
+.security-navigation button[hidden] {display: none !important}
+
+.security-navigation {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  background: var(--ui-sidebar);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.security-navigation button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.security-navigation button:is(:hover, .active) {
+  color: var(--ui-text);
+  background: var(--ui-raised);
+  border-color: var(--ui-border);
+}
+
+.security-navigation button.active {box-shadow: inset 0 -2px var(--button-accent, var(--workspace-edr))}
+.security-navigation button:focus-visible {outline: 2px solid var(--workspace-accent); outline-offset: -2px}
+.workspace-security-agent svg {width: 18px; height: 18px}

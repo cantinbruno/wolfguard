@@ -1,4 +1,5 @@
 """Real EDR relay, retired chatbot, mobile layout and lock lifecycle."""
+from site_fixture import open_security
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -38,7 +39,7 @@ def run():
             report={'collectedAt':now,'platform':'win32','provider':'Microsoft Defender','supported':True,'canEnforce':True,'antivirus':'enabled','realtime':'enabled','firewall':'enabled','signatures':'enabled','activeThreats':0,'events':[event]}
             agent_api('edr/report',report,enrolled['token'])
             edr_calls=[];page.on('request',lambda request:edr_calls.append(urlsplit(request.url).path))
-            page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test')
+            open_security(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test')
             expect(page.locator('#edrPostDetail')).to_contain_text('Accès malveillant bloqué')
             expect(page.locator('#edrProtectionState')).to_contain_text('Protégé')
             expect(page.locator('#edrPosts')).to_contain_text('1 blocage(s)')
@@ -68,7 +69,7 @@ def run():
                 for width in [390,320]:
                     page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
                 page.screenshot(path=str(ROOT/'.cache'/(section+'-mobile.png')));page.set_viewport_size({'width':1440,'height':1000})
-            page.evaluate('lockApplication()');ready(page);unlock(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_be_visible();expect(page.locator('[data-section=chatbot]')).to_have_count(0);assert not chat_calls
+            page.evaluate('lockApplication()');ready(page);unlock(page);open_security(page);page.locator('[data-section=edr]').click();expect(page.locator('#edrPosts')).to_be_visible();expect(page.locator('[data-section=chatbot]')).to_have_count(0);assert not chat_calls
             assert not errors,errors
             browser.contexts[0].unroute_all(behavior='ignoreErrors');browser.close();print('PASS: EDR native protection, confirmed block, acknowledgment, policy and command lifecycle, nine distinct section colours without EDR leakage, chatbot removed, no AI calls, mobile layout, lock and reload')
     finally:process.terminate();process.wait(timeout=5);server.shutdown()

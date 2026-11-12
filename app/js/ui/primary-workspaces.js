@@ -47,6 +47,7 @@ function syncMemoDraftIndicator() {
   button?.classList.toggle('has-draft', draft);
   for (const tab of document.querySelectorAll('.workspace-section-button')) {
     const section = tab.dataset.section;
+    if (!section) continue;
     const shortcut = String((availablePrimarySections().indexOf(section) + 1)%10);
     const label = tab.textContent + ' (Alt+' + shortcut + ')' + (section === 'library' && draft ? ' · Brouillon de fiche en cours' : '');
     tab.title = label;
