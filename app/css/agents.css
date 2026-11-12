@@ -89,40 +89,33 @@
 .agents-presence {display: inline-flex; align-items: center; gap: 6px; color: var(--ui-subtle); font-size: 12px; white-space: nowrap}
 .agents-presence::before {content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor}
 .agents-presence[data-state="online"] {color: var(--workspace-vault)}
-.agents-health, .agents-summary-health {display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--agents-line); border-radius: 5px; color: var(--ui-subtle); font-size: 11px; line-height: 1.4}
-.agents-health::before, .agents-summary-health::before {content: ''; flex: none; width: 4px; height: 4px; border-radius: 50%; background: currentColor}
-:is(.agents-health,.agents-summary-health)[data-health="protected"] {color: var(--workspace-vault); background: color-mix(in srgb, var(--workspace-vault) 6%, transparent); border-color: color-mix(in srgb, var(--workspace-vault) 25%, transparent)}
-:is(.agents-health,.agents-summary-health)[data-health="attention"] {color: var(--workspace-audit); background: color-mix(in srgb, var(--workspace-audit) 6%, transparent); border-color: color-mix(in srgb, var(--workspace-audit) 25%, transparent)}
+.agents-health {display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid var(--agents-line); border-radius: 5px; color: var(--ui-subtle); font-size: 11px; line-height: 1.4}
+.agents-health::before {content: ''; flex: none; width: 4px; height: 4px; border-radius: 50%; background: currentColor}
+.agents-health[data-health="protected"] {color: var(--workspace-vault); background: color-mix(in srgb, var(--workspace-vault) 6%, transparent); border-color: color-mix(in srgb, var(--workspace-vault) 25%, transparent)}
+.agents-health[data-health="attention"] {color: var(--workspace-audit); background: color-mix(in srgb, var(--workspace-audit) 6%, transparent); border-color: color-mix(in srgb, var(--workspace-audit) 25%, transparent)}
 .agents-alerts {font-variant-numeric: tabular-nums}
 .agents-alerts[data-alert="true"] {display: inline-block; padding: 3px 8px; color: var(--workspace-audit); border-radius: 4px; background: color-mix(in srgb, var(--workspace-audit) 10%, transparent); font-weight: 700}
 .agents-last-contact {font-size: 11px; font-variant-numeric: tabular-nums}
 .agents-table-footer {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 10px 16px; border-top: 1px solid var(--agents-line); color: var(--ui-subtle); font-size: 10px}
 #agentsCount {color: var(--ui-muted); font-variant-numeric: tabular-nums}
-.agents-detail {min-width: 0; padding: 20px 18px; border-top: 1px solid var(--agents-line); background: color-mix(in srgb, var(--agents-accent) 2%, var(--ui-sidebar))}
-.agents-detail-heading {display: flex; align-items: center; gap: 12px; margin-bottom: 18px}
-.agents-selected-name {min-width: 0; flex: 1}
-.agents-selected-icon {display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 1px solid color-mix(in srgb, var(--agents-accent) 25%, transparent); border-radius: 9px; background: color-mix(in srgb, var(--agents-accent) 7%, var(--ui-sidebar)); color: var(--agents-accent)}
-.agents-selected-icon svg {width: 24px; height: 24px}
-.agents-detail-heading h2 {margin: 4px 0 6px; font-size: 19px; font-weight: 650; overflow-wrap: anywhere}
-.agents-detail-heading p {margin: 0; color: var(--ui-muted); font-size: 11px; line-height: 1.6}
-.agents-selected-summary {display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; max-width: 45%; color: var(--ui-muted); font-size: 11px}
-.agents-selection-notice {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; padding: 12px; border: 1px solid color-mix(in srgb, var(--agents-accent) 30%, var(--agents-line)); border-radius: 6px; background: var(--ui-page); color: var(--ui-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere}
-.agents-selection-notice > span {min-width: 0; flex: 1 1 220px}
-.agents-selection-notice button {padding: 7px 10px; min-height: 34px; border: 1px solid var(--agents-line); border-radius: 5px; background: var(--ui-surface); color: var(--agents-accent); font-size: 11px; cursor: pointer}
-.agents-action-grid {display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px}
-.agents-action-grid button {display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--agents-line); border-radius: 7px; background: var(--ui-page); color: var(--ui-text); text-align: left; cursor: pointer; white-space: normal; overflow-wrap: anywhere}
-.agents-action-grid button:hover:enabled {border-color: var(--agents-accent); background: var(--ui-surface)}
-.agents-action-grid button[aria-pressed="true"] {border-color: var(--agents-accent); background: color-mix(in srgb, var(--agents-accent) 7%, var(--ui-page))}
-.agents-action-grid button:disabled {cursor: default; color: var(--ui-subtle)}
-.agents-action-title {display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.5}
-.agents-action-icon {display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 6px; background: var(--ui-surface); color: var(--agents-accent)}
-.agents-action-icon svg {width: 16px; height: 16px}
-.agents-action-grid button:disabled .agents-action-icon {color: var(--ui-subtle)}
-.agents-action-description {font-size: 11px; line-height: 1.6; color: var(--ui-muted)}
-.agents-action-grid small {display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 9px; border-top: 1px solid var(--agents-line); color: var(--ui-subtle); font-size: 10px; line-height: 1.5}
-.agents-action-ready {color: var(--ui-muted)}
-.agents-action-ready > span {display: inline-flex; flex: none; color: var(--agents-accent)}
-.agents-action-ready svg {width: 12px; height: 12px}
+.agents-fleet-row[data-context] td {background: color-mix(in srgb, var(--workspace-edr) 5%, var(--ui-surface))}
+.agents-endpoint {-webkit-touch-callout: none; user-select: none}
+.agents-context-menu {--agents-accent: var(--workspace-edr); width: 330px; padding: 6px; background: var(--ui-sidebar); border-color: var(--ui-border); color: var(--ui-text); overscroll-behavior: contain; scrollbar-width: thin}
+.agents-menu-heading {padding: 12px 12px 14px; margin-bottom: 5px; border-bottom: 1px solid var(--ui-border); overflow-wrap: anywhere}
+.agents-menu-heading > span {font-size: 9px; font-weight: 650; letter-spacing: .1em; color: var(--ui-subtle)}
+.agents-menu-heading h2 {margin: 5px 0 6px; font-size: 15px; font-weight: 650; line-height: 1.4}
+.agents-menu-heading > small {color: var(--ui-muted); font-size: 11px}
+.agents-context-menu button {display: flex; align-items: start; gap: 10px; padding: 10px; color: var(--ui-text)}
+.agents-context-menu button:disabled {opacity: 1; color: var(--ui-subtle)}
+.agents-context-menu button:hover:enabled {background: var(--ui-surface)}
+.agents-context-menu button:focus-visible, .agents-context-menu:focus-visible {outline-color: var(--agents-accent)}
+.agents-menu-icon {display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 6px; background: var(--ui-surface); color: var(--agents-accent)}
+.agents-menu-icon svg {width: 16px; height: 16px}
+.agents-context-menu button:disabled .agents-menu-icon {color: var(--ui-subtle)}
+.agents-menu-copy {display: grid; gap: 4px; min-width: 0}
+.agents-menu-copy strong {font-size: 12px; font-weight: 600; line-height: 1.4}
+.agents-menu-copy small {font-size: 11px; line-height: 1.5; color: var(--ui-muted)}
+.agents-context-menu button:disabled .agents-menu-copy small {color: var(--ui-subtle)}
 .agents-tool-panel {min-width: 0; border-top: 2px solid var(--agents-accent); scroll-margin-top: 12px; overflow: hidden}
 .agents-tool-heading {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--agents-line); background: color-mix(in srgb, var(--agents-accent) 5%, var(--ui-sidebar))}
 .agents-tool-heading > div {min-width: 0; flex: 1}
@@ -149,7 +142,6 @@
   .agents-fleet-filters {grid-template-columns: repeat(3, minmax(0, 1fr))}
   .agents-search-filter {grid-column: span 2}
 }
-@media(max-width:850px) {.agents-action-grid {grid-template-columns: repeat(2, minmax(0, 1fr))}}
 @media(max-width:600px) {
   .agents-workspace {padding: 16px 12px}
   .agents-heading h1 {font-size: 22px}
@@ -171,11 +163,6 @@
   .agents-active-filters {padding: 10px 12px}
   .agents-table {min-width: 850px}
   .agents-table th:first-child {width: 26%}
-  .agents-detail {padding: 14px 12px}
-  .agents-detail-heading {flex-wrap: wrap; margin-bottom: 14px}
-  .agents-selected-summary {max-width: 100%; width: 100%; justify-content: flex-start; padding-left: 56px}
-  .agents-action-grid button {padding: 10px}
   .agents-tool-heading, #agentToolHost {padding: 14px}
   .agents-tool-heading button {font-size: 10px; padding: 8px}
 }
-@media(max-width:360px) {.agents-action-grid {grid-template-columns: minmax(0, 1fr)}}
