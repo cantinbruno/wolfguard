@@ -232,13 +232,19 @@ def run():
 
             for action, section in [('active', 'scan-active'), ('passive', 'scan-passive'), ('map', 'scan-map'), ('vulnerability', 'scan-vulnerability'), ('desktop', 'remote'), ('terminal', 'remote'), ('files', 'remote'), ('edr', 'edr')]:
                 options(1)
-                page.locator(f'[data-fleet-action="{action}"]').click()
+                if action == 'edr':
+                    with page.expect_response(lambda response: '/api/edr/events?' in response.url and agents[1]['id'] in response.url):
+                        page.locator(f'[data-fleet-action="{action}"]').click()
+                else:
+                    page.locator(f'[data-fleet-action="{action}"]').click()
                 page.wait_for_function('() => !sectionTransition.active')
                 assert page.evaluate('state.section') == section
                 assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
                 expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed', 'true')
                 expect(page.locator('[data-fleet-agent]')).to_have_count(4)
                 expect(page.locator('#agentToolHost')).to_be_visible()
+                assert page.locator('#agentToolPanel').evaluate("el => el.matches(':modal')")
+                expect(page.locator('#agentToolClose')).to_be_focused()
                 expect(page.locator('#agentActions')).to_have_count(0)
                 if section == 'remote':
                     expect(page.locator('#wgRemoteAgent')).to_contain_text(agents[1]['name'])
@@ -246,24 +252,38 @@ def run():
                 elif section == 'edr':
                     expect(page.locator('#edrDetailName')).to_have_text(agents[1]['name'])
                     assert event_agents[-1] == agents[1]['id']
-                    page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
-                    expect(page.locator('#edrDetailName')).to_have_text(agents[0]['name'])
-                    page.wait_for_function('() => !document.querySelector("[data-fleet-agent]").disabled')
-                    assert event_agents[-1] == agents[0]['id']
-                    page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
-                    expect(page.locator('#edrDetailName')).to_have_text(agents[1]['name'])
+                    for index in [0, 1]:
+                        page.locator('#agentToolClose').click()
+                        expect(page.locator('#agentToolPanel')).to_be_hidden()
+                        options(index)
+                        with page.expect_response(lambda response: '/api/edr/events?' in response.url and agents[index]['id'] in response.url):
+                            page.locator('[data-fleet-action="edr"]').click()
+                        expect(page.locator('#edrDetailName')).to_have_text(agents[index]['name'])
+                        assert event_agents[-1] == agents[index]['id']
+                    page.locator('#edrPolicyMode').select_option('protect')
+                    page.locator('#edrPolicySave').click()
+                    expect(page.locator('.app-dialog:modal')).to_be_visible()
+                    page.keyboard.press('Escape')
+                    expect(page.locator('.app-dialog')).to_have_count(0)
+                    assert page.locator('#agentToolPanel').evaluate("el => el.matches(':modal')")
                 else:
                     expect(page.locator('#wgAgentName')).to_contain_text(agents[1]['name'])
                 for width in [1440,768,390,320]:
                     page.set_viewport_size({'width':width,'height':1000})
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (action,width)
                     assert page.locator('#agentToolPanel').evaluate('el=>el.scrollWidth<=el.clientWidth'), (action,width)
+                    bounds = page.locator('#agentToolPanel').bounding_box()
+                    assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width + 1, (action, bounds)
+                    assert bounds['y'] >= 0 and bounds['y'] + bounds['height'] <= 1001, (action, bounds)
+                    if width == 390 and action == 'active': page.screenshot(path=str(ROOT / '.cache/security-overlay-mobile.png'), animations='disabled')
                     if width==1440 and action in ['active','terminal','edr']:page.screenshot(path=str(ROOT/f'.cache/unified-security-{action}.png'),animations='disabled')
                 page.set_viewport_size({'width':1440,'height':1000})
-                page.locator('#agentToolClose').click()
+                if action == 'active': page.keyboard.press('Escape')
+                else: page.locator('#agentToolClose').click()
                 page.wait_for_function('() => !sectionTransition.active')
                 expect(page.locator('#agentToolPanel')).to_be_hidden()
                 expect(page.locator('#agentActions')).to_have_count(0)
+                expect(page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]')).to_be_focused()
             assert not started
             options(1)
             page.locator('[data-fleet-action="active"]').focus()
@@ -321,7 +341,7 @@ def run():
             expect(page.locator('#agentActions')).to_have_count(0)
             assert not errors, errors
             browser.close()
-            print('PASS: right-click options only, keyboard and long press, exact action targets, menu dismissal and lock cleanup, permissions, telemetry, filters and mobile layout')
+            print('PASS: right-click options only, keyboard and long press, exact action targets, modal tools and return focus, menu dismissal and lock cleanup, permissions, telemetry, filters and mobile layout')
     finally:
         process.terminate()
         process.wait(timeout=10)

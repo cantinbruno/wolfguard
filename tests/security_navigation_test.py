@@ -1,4 +1,4 @@
-"""One security workspace, inline tools, permissions and responsive layout."""
+"""One security workspace, modal tools, permissions and responsive layout."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -36,11 +36,13 @@ def run():
                 expect(page.locator('#app')).to_have_attribute('data-primary-section','security')
                 expect(group).to_have_attribute('aria-pressed','true')
                 expect(page.locator('#agentToolHost')).to_be_visible()
+                assert page.locator('#agentToolPanel').evaluate("el => el.matches(':modal')")
                 expect(page.locator('#agentsList')).to_be_visible()
                 assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
                 expect(page.locator('#securityNavigation')).to_have_count(0)
-            page.locator('#agentToolClose').click()
+            page.keyboard.press('Escape')
             expect(page.locator('#agentToolPanel')).to_be_hidden()
+            expect(page.locator('#agentsSearch')).to_be_focused()
             page.locator('#agentsManage').click()
             expect(page.locator('#closeAgentsBtn')).to_be_visible()
             page.locator('#closeAgentsBtn').click()
@@ -60,9 +62,13 @@ def run():
             expect(group).to_have_count(1)
             page.evaluate("""() => {const access=WolfGuardAccess;window.WolfGuardAccess={...access,allows:s=>s==='library'};topNavigation.refresh()}""")
             expect(group).to_have_count(0)
+            page.evaluate("() => {WolfGuardAccess={...WolfGuardAccess,allows:()=>true};return openSection('scan-active')}")
+            expect(page.locator('#agentToolPanel')).to_be_visible()
+            page.evaluate('lockApplication()')
+            expect(page.locator('dialog:modal')).to_have_count(0)
             assert not errors,errors
             browser.close()
-            print('PASS: one security section, no subnavigation, persistent agents and inline tools, permissions and mobile layout')
+            print('PASS: one security section, no subnavigation, persistent agents and modal tools, permissions and mobile layout')
     finally:
         server.shutdown()
         server.server_close()

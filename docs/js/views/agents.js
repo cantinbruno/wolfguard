@@ -12,7 +12,7 @@ const agentsWorkspace = (() => {
     {id:'terminal', section:'remote', mode:'terminal', label:'Terminal', description:'Ouvrir un terminal sur ce poste.', capability:'remote-terminal-v1'},
     {id:'files', section:'remote', mode:'files', label:'Fichiers', description:'Parcourir et transférer les fichiers du poste.', capability:'remote-files-v1'}
   ];
-  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current = null; }
+  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current?.dismissTool(); current = null; }
   async function render() {
     if (current?.root.isConnected && current.key === state.vaultKey) return current.renderTool();
     reset();
@@ -51,7 +51,7 @@ const agentsWorkspace = (() => {
         <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span class="agents-check-legend" aria-label="Légende des protections"><span data-check="enabled">✓ Activé</span><span data-check="disabled">! À traiter</span><span data-check="unknown">? À confirmer</span></span><span>Clic droit ou appui long pour les outils.</span></footer>
       </section>
       <div class="agents-main">
-        <section id="agentToolPanel" class="agents-tool-panel" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose">${settingsIcon('x')}Fermer l’outil</button></header><div id="agentToolHost"></div></section>
+        <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
       </div>
     </div>`;
     find('#agentsAdd').hidden = !can('agents.pair');
@@ -221,7 +221,6 @@ const agentsWorkspace = (() => {
         selected = agent;
         if (action.mode) remoteMode = action.mode;
         await openSection(action.section);
-        if (live()) find('#agentToolPanel').scrollIntoView({block:'start', behavior:'instant'});
       } catch (error) { if (live()) find('#agentsStatus').textContent = error.message; }
       finally { selecting = false; draw(); }
     }
@@ -348,16 +347,30 @@ const agentsWorkspace = (() => {
     document.addEventListener('scroll', event => { if (menu && !menu.contains(event.target)) closeMenu(); }, {signal, capture:true});
     window.addEventListener('resize', () => closeMenu(true), {signal});
     let renderedSection = null, renderedAgent = null, renderedMode = null;
+    function dismissTool() {
+      const panel = find('#agentToolPanel');
+      if (panel.open) panel.close();
+      panel.hidden = true;
+    }
+    async function closeTool() {
+      if (!live()) return;
+      try {
+        if (!await openSection('security') || !live()) return;
+        (find('[data-fleet-agent="' + CSS.escape(selected?.id || '') + '"]') || find('#agentsSearch')).focus({preventScroll:true});
+      } catch (error) { if (live()) find('#agentsStatus').textContent = error.message; }
+    }
     async function renderTool(force = false) {
       if (!live()) return;
       const action = actions.find(item => item.section === state.section && (!item.mode || item.mode === remoteMode));
       const panel = find('#agentToolPanel'), host = find('#agentToolHost');
-      panel.hidden = !action;
       root.dataset.activeAction = action?.id || '';
       if (!action) {
+        dismissTool();
         host.replaceChildren(); renderedSection = null; draw(); return;
       }
       find('#agentToolTitle').textContent = action.label;
+      panel.hidden = false;
+      if (!panel.open) { panel.showModal(); find('#agentToolClose').focus({preventScroll:true}); }
       if (!force && renderedSection === state.section && renderedAgent === selected?.id && renderedMode === remoteMode && host.firstChild) { draw(); return; }
       renderedSection = state.section; renderedAgent = selected?.id; renderedMode = remoteMode;
       host.className = ''; host.replaceChildren();
@@ -368,10 +381,11 @@ const agentsWorkspace = (() => {
         else host.textContent = 'Choisis un agent dans la liste pour consulter sa protection.';
       }
       else if (state.section === 'remote') { remoteDesktopWorkspace.preferMode(remoteMode); await remoteDesktopWorkspace.render(host); }
-      if (live()) panel.scrollIntoView({block:'start', behavior:'instant'});
     }
-    find('#agentToolClose').onclick = () => openSection('security').catch(console.error);
-    current = {root, key, renderTool, closeMenu};
+    find('#agentToolClose').onclick = closeTool;
+    find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
+    find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
+    current = {root, key, renderTool, closeMenu, dismissTool};
     await refresh();
     await renderTool();
   }
