@@ -25,6 +25,7 @@ function readerURL(value) {
 }
 
 function prepareReaderContent(item) {
+  item = cleanMemoCitationItem(item);
   const holder = document.createElement('div');
   holder.innerHTML = documentHTML(item.content);
   const titleKey = value => String(value || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('fr');
@@ -92,6 +93,7 @@ function prepareReaderContent(item) {
 }
 
 function readerSupplementHTML(item, content) {
+  if (['memo','procedure','personal','command','report','template','protocol'].includes(item.type)) return '';
   const holder = document.createElement('div');
   holder.innerHTML = content;
   const existing = new Set([...holder.querySelectorAll('a[href]')].map(link => readerURL(link.getAttribute('href'))).filter(Boolean)),

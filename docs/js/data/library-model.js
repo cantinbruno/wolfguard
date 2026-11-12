@@ -54,6 +54,7 @@ function libraryCommandDescription(item, block) {
 }
 
 function libraryDocument(item) {
+  item = cleanMemoCitationItem(item);
   if (item.consolidatedGuideVersion) {
     const added=libraryCommands(item).filter(block=>!block.fromMemo);
     return {...item,content:(item.content||'')+added.map(block=>'<section><h2>'+esc(block.title||'Commande')+'</h2>'+(block.context?'<p>'+esc(block.context)+'</p>':'')+'<pre><code>'+esc(block.code)+'</code></pre>'+(block.example?'<p>'+esc(block.example)+'</p>':'')+'</section>').join('')};

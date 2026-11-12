@@ -57,9 +57,11 @@ def run():
             enter_code(page,PASSWORD,creating=True)
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
-            counts=page.evaluate("async()=>({sources:(await all('items')).filter(item=>item.consolidatedInto).length,guides:(await all('items')).filter(item=>item.consolidatedGuideVersion).length,references:(await activeItems()).filter(item=>item.referenceCatalogId===MEMO_PORT_REFERENCE).length,visible:(await activeItems()).length})")
+            counts=page.evaluate("async()=>({sources:(await all('items')).filter(item=>item.consolidatedInto).length,guides:(await all('items')).filter(item=>item.consolidatedGuideVersion).length,references:(await activeItems()).filter(item=>[MEMO_PORT_REFERENCE,MEMO_OSI_REFERENCE].includes(item.referenceCatalogId)).length,visible:(await activeItems()).length})")
             assert counts['sources']==740, counts
-            assert counts['references']==1 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
+            assert counts['references']==2 and counts['visible']==counts['guides']+counts['references'] and 0<counts['guides']<counts['sources'], counts
+            assert page.evaluate("async()=>(await all('items')).filter(item=>['memo','procedure','personal','command','report','template'].includes(item.type)&&!item.deletedAt&&('sources'in item||'references'in item)).length")==0
+            assert page.evaluate("async()=>buildMemoCitationCleanup({items:await all('items')}).operations.length")==0
             assert not page.evaluate("async()=>!!(await get('items','tech-netsec-v3-report-stp-guard'))")
             assert page.locator('.workspace-section-button').count()==4
             expect(page.locator('.workspace-section-button[data-section=vault]')).to_have_count(1)

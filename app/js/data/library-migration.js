@@ -146,9 +146,15 @@ async function ensureUnifiedLibrary() {
       const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
       if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
     }
-    const references=normalized.settings.some(row=>row.key===MEMO_REFERENCES_SETTING&&Number(row.value)>=1)?{operations:[]}:buildMemoReferences(normalized,await loadProtocolReference());
+    const referenceVersion=Number(normalized.settings.find(row=>row.key===MEMO_REFERENCES_SETTING)?.value)||0;
+    const references=referenceVersion>=MEMO_REFERENCES_VERSION?{operations:[]}:buildMemoReferences(normalized,referenceVersion<1?await loadProtocolReference():null);
+    for(const operation of references.operations) {
+      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
+      if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
+    }
+    const citations=buildMemoCitationCleanup(normalized);
     if(db!==migrationDatabase||state.vaultKey!==migrationKey)throw new Error('Session modifiée pendant la préparation des référentiels.');
-    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations];
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations,...citations.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);

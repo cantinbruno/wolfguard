@@ -88,8 +88,6 @@ function buildLibraryConsolidation(snapshot, stamp = new Date().toISOString()) {
       html+='<h3>'+escape(block.title||'Commande')+'</h3>'+(block.context?'<p>'+escape(block.context)+'</p>':'')+'<pre><code>'+escape(block.code)+'</code></pre>'+(block.example?'<p>Exemple : '+escape(block.example)+'</p>':'')+(block.description?'<p>'+escape(block.description)+'</p>':'');
     }
     if(item.tags?.length)html+='<p>Mots clés : '+item.tags.map(escape).join(' · ')+'</p>';
-    const references=[...(item.sources||[]),...(item.references||[])];
-    if(references.length)html+='<ul>'+references.map(source=>'<li>'+(source.url?'<a href="'+escape(source.url)+'">'+escape(source.title||source.url)+'</a>':escape(source.title||source))+'</li>').join('')+'</ul>';
     if(item.attachments?.length)html+='<p>Pièces jointes : '+item.attachments.map(file=>escape(file.name)).join(' · ')+'</p>';
     if(item.linkedItemIds?.length)html+='<p>Voir aussi : '+item.linkedItemIds.map(id=>{
       const target=items.find(row=>row.id===id);

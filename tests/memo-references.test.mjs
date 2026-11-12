@@ -17,7 +17,7 @@ const empty=()=>({items:[],folders:[],settings:[],activity:[]});
 test('one Memo reference includes every practical port, merges identical transports and excludes IP protocol numbers',()=>{
   const source=empty(),before=JSON.stringify(source),result=apply(source,plan(source).operations);
   assert.equal(JSON.stringify(source),before);
-  assert.equal(result.items.length,1);assert.equal(result.folders.length,1);
+  assert.equal(result.items.length,2);assert.equal(result.folders.length,1);
   const item=result.items[0];assert.equal(item.type,'memo');assert.equal(item.title,'Ports et services');assert.equal(result.folders[0].name,'Référentiels');
   assert.equal(item.folderId,result.folders[0].id);
   const identities=new Set(catalog.entries.filter(row=>row.kind==='port').map(row=>JSON.stringify([row.port,row.service,row.usage])));
@@ -26,6 +26,30 @@ test('one Memo reference includes every practical port, merges identical transpo
   for(const port of ['22','53','80','443','3389'])assert.ok(item.content.includes('<strong>'+port+'</strong>'));
   assert.ok(item.content.includes('TCP / UDP'));assert.ok(!item.content.includes('<td>OSPF</td>'));
   assert.deepEqual(plan(result).operations,[]);
+});
+
+test('existing reference version gains OSI once without restoring deleted ports or replacing personal edits',()=>{
+  const source=empty();source.settings=[{key:'memo-references-version',value:1}];
+  source.folders=[{id:'mine',section:'library',name:'Référentiels',parentId:null}];
+  const after=apply(source,plan(source,null).operations);
+  assert.equal(after.items.length,1);
+  const osi=after.items[0];assert.equal(osi.referenceCatalogId,'osi-model');assert.equal(osi.title,'Modèle OSI');assert.equal(osi.folderId,'mine');
+  assert.ok(!('sources' in osi));assert.ok(!('references' in osi));
+  for(const name of ['Application','Présentation','Session','Transport','Réseau','Liaison de données','Physique'])assert.ok(osi.content.includes(name));
+  assert.equal((osi.content.match(/scope="row"/g)||[]).length,7);
+  assert.ok(osi.content.includes('Encapsulation'));assert.ok(osi.content.includes('TCP/IP'));
+  osi.content='<p>Mes précisions.</p>';assert.deepEqual(plan(after,null).operations,[]);
+  after.items=[];assert.deepEqual(plan(after,null).operations,[]);
+});
+
+test('an existing OSI identifier or tombstone is never overwritten and colliding personal IDs are preserved',()=>{
+  const source=empty();source.settings=[{key:'memo-references-version',value:1}];
+  source.items=[{id:'memo-reference-osi-model',type:'memo',content:'Personnel.'}];
+  const after=apply(source,plan(source,null).operations);
+  assert.deepEqual(after.items[0],source.items[0]);assert.notEqual(after.items[1].id,source.items[0].id);
+  const marker={...after.items[1],deletedAt:'2026-11-01T00:00:00Z'};
+  source.items=[marker];assert.equal(plan(source,null).operations.filter(op=>op.store==='items').length,0);
+  assert.deepEqual(source.items[0],marker);
 });
 
 test('personal notes, existing reference folders, IDs and retired-tool documents survive; edits and deletions remain authoritative',()=>{

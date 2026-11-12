@@ -276,7 +276,7 @@ function libraryItemFromEditor(source) {
     const title=heading===node.libraryOriginalHeading?original.title||heading:heading||original.title;
     commandBlocks.push({...original,title:title||'Commande',code,context:original.context||'',fromMemo:true});
   }
-  return {
+  return cleanMemoCitationItem({
     ...source,
     ...reference,
     type: 'memo',
@@ -289,7 +289,7 @@ function libraryItemFromEditor(source) {
     commandBlocks,
     facets: libraryFacets(),
     updatedAt: now()
-  };
+  });
 }
 async function saveLibraryItem(id) {
   const key = state.vaultKey;
