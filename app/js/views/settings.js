@@ -54,7 +54,9 @@ function changeWorkspaceFromSettings() {
 }
 
 /* SETTINGS */
+const WOLFGUARD_APP_VERSION = '4.3.2';
 const SETTINGS_ICON_PATHS = {
+  "info": '<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>',
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>',
   "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71m2.25 5.82a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   "plus": '<path d="M12 5v14M5 12h14"/>',
@@ -135,7 +137,7 @@ async function openSettings(initialTab = 'security') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -149,6 +151,7 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
           <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-about" data-settings-tab="about" role="tab" aria-controls="settings-about" aria-selected="false" tabindex="-1">${settingsIcon('info')}<span>À propos</span></button>
         </nav>
         <div class="settings-workspace">
           <strong>${esc(filename)}</strong>
@@ -157,6 +160,20 @@ async function openSettings(initialTab = 'security') {
         </div>
       </aside>
       <div class="settings-main">
+        <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
+          <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>
+          <div class="settings-about-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="72" height="72"><div><h4>WolfGuard</h4><p>Documentation IT, coffre chiffré et sécurité des postes dans un même espace de travail.</p></div></div>
+          <dl class="settings-about-facts">
+            <div><dt>Version de l’application</dt><dd>${WOLFGUARD_APP_VERSION}</dd></div>
+            <div><dt>Édition utilisée</dt><dd>${desktopBridge.available?'Application Windows':'Application web'}</dd></div>
+            <div><dt>Agents compatibles</dt><dd>Windows, Linux et macOS</dd></div>
+            <div><dt>Mises à jour des agents</dt><dd>Automatiques · toutes les 5 minutes lorsque le poste est disponible</dd></div>
+          </dl>
+          <h4 class="settings-group-title">Les fonctions de WolfGuard</h4>
+          <div class="settings-row">${settingsIcon('folder-open')}<div class="settings-row-copy"><div class="settings-row-title">Documentation et outils IT</div><div class="settings-row-desc">Procédures, mémos, commandes et outils pour les interventions du quotidien.</div></div></div>
+          <div class="settings-row">${settingsIcon('lock')}<div class="settings-row-copy"><div class="settings-row-title">Coffre et espace de travail</div><div class="settings-row-desc">Informations sensibles dans le coffre chiffré, accès par code personnel et gestion des droits.</div></div></div>
+          <div class="settings-row">${settingsIcon('shield-check')}<div class="settings-row-copy"><div class="settings-row-title">Sécurité et gestion des postes</div><div class="settings-row-desc">Inventaire des agents, scans réseau, cartographie, audits, protection EDR et prise en main à distance.</div></div></div>
+        </section>
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
         <section class="settings-panel hidden" id="settings-modules" data-settings-panel="modules" role="tabpanel" aria-labelledby="settings-tab-modules">${moduleManagerHTML()}</section>
@@ -236,7 +253,7 @@ async function openSettings(initialTab = 'security') {
         </section>
       </div>
     </div>
-    <footer class="settings-footer"><span id="settingsFeedback" class="settings-feedback" role="status" aria-live="polite"></span><span class="settings-version">Version 4.3.2</span></footer>
+    <footer class="settings-footer"><span id="settingsFeedback" class="settings-feedback" role="status" aria-live="polite"></span><span class="settings-version">Version ${WOLFGUARD_APP_VERSION}</span></footer>
   `);
 
   const dialog = $('#modalRoot .modal');

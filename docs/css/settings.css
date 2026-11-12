@@ -1,4 +1,20 @@
 /* SETTINGS */
+.settings-about-brand {display:flex;align-items:center;gap:20px;margin-bottom:24px;padding:20px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-sidebar)}
+.settings-about-brand>img {flex:none}
+.settings-about-brand>div {min-width:0}
+.settings-about-brand h4 {margin:0 0 7px;font-size:24px;font-weight:600;letter-spacing:-.5px}
+.settings-about-brand p {margin:0;color:var(--ui-muted);font-size:12px;line-height:1.8}
+.settings-about-facts {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 24px;margin:0 0 28px}
+.settings-about-facts>div {min-width:0}
+.settings-about-facts dt {margin-bottom:6px;color:var(--ui-muted);font-size:10px}
+.settings-about-facts dd {margin:0;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+#settings-about .settings-row-copy {min-width:0}
+@media(max-width:640px) {
+  .settings-about-brand {align-items:flex-start;gap:12px;padding:14px}
+  .settings-about-brand>img {width:48px;height:48px}
+  .settings-about-brand h4 {font-size:20px}
+  .settings-about-facts {grid-template-columns:minmax(0,1fr);gap:15px}
+}
 /* Agent management */
 #settings-agents{--agent-accent:#a8c8e8}
 #settings-agents [hidden]{display:none!important}
