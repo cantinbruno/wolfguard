@@ -81,6 +81,8 @@ def run():
             page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '1', '3', '4'])
+            assert page.locator('.agents-table-scroll').bounding_box()['y'] < 340
+            assert all(row['height'] <= 60 for row in page.locator('[data-agent-row]').evaluate_all('rows => rows.map(row => ({height: row.getBoundingClientRect().height}))'))
             state['endpoints_only'] = True
             page.locator('#agentsRefresh').click()
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
@@ -299,6 +301,9 @@ def run():
                 assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width, bounds
                 assert bounds['y'] >= 0 and bounds['y'] + bounds['height'] <= 1000, bounds
                 if width in [1440, 390]: page.screenshot(path=str(ROOT / f'.cache/agents-console-{width}.png'), animations='disabled')
+                if width in [1440, 390]:
+                    page.keyboard.press('Escape')
+                    page.screenshot(path=str(ROOT / f'.cache/security-compact-{width}.png'), animations='disabled')
             page.keyboard.press('Escape')
             page.set_viewport_size({'width':1440,'height':1000})
             page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
