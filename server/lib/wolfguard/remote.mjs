@@ -62,7 +62,7 @@ export async function handleRemoteAPI(request,env,now,h){
   }
   if(path.includes('/terminal/')&&request.method==='POST')return handleTerminalAPI(path,data,env,row,now,{...h,closeRemote});
   if(path.includes('/remote/files/'))return handleFileAPI(path,data,env,row,now,h);
-  if(row.mode==='terminal')fail(409,'Cette session utilise le terminal.');
+  if(row.mode!=='desktop')fail(409,'Ouvre une session Bureau pour utiliser le contrôle du bureau.');
   if(path==='/api/remote/input'&&request.method==='POST'){
     if(row.status!=='active')fail(409,'La session n’est pas active.');
     if(!Number.isSafeInteger(data.seq)||data.seq<1||!Array.isArray(data.events)||!data.events.length||data.events.length>32)fail(400,'Lot de contrôle invalide.');

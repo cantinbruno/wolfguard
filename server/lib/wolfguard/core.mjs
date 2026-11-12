@@ -1,7 +1,8 @@
 // Single-owner WolfGuard storage. Secrets are supplied by the host, never Git.
 import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
-import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI} from './access.mjs';
+import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI,stopRemoteOwners} from './access.mjs';
+import {objectJSON} from './request.mjs';
 import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode,revokeUserSessions} from './users.mjs';
 import {matchesOTP,consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from './otp.mjs';
 import {browserPushEnabled,pushDevice,startPush,handlePushLogin,requiresPhone,phoneEnrollment,handlePhoneEnrollment} from './push.mjs';
@@ -25,11 +26,7 @@ class Failure extends Error { constructor(status,message,extra={}) { super(messa
 const fail = (status,message,extra) => { throw new Failure(status,message,extra); };
 const json = (data,status=200) => new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8'}});
 async function smallJSON(request,limit=2048) {
-  let length=0;const parts=[];
-  if(!request.body)fail(400,'Requête vide.');
-  for await(const part of request.body){length+=part.byteLength;if(length>limit)fail(413,'Requête trop volumineuse.');parts.push(part);}
-  const all=new Uint8Array(length);let offset=0;for(const part of parts){all.set(part,offset);offset+=part.length;}
-  try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(all));}catch{fail(400,'Requête invalide.');}
+  return objectJSON(request,limit,fail);
 }
 const codeOK = code => typeof code==='string' && /^[0-9]{8}$/.test(code);
 export async function pinHash(code,salt,env) {
@@ -72,7 +69,7 @@ async function issueSession(env,generation,now,request,user=null) {
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   // After MFA, reconnect to the same account session. The recoverable token is
   // encrypted at rest with the independent server key, never stored in clear.
-  const existing=user?await env.DB.prepare('SELECT token_hash,token_cipher FROM sessions WHERE user_id=? AND generation=? AND user_version=?').bind(user.id,generation,user.code_version||0).first():null;
+  const existing=user?await env.DB.prepare('SELECT token_hash,token_cipher FROM sessions WHERE user_id=? AND generation=? AND user_version=? AND expires_at>?').bind(user.id,generation,user.code_version||0,now).first():null;
   if(existing?.token_cipher){
     const previous=await openRecord(existing.token_cipher,'WolfGuard session v1:'+user.id,env);
     if(await digest(previous)!==existing.token_hash)fail(503,'Session illisible.');
@@ -94,8 +91,8 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
-    .bind(now,hash,context.hash||'').first();
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
+    .bind(now,hash,now,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   if(session.user_id&&!session.token_cipher)await env.DB.prepare('UPDATE sessions SET token_cipher=? WHERE token_hash=? AND token_cipher IS NULL').bind(await sealRecord(token,'WolfGuard session v1:'+session.user_id,env),hash).run();
   if(!browserPushEnabled(env))session.user_push=0;
@@ -294,7 +291,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         else if(path==='/api/chat/history'||path.startsWith('/api/chat/history/'))response=await handleChatHistory(request,env,now,session,{fail,json,body:()=>smallJSON(request,160*1024)});
         else if(path==='/api/chat/settings'||path==='/api/chat/completions')response=await handleChatAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,80*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
-        else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();response=json({ok:true});}
+        else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();await stopRemoteOwners(env,[{token_hash:session.hash}],now);response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});
         else if(path==='/api/vault'&&request.method==='GET'){
           const row=await state(env);if(!row.object_key)fail(404,'Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
@@ -321,6 +318,10 @@ export async function handleAPI(request,env,clock=Date.now) {
   const headers=new Headers(response.headers);
   headers.set('Cache-Control','no-store, max-age=0');headers.set('Pragma','no-cache');headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('Vary','Origin');
   headers.set('X-Robots-Tag','noindex, nofollow, noarchive, nosnippet');
+  headers.set('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+  headers.set('X-Frame-Options','DENY');
+  headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
+  if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
   if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
   if(response.status===429||response.status===401){const data=await response.clone().json();if(data.retryAfter)headers.set('Retry-After',String(data.retryAfter));}
   return new Response(response.body,{status:response.status,headers});

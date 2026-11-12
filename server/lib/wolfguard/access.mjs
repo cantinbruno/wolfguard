@@ -36,7 +36,8 @@ async function addressHash(ip,env){
 async function recordKey(env){return crypto.subtle.importKey('raw',bytes(env.STORAGE_KEY),'AES-GCM',false,['encrypt','decrypt']);}
 export async function seal(value,context,env){
   const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:encoder.encode(context)},await recordKey(env),encoder.encode(JSON.stringify(value))));
-  return hex(iv)+':'+btoa(String.fromCharCode(...cipher));
+  let encoded='';for(let offset=0;offset<cipher.length;offset+=16000)encoded+=String.fromCharCode(...cipher.subarray(offset,offset+16000));
+  return hex(iv)+':'+btoa(encoded);
 }
 export async function open(value,context,env){
   if(!value)return null;const [iv,data]=value.split(':');

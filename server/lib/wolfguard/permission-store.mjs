@@ -20,7 +20,7 @@ export async function permissionAPI(path,request,env,now,session,vault,h){
   if(data.revision!==target.permission_revision)fail(409,'Les droits ont changé. Recharge ce compte avant de réessayer.');
   let policy;try{policy=normalizePolicy(data.policy);}catch(error){fail(400,error.message);}
   const before=await userPolicy(target,env),id=random(16),revision=target.permission_revision+1;
-  if(!canManagePolicy(session.user,before)||!canManagePolicy(session.user,policy))fail(403,'Ce changement dépasse ton propre périmètre de droits.');
+  if(!canManagePolicy(session.user,before,now)||!canManagePolicy(session.user,policy,now))fail(403,'Ce changement dépasse ton propre périmètre de droits.');
   const details={actorId:session.user.id,actor:session.user.username,userId:target.id,user:await open(target.name_cipher,'WolfGuard users v1:name:'+target.id,env),before,after:policy,revision,reason:typeof data.reason==='string'?data.reason.trim().slice(0,500):''};
   const result=await env.DB.batch([
     env.DB.prepare('UPDATE users SET permissions_cipher=?,permission_revision=permission_revision+1,code_version=code_version+1,updated_at=? WHERE id=? AND permission_revision=? AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)').bind(await policyCipher(policy,target.id,env),now,target.id,data.revision,session.hash),

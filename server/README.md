@@ -1,7 +1,7 @@
 # WolfGuard shared storage
 
 Managed server for the GitHub Pages frontend at https://wolfguard.wavetools.fr/.
-Anonymous visitors may reach the login endpoint. Every data read and write requires a short-lived session issued after verification of the personal eight-digit code and, when enabled, an Authenticator OTP. Email remains mandatory on each account, but is not entered at login.
+Anonymous visitors may reach the login endpoint. Every data read and write requires a revocable account session issued after verification of the personal eight-digit code and, when enabled, an Authenticator OTP. Email remains mandatory on each account, but is not entered at login.
 
 ## Code-only login and Authenticator
 
@@ -13,7 +13,11 @@ After TOTP enrollment, a signed-in user associates their phone in Security using
 
 Login still verifies the personal code and consumes a fresh six-digit OTP before creating a push request. No session or workspace key is returned until the phone approves a server nonce with its device key. Anonymous polling uses a separate 256-bit ticket stored only as a hash, with a two-minute deadline, account version, device ID and vault generation. Inspection also requires a device signature. Approval/refusal and ticket consumption use atomic database transitions. Replays, expiry, cancellation, code changes and replaced/removed/disabled accounts cannot release a session. Issuance rechecks the enrolled device, account verifier and generation. Only one request may be pending per user, with at least 30 seconds between sends and a five-per-five-minute ceiling. Delivery failure leaves access closed. Single-use recovery codes are the explicit recovery path for a lost phone and bypass the OTP/push pair after verification of the personal code. Resetting Authenticator administratively removes the phone too.
 
-Browser and server idle limits are one hour; the eight-hour absolute lifetime remains. Reload tickets retain the original activity timestamp and only resume a genuine reload of the same tab. The browser never persists the personal code, OTP or pending push ticket. The phone's public confirmation page retains its short-lived request fragment until a decision so refreshing it still works. The service worker has no fetch handler, cache or workspace access.
+Sessions remain open until explicit locking or revocation. Explicitly expired tokens are refused and a subsequent login never revives them. Reload tickets only resume a genuine reload of the same tab. The browser never persists the personal code, OTP or pending push ticket. The phone's public confirmation page retains its short-lived request fragment until a decision so refreshing it still works. The service worker has no fetch handler, cache or workspace access.
+
+## Security checks
+
+Run `npm audit`, `node --test tests/security.test.mjs` and `npm run build` from this directory. The repository root additionally provides `npm run test:security` with disposable-database regressions for authentication, permissions, encrypted storage, agents and all remote modes. JSON API objects are bounded by byte size and nesting depth, and require JSON media types when declared. API responses disallow embedding and caching and set HSTS for HTTPS. The frontend and agent CORS behavior is preserved.
 
 Personal codes are unique across accounts, including disabled accounts. A peppered HMAC lookup accelerates identification while the independently salted PBKDF2 verifier remains mandatory. Old accounts are checked against their existing verifiers until their lookup is populated on login; no existing code, workspace key or agent credential is changed. Ambiguous legacy codes fail closed and require the administrator to reset one member's code. Code creation and changes reject collisions; a unique database index also handles races. Older clients can still submit an email alongside the code.
 

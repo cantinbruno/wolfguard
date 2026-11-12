@@ -5,11 +5,12 @@ import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
 import {cachedAnalysis,analyzeScan} from './certfr.mjs';
 import {can,canAgent,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
+import {objectJSON} from './request.mjs';
 const encode=new TextEncoder();
 const MAX_RESULT=1024*1024,LEASE_MS=30000,ONLINE_MS=20000;
 export async function handleAgentAPI(request,env,now,h){
   const {fail,json,random,digest,authorize,storageKey}=h,path=new URL(request.url).pathname;
-  async function body(limit=16000){let size=0,parts=[];if(!request.body)fail(400,'Requête vide.');for await(const part of request.body){size+=part.length;if(size>limit)fail(413,'Relevé trop volumineux.');parts.push(part);}const bytes=new Uint8Array(size);let i=0;for(const part of parts){bytes.set(part,i);i+=part.length;}try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{fail(400,'Requête invalide.');}}
+  const body=(limit=16000)=>objectJSON(request,limit,fail);
   const hex=bytes=>[...new Uint8Array(bytes)].map(n=>n.toString(16).padStart(2,'0')).join('');
   const unhex=text=>Uint8Array.from(text.match(/../g)||[],n=>parseInt(n,16));
   const base64=value=>{const bytes=new Uint8Array(value);let output='';for(let i=0;i<bytes.length;i+=16000)output+=String.fromCharCode(...bytes.subarray(i,i+16000));return btoa(output);};

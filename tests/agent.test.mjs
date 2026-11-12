@@ -58,7 +58,7 @@ async function setup(){
   const env={DB:new D1(),BUCKET:{},AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   const api=async(path,body,credential,method=body===undefined?'GET':'POST',origin='https://wolfguard.wavetools.fr')=>handleAPI(new Request('https://test.invalid/api/'+path,{method,headers:{...(origin?{Origin:origin}:{}),...(credential?{Authorization:credential}:{}),'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   // Activation header is intentionally supplied only through this local fixture.
-  const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation},body:JSON.stringify({code:'07942685'})}),env,()=>now);
+  const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation,'Content-Type':'application/json'},body:JSON.stringify({code:'07942685'})}),env,()=>now);
   const user='Bearer '+(await response.json()).token;
   async function pair(name='Agent de test',platform='win32'){const ticket=await (await api('agents/pair',{},user)).json();const result=await api('agent/enroll',{code:ticket.code,name,platform});assert.equal(result.status,200);const agent=await result.json();await api('agent/poll',{capabilities:['network-target-v1','network-scan-v3']},'Agent '+agent.token);return {...agent,auth:'Agent '+agent.token,code:ticket.code};}
   return {api,user,pair,env,advance:ms=>{now+=ms;}};

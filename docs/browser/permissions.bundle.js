@@ -140,11 +140,13 @@ function recordLevel(user, record, kind, folders, now = Date.now()) {
   return scoped==='write'&&can(user,section+'.write',now)?'write':'read';
 }
 function requirePermission(user, key, fail, now) { if (!can(user, key, now)) fail(403, 'Ton compte ne dispose pas du droit « ' + key + ' ».', { code: 'PERMISSION_DENIED' }); }
-function canManagePolicy(actor, target) {
-  if (actor?.role === 'admin'||actor?.permissions?.admin) return true;
+function canManagePolicy(actor, target, now = Date.now()) {
+  if (actor?.role === 'admin') return true;
   const ownPolicy = actor?.permissions; if (!ownPolicy) return false;
+  if (ownPolicy.expiresAt !== null && (ownPolicy.expiresAt <= now || target.expiresAt === null || target.expiresAt > ownPolicy.expiresAt)) return false;
+  if (ownPolicy.admin) return true;
   if (target.admin) return false;
-  if(grantsOf(target).some(key=>!can(actor,key)))return false;
+  if(grantsOf(target).some(key=>!can(actor,key,now)))return false;
   if(ownPolicy.agents!=null&&(target.agents==null||target.agents.some(id=>!ownPolicy.agents.includes(id))))return false;
   if(ownPolicy.scopes&&JSON.stringify(ownPolicy.scopes)!==JSON.stringify(target.scopes))return false;
   for (const section of SECTION_IDS) {

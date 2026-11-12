@@ -171,7 +171,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   let initialPolicy=profilePolicy('none');
   if(['/api/users/create','/api/users/invite'].includes(path)&&data.profile!==undefined){
     try{initialPolicy=profilePolicy(data.profile);}catch(error){fail(400,error.message);}
-    if(data.profile!=='none'){requirePermission(session.user,'users.permissions',fail,now);if(!canManagePolicy(session.user,initialPolicy))fail(403,'Ce profil dépasse tes propres droits.');}
+    if(data.profile!=='none'){requirePermission(session.user,'users.permissions',fail,now);if(!canManagePolicy(session.user,initialPolicy,now))fail(403,'Ce profil dépasse tes propres droits.');}
   }
   if(path==='/api/users/invite'){
     const id=random(16),ticket=random(32),expiresAt=now+24*60*60000;
@@ -200,7 +200,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   const target=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(data.id).first();if(!target)fail(404,'Utilisateur introuvable.');
   const isOwner=target.id===vault.owner_user_id;
   if(session.user.role!=='admin'&&(isOwner||target.id===session.user.id))fail(403,'Un gestionnaire ne peut pas modifier son propre compte ni le propriétaire.');
-  if(!canManagePolicy(session.user,await userPolicy(target,env)))fail(403,'Un gestionnaire peut uniquement gérer les membres dont les droits restent dans son propre périmètre.');
+  if(!canManagePolicy(session.user,await userPolicy(target,env),now))fail(403,'Un gestionnaire peut uniquement gérer les membres dont les droits restent dans son propre périmètre.');
   if(path==='/api/users/update'){
     const name=normalizeUsername(data.username),role=isOwner?'admin':'member',disabled=data.disabled;
     if(!name||typeof disabled!=='boolean')fail(400,'Vérifie l’adresse mail et les paramètres du compte.');
