@@ -27,8 +27,9 @@ def run():
         ('b', 'Serveur sélectionné', 'linux', True, CAPABILITIES),
         ('c', 'Poste hors ligne', 'darwin', False, CAPABILITIES),
         ('d', 'Agent ancien <img src=x>', 'win32', True, ['network-scan-v3'])]]
-    state = {'fail': False}
-    event_agents, started = [], []
+    for index, agent in enumerate(agents): agent['version'] = str(index + 1) * 64
+    state = {'fail': False, 'protection_fail': False}
+    event_agents, started, summary_calls = [], [], []
 
     def route_api(route):
         url = urlsplit(route.request.url)
@@ -36,8 +37,10 @@ def run():
             if state['fail']: route.fulfill(status=503, json={'error': 'Service indisponible'})
             else: route.fulfill(json={'agents': agents})
         elif url.path == '/api/edr':
-            endpoints = [{**agent, 'health': 'unknown', 'alerts': 0, 'blocks': 0, 'snapshot': None, 'policy': {'mode': 'observe', 'realtime': True, 'firewall': True}, 'revision': 0} for agent in agents]
-            route.fulfill(json={'endpoints': endpoints, 'serverTime': int(time.time()*1000)})
+            summary_calls.append(url.path)
+            endpoints = [{**agent, 'health': ['protected','attention','protected','unknown'][index], 'alerts': 3 if index == 1 else 0, 'blocks': 0, 'collectedAt': None if index == 3 else int(time.time()*1000), 'snapshot': None if index == 3 else {'provider':'Test', 'canEnforce':False}, 'policy': {'mode': 'observe', 'realtime': True, 'firewall': True}, 'revision': 0} for index, agent in enumerate(agents)]
+            if state['protection_fail']: route.fulfill(status=503, json={'error': 'Relevés indisponibles'})
+            else: route.fulfill(json={'endpoints': endpoints, 'serverTime': int(time.time()*1000)})
         elif url.path == '/api/edr/events':
             event_agents.append(parse_qs(url.query)['agentId'][0])
             route.fulfill(json={'events': [], 'commands': [], 'next': None})
@@ -74,6 +77,66 @@ def run():
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '3', '1'])
             expect(page.locator('#agentActions h2')).to_have_text(agents[0]['name'])
+            expect(page.locator('.agents-table th')).to_have_count(6)
+            expect(page.locator('[data-agent-row="' + agents[0]['id'] + '"] [data-health="protected"]')).to_have_text('Protégé')
+            expect(page.locator('[data-agent-row="' + agents[1]['id'] + '"] .agents-alerts')).to_have_text('3')
+            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] [data-health="unknown"]')).to_have_text('À confirmer')
+            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] .agents-alerts')).to_have_text('—')
+            expect(page.locator('[data-agent-row="' + agents[3]['id'] + '"] .agents-alerts')).to_have_text('—')
+            page.locator('[data-agent-sort="name"]').click()
+            expect(page.locator('[data-agent-column="name"]')).to_have_attribute('aria-sort', 'descending')
+            expect(page.locator('[data-fleet-agent]').first).to_have_attribute('data-fleet-agent', agents[1]['id'])
+            expect(page.locator('[data-agent-sort="name"]')).to_be_focused()
+            page.locator('[data-agent-sort="alerts"]').click()
+            page.locator('[data-agent-sort="alerts"]').click()
+            expect(page.locator('[data-fleet-agent]').first).to_have_attribute('data-fleet-agent', agents[1]['id'])
+            expect(page.locator('[data-fleet-agent]').last).to_have_attribute('data-fleet-agent', agents[2]['id'])
+            page.locator('#agentsPlatform').select_option('linux')
+            page.locator('#agentsProtection').select_option('attention')
+            page.locator('#agentsFilter').select_option('online')
+            expect(page.locator('[data-fleet-agent]')).to_have_count(1)
+            expect(page.locator('[data-fleet-agent]')).to_have_attribute('data-fleet-agent', agents[1]['id'])
+            page.locator('#agentsSearch').fill('aucun-resultat')
+            expect(page.locator('[data-fleet-agent]')).to_have_count(0)
+            expect(page.locator('#agentsList')).to_contain_text('Aucun poste pour ces filtres')
+            page.locator('#agentsClearFilters').click()
+            expect(page.locator('#agentsSearch')).to_be_focused()
+            expect(page.locator('[data-fleet-agent]')).to_have_count(4)
+            expect(page.locator('#agentsPlatform')).to_have_value('all')
+            expect(page.locator('#agentsProtection')).to_have_value('all')
+            expect(page.locator('#agentsFilter')).to_have_value('all')
+            page.locator('#agentsSearch').fill('11111111')
+            expect(page.locator('[data-fleet-agent]')).to_have_count(1)
+            page.locator('#agentsClearFilters').click()
+            page.locator('#agentsProtection').select_option('protected')
+            expect(page.locator('[data-fleet-agent]')).to_have_count(1)
+            expect(page.locator('[data-fleet-agent]')).to_have_attribute('data-fleet-agent', agents[0]['id'])
+            page.locator('#agentsProtection').select_option('alerts')
+            expect(page.locator('[data-fleet-agent]')).to_have_count(1)
+            expect(page.locator('[data-fleet-agent]')).to_have_attribute('data-fleet-agent', agents[1]['id'])
+            page.locator('#agentsClearFilters').click()
+            state['protection_fail'] = True
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('#agentsStatus')).to_contain_text('relevés de protection')
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(0)
+            expect(page.locator('.agents-alerts')).to_have_text(['—'] * 4)
+            expect(page.locator('[data-fleet-action="active"]')).to_be_enabled()
+            state['protection_fail'] = False
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
+            page.evaluate("""() => {window.__consoleAccess=WolfGuardAccess;window.WolfGuardAccess={...WolfGuardAccess,can:right=>right==='edr.read'?false:window.__consoleAccess.can(right)}}""")
+            previous_calls = len(summary_calls)
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('#agentsProtection')).to_be_disabled()
+            expect(page.locator('.agents-health')).to_have_text(['Accès non accordé'] * 4)
+            assert len(summary_calls) == previous_calls
+            page.evaluate('window.WolfGuardAccess=window.__consoleAccess')
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
+            page.locator('[data-agent-sort="name"]').click()
+            page.locator('[data-agent-row="' + agents[1]['id'] + '"] td').nth(1).click()
+            expect(page.locator('#agentActions h2')).to_have_text(agents[1]['name'])
+            page.screenshot(path=str(ROOT / '.cache/ems-endpoints-desktop.png'), animations='disabled')
             page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
             expect(page.locator('#agentActions h2')).to_have_text(agents[1]['name'])
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
@@ -142,7 +205,7 @@ def run():
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '—', '—'])
             assert not errors, errors
             browser.close()
-            print('PASS: agent list, exact targets, remote modes, EDR target, filters, offline/capability/permission reasons, stale state and mobile layout')
+            print('PASS: endpoint table, sorting, combined filters, EDR telemetry and permissions, exact action targets, offline/capability reasons, service failures and mobile layout')
     finally:
         process.terminate()
         process.wait(timeout=10)
