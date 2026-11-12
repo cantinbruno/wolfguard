@@ -28,17 +28,17 @@ def run():
         ('c', 'Poste hors ligne', 'darwin', False, CAPABILITIES),
         ('d', 'Agent ancien <img src=x>', 'win32', True, ['network-scan-v3'])]]
     for index, agent in enumerate(agents): agent['version'] = str(index + 1) * 64
-    state = {'fail': False, 'protection_fail': False}
+    state = {'fail': False, 'protection_fail': False, 'old_reports': False, 'endpoints_only': False}
     event_agents, started, summary_calls = [], [], []
 
     def route_api(route):
         url = urlsplit(route.request.url)
         if url.path == '/api/agents':
             if state['fail']: route.fulfill(status=503, json={'error': 'Service indisponible'})
-            else: route.fulfill(json={'agents': agents})
+            else: route.fulfill(json={'agents': [] if state['endpoints_only'] else agents})
         elif url.path == '/api/edr':
             summary_calls.append(url.path)
-            endpoints = [{**agent, 'health': ['protected','attention','protected','unknown'][index], 'alerts': 3 if index == 1 else 0, 'blocks': 0, 'collectedAt': None if index == 3 else int(time.time()*1000), 'snapshot': None if index == 3 else {'provider':'Test', 'canEnforce':False}, 'policy': {'mode': 'observe', 'realtime': True, 'firewall': True}, 'revision': 0} for index, agent in enumerate(agents)]
+            endpoints = [{**agent, 'health': ['protected','attention','protected','unknown'][index], 'alerts': 3 if index == 1 else 0, 'blocks': 0, 'collectedAt': None if index == 3 else int(time.time()*1000) - (300000 if state['old_reports'] else 0), 'snapshot': None if index == 3 else {'provider':'Microsoft Defender' if index == 0 else 'Protection native', 'antivirus':'enabled','realtime':'disabled' if index == 1 else 'enabled','firewall':'enabled','signatures':'enabled','canEnforce':False}, 'policy': {'mode': 'observe', 'realtime': True, 'firewall': True}, 'revision': 0} for index, agent in enumerate(agents)]
             if state['protection_fail']: route.fulfill(status=503, json={'error': 'Relevés indisponibles'})
             else: route.fulfill(json={'endpoints': endpoints, 'serverTime': int(time.time()*1000)})
         elif url.path == '/api/edr/events':
@@ -80,7 +80,13 @@ def run():
             expect(page.locator('.workspace-section-button')).to_have_count(4)
             page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
-            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '3', '1'])
+            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '1', '3', '4'])
+            state['endpoints_only'] = True
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('[data-fleet-agent]')).to_have_count(4)
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
+            state['endpoints_only'] = False
+            page.locator('#agentsRefresh').click()
             expect(page.locator('#agentActions')).to_have_count(0)
             page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
             expect(page.locator('#agentActions')).to_have_count(0)
@@ -124,9 +130,24 @@ def run():
             expect(page.locator('.agents-table th')).to_have_count(6)
             expect(page.locator('[data-agent-row="' + agents[0]['id'] + '"] [data-health="protected"]')).to_have_text('Protégé')
             expect(page.locator('[data-agent-row="' + agents[1]['id'] + '"] .agents-alerts')).to_have_text('3')
-            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] [data-health="unknown"]')).to_have_text('À confirmer')
-            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] .agents-alerts')).to_have_text('—')
+            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] [data-health="unknown"]')).to_have_text('État non confirmé')
+            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] .agents-alerts')).to_have_text('0')
             expect(page.locator('[data-agent-row="' + agents[3]['id'] + '"] .agents-alerts')).to_have_text('—')
+            expect(page.locator('[data-agent-row="' + agents[0]['id'] + '"] [data-agent-check][data-check="enabled"]')).to_have_count(4)
+            expect(page.locator('[data-agent-row="' + agents[1]['id'] + '"] [data-agent-check="realtime"]')).to_have_attribute('data-check','disabled')
+            expect(page.locator('[data-agent-row="' + agents[2]['id'] + '"] [data-agent-check][data-check="unknown"]')).to_have_count(4)
+            state['old_reports'] = True
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(0)
+            expect(page.locator('[data-agent-check][data-check="enabled"]')).to_have_count(0)
+            state['old_reports'] = False
+            page.locator('#agentsRefresh').click()
+            expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
+            with page.expect_response(lambda response: '/api/edr/events?' in response.url and agents[0]['id'] in response.url):
+                page.locator('[data-agent-security="' + agents[0]['id'] + '"]').click()
+            expect(page.locator('#edrDetailName')).to_have_text(agents[0]['name'])
+            assert event_agents[-1] == agents[0]['id']
+            page.locator('#agentToolClose').click()
             page.locator('[data-agent-sort="name"]').click()
             expect(page.locator('[data-agent-column="name"]')).to_have_attribute('aria-sort', 'descending')
             expect(page.locator('[data-fleet-agent]').first).to_have_attribute('data-fleet-agent', agents[1]['id'])
@@ -134,7 +155,7 @@ def run():
             page.locator('[data-agent-sort="alerts"]').click()
             page.locator('[data-agent-sort="alerts"]').click()
             expect(page.locator('[data-fleet-agent]').first).to_have_attribute('data-fleet-agent', agents[1]['id'])
-            expect(page.locator('[data-fleet-agent]').last).to_have_attribute('data-fleet-agent', agents[2]['id'])
+            expect(page.locator('[data-fleet-agent]').last).to_have_attribute('data-fleet-agent', agents[3]['id'])
             page.locator('#agentsPlatform').select_option('linux')
             page.locator('#agentsProtection').select_option('attention')
             page.locator('#agentsFilter').select_option('online')
@@ -290,7 +311,7 @@ def run():
             expect(page.locator('#agentsStatus')).to_contain_text('plus confirmée')
             options(1)
             expect(page.locator('[data-fleet-action="active"]')).to_be_disabled()
-            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '—', '—'])
+            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '—', '—', '—'])
             page.evaluate('lockApplication()')
             expect(page.locator('#agentActions')).to_have_count(0)
             assert not errors, errors

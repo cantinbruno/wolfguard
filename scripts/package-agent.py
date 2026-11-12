@@ -28,6 +28,10 @@ POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mj
 for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
+for name in ['topology.mjs','version.mjs']:
+    FILES['agent/'+name]='agent/'+name
+    POSIX_FILES['agent/'+name]='agent/'+name
+FILES['agent/topology.ps1']='agent/topology.ps1'
 FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
 POSIX_FILES['server/lib/wolfguard/files-spec.mjs']='server/lib/wolfguard/files-spec.mjs'
 FILES['server/lib/wolfguard/remote-spec.mjs']='server/lib/wolfguard/remote-spec.mjs'
@@ -93,6 +97,15 @@ def executable(payload,check=False):
     return current
 
 def package():
+    inputs=(set(FILES.values())|set(POSIX_FILES.values())|{'agent/AgentWindow.cs','agent/BackgroundAgent.cs','agent/DesktopEncoder.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py'})-{'agent/version.mjs'}
+    version_hash=hashlib.sha256()
+    for name in sorted(inputs):
+        version_hash.update(name.encode());version_hash.update((ROOT/name).read_text(encoding='utf8').replace('\r\n','\n').encode())
+    version=version_hash.hexdigest();version_source="// Generated from the packaged agent sources.\nexport const AGENT_VERSION='"+version+"';\n"
+    version_file=ROOT/'agent/version.mjs'
+    if '--check' in sys.argv:
+        if not version_file.exists() or version_file.read_text(encoding='utf8')!=version_source:raise ValueError('Version agent differente des sources autorisees')
+    else:version_file.write_text(version_source,encoding='utf8')
     payload=source_archive()
     binary=executable(payload,'--check' in sys.argv)
     buffer=io.BytesIO()
@@ -102,18 +115,21 @@ def package():
         archive.writestr(info,binary)
     data=buffer.getvalue()
     packages={'WolfGuard-Agent-Windows.zip':data,'WolfGuard-Agent-Linux.zip':source_archive(POSIX_FILES),'WolfGuard-Agent-macOS.zip':source_archive(POSIX_FILES)}
+    integrity={name:hashlib.sha256(data).hexdigest() for name,data in packages.items()};integrity[EXE.name]=hashlib.sha256(binary).hexdigest()
+    release={'version':version,'files':integrity}
     if '--check' in sys.argv:
         for name in ['app','docs']:
             for filename,payload in packages.items():
                 archive=ROOT/name/'downloads'/filename
                 if not archive.exists() or archive.read_bytes()!=payload:raise ValueError('Archive agent differente des seules sources autorisees : '+name+'/'+filename)
+            if json.loads((ROOT/name/'downloads/agent-release.json').read_text(encoding='utf8'))!=release:raise ValueError('Version publique agent invalide')
         return
     for filename,payload in packages.items():
         output=ROOT/'app/downloads'/filename
         output.parent.mkdir(parents=True,exist_ok=True)
         if not output.exists() or output.read_bytes()!=payload:output.write_bytes(payload)
-    integrity={name:hashlib.sha256(data).hexdigest() for name,data in packages.items()};integrity[EXE.name]=hashlib.sha256(binary).hexdigest()
     (ROOT/'app/downloads/agent-integrity.json').write_text(json.dumps(integrity,sort_keys=True)+'\n',encoding='utf8')
+    (ROOT/'app/downloads/agent-release.json').write_text(json.dumps(release,sort_keys=True)+'\n',encoding='utf8')
     print('Agent Windows, Linux et macOS prepare depuis les seuls fichiers source autorises.')
 
 if __name__=='__main__':package()

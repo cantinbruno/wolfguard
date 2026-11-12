@@ -6,8 +6,9 @@ import {spawn} from 'node:child_process';
 import {homedir,hostname} from 'node:os';
 import {AgentClient,agentDirectory,diskCredentialStore} from './agent.mjs';
 import {fixedProcess} from './network.mjs';
+import {AGENT_VERSION} from './version.mjs';
 
-const FILES=['agent.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
+const FILES=['agent.mjs','endpoint.mjs','endpoint-posix.mjs','install-service.mjs','network.mjs','topology.mjs','version.mjs','posix.mjs','security-rules.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json'];
 const SPECS=['scan-spec.mjs','remote-spec.mjs','files-spec.mjs','terminal-spec.mjs','ai-input.mjs','endpoint-spec.mjs'];
 const xml=value=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const systemd=value=>'"'+String(value).replaceAll('\\','\\\\').replaceAll('"','\\"').replaceAll('%','%%').replaceAll('$','$$')+'"';
@@ -28,14 +29,14 @@ async function copyPayload(destination,rootOnly){
   await copy(process.execPath,path.join(destination,'node'),0o755);
   return {node:path.join(destination,'node'),worker:path.join(destination,'agent','agent.mjs')};
 }
-async function launchUser(directory,runtime){
+async function launchUser(directory,runtime,restart=false){
   const env={WOLFGUARD_AGENT_HOME:directory,NODE_OPTIONS:'',NODE_PATH:''};
   if(process.platform==='linux'){
     const units=path.join(homedir(),'.config','systemd','user');await safeDirectory(units);
     await writeFile(path.join(units,'wolfguard-agent.service'),'[Unit]\nDescription=WolfGuard agent en arrière-plan\nAfter=network-online.target\n[Service]\nType=simple\nExecStart='+systemd(runtime.node)+' '+systemd(runtime.worker)+'\nEnvironment='+systemd('WOLFGUARD_AGENT_HOME='+directory)+' "NODE_OPTIONS=" "NODE_PATH="\nRestart=on-failure\nRestartSec=5\nUMask=0077\n[Install]\nWantedBy=default.target\n',{mode:0o600});
-    try{await fixedProcess('/usr/bin/systemctl',['--user','daemon-reload']);await fixedProcess('/usr/bin/systemctl',['--user','enable','--now','wolfguard-agent.service']);return;}catch{}
+    try{await fixedProcess('/usr/bin/systemctl',['--user','daemon-reload']);await fixedProcess('/usr/bin/systemctl',['--user','enable','--now','wolfguard-agent.service']);if(restart)await fixedProcess('/usr/bin/systemctl',['--user','restart','wolfguard-agent.service']);return;}catch{}
     const pidFile=path.join(directory,'background.pid');
-    try{const pid=Number(await readFile(pidFile,'utf8'));if(Number.isSafeInteger(pid)&&pid>1){const command=await readFile('/proc/'+pid+'/cmdline','utf8');if(command.split('\0').includes(runtime.worker)){process.kill(pid,0);console.log('Agent déjà actif en arrière-plan.');return;}}}catch{}
+    try{const pid=Number(await readFile(pidFile,'utf8'));if(Number.isSafeInteger(pid)&&pid>1){const command=await readFile('/proc/'+pid+'/cmdline','utf8'),worker=command.split('\0').find(value=>value.endsWith('/agent/agent.mjs'));if(worker&&worker.startsWith(path.join(directory,'background-app')+path.sep)){process.kill(pid,0);if(restart)process.kill(pid,'SIGTERM');else{console.log('Agent déjà actif en arrière-plan.');return;}}}}catch{}
     const child=spawn(runtime.node,[runtime.worker],{detached:true,stdio:'ignore',env:{...process.env,...env}});child.unref();if(child.pid)await writeFile(pidFile,String(child.pid),{mode:0o600});
     console.log('Agent lancé en arrière-plan. systemd utilisateur indisponible : le démarrage automatique reste à configurer.');
   }else{
@@ -75,7 +76,7 @@ async function main(){
     if(!/^[a-f0-9]{32}$/.test(code))throw new Error('Code temporaire invalide.');
     const client=new AgentClient();credential={api:client.origin,...await client.post('enroll',{code,name:hostname(),platform:process.platform})};await store.save(credential);
   }
-  const runtime=await copyPayload(path.join(directory,'background-app'),false);await launchUser(directory,runtime);
+  const runtime=await copyPayload(path.join(directory,'background-app',AGENT_VERSION.slice(0,16)),false);await launchUser(directory,runtime,args.includes('--update'));
   console.log('WolfGuard fonctionne en arrière-plan. La gestion se fait depuis le site.');
   console.log('Pour administrer les protections natives avec un composant système : sudo sh Start-Agent.sh --install-protection '+JSON.stringify(directory)+' '+process.getuid());
 }

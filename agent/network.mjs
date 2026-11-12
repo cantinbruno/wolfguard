@@ -9,6 +9,7 @@ import {networkInterfaces} from 'node:os';
 import {scanSpec,localAddress,singleTarget} from '../server/lib/wolfguard/scan-spec.mjs';
 import {evaluateSecurity} from './security-rules.mjs';
 import {collectPosixPassive,collectPosixSecurity} from './posix.mjs';
+import {discoverTopology} from './topology.mjs';
 
 const SERVICES={21:'FTP',22:'SSH',23:'Telnet',25:'SMTP',53:'DNS',80:'HTTP',110:'POP3',135:'RPC',139:'NetBIOS',143:'IMAP',389:'LDAP',443:'HTTPS',445:'SMB',636:'LDAPS',993:'IMAPS',995:'POP3S',1433:'SQL Server',3306:'MySQL',3389:'RDP',5432:'PostgreSQL',5900:'VNC',5985:'WinRM',5986:'WinRM TLS',6379:'Redis',8080:'HTTP',8443:'HTTPS'};
 export function fixedProcess(file,args,{input='',signal,timeout=20000,maxBytes=3*1024*1024}={}){
@@ -92,7 +93,7 @@ function bannerEvidence(content){
   return content.split(/\r?\n/,1)[0].slice(0,400);
 }
 function probe(address,port,timeout,signal,identify,hostname=address){
-  localAddress(address);
+  localAddress(address.split('%')[0]);
   return new Promise(resolve=>{
     const started=performance.now(),socket=new net.Socket();let done=false,timer;
     const row={address,port,transport:'TCP',source:'agent-tcp',...(hostname!==address?{hostname}:{})};
@@ -117,7 +118,7 @@ function probe(address,port,timeout,signal,identify,hostname=address){
   });
 }
 async function ping(address,timeout,signal){
-  localAddress(address);const started=performance.now();
+  localAddress(address.split('%')[0]);const started=performance.now();
   const windows=process.platform==='win32',mac=process.platform==='darwin';
   const file=windows?'ping.exe':mac&&address.includes(':')?'/sbin/ping6':'ping';
   const args=windows?['-n','1','-w',String(timeout),address]:mac?['-n','-c','1','-W',String(timeout),address]:['-n',...(address.includes(':')?['-6']:[]),'-c','1','-W',String(Math.max(1,Math.ceil(timeout/1000))),address];
@@ -129,8 +130,16 @@ export function automaticMap(interfaces=networkInterfaces()){
   const prefix=Math.max(24,Math.min(32,Number(chosen.cidr?.split('/')[1])||24)),mask=(0xffffffff<<(32-prefix))>>>0,n=chosen.address.split('.').reduce((value,part)=>(value*256+Number(part))>>>0,0),network=(n&mask)>>>0,target=[24,16,8,0].map(shift=>(network>>>shift)&255).join('.')+'/'+prefix;
   return {target,origin:{address:chosen.address,interfaceName:chosen.name,cidr:chosen.cidr||target},interfaces:interfacesFound.map(entry=>({name:entry.name,address:entry.address,cidr:entry.cidr}))};
 }
-export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity,lookup=dnsLookup,cacheOptions={}}={}){
-  const mapping=raw.workspace==='map'&&(!raw.target||raw.target==='auto')?automaticMap():null;
+export async function discoverHost(address,{signal,timeoutMs=750}={}){
+  localAddress(address.split('%')[0]);
+  const stop=new AbortController(),combined=signal?AbortSignal.any([signal,stop.signal]):stop.signal;let found=null;
+  const keep=row=>{if(!found&&['reachable','open'].includes(row.status)){found=row;stop.abort();}};
+  await Promise.all([ping(address,timeoutMs,combined).then(keep),...[445,443,80,22,3389].map(port=>probe(address,port,Math.min(timeoutMs,500),combined,false).then(keep))]);
+  return found;
+}
+export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollector=collectPassive,securityCollector=collectSecurity,lookup=dnsLookup,cacheOptions={},topologyOptions={}}={}){
+  if(raw.workspace==='map'&&(!raw.target||raw.target==='auto'))return discoverTopology(raw,{signal,onProgress,run:fixedProcess,probe:discoverHost,...topologyOptions});
+  const mapping=null;
   const spec=scanSpec(mapping?{...raw,target:mapping.target}:raw),startedAt=new Date().toISOString(),rows=[],warnings=[];let completed=0,total=0,identifications=0,size=0,truncated=false,software=[];
   const report=()=>({strategy:spec.strategy,platform:process.platform,...(spec.workspace?{workspace:spec.workspace}:{}),target:spec.target||'Poste de l’agent',...(mapping?{network:mapping}:{}),startedAt,finishedAt:new Date().toISOString(),completed,total,cancelled:!!signal?.aborted,results:rows,warnings,...(software.length?{software}:{})});
   function add(row){const bytes=Buffer.byteLength(JSON.stringify(row));if(rows.length>=5000||size+bytes>850000){if(!truncated){warnings.push('Résultats limités à 5 000 observations ou 850 Ko. Les compteurs peuvent dépasser les lignes détaillées.');truncated=true;}return;}size+=bytes;rows.push(row);}
@@ -158,7 +167,7 @@ export async function runNetworkScan(raw,{signal,onProgress=()=>{},passiveCollec
       for(const port of spec.ports){if(signal?.aborted)break;const result=await probe(address,port,spec.timeoutMs,signal,false);if(['open','closed'].includes(result.status)){evidence=result;break;}}
       row={address,port:null,transport:'HOST',source:'agent-discovery',status:evidence?'reachable':'no-response',detail:evidence?'Réponse TCP sur '+evidence.port+' : '+(evidence.status==='open'?'connexion établie.':'connexion refusée.'):'Aucune réponse aux ports de découverte ; la machine peut filtrer les sondes.'};
     }else {const address=spec.addresses[Math.floor(index/spec.ports.length)],port=spec.ports[index%spec.ports.length];row=await probe(address,port,spec.timeoutMs,signal,spec.identifyServices&&identifications++<128,spec.workspace==='map'?address:spec.target);}
-    if(signal?.aborted)break;add(row);completed++;onProgress(report());
+    if(signal?.aborted)break;if(spec.workspace!=='map'||['reachable','open','closed'].includes(row.status))add(row);completed++;onProgress(report());
   }}
   onProgress(report());await Promise.all(Array.from({length:Math.min(spec.concurrency,total)},worker));
   if(signal?.aborted)warnings.push('Scan interrompu : le rapport ne contient que les tests terminés.');return report();

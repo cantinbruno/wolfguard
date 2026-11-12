@@ -25,19 +25,19 @@ const agentsWorkspace = (() => {
     const live = () => token === generation && root.isConnected && isSecurityWorkspace(state.section) && state.vaultKey === key && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
     const can = right => !window.WolfGuardAccess || WolfGuardAccess.can(right);
-    let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false;
+    let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
-    const columns = [['name','Poste'],['online','Connexion'],['platform','Système'],['health','Protection EDR'],['alerts','Alertes ouvertes'],['lastSeen','Dernier contact']];
+    const columns = [['name','Poste'],['online','Connexion'],['health','Protection du poste'],['alerts','Alertes ouvertes'],['version','Agent et mise \u00e0 jour'],['lastSeen','Dernier contact']];
     root.innerHTML = `<header class="agents-heading">
-      <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">SÉCURITÉ · ENDPOINTS</span><h1>Tous les postes</h1><p>Surveille tes agents et interviens sur le poste sélectionné.</p></div></div>
+      <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">SÉCURITÉ · ENDPOINTS</span><h1>Protection des agents</h1><p>Protections, alertes et mises à jour de tes postes.</p></div></div>
       <div class="agents-heading-actions"><button type="button" id="agentsManage">${settingsIcon('sliders-horizontal')}Gérer les agents</button><button type="button" id="agentsAdd" class="agents-primary">${settingsIcon('plus')}Ajouter un agent</button><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}<span>Actualiser</span></button></div>
     </header>
-    <div id="agentsMetrics" class="agents-metrics"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p>
+    <div id="agentsMetrics" class="agents-metrics"></div><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p>
     <div class="agents-console">
       <section class="agents-fleet" aria-label="Liste des agents">
-        <div class="agents-inventory-toolbar"><div class="agents-inventory-label">${settingsIcon('monitor')}<span>Inventaire des postes</span><span id="agentsInventoryCount" class="agents-inventory-count">0</span></div></div>
+        <div class="agents-inventory-toolbar"><div class="agents-inventory-label">${settingsIcon('shield-check')}<span>État de sécurité des postes</span><span id="agentsInventoryCount" class="agents-inventory-count">0</span></div></div>
         <div class="agents-fleet-filters">
           <div class="agents-search-filter"><label for="agentsSearch">Rechercher</label><div class="agents-search">${settingsIcon('search')}<input id="agentsSearch" type="search" placeholder="Nom du poste, système, version…"></div></div>
           <div><label for="agentsFilter">Connexion</label><select id="agentsFilter"><option value="all">Toutes les connexions</option><option value="online">Connectés</option><option value="offline">Hors ligne</option></select></div>
@@ -62,10 +62,44 @@ const agentsWorkspace = (() => {
 
     function protection(agent) {
       const endpoint = protections.get(agent.id);
-      if (!can('edr.read') || !workspaceModules.allows('edr')) return {health:'unknown', label:'Accès non accordé', alerts:null};
-      if (stale || protectionStale || !agent.online || !endpoint?.collectedAt) return {health:'unknown', label:'À confirmer', alerts:null};
+      const unknown = {health:'unknown', label:'À confirmer', alerts:null, snapshot:null, collectedAt:null};
+      if (!can('edr.read') || !workspaceModules.allows('edr')) return {...unknown, label:'Accès non accordé'};
+      if (stale || protectionStale || !endpoint?.collectedAt) return unknown;
+      const age = Date.now() - endpoint.collectedAt;
+      const fresh = agent.online && age >= -300000 && age < 120000 && (!endpoint.receivedAt || Date.now() - endpoint.receivedAt < 120000);
       const labels = {protected:'Protégé', attention:'À protéger', unknown:'À confirmer', unsupported:'Non intégrée'};
-      return {health: labels[endpoint.health] ? endpoint.health : 'unknown', label:labels[endpoint.health] || labels.unknown, alerts:Number.isSafeInteger(endpoint.alerts) && endpoint.alerts >= 0 ? endpoint.alerts : null};
+      return {health:fresh && labels[endpoint.health] ? endpoint.health : 'unknown', label:fresh ? labels[endpoint.health] || labels.unknown : 'État non confirmé', alerts:Number.isSafeInteger(endpoint.alerts) && endpoint.alerts >= 0 ? endpoint.alerts : null, snapshot:fresh ? endpoint.snapshot : null, collectedAt:endpoint.collectedAt};
+    }
+    function protectionHTML(agent) {
+      const status = protection(agent), unavailable = reason(actions.find(action => action.id === 'edr'), agent);
+      const labels = {enabled:'Activé',disabled:'Désactivé / à actualiser',passive:'Passif · antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
+      return '<div class="agents-protection-summary"><button type="button" class="agents-health" data-agent-security="' + esc(agent.id) + '" data-health="' + status.health + '" title="' + esc(unavailable || 'Voir la protection et les événements de ce poste') + '" ' + (unavailable || selecting ? 'disabled' : '') + '>' + status.label + '</button><span class="agents-provider">' + esc(status.snapshot?.provider || (status.collectedAt ? 'Dernier relevé : ' + timestamp(status.collectedAt) : 'En attente de relevé')) + '</span></div><div class="agents-protection-checks">' + [['antivirus','Antivirus'],['realtime','Temps réel'],['firewall','Pare-feu'],['signatures','Signatures']].map(([field,label]) => {
+        const value = Object.hasOwn(labels,status.snapshot?.[field]) ? status.snapshot[field] : 'unknown';
+        return '<span data-agent-check="' + field + '" data-check="' + value + '" title="' + label + ' : ' + labels[value] + '" aria-label="' + label + ' : ' + labels[value] + '"><i aria-hidden="true"></i>' + label + '</span>';
+      }).join('') + '</div>';
+    }
+    function updateInfo(agent) {
+      const task = WolfGuardAgentUpdates.state(agent.id), current = !stale && !releaseStale && !!publishedRelease && agent.version === publishedRelease.version;
+      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write') || !can('remote.write') ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
+      return {task,current,reason,canUpdate:!reason && !current && !task?.running, outdated:!!publishedRelease && !!agent.version && !current};
+    }
+    function updateHTML(agent) {
+      const info = updateInfo(agent);
+      const label = info.task?.running ? 'Mise à jour…' : info.current ? 'À jour' : 'Mettre à jour';
+      const message = info.task?.running || info.task?.status === 'failed' && !info.current ? info.task.message : info.current ? 'Version confirmée par le poste' : info.reason || (agent.version ? 'Nouvelle version disponible · brève reconnexion' : 'Version non remontée · mise à jour possible');
+      const manual = agent.online && !agent.capabilities?.includes('remote-terminal-v1') && ['win32','linux','darwin'].includes(agent.platform);
+      const file = {win32:'WolfGuard-Agent-Windows.exe',linux:'WolfGuard-Agent-Linux.zip',darwin:'WolfGuard-Agent-macOS.zip'}[agent.platform];
+      return '<div class="agents-version-line"><code title="' + esc(agent.version || 'Version non remontée') + '">' + esc(agent.version?.slice(0,8) || 'Non remontée') + '</code>' + (manual ? '<a class="agents-update-button" href="downloads/' + file + '" download title="Télécharger l’agent récent à installer sur ce poste">Installer</a>' : '<button type="button" class="agents-update-button" data-agent-install-update="' + esc(agent.id) + '" ' + (!info.canUpdate ? 'disabled' : '') + ' title="' + esc(message) + '">' + label + '</button>') + '</div><small class="agents-update-status" data-agent-update-status="' + esc(agent.id) + '" data-state="' + (info.current ? 'completed' : info.task?.status || 'idle') + '" title="' + esc(message) + '" role="status">' + esc(message) + '</small>';
+    }
+    async function updateAgent(id) {
+      const agent = agents.find(item => item.id === id);
+      if (!live() || !agent || !updateInfo(agent).canUpdate) return;
+      closeMenu();
+      try {
+        const operation = WolfGuardAgentUpdates.start(agent,{onChange:()=>{ if(live()){ draw(); if(!WolfGuardAgentUpdates.state(id)?.running) refresh(); } }});
+        draw(); await operation;
+      } catch (error) { if(live())find('#agentsStatus').textContent = error.message; }
+      finally { if(live())await refresh(); }
     }
     function filteredAgents() {
       const rows = agents.filter(agent => {
@@ -75,7 +109,7 @@ const agentsWorkspace = (() => {
           && (platform === 'all' || agent.platform === platform)
           && (protectionFilter === 'all' || (protectionFilter === 'alerts' ? status.alerts > 0 : status.health === protectionFilter));
       });
-      const value = agent => sort === 'health' ? protection(agent).label : sort === 'alerts' ? protection(agent).alerts : sort === 'platform' ? workspaceAgents.platformName(agent.platform) : agent[sort];
+      const value = agent => sort === 'health' ? protection(agent).label : sort === 'alerts' ? protection(agent).alerts : agent[sort];
       return rows.sort((a,b) => {
         const left = value(a), right = value(b);
         if (left == null || right == null) return left == null && right == null ? a.name.localeCompare(b.name, 'fr') : left == null ? 1 : -1;
@@ -87,6 +121,7 @@ const agentsWorkspace = (() => {
     function reason(action, agent) {
       if (!workspaceModules.allows(action.section) || (action.mode && !can('remote.write'))) return 'Droit d’accès non accordé';
       if (stale) return 'Connexion au service à vérifier';
+      if (action.id !== 'edr' && WolfGuardAgentUpdates.state(agent.id)?.running) return 'Mise à jour de l’agent en cours';
       if (!action.offline && !agent.online) return 'Le poste doit être connecté';
       if (agent.local && !['active','passive'].includes(action.id)) return 'Associe un agent pour utiliser cet outil';
       const capabilities = Array.isArray(action.capability) ? action.capability : [action.capability];
@@ -106,11 +141,14 @@ const agentsWorkspace = (() => {
     function draw() {
       if (!live()) return;
       const online = agents.filter(agent => agent.online).length;
+      const protectionAvailable = !stale && !protectionStale && can('edr.read') && workspaceModules.allows('edr');
       root.dataset.stale = String(stale);
-      find('#agentsMetrics').innerHTML = [['Agents associés', agents.length, 'all', 'monitor'], ['Connectés', stale ? '—' : online, 'online', 'link'], ['Hors ligne', stale ? '—' : agents.length - online, 'offline', 'history']].map(([label, value, status, icon]) => '<article data-state="' + status + '"><span class="agents-metric-icon" aria-hidden="true">' + settingsIcon(icon) + '</span><div><span>' + label + '</span><strong>' + value + '</strong></div></article>').join('');
+      find('#agentsMetrics').innerHTML = [['Agents associés', agents.length, 'all', 'monitor'], ['Protégés confirmés', !protectionAvailable ? '—' : agents.filter(agent => protection(agent).health === 'protected').length, 'online', 'shield-check'], ['Alertes ouvertes', !protectionAvailable ? '—' : agents.reduce((total,agent) => total + (protection(agent).alerts || 0),0), 'attention', 'circle-alert'], ['Mises à jour disponibles', !publishedRelease || releaseStale || stale ? '—' : agents.filter(agent => updateInfo(agent).outdated).length, 'updates', 'refresh-cw']].map(([label, value, status, icon]) => '<article data-state="' + status + '"><span class="agents-metric-icon" aria-hidden="true">' + settingsIcon(icon) + '</span><div><span>' + label + '</span><strong>' + value + '</strong></div></article>').join('');
+      const unknown = agents.filter(agent => protection(agent).health === 'unknown').length;
+      find('#agentsFleetSummary').textContent = stale ? 'Disponibilité des postes à confirmer' : online + ' connecté' + (online === 1 ? '' : 's') + ' · ' + (agents.length - online) + ' hors ligne · ' + unknown + ' protection' + (unknown === 1 ? '' : 's') + ' à confirmer. Clique sur un état pour consulter les événements.';
       const rows = filteredAgents();
       root.dataset.empty = String(!rows.length);
-      const focusId = document.activeElement?.dataset.fleetAgent;
+      const focusId = document.activeElement?.dataset.fleetAgent, focusedUpdate = document.activeElement?.dataset.agentInstallUpdate;
       const selectedHidden = selected && !rows.some(agent => agent.id === selected.id);
       find('#agentsCount').textContent = rows.length + ' poste' + (rows.length === 1 ? '' : 's') + (rows.length !== agents.length ? ' sur ' + agents.length : '') + (selected ? ' · 1 sélectionné' + (selectedHidden ? ' (hors filtre)' : '') : '');
       find('#agentsInventoryCount').textContent = agents.length;
@@ -124,7 +162,7 @@ const agentsWorkspace = (() => {
       find('#agentsClearFilters').disabled = !query && filter === 'all' && platform === 'all' && protectionFilter === 'all';
       find('#agentsList').innerHTML = rows.map(agent => {
         const status = protection(agent), chosen = agent.id === selected?.id;
-        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td><button type="button" class="agents-endpoint" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="menu" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + (agent.version ? 'Agent ' + esc(agent.version.slice(0,8)) : 'Version non renseignée') + '</small></span></button></td><td><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td>' + esc(workspaceAgents.platformName(agent.platform)) + '</td><td><span class="agents-health" data-health="' + status.health + '">' + status.label + '</span></td><td><span class="agents-alerts" data-alert="' + (status.alerts > 0) + '">' + (status.alerts ?? '—') + '</span></td><td class="agents-last-contact">' + esc(timestamp(agent.lastSeen)) + '</td></tr>';
+        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td><button type="button" class="agents-endpoint" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="menu" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + '</small></span></button></td><td><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td>' + protectionHTML(agent) + '</td><td><span class="agents-alerts" data-alert="' + (status.alerts > 0) + '" title="Alertes non acquittées dans les derniers relevés">' + (status.alerts ?? '—') + '</span></td><td>' + updateHTML(agent) + '</td><td class="agents-last-contact">' + esc(timestamp(agent.lastSeen)) + '</td></tr>';
       }).join('') || '<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
@@ -132,6 +170,7 @@ const agentsWorkspace = (() => {
         heading.querySelector('.agents-sort-indicator').textContent = active ? descending ? '↓' : '↑' : '↕';
       });
       if (focusId) find('[data-fleet-agent="' + CSS.escape(focusId) + '"]')?.focus({preventScroll:true});
+      if (focusedUpdate) find('[data-agent-install-update="' + CSS.escape(focusedUpdate) + '"]:not(:disabled)')?.focus({preventScroll:true});
       const agent = selected;
       find('#agentToolTarget').textContent = agent?.name || 'Aucun agent sélectionné';
       renderMenu();
@@ -202,15 +241,23 @@ const agentsWorkspace = (() => {
       root.dataset.refreshing = 'true';
       find('.agents-table-scroll').setAttribute('aria-busy', 'true');
       try {
-        const [data, summary] = await Promise.all([
+        const [data, summary, release] = await Promise.all([
           workspaceAgents.snapshot(),
           workspaceAgents.available() && can('edr.read') && workspaceModules.allows('edr')
             ? WolfGuardCloud.agentRequest('edr', undefined, {signal}).then(data => ({data}), () => ({failed:true}))
-            : Promise.resolve(null)
+            : Promise.resolve(null),
+          WolfGuardAgentUpdates.release().then(data => ({data}), () => ({failed:true}))
         ]);
         if (!live()) return;
         protections = new Map((summary?.data?.endpoints || []).map(endpoint => [endpoint.id, endpoint]));
         protectionStale = !!summary?.failed;
+        publishedRelease = release.data || null; releaseStale = !!release.failed;
+        if (!data.agents.length && summary?.data?.endpoints?.length) {
+          const serverTime = summary.data.serverTime || Date.now(), preferred = await setting('scanAgentId','');
+          if (!live()) return;
+          data.agents = summary.data.endpoints.map(endpoint => ({...endpoint, online:endpoint.online && endpoint.lastSeen > serverTime - 20000}));
+          data.selected = data.agents.find(agent => agent.id === preferred) || data.agents.at(-1);
+        }
         if (desktopBridge.available && !data.agents.length) {
           const local = {id:'local-desktop', name:'Ce PC', platform:'win32', online:true, local:true, capabilities:['network-scan-v3']};
           data.agents = [local]; data.selected = local;
@@ -245,7 +292,12 @@ const agentsWorkspace = (() => {
       sort = button.dataset.agentSort; draw();
     };
     find('#agentsRefresh').onclick = refresh;
-    find('#agentsList').onclick = event => { const row = event.target.closest('[data-agent-row]'); if (row) choose(row.dataset.agentRow); };
+    find('#agentsList').onclick = event => {
+      const update = event.target.closest('[data-agent-install-update]'); if(update){ if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate); return; }
+      if(event.target.closest('a[download]'))return;
+      const security = event.target.closest('[data-agent-security]'); if(security){ if(!security.disabled)runAction('edr',security.dataset.agentSecurity); return; }
+      const row = event.target.closest('[data-agent-row]'); if (row) choose(row.dataset.agentRow);
+    };
     find('#agentsList').oncontextmenu = event => {
       const row = event.target.closest('[data-agent-row]');
       if (!row) return;

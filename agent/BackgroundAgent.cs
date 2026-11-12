@@ -135,13 +135,15 @@ namespace WolfGuard {
         if(args.Length==2&&args[0]=="--render-logo"){AgentWindow.SavePng(AgentWindow.LogoBitmap(256),args[1]);return 0;}
         if(args.Length==2&&args[0]=="--verify-extraction"){AgentWindow.VerifyExtraction(args[1]);return 0;}
         if(args.Length==1&&args[0]=="--stop")return Send("stop")?0:1;
-        string code=PairCode(args);if(Elevated||NeedsUpgrade()){if(Send("stop"))Thread.Sleep(1500);}else if(Send(code??"status"))return 0;
+        bool installUpdate=args.Length==1&&args[0]=="--install-update";
+        string code=installUpdate?null:PairCode(args);if(Elevated||installUpdate||NeedsUpgrade()){if(Send("stop"))Thread.Sleep(1500);}else if(Send(code??"status"))return 0;
         using(Mutex mutex=new Mutex(false,@"Local\WolfGuardAgent-"+Sid)){
           bool acquired=false;try{acquired=mutex.WaitOne(0);}catch(AbandonedMutexException){acquired=true;}
           if(!acquired){StopLegacyWindow();try{acquired=mutex.WaitOne(8000);}catch(AbandonedMutexException){acquired=true;}}
           if(!acquired)return code==null?0:1;
           try{
             string node,worker;Prepare(out node,out worker);AppDomain.CurrentDomain.ProcessExit+=delegate{Stop();};
+            if(installUpdate){string installed=File.ReadAllText(Path.Combine(Home,"launcher.path")).Trim();Process.Start(new ProcessStartInfo(installed,"--background"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden});return 0;}
             child=StartWorker(node,worker);Thread pipe=new Thread(Listen){IsBackground=true};pipe.Start();
             if(code!=null)Command("{\"type\":\"pair\",\"code\":\""+code+"\"}");
             Log("Agent en arrière-plan. Gestion et association depuis WolfGuard.");
