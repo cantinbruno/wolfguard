@@ -29,9 +29,33 @@ const agentsWorkspace = (() => {
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
     const columns = [['name','Poste'],['online','Connexion'],['platform','Système'],['health','Protection EDR'],['alerts','Alertes ouvertes'],['lastSeen','Dernier contact']];
-    root.innerHTML = `<header class="agents-heading"><div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">SÉCURITÉ · ENDPOINTS</span><h1>Tous les postes</h1><p>Surveille tes agents et interviens sur le poste sélectionné.</p></div></div><div class="agents-heading-actions"><button type="button" id="agentsManage">${settingsIcon('sliders-horizontal')}Gérer les agents</button><button type="button" id="agentsAdd" class="agents-primary">${settingsIcon('plus')}Ajouter un agent</button><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}<span>Actualiser</span></button></div></header>
-      <div id="agentsMetrics" class="agents-metrics"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p>
-      <div class="agents-console"><section class="agents-fleet" aria-label="Liste des agents"><div class="agents-fleet-filters"><div class="agents-search-filter"><label for="agentsSearch">Rechercher</label><div class="agents-search">${settingsIcon('search')}<input id="agentsSearch" type="search" placeholder="Rechercher un poste, un système, une version…"></div></div><div><label for="agentsFilter">Connexion</label><select id="agentsFilter"><option value="all">Toutes les connexions</option><option value="online">Connectés</option><option value="offline">Hors ligne</option></select></div><div><label for="agentsPlatform">Système</label><select id="agentsPlatform"><option value="all">Tous les systèmes</option><option value="win32">Windows</option><option value="linux">Linux</option><option value="darwin">macOS</option></select></div><div><label for="agentsProtection">Protection EDR</label><select id="agentsProtection"><option value="all">Tous les états</option><option value="protected">Protégés</option><option value="attention">À protéger</option><option value="unknown">À confirmer</option><option value="alerts">Avec alertes</option></select></div><button type="button" id="agentsClearFilters">Effacer les filtres</button></div><div class="agents-table-scroll" tabindex="0" role="region" aria-label="Tableau des postes, défilement horizontal si nécessaire"><table class="agents-table"><caption class="agents-visually-hidden">Agents associés et derniers états de protection. Sélectionne un poste pour utiliser ses outils.</caption><thead><tr>${columns.map(([field,label])=>'<th scope="col" data-agent-column="'+field+'" aria-sort="'+(field==='name'?'ascending':'none')+'"><button type="button" data-agent-sort="'+field+'">'+label+'<span class="agents-sort-indicator" aria-hidden="true">'+(field==='name'?'↑':'↕')+'</span></button></th>').join('')}</tr></thead><tbody id="agentsList"></tbody></table></div><footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span>Clique sur un poste pour accéder à ses outils.</span></footer></section><div class="agents-main"><section id="agentActions" class="agents-detail" aria-label="Actions sur le poste choisi"></section><section id="agentToolPanel" class="agents-tool-panel" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose">${settingsIcon('x')}Fermer l’outil</button></header><div id="agentToolHost"></div></section></div></div>`;
+    root.dataset.density = 'comfortable';
+    root.innerHTML = `<header class="agents-heading">
+      <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">SÉCURITÉ · ENDPOINTS</span><h1>Tous les postes</h1><p>Surveille tes agents et interviens sur le poste sélectionné.</p></div></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsManage">${settingsIcon('sliders-horizontal')}Gérer les agents</button><button type="button" id="agentsAdd" class="agents-primary">${settingsIcon('plus')}Ajouter un agent</button><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}<span>Actualiser</span></button></div>
+    </header>
+    <div id="agentsMetrics" class="agents-metrics"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p>
+    <div class="agents-console">
+      <section class="agents-fleet" aria-label="Liste des agents">
+        <div class="agents-inventory-toolbar"><div class="agents-inventory-label">${settingsIcon('monitor')}<span>Inventaire des postes</span><span id="agentsInventoryCount" class="agents-inventory-count">0</span></div><button type="button" id="agentsDensity" aria-pressed="false" title="Réduire la hauteur des lignes">${WORKSPACE_LAYOUT_ICONS.list}Vue compacte</button></div>
+        <div class="agents-fleet-filters">
+          <div class="agents-search-filter"><label for="agentsSearch">Rechercher</label><div class="agents-search">${settingsIcon('search')}<input id="agentsSearch" type="search" placeholder="Nom du poste, système, version…"></div></div>
+          <div><label for="agentsFilter">Connexion</label><select id="agentsFilter"><option value="all">Toutes les connexions</option><option value="online">Connectés</option><option value="offline">Hors ligne</option></select></div>
+          <div><label for="agentsPlatform">Système</label><select id="agentsPlatform"><option value="all">Tous les systèmes</option><option value="win32">Windows</option><option value="linux">Linux</option><option value="darwin">macOS</option></select></div>
+          <div><label for="agentsProtection">Protection EDR</label><select id="agentsProtection"><option value="all">Tous les états</option><option value="protected">Protégés</option><option value="attention">À protéger</option><option value="unknown">À confirmer</option><option value="unsupported">Non intégrée</option><option value="alerts">Avec alertes</option></select></div>
+          <button type="button" id="agentsClearFilters">${settingsIcon('x')}Effacer les filtres</button>
+        </div>
+        <div id="agentsActiveFilters" class="agents-active-filters" aria-label="Filtres appliqués" hidden></div>
+        <div class="agents-table-scroll" tabindex="0" role="region" aria-label="Tableau des postes, défilement horizontal si nécessaire">
+          <table class="agents-table"><caption class="agents-visually-hidden">Agents associés et derniers états de protection. Sélectionne un poste pour utiliser ses outils.</caption><thead><tr>${columns.map(([field,label])=>'<th scope="col" data-agent-column="'+field+'" aria-sort="'+(field==='name'?'ascending':'none')+'"><button type="button" data-agent-sort="'+field+'">'+label+'<span class="agents-sort-indicator" aria-hidden="true">'+(field==='name'?'↑':'↕')+'</span></button></th>').join('')}</tr></thead><tbody id="agentsList"></tbody></table>
+        </div>
+        <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span>Sélectionne un poste pour afficher ses actions.</span></footer>
+      </section>
+      <div class="agents-main">
+        <section id="agentActions" class="agents-detail" aria-label="Actions sur le poste choisi"></section>
+        <section id="agentToolPanel" class="agents-tool-panel" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose">${settingsIcon('x')}Fermer l’outil</button></header><div id="agentToolHost"></div></section>
+      </div>
+    </div>`;
     find('#agentsAdd').hidden = !can('agents.pair');
     find('#agentsManage').hidden = !can('agents.read');
     find('#agentsManage').onclick = () => openAgentsInterface();
@@ -70,6 +94,16 @@ const agentsWorkspace = (() => {
       if (!capabilities.some(value => agent.capabilities?.includes(value))) return 'Mise à jour de l’agent nécessaire';
       return '';
     }
+    const filterControls = {query:'#agentsSearch', filter:'#agentsFilter', platform:'#agentsPlatform', protection:'#agentsProtection'};
+    function clearFilters(field = null) {
+      if (!field || field === 'query') query = '';
+      if (!field || field === 'filter') filter = 'all';
+      if (!field || field === 'platform') platform = 'all';
+      if (!field || field === 'protection') protectionFilter = 'all';
+      find('#agentsSearch').value = query; find('#agentsFilter').value = filter;
+      find('#agentsPlatform').value = platform; find('#agentsProtection').value = protectionFilter;
+      draw();
+    }
     function draw() {
       if (!live()) return;
       const online = agents.filter(agent => agent.online).length;
@@ -78,7 +112,16 @@ const agentsWorkspace = (() => {
       const rows = filteredAgents();
       root.dataset.empty = String(!rows.length);
       const focusId = document.activeElement?.dataset.fleetAgent;
-      find('#agentsCount').textContent = rows.length + ' poste' + (rows.length === 1 ? '' : 's') + (rows.length !== agents.length ? ' sur ' + agents.length : '') + (selected ? ' · 1 sélectionné' : '');
+      const focusAction = document.activeElement?.dataset.fleetAction;
+      const selectedHidden = selected && !rows.some(agent => agent.id === selected.id);
+      find('#agentsCount').textContent = rows.length + ' poste' + (rows.length === 1 ? '' : 's') + (rows.length !== agents.length ? ' sur ' + agents.length : '') + (selected ? ' · 1 sélectionné' + (selectedHidden ? ' (hors filtre)' : '') : '');
+      find('#agentsInventoryCount').textContent = agents.length;
+      const applied = Object.entries({query,filter,platform,protection:protectionFilter}).filter(([field,value]) => field === 'query' ? value : value !== 'all');
+      find('#agentsActiveFilters').hidden = !applied.length;
+      find('#agentsActiveFilters').innerHTML = applied.map(([field,value]) => {
+        const control = find(filterControls[field]), label = field === 'query' ? 'Recherche : ' + value : control.options[control.selectedIndex].text;
+        return '<button type="button" data-agent-clear="' + field + '" aria-label="' + esc('Retirer le filtre ' + label) + '"><span>' + esc(label) + '</span>' + settingsIcon('x') + '</button>';
+      }).join('');
       find('#agentsProtection').disabled = !can('edr.read') || !workspaceModules.allows('edr');
       find('#agentsClearFilters').disabled = !query && filter === 'all' && platform === 'all' && protectionFilter === 'all';
       find('#agentsList').innerHTML = rows.map(agent => {
@@ -95,12 +138,15 @@ const agentsWorkspace = (() => {
       find('#agentToolTarget').textContent = agent?.name || 'Aucun agent sélectionné';
       find('#agentActions').hidden = !agent;
       if (!agent) { find('#agentActions').replaceChildren(); return; }
-      find('#agentActions').innerHTML = '<header class="agents-detail-heading"><span class="agents-selected-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><div><span class="agents-eyebrow">ACTIONS SUR LE POSTE SÉLECTIONNÉ</span><h2>' + esc(agent.name) + '</h2></div><p>' + esc(workspaceAgents.platformName(agent.platform)) + ' · <span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></p></header>' + (!agent.online ? '<p class="agents-notice">Démarre l’agent sur ce poste pour utiliser les scans et l’assistance. Les relevés EDR restent consultables.</p>' : '') + '<div class="agents-action-grid">' + actions.map(action => {
+      const available = actions.filter(action => !reason(action, agent)).length;
+      const health = protection(agent);
+      find('#agentActions').innerHTML = '<header class="agents-detail-heading"><span class="agents-selected-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><div class="agents-selected-name"><span class="agents-eyebrow">ACTIONS SUR LE POSTE SÉLECTIONNÉ</span><h2>' + esc(agent.name) + '</h2><p>' + esc(workspaceAgents.platformName(agent.platform)) + ' · <span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></p></div><div class="agents-selected-summary"><span class="agents-summary-health" data-health="' + health.health + '">' + health.label + '</span><span>' + available + ' outil' + (available === 1 ? '' : 's') + ' disponible' + (available === 1 ? '' : 's') + '</span></div></header>' + (selectedHidden ? '<div class="agents-selection-notice"><span>Ce poste est masqué par les filtres. Les actions ci-dessous ciblent toujours <strong>' + esc(agent.name) + '</strong>.</span><button type="button" data-agent-reveal>Afficher sa ligne</button></div>' : '') + (!agent.online ? '<p class="agents-notice">Démarre l’agent sur ce poste pour utiliser les scans et l’assistance. Les relevés EDR restent consultables.</p>' : '') + '<div class="agents-action-grid">' + actions.map(action => {
         const unavailable = reason(action, agent);
         const icon = ['terminal','files'].includes(action.mode) ? workspaceNavigationIcon(action.mode) : workspaceSectionIcon(action.section);
         const active = action.section === state.section && (!action.mode || action.mode === remoteMode);
         return '<button type="button" data-fleet-action="' + action.id + '" title="' + esc(unavailable || action.description) + '" aria-pressed="' + active + '" ' + (unavailable || selecting ? 'disabled' : '') + '><span class="agents-action-title"><span class="agents-action-icon">' + icon + '</span><strong>' + action.label + '</strong></span><span class="agents-action-description">' + action.description + '</span>' + (unavailable ? '<small>' + unavailable + '</small>' : '<small class="agents-action-ready">' + (active ? 'Outil ouvert' : action.offline && !agent.online ? 'Consulter les derniers relevés' : 'Ouvrir l’outil') + '<span aria-hidden="true">' + workspaceNavigationIcon('chevron-right') + '</span></small>') + '</button>';
       }).join('') + '</div>';
+      if (focusAction) find('[data-fleet-action="' + CSS.escape(focusAction) + '"]:not(:disabled)')?.focus({preventScroll:true});
     }
     async function choose(id) {
       const agent = agents.find(item => item.id === id);
@@ -113,6 +159,8 @@ const agentsWorkspace = (() => {
     async function refresh() {
       if (!live() || busy || selecting) return;
       busy = true; find('#agentsRefresh').disabled = true;
+      root.dataset.refreshing = 'true';
+      find('.agents-table-scroll').setAttribute('aria-busy', 'true');
       try {
         const [data, summary] = await Promise.all([
           workspaceAgents.snapshot(),
@@ -137,17 +185,23 @@ const agentsWorkspace = (() => {
         stale = true; find('#agentsStatus').textContent = error.message + ' La disponibilité des postes n’est plus confirmée.';
       } finally {
         busy = false;
-        if (live()) { find('#agentsRefresh').disabled = false; draw(); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
+        if (live()) { root.dataset.refreshing = 'false'; find('.agents-table-scroll').setAttribute('aria-busy', 'false'); find('#agentsRefresh').disabled = false; draw(); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
       }
     }
     find('#agentsSearch').oninput = event => { query = event.target.value.trim(); draw(); };
     find('#agentsFilter').onchange = event => { filter = event.target.value; draw(); };
     find('#agentsPlatform').onchange = event => { platform = event.target.value; draw(); };
     find('#agentsProtection').onchange = event => { protectionFilter = event.target.value; draw(); };
-    find('#agentsClearFilters').onclick = () => {
-      query = ''; filter = platform = protectionFilter = 'all';
-      find('#agentsSearch').value = ''; find('#agentsFilter').value = find('#agentsPlatform').value = find('#agentsProtection').value = 'all';
-      draw(); find('#agentsSearch').focus();
+    find('#agentsClearFilters').onclick = () => { clearFilters(); find('#agentsSearch').focus(); };
+    find('#agentsActiveFilters').onclick = event => {
+      const field = event.target.closest('[data-agent-clear]')?.dataset.agentClear;
+      if (!Object.hasOwn(filterControls, field)) return;
+      clearFilters(field); find(filterControls[field]).focus();
+    };
+    find('#agentsDensity').onclick = event => {
+      const compact = root.dataset.density !== 'compact';
+      root.dataset.density = compact ? 'compact' : 'comfortable';
+      event.currentTarget.setAttribute('aria-pressed', String(compact));
     };
     find('.agents-table thead').onclick = event => {
       const button = event.target.closest('[data-agent-sort]');
@@ -158,6 +212,11 @@ const agentsWorkspace = (() => {
     find('#agentsRefresh').onclick = refresh;
     find('#agentsList').onclick = event => { const row = event.target.closest('[data-agent-row]'); if (row) choose(row.dataset.agentRow); };
     find('#agentActions').onclick = async event => {
+      if (event.target.closest('[data-agent-reveal]') && selected) {
+        clearFilters();
+        const button = find('[data-fleet-agent="' + CSS.escape(selected.id) + '"]');
+        button?.focus({preventScroll:true}); button?.scrollIntoView({block:'nearest', inline:'nearest'}); return;
+      }
       const button = event.target.closest('[data-fleet-action]');
       const action = actions.find(item => item.id === button?.dataset.fleetAction);
       if (!action || !selected || selecting || button.disabled || reason(action, selected)) return;
