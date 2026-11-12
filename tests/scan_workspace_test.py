@@ -1,4 +1,5 @@
 """Real scan reports: parsing, comparison, complete report exports and browser layout."""
+from site_fixture import open_security_tool
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,7 +30,7 @@ def navigate(page,kind):
         window.__scanReportFixtures[kind]={getView,onReport,onExecution};return mount(kind,getView,onReport,onExecution);
       };
     }''')
-    open_security(page);page.locator(f'.workspace-section-button[data-section=scan-{kind}]').click()
+    open_security(page);open_security_tool(page,'scan-'+kind)
     page.wait_for_function('()=>!sectionTransition.active')
     expect(page.locator('.wgscan')).to_have_attribute('data-kind',kind)
 

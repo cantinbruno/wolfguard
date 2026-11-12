@@ -26,14 +26,18 @@ class WolfGuardTestHandler(SimpleHTTPRequestHandler):
 
 
 def open_security(page):
-    """Enter the shared security section before using a destination or Agents."""
-    if page.locator("#securityNavigation").is_hidden():
+    """Open the single security workspace."""
+    if not page.locator('.agents-workspace').count():
         page.locator(".workspace-security-button").click()
         page.wait_for_function("() => !sectionTransition.active")
 
 
 def open_agent_manager(page):
     open_security(page)
-    page.locator('#agentsBtn').click()
-    page.wait_for_function('() => !sectionTransition.active')
     page.locator('#agentsManage').click()
+
+
+def open_security_tool(page, section):
+    """Exercise a tool view, including fixtures without an enrolled agent."""
+    page.evaluate('section => openSection(section)', section)
+    page.wait_for_function('() => !sectionTransition.active')

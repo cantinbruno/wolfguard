@@ -218,13 +218,13 @@ const webScanWorkspace = (() => {
     return shell+`<div class="scan-output scan-review-layout"><aside class="scan-review-summary">${metrics}</aside><main class="scan-review-findings">${status}${panels}</main></div>`;
   }
 
-  async function render(kind){
+  async function render(kind, host = $('#agentToolHost') || $('#content')){
     const definition=scanInsights.definitions[kind],passive=definition.strategy==='passive',audit=kind==='vulnerability',view=views[kind],token=generation;
     if(!alive(kind,view,token))return;
     webScanAgent.reset(false);webScanHistory.unmount();
-    $('#content').classList.add('scan-content');
+    host.classList.add('scan-content');
     const layouts={passive:'monitor',active:'probe',map:'atlas',vulnerability:'review'};
-    $('#content').innerHTML=`<section class="wgscan" data-kind="${kind}" data-layout="${layouts[kind]}" data-has-report="${!!view.report}" data-phase="${scanPhase(view)}" aria-labelledby="scanTitle">${pageLayout(view,definition)}
+    host.innerHTML=`<section class="wgscan" data-kind="${kind}" data-layout="${layouts[kind]}" data-has-report="${!!view.report}" data-phase="${scanPhase(view)}" aria-labelledby="scanTitle">${pageLayout(view,definition)}
       <dialog id="wgScanDetail" class="wgscan-dialog" aria-labelledby="wgScanDetailTitle"><header><h2 id="wgScanDetailTitle"></h2><button type="button" data-wg-close aria-label="Fermer">✕</button></header><div id="wgScanDetailBody"></div></dialog>
     </section>`;
     for(const button of document.querySelectorAll('[data-wg-close]'))button.onclick=()=>button.closest('dialog').close();
@@ -242,7 +242,7 @@ const webScanWorkspace = (() => {
     $('#wgScanExport').onclick=()=>exportData(view,kind,token);
     $('#wgScanCancel').onclick=()=>$('#wgAgentStop')?.click();
     $('#wgScanShowHistory').onclick=()=>{view.tab='history';draw(view,passive);};
-    $('#wgScanNew').onclick=()=>{view.tab='overview';view.preparing=true;view.execution=null;view.error=false;view.status='';draw(view,passive);$('#content').scrollTop=0;($('#scanTarget')||$('#wgAgentLaunch'))?.focus({preventScroll:true});};
+    $('#wgScanNew').onclick=()=>{view.tab='overview';view.preparing=true;view.execution=null;view.error=false;view.status='';draw(view,passive);host.scrollTop=0;($('#scanTarget')||$('#wgAgentLaunch'))?.focus({preventScroll:true});};
     if(kind==='active')$('#wgScanCustomPorts').hidden=view.profile!=='custom';
     draw(view,passive);
     webScanAgent.mount(kind,()=>view,(report,data)=>{
@@ -258,7 +258,7 @@ const webScanWorkspace = (() => {
       if(!alive(kind,view,token)||execution.status==='ready'&&view.execution?.status==='error')return;
       if(['starting','queued','running'].includes(execution.status))view.preparing=false;
       view.execution=execution;syncWorkflow(view);
-    });$('#content').scrollTop=0;
+    });host.scrollTop=0;
   }
   return {render,reset(){webScanAgent.reset();webScanHistory.unmount();generation++;for(const dialog of document.querySelectorAll('.wgscan-dialog'))dialog.close();views=fresh();}};
 })();

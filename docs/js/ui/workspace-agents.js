@@ -191,7 +191,7 @@ async function openAgentsInterface(){
   if($('#app').classList.contains('hidden'))return;
   modal('Agents','<button type="button" class="settings-btn settings-btn-icon settings-close" id="closeAgentsBtn" aria-label="Fermer les agents">'+settingsIcon('x')+'</button><div class="agents-dialog-content"><section id="settings-agents"></section></div>');
   const dialog=$('#modalRoot .modal');dialog.classList.add('settings-modal','agents-modal');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.querySelector('h2').id='agentsTitle';dialog.setAttribute('aria-labelledby','agentsTitle');dialog.parentElement.classList.add('settings-wrap');
-  const close=()=>{closeModal();$('#agentsBtn')?.focus();};$('#closeAgentsBtn').onclick=close;dialog.parentElement.onclick=event=>{if(event.target===dialog.parentElement)close();};
+  const close=()=>{closeModal();($('#agentsManage') || $('#securityBtn'))?.focus();};$('#closeAgentsBtn').onclick=close;dialog.parentElement.onclick=event=>{if(event.target===dialog.parentElement)close();};
   dialog.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}if(event.key!=='Tab')return;const controls=[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href]')].filter(node=>node.getClientRects().length&&node.tabIndex!==-1),first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}};
   workspaceAgents.mount($('#settings-agents'));$('#closeAgentsBtn').focus();
 }

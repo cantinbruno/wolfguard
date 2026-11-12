@@ -6,9 +6,9 @@ const edrWorkspace=(()=>{
   const eventLabels={alert:'Détecté',failed:'Action en échec',blocked:'Bloqué',quarantined:'En quarantaine',removed:'Supprimé par l’antivirus',cleaned:'Nettoyé',info:'Information'};
   const time=value=>value?new Date(value).toLocaleString('fr-FR'):'Aucun relevé';
   function reset(){generation++;clearTimeout(timer);controller?.abort();controller=null;}
-  async function render(){
+  async function render(host = $('#agentToolHost') || $('#content'), agentId = null){
     reset();const token=generation,key=state.vaultKey;controller=new AbortController();const signal=controller.signal;
-    const root=document.createElement('section');root.className='edr-workspace';$('#content').replaceChildren(root);
+    const root=document.createElement('section');root.className='edr-workspace';host.replaceChildren(root);
     const live=()=>generation===token&&root.isConnected&&state.vaultKey===key;
     const request=(path,value)=>WolfGuardCloud.agentRequest('edr'+path,value,{signal});
     const can=right=>!window.WolfGuardAccess||WolfGuardAccess.can(right),find=selector=>root.querySelector(selector);
@@ -67,7 +67,7 @@ const edrWorkspace=(()=>{
     }
     async function refresh(){
       if(!live()||busy)return;busy=true;find('#edrRefresh').disabled=true;
-      try{const result=await request('');if(!live())return;endpoints=result.endpoints;stale=false;if(selected&&!endpoints.some(row=>row.id===selected)){selected=null;policyDirty=false;find('#edrPostDetail').hidden=true;}
+      try{const result=await request('');if(!live())return;endpoints=agentId?result.endpoints.filter(row=>row.id===agentId):result.endpoints;stale=false;if(selected&&!endpoints.some(row=>row.id===selected)){selected=null;policyDirty=false;find('#edrPostDetail').hidden=true;}
         const preferred=await setting('scanAgentId','');if(!live())return;draw();if(!selected&&endpoints.length)await choose(endpoints.find(row=>row.id===preferred)?.id||endpoints[0].id);else if(selected)await loadEvents();status('Relevés reçus · '+new Date(result.serverTime).toLocaleTimeString('fr-FR')+' · Les postes hors ligne restent non confirmés.');
       }catch(error){if(live()){stale=true;status(error.message+' Les états précédents ne sont plus confirmés.');draw();}}
       finally{busy=false;if(live()){find('#edrRefresh').disabled=false;drawState();drawEvents();clearTimeout(timer);timer=setTimeout(refresh,15000);}}

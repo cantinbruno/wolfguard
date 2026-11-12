@@ -428,43 +428,6 @@
   .topbar .top-actions{width:100%!important}
 }
 
-.workspace-security-button, .workspace-section-button[data-section="agents"] {--button-accent: var(--workspace-edr)}
-:root:has(#app[data-primary-section="agents"]:not(.hidden)), #app[data-primary-section="agents"] {--workspace-accent: var(--workspace-edr); --ui-accent: var(--workspace-edr)}
-
-#securityNavigation[hidden] {display: none !important}
-.security-navigation button[hidden] {display: none !important}
-
-.security-navigation {
-  display: flex;
-  flex: none;
-  gap: 6px;
-  padding: 8px 16px;
-  overflow-x: auto;
-  background: var(--ui-sidebar);
-  border-bottom: 1px solid var(--ui-border);
-}
-
-.security-navigation button {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ui-muted);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.security-navigation button:is(:hover, .active) {
-  color: var(--ui-text);
-  background: var(--ui-raised);
-  border-color: var(--ui-border);
-}
-
-.security-navigation button.active {box-shadow: inset 0 -2px var(--button-accent, var(--workspace-edr))}
-.security-navigation button:focus-visible {outline: 2px solid var(--workspace-accent); outline-offset: -2px}
-.workspace-security-agent svg {width: 18px; height: 18px}
+.workspace-section-button[data-section="security"] {--button-accent: var(--workspace-edr)}
+.workspace-security-button.scan-running::before {content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--button-accent)}
+:root:has(#app[data-primary-section="security"]:not(.hidden)), #app[data-primary-section="security"] {--workspace-accent: var(--workspace-edr); --ui-accent: var(--workspace-edr)}

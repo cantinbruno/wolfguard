@@ -88,7 +88,7 @@ const scanViews = {
 let scanView = scanViews.passive;
 
 function syncScanNavigation() {
-  for (const [strategy, view] of Object.entries(scanViews)) document.querySelector('[data-section="scan-' + strategy + '"]')?.classList.toggle('scan-running', view.busy || view.monitoring);
+  $('#securityBtn')?.classList.toggle('scan-running', Object.values(scanViews).some(view => view.busy || view.monitoring));
 }
 
 function scanDisplayStrategy() {
@@ -253,16 +253,16 @@ desktopBridge.on('scan.progress', update => {
   scheduleScanRender(view);
 });
 
-async function renderScanWorkspace() {
-  if (!desktopBridge.available || ['scan-map','scan-vulnerability'].includes(state.section)) return webScanWorkspace.render(SCAN_WORKSPACE_KINDS[state.section]);
+async function renderScanWorkspace(host = $('#agentToolHost') || $('#content')) {
+  if (!desktopBridge.available || ['scan-map','scan-vulnerability'].includes(state.section)) return webScanWorkspace.render(SCAN_WORKSPACE_KINDS[state.section], host);
   scanView = scanViews[state.section === 'scan-active' ? 'active' : 'passive'];
   const view = scanView,
     passive = view.values.strategy === 'passive';
   view.overviewKey = '';
-  $('#content').classList.add('scan-content');
+  host.classList.add('scan-content');
   const values = scanView.values;
   const option = (value, label, current) => '<option value="' + value + '" ' + (value === current ? 'selected' : '') + '>' + label + '</option>';
-  $('#content').innerHTML = `<section class="scan-page" aria-labelledby="scanTitle">
+  host.innerHTML = `<section class="scan-page" aria-labelledby="scanTitle">
     <header class="scan-heading"><div class="scan-title"><span>${workspaceSectionIcon('scan')}</span><div><div class="scan-eyebrow">Exploration réseau <span>${passive?'Observation locale':'Sondes réseau'}</span></div><h1 id="scanTitle">Scan ${passive?'passif':'actif'}</h1><p>${passive?'Comprendre l’activité réseau de ce PC, sans envoyer de sonde.':'Découvrir les machines, explorer leurs ports et examiner les réponses.'}</p></div></div><div class="scan-actions"><span class="scan-export-label">Exporter les résultats</span><button type="button" id="scanCopy" class="secondary protocol-button">${ITEM_ACTION_ICONS.copy}Copier</button><button type="button" id="scanExport" class="secondary protocol-button">${networkToolIcon('download')}Exporter CSV</button><button type="button" id="scanExportJson" class="secondary protocol-button">JSON</button>${passive?'<button type="button" id="passiveExportReport" class="secondary protocol-button">Rapport HTML</button>':'<button type="button" id="scanExportReport" class="secondary protocol-button">Rapport HTML</button>'}</div></header>
     ${!desktopBridge.available?'<p class="network-error" role="status">Les tests réseau nécessitent l’application Windows WolfGuard.exe.</p>':''}
     <form id="scanForm" class="scan-form" novalidate>
@@ -428,7 +428,7 @@ async function renderScanWorkspace() {
   updateScanResults();
   updateScanDestination();
   if (!passive) loadScanNetworks();
-  $('#content').scrollTop = 0;
+  host.scrollTop = 0;
   loadProtocolReference().then(catalog => {
     view.profiles = catalog.entries;
     view.serviceCache.clear();

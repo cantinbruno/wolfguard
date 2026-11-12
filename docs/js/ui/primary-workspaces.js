@@ -16,7 +16,7 @@ const primaryWorkspaces = {
     mode: 'view'
   }
 };
-const primarySectionFor = section => isScanSection(section) || ['remote','edr','agents'].includes(section) ? section : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
+const primarySectionFor = section => isSecurityWorkspace(section) ? 'security' : section === 'modules' ? 'modules' : section === 'vault' ? 'vault' : section === 'home' || LIBRARY_SECTIONS.includes(section) ? 'library' : 'tools';
 const availablePrimarySections = () => PRIMARY_WORKSPACE_SECTIONS.filter(section => workspaceModules.allows(section));
 
 function resetPrimaryWorkspaces() {
@@ -120,6 +120,7 @@ function restoreMemoWorkspace(itemId = null) {
 async function switchPrimaryWorkspace(section) {
   if (!workspaceModules.allows(section)) return false;
   const target = primarySectionFor(section);
+  if (target === 'security') return openSection(section);
   if (target === primarySectionFor(state.section)) {
     // A click back to the current tab cancels a pending switch before its DOM swap.
     if (sectionTransition.active) return sectionTransition.navigate(state.section, async () => {
@@ -129,7 +130,6 @@ async function switchPrimaryWorkspace(section) {
     return true;
   }
   if (target === 'library') return openSection('library');
-  if (isScanSection(target) || ['remote','edr','agents'].includes(target)) return openSection(target);
   if (target === 'modules') return openSection('modules');
   if (target === 'vault') return openSection('vault', null, {
     resume: primaryWorkspaces.vault

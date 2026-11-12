@@ -1,4 +1,5 @@
 """Headless terminal UI: mode, streaming, cancellation, escaping and lifecycle."""
+from site_fixture import open_security_tool
 from site_fixture import open_security
 from functools import partial
 from http.server import ThreadingHTTPServer
@@ -40,9 +41,9 @@ def run():
             page.evaluate("""async id=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[{key:'scanAgentId',value:id}],activity:[]},'07942685');await s.write(result.envelope,0)}""",agent['id'])
             page.goto(origin+'/?sync-test&terminal-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            def navigate(section):open_security(page);page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
+            def navigate(section):open_security(page);open_security_tool(page,section);page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste terminal',timeout=15000)
-            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
+            page.locator('[data-fleet-action=terminal]').click();expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteTerminal')).to_be_visible();expect(page.locator('#wgTerminalCommand')).to_be_disabled()
             assert started==[{'agentId':agent['id'],'mode':'terminal'}]
             expect(page.locator('#wgRemoteModeDesktop')).to_be_disabled();expect(page.locator('#wgRemoteViewport')).to_be_hidden();expect(page.locator('#wgRemoteTextForm')).to_be_hidden()
@@ -61,9 +62,12 @@ def run():
             assert cancelled==[{'id':control['id'],'seq':1}]
             page.locator('#wgTerminalCommand').press('ArrowUp');expect(page.locator('#wgTerminalCommand')).to_have_value(control['commands'][0]['command'])
             page.locator('#wgRemoteDisconnect').click();expect(page.locator('#wgRemoteSession')).to_be_hidden();assert len(stopped)==1
-            agent['capabilities']=['remote-desktop-v1'];page.locator('#wgRemoteModeDesktop').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
-            page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteConnect')).to_be_disabled();expect(page.locator('#wgRemoteHint')).to_contain_text('Mets à jour')
-            agent['capabilities'].append('remote-terminal-v1');page.locator('#wgRemoteModeDesktop').click();page.locator('#wgRemoteModeTerminal').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
+            agent['capabilities']=['remote-desktop-v1'];page.locator('#agentsRefresh').click()
+            expect(page.locator('[data-fleet-action=terminal]')).to_be_disabled()
+            page.locator('[data-fleet-action=desktop]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
+            agent['capabilities'].append('remote-terminal-v1');page.locator('#agentsRefresh').click()
+            expect(page.locator('[data-fleet-action=terminal]')).to_be_enabled()
+            page.locator('[data-fleet-action=terminal]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             control['status']='requested';control['commands']=[];control['sequence']=0;page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible();navigate('library');page.wait_for_timeout(500);assert len(stopped)==2
             assert not errors,errors
             browser.close()

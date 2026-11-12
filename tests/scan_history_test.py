@@ -1,4 +1,5 @@
 """Settings history: complete pagination, legacy archives, safe exports, outages and session cleanup."""
+from site_fixture import open_security_tool
 from site_fixture import open_security
 from functools import partial
 from http.server import ThreadingHTTPServer
@@ -64,7 +65,7 @@ def run():
               const result=await c.create({version:2,items:[],folders:[],settings:[{key:'scan-web-passive-reports-v1',value:{version:1,reports:[report]}}],activity:[]},'07942685');await s.write(result.envelope,0)}""",archive)
             page.goto(origin+'/?sync-test&history-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=30000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click();page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();expect(page.locator('.scan-history-item')).to_have_count(15);page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))")
+            open_security(page);open_security_tool(page,'scan-passive');page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();expect(page.locator('.scan-history-item')).to_have_count(15);page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))")
             expect(page.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
             expect(page.locator('#wgHistoryCount')).to_contain_text('56')
             assert len(history_requests)>=2 and any('beforeAt' in query for query in history_requests)
@@ -115,7 +116,7 @@ def run():
                 assert page.locator('#wgScanHistory').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
                 if width in [1440,390]:page.screenshot(path=str(ROOT/f'.cache/history-settings-{width}.png'),animations='disabled')
             page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
-            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click();page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))");expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
+            open_security(page);open_security_tool(page,'scan-passive');page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))");expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             state['fail_history']=True;page.locator('#wgHistoryRefresh').click()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique incomplet')
             expect(page.locator('#wgHistoryExportAll')).to_be_disabled()

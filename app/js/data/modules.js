@@ -17,12 +17,14 @@ function libraryFacets() {
 const SCAN_WORKSPACE_KINDS={'scan-passive':'passive','scan-active':'active','scan-map':'map','scan-vulnerability':'vulnerability'};
 function isScanSection(section) { return Object.hasOwn(SCAN_WORKSPACE_KINDS,section); }
 
-const PRIMARY_WORKSPACE_SECTIONS = ['library', 'vault', 'tools', 'scan-passive', 'scan-active', 'scan-map', 'scan-vulnerability', 'edr', 'remote', 'agents'];
+const SECURITY_WORKSPACE_ACTIONS = ['agents', ...Object.keys(SCAN_WORKSPACE_KINDS), 'edr', 'remote'];
+function isSecurityWorkspace(section) { return section === 'security' || SECURITY_WORKSPACE_ACTIONS.includes(section); }
+const PRIMARY_WORKSPACE_SECTIONS = ['library', 'vault', 'tools', 'security'];
 
 const workspaceModules = (() => {
   const installed = new Set(window.__BIBLIOTHEQUE_DESKTOP__?.modules ?? ['memo', 'tools', 'vault']);
   const has = id => installed.has(id);
-  const allows = section => section !== 'chatbot' && (!window.WolfGuardAccess||WolfGuardAccess.allows(section))&&(section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools')));
+  const allows = section => section === 'security' ? SECURITY_WORKSPACE_ACTIONS.some(allows) : section !== 'chatbot' && (!window.WolfGuardAccess||WolfGuardAccess.allows(section))&&(section === 'modules' || (section === 'vault' ? has('vault') : section === 'home' || LIBRARY_SECTIONS.includes(section) ? has('memo') : has('tools')));
   return {
     has,
     allows,

@@ -1,4 +1,5 @@
 """Check visible unlock and workspace animations with the Windows motion preference."""
+from site_fixture import open_security_tool
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -83,12 +84,12 @@ def run():
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'backward' in page.evaluate('window.motionTrace.workspace')
             assert page.evaluate('window.motionTrace.slides.length')>=4
-            open_security(page);page.locator('.workspace-section-button[data-section=scan-passive]').click()
+            open_security(page);open_security_tool(page,'scan-passive')
             page.wait_for_function("()=>!sectionTransition.active")
-            expect(page.locator('.workspace-section-button[data-section=scan-passive]')).to_have_attribute('aria-pressed','true')
-            page.keyboard.press('Alt+5')
+            expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed','true')
+            open_security_tool(page,'scan-active')
             page.wait_for_function('()=>!sectionTransition.active')
-            expect(page.locator('.workspace-section-button[data-section=scan-active]')).to_have_attribute('aria-pressed','true')
+            expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed','true')
             page.keyboard.press('Alt+3')
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('.workspace-section-button[data-section=tools]')).to_have_attribute('aria-pressed','true')

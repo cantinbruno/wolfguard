@@ -1,4 +1,5 @@
 """Browser desktop sessions use the configured agent and explicit consent states."""
+from site_fixture import open_security_tool
 from site_fixture import open_security
 from functools import partial
 from http.server import ThreadingHTTPServer
@@ -51,7 +52,7 @@ def run():
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
             def navigate(section):
                 open_security(page)
-                page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active')
+                open_security_tool(page,section);page.wait_for_function('()=>!sectionTransition.active')
             navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste de test',timeout=15000)
             expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             expect(page.locator('#wgAgentSelect')).to_have_count(0);expect(page.locator('#wgRemoteSession')).to_be_hidden()

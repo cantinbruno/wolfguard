@@ -17,7 +17,7 @@ def run():
             browser=p.chromium.launch(headless=True);context=browser.new_context(viewport={'width':1440,'height':1000},reduced_motion='reduce')
             page=context.new_page();errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(origin+'/');enter_code(page,CODE,creating=True);expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            vault=page.locator('.workspace-section-button[data-section=vault]');expect(vault).to_contain_text('Coffre-fort');assert page.locator('.workspace-section-button').count()==9
+            vault=page.locator('.workspace-section-button[data-section=vault]');expect(vault).to_contain_text('Coffre-fort');assert page.locator('.workspace-section-button').count()==4
             vault.click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('.catalog-vault h2')).to_have_text('Coffre-fort')
             page.get_by_role('button',name='Nouveau dossier',exact=True).click();page.locator('#folderName').fill('Services internes');page.locator('#saveFolder').click();expect(page.locator('#modalRoot')).to_be_empty()
             page.get_by_role('button',name='Nouvel accès',exact=True).click();expect(page.locator('#fTitle')).to_be_visible()

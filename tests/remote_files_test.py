@@ -1,4 +1,5 @@
 """Real file transfers through the headless UI, real API and disposable agent."""
+from site_fixture import open_security_tool
 from pathlib import Path
 from site_fixture import open_security
 from tempfile import TemporaryDirectory
@@ -17,8 +18,8 @@ def run():
             agent=subprocess.Popen([str(node),str(ROOT/'tests/files-agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
             agent.stdin.write(json.dumps({'backend':context.backend,'code':code,'root':str(remote)}));agent.stdin.close();assert agent.stdout.readline().strip()=='ready'
             try:
-                open_security(page);page.locator('.workspace-section-button[data-section=remote]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgRemoteAgent')).to_contain_text('synthétique',timeout=15000)
-                page.locator('#wgRemoteModeFiles').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled(timeout=15000);page.locator('#wgRemoteConnect').click();expect(page.locator('#wgFilesPath')).to_have_text(str(remote),timeout=15000)
+                open_security(page);open_security_tool(page,'remote');page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgRemoteAgent')).to_contain_text('synthétique',timeout=15000)
+                page.locator('[data-fleet-action=files]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled(timeout=15000);page.locator('#wgRemoteConnect').click();expect(page.locator('#wgFilesPath')).to_have_text(str(remote),timeout=15000)
                 expect(page.locator('#wgFilesUpload')).to_be_enabled();page.locator('#wgFilesUpload').set_input_files(source/'arrive.txt');page.locator('#wgFilesUploadSend').click();expect(page.locator('#wgFilesStatus')).to_contain_text('envoyé',timeout=20000);assert (remote/'arrive.txt').read_text(encoding='utf-8')=='Envoi privé éè'
                 page.locator('.remote-files>label input').set_input_files(tree);expect(page.locator('#wgFilesStatus')).to_contain_text('envoyé',timeout=20000);expect(page.locator('.remote-file-row')).to_have_count(2);assert (remote/'Mon dossier'/'sous-dossier'/'été.txt').read_text(encoding='utf-8')=='Dossier transféré'
                 row=page.locator('.remote-file-row').filter(has_text='arrive.txt')

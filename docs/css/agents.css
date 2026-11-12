@@ -14,6 +14,7 @@
 #agentsStatus {min-height: 20px; margin: 14px 0; color: var(--ui-muted); font-size: 12px; overflow-wrap: anywhere}
 .agents-console {display: grid; grid-template-columns: minmax(250px, 320px) minmax(0, 1fr); gap: 20px; align-items: start}
 .agents-fleet, .agents-detail {min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-sidebar); overflow: hidden}
+.agents-fleet {position: sticky; top: 16px}
 .agents-fleet-filters {display: grid; gap: 8px; padding: 16px; border-bottom: 1px solid var(--ui-border)}
 .agents-fleet-filters label {font-size: 12px; color: var(--ui-muted)}
 .agents-fleet-filters :is(input,select) {box-sizing: border-box; min-width: 0; width: 100%; min-height: 38px; border: 1px solid var(--ui-border); border-radius: 6px; padding: 8px; background: var(--ui-surface); color: var(--ui-text)}
@@ -28,12 +29,23 @@
 .agents-presence::before {content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor}
 .agents-presence[data-state="online"] {color: var(--workspace-vault)}
 .agents-detail {padding: 22px}
+.agents-main {display: grid; gap: 16px; min-width: 0}
+.agents-action-grid {margin-top: 20px}
+.agents-action-grid button[aria-pressed="true"] {border-color: var(--workspace-edr); box-shadow: inset 0 -2px var(--workspace-edr)}
+.agents-tool-panel {min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-sidebar); scroll-margin-top: 12px; overflow: hidden}
+.agents-tool-heading {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border-bottom: 1px solid var(--ui-border)}
+.agents-tool-heading h2 {margin: 0; font-size: 16px}
+.agents-tool-heading button {padding: 8px 12px; min-height: 38px; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer}
+#agentToolHost {min-width: 0; padding: 16px}
+#agentToolHost > :is(.wgscan, .scan-page, .remote-workspace, .edr-workspace) {margin: 0; padding: 0; max-width: 100%; min-width: 0}
+#agentToolHost :is(.security-workspace-heading > div:first-child, #edrAgents, .edr-filters, #edrPosts, .remote-heading, .remote-explanation, .remote-modes, .remote-agent) {display: none !important}
+#agentToolHost .security-workspace-heading {justify-content: flex-end; margin-bottom: 12px}
+#agentToolHost .edr-console {display: block}
+#agentToolHost .edr-detail {min-width: 0; border: 0; padding: 0}
 .agents-detail-heading {display: flex; justify-content: space-between; gap: 16px; align-items: center}
 .agents-detail-heading h2 {font-size: 22px; margin: 8px 0}
 .agents-detail-heading p {font-size: 13px; color: var(--ui-muted)}
 .agents-detail-heading > svg {flex: none; width: 32px; height: 32px; color: var(--workspace-edr)}
-.agents-action-group {margin-top: 24px}
-.agents-action-group h3 {font-size: 13px; margin: 0 0 10px; color: var(--ui-muted)}
 .agents-action-grid {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px}
 .agents-action-grid button {display: flex; flex-direction: column; align-items: start; gap: 10px; min-width: 0; padding: 16px; text-align: left; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer; white-space: normal; overflow-wrap: anywhere}
 .agents-action-grid button:hover:enabled {border-color: var(--workspace-edr); background: var(--ui-raised)}
@@ -52,3 +64,4 @@
 @media(max-width:1100px) {.agents-action-grid {grid-template-columns: repeat(2, minmax(0, 1fr))}.agents-heading {align-items: start; flex-direction: column}}
 @media(max-width:700px) {.agents-workspace {padding: 14px}.agents-console {grid-template-columns: minmax(0, 1fr)}#agentsList {max-height: 280px}.agents-detail {padding: 16px}.agents-metrics {gap: 6px}.agents-metrics article {padding: 12px 10px}.agents-metrics strong {font-size: 22px}.agents-heading-actions button {padding: 8px 10px}.agents-action-grid button {padding: 12px}}
 @media(max-width:360px) {.agents-action-grid {grid-template-columns: minmax(0, 1fr)}}
+@media(max-width:700px) {.agents-fleet {position: static}}

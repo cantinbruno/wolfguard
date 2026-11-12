@@ -25,7 +25,7 @@ async function openSection(section, itemId = null, options = {}) {
     if (options.tool && ['ip', 'hash', 'text'].includes(options.tool)) networkToolsView.tool = options.tool;
     if (options.resume?.section === 'tools') networkToolsView.tool = ['ip', 'hash', 'text'].includes(options.resume.tool) ? options.resume.tool : 'ip';
     if(isScanSection(state.section)&&state.section!==section)webScanHistory.unmount();
-    if (state.section === 'agents' && section !== 'agents') agentsWorkspace.reset();
+    if (isSecurityWorkspace(state.section) && !isSecurityWorkspace(section)) agentsWorkspace.reset();
     if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
@@ -36,7 +36,7 @@ async function openSection(section, itemId = null, options = {}) {
     $('#content').style.padding = '';
     $('#content').style.overflow = '';
     $('#content').classList.remove('vault-content', 'protocol-content', ...[...$('#content').classList].filter(name => name.startsWith('section-accent-')));
-    $('#content').classList.add('explorer-content', 'section-accent-' + (isScanSection(section) ? 'scan' : section));
+    $('#content').classList.add('explorer-content', 'section-accent-' + (isSecurityWorkspace(section) ? 'security' : section));
     if (!isScanSection(section)) $('#content').classList.remove('scan-content', 'section-accent-scan');
     topNavigation.setActive(section);
     if (section === 'library' && restoreMemoWorkspace(itemId)) return true;
@@ -496,10 +496,7 @@ async function renderWorkspace() {
   await new Promise(resolve => requestAnimationFrame(resolve));
   if (ticket !== renderWorkspaceQueued) return;
   if (state.section === 'modules') renderModulesWorkspace();
-  else if (isScanSection(state.section)) await renderScanWorkspace();
-  else if (state.section === 'agents') await agentsWorkspace.render();
-  else if (state.section === 'remote') await remoteDesktopWorkspace.render();
-  else if (state.section === 'edr') await edrWorkspace.render();
+  else if (isSecurityWorkspace(state.section)) await agentsWorkspace.render();
   else if (state.section === 'tools') await renderNetworkTools();
   else if (state.section === 'protocol') await renderProtocolWorkspace();
   else if (state.section === 'library') await renderLibraryWorkspace();

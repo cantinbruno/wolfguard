@@ -68,6 +68,9 @@ def run():
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.wait_for_function('() => !document.querySelector("#app").inert')
             open_security(page)
+            expect(page.locator('#securityNavigation')).to_have_count(0)
+            expect(page.locator('.workspace-section-button')).to_have_count(4)
+            page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '3', '1'])
             expect(page.locator('#agentActions h2')).to_have_text(agents[0]['name'])
@@ -79,16 +82,33 @@ def run():
                 page.locator(f'[data-fleet-action="{action}"]').click()
                 page.wait_for_function('() => !sectionTransition.active')
                 assert page.evaluate('state.section') == section
+                assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
+                expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed', 'true')
+                expect(page.locator('[data-fleet-agent]')).to_have_count(4)
+                expect(page.locator('#agentToolHost')).to_be_visible()
                 if section == 'remote':
                     expect(page.locator('#wgRemoteAgent')).to_contain_text(agents[1]['name'])
                     expect(page.locator('#wgRemoteMode' + action.title())).to_have_attribute('aria-pressed', 'true')
                 elif section == 'edr':
                     expect(page.locator('#edrDetailName')).to_have_text(agents[1]['name'])
                     assert event_agents[-1] == agents[1]['id']
+                    page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
+                    expect(page.locator('#edrDetailName')).to_have_text(agents[0]['name'])
+                    page.wait_for_function('() => !document.querySelector("[data-fleet-agent]").disabled')
+                    assert event_agents[-1] == agents[0]['id']
+                    page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
+                    expect(page.locator('#edrDetailName')).to_have_text(agents[1]['name'])
                 else:
                     expect(page.locator('#wgAgentName')).to_contain_text(agents[1]['name'])
-                page.locator('#agentsBtn').click()
+                for width in [1440,768,390,320]:
+                    page.set_viewport_size({'width':width,'height':1000})
+                    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (action,width)
+                    assert page.locator('#agentToolPanel').evaluate('el=>el.scrollWidth<=el.clientWidth'), (action,width)
+                    if width==1440 and action in ['active','terminal','edr']:page.screenshot(path=str(ROOT/f'.cache/unified-security-{action}.png'),animations='disabled')
+                page.set_viewport_size({'width':1440,'height':1000})
+                page.locator('#agentToolClose').click()
                 page.wait_for_function('() => !sectionTransition.active')
+                expect(page.locator('#agentToolPanel')).to_be_hidden()
                 expect(page.locator('#agentActions h2')).to_have_text(agents[1]['name'])
             assert not started
 

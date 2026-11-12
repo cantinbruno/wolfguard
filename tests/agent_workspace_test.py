@@ -1,4 +1,5 @@
 """Browser -> authenticated relay -> actual agent -> live web results on two devices."""
+from site_fixture import open_security_tool
 from functools import partial
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
@@ -20,7 +21,7 @@ def unlock(page):
     ready(page);page.locator('#lock').focus();page.keyboard.type(CODE);expect(page.locator('#app')).to_be_visible(timeout=30000)
     page.wait_for_function('()=>!document.querySelector("#app").inert')
 def navigate(page,kind):
-    open_security(page);page.locator(f'.workspace-section-button[data-section=scan-{kind}]').click();page.wait_for_function('()=>!sectionTransition.active')
+    open_security(page);open_security_tool(page,'scan-'+kind);page.wait_for_function('()=>!sectionTransition.active')
 
 def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
