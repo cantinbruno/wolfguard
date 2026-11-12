@@ -30,7 +30,6 @@ const agentsWorkspace = (() => {
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
     const columns = [['name','Poste'],['online','Connexion'],['platform','Système'],['health','Protection EDR'],['alerts','Alertes ouvertes'],['lastSeen','Dernier contact']];
-    root.dataset.density = 'comfortable';
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">SÉCURITÉ · ENDPOINTS</span><h1>Tous les postes</h1><p>Surveille tes agents et interviens sur le poste sélectionné.</p></div></div>
       <div class="agents-heading-actions"><button type="button" id="agentsManage">${settingsIcon('sliders-horizontal')}Gérer les agents</button><button type="button" id="agentsAdd" class="agents-primary">${settingsIcon('plus')}Ajouter un agent</button><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}<span>Actualiser</span></button></div>
@@ -38,7 +37,7 @@ const agentsWorkspace = (() => {
     <div id="agentsMetrics" class="agents-metrics"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p>
     <div class="agents-console">
       <section class="agents-fleet" aria-label="Liste des agents">
-        <div class="agents-inventory-toolbar"><div class="agents-inventory-label">${settingsIcon('monitor')}<span>Inventaire des postes</span><span id="agentsInventoryCount" class="agents-inventory-count">0</span></div><button type="button" id="agentsDensity" aria-pressed="false" title="Réduire la hauteur des lignes">${WORKSPACE_LAYOUT_ICONS.list}Vue compacte</button></div>
+        <div class="agents-inventory-toolbar"><div class="agents-inventory-label">${settingsIcon('monitor')}<span>Inventaire des postes</span><span id="agentsInventoryCount" class="agents-inventory-count">0</span></div></div>
         <div class="agents-fleet-filters">
           <div class="agents-search-filter"><label for="agentsSearch">Rechercher</label><div class="agents-search">${settingsIcon('search')}<input id="agentsSearch" type="search" placeholder="Nom du poste, système, version…"></div></div>
           <div><label for="agentsFilter">Connexion</label><select id="agentsFilter"><option value="all">Toutes les connexions</option><option value="online">Connectés</option><option value="offline">Hors ligne</option></select></div>
@@ -238,11 +237,6 @@ const agentsWorkspace = (() => {
       const field = event.target.closest('[data-agent-clear]')?.dataset.agentClear;
       if (!Object.hasOwn(filterControls, field)) return;
       clearFilters(field); find(filterControls[field]).focus();
-    };
-    find('#agentsDensity').onclick = event => {
-      const compact = root.dataset.density !== 'compact';
-      root.dataset.density = compact ? 'compact' : 'comfortable';
-      event.currentTarget.setAttribute('aria-pressed', String(compact));
     };
     find('.agents-table thead').onclick = event => {
       const button = event.target.closest('[data-agent-sort]');

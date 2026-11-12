@@ -10,8 +10,8 @@
 .agents-heading h1 {margin: 4px 0 5px; font-size: 27px; letter-spacing: -.6px; font-weight: 650}
 .agents-heading p {margin: 0; color: var(--ui-muted); font-size: 12px; line-height: 1.5}
 .agents-heading-actions {display: flex; flex-wrap: wrap; gap: 7px}
-.agents-heading-actions button, .agents-tool-heading button, #agentsClearFilters, #agentsDensity {display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 9px 12px; border: 1px solid var(--agents-line); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); font-size: 12px; cursor: pointer}
-.agents-heading-actions svg, .agents-tool-heading button svg, #agentsClearFilters svg, #agentsDensity svg {width: 15px; height: 15px; flex: none}
+.agents-heading-actions button, .agents-tool-heading button, #agentsClearFilters {display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 9px 12px; border: 1px solid var(--agents-line); border-radius: 6px; background: var(--ui-surface); color: var(--ui-text); font-size: 12px; cursor: pointer}
+.agents-heading-actions svg, .agents-tool-heading button svg, #agentsClearFilters svg {width: 15px; height: 15px; flex: none}
 .agents-heading-actions button:hover:enabled, .agents-tool-heading button:hover, #agentsClearFilters:hover:enabled {border-color: var(--agents-accent); background: var(--ui-raised)}
 .agents-heading-actions .agents-primary {background: var(--agents-accent); border-color: var(--agents-accent); color: var(--ui-on-accent); font-weight: 700}
 .agents-heading-actions .agents-primary:hover:enabled {background: color-mix(in srgb, var(--agents-accent) 80%, white)}
@@ -35,8 +35,6 @@
 .agents-inventory-label {display: flex; align-items: center; gap: 9px; min-width: 0; color: var(--ui-text); font-size: 13px; font-weight: 600}
 .agents-inventory-label > svg {width: 17px; height: 17px; flex: none; color: var(--ui-subtle)}
 .agents-inventory-count {padding: 3px 7px; border: 1px solid var(--agents-line); border-radius: 5px; color: var(--ui-muted); font-size: 11px; font-variant-numeric: tabular-nums}
-#agentsDensity {min-height: 32px; padding: 6px 9px; background: transparent; font-size: 11px; color: var(--ui-muted)}
-#agentsDensity:hover, #agentsDensity[aria-pressed="true"] {background: var(--ui-surface); color: var(--agents-accent); border-color: color-mix(in srgb, var(--agents-accent) 50%, var(--ui-border))}
 .agents-fleet-filters {display: grid; grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(130px, 170px)) auto; align-items: end; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--agents-line)}
 .agents-fleet-filters > div {min-width: 0}
 .agents-fleet-filters label {display: block; margin-bottom: 7px; color: var(--ui-muted); font-size: 11px}
@@ -65,12 +63,9 @@
 .agents-table th button:hover {background: var(--ui-raised); color: var(--ui-text)}
 .agents-table th[aria-sort]:not([aria-sort="none"]) button {color: var(--agents-accent)}
 .agents-sort-indicator {font-size: 12px; opacity: .8}
-.agents-table td {padding: 15px 16px; height: 66px; border-bottom: 1px solid var(--agents-line); color: var(--ui-muted); overflow-wrap: anywhere; background: var(--ui-sidebar)}
+.agents-table td {padding: 9px 16px; height: 48px; border-bottom: 1px solid var(--agents-line); color: var(--ui-muted); overflow-wrap: anywhere; background: var(--ui-sidebar)}
 .agents-table th:first-child, .agents-fleet-row td:first-child {position: sticky; left: 0; z-index: 1; border-right: 1px solid var(--agents-line)}
 .agents-table th:first-child {z-index: 3}
-.agents-workspace[data-density="compact"] .agents-table td {height: 48px; padding-top: 9px; padding-bottom: 9px}
-.agents-workspace[data-density="compact"] .agents-endpoint-name {gap: 3px}
-.agents-workspace[data-density="compact"] .agents-endpoint-name small {display: none}
 .agents-fleet-row {cursor: pointer}
 .agents-fleet-row:last-child td {border-bottom: 0}
 .agents-fleet-row:hover td {background: var(--ui-surface)}
@@ -83,9 +78,9 @@
 .agents-device-icon {display: inline-flex; color: var(--ui-subtle); flex: none}
 .agents-device-icon svg {width: 19px; height: 19px}
 .agents-endpoint[aria-pressed="true"] .agents-device-icon {color: var(--agents-accent)}
-.agents-endpoint-name {display: grid; gap: 5px; min-width: 0}
+.agents-endpoint-name {display: grid; gap: 3px; min-width: 0}
 .agents-endpoint-name strong {font-weight: 600; overflow-wrap: anywhere; line-height: 1.4}
-.agents-endpoint-name small {color: var(--ui-subtle); font-size: 10px}
+.agents-endpoint-name small {display: none}
 .agents-presence {display: inline-flex; align-items: center; gap: 6px; color: var(--ui-subtle); font-size: 12px; white-space: nowrap}
 .agents-presence::before {content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor}
 .agents-presence[data-state="online"] {color: var(--workspace-vault)}
@@ -159,7 +154,6 @@
   .agents-inventory-toolbar {padding: 12px 12px 0; gap: 8px}
   .agents-inventory-label {font-size: 11px; gap: 6px}
   .agents-inventory-label > svg {display: none}
-  #agentsDensity {font-size: 10px; padding: 6px}
   .agents-active-filters {padding: 10px 12px}
   .agents-table {min-width: 850px}
   .agents-table th:first-child {width: 26%}

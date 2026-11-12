@@ -202,7 +202,7 @@ def run():
             page.locator('[data-agent-row="' + agents[1]['id'] + '"] td').nth(1).click()
             expect(page.locator('#agentActions')).to_have_count(0)
             page.screenshot(path=str(ROOT / '.cache/ems-endpoints-desktop.png'), animations='disabled', full_page=True)
-            page.locator('#agentsDensity').click()
+            expect(page.locator('#agentsDensity')).to_have_count(0)
             page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
             expect(page.locator('#agentActions')).to_have_count(0)
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
@@ -214,7 +214,6 @@ def run():
                 assert page.evaluate('state.section') == section
                 assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
                 expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed', 'true')
-                expect(page.locator('#agentsDensity')).to_have_attribute('aria-pressed', 'true')
                 expect(page.locator('[data-fleet-agent]')).to_have_count(4)
                 expect(page.locator('#agentToolHost')).to_be_visible()
                 expect(page.locator('#agentActions')).to_have_count(0)
