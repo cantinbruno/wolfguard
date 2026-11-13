@@ -8,11 +8,11 @@ async function saveWorkspaceFromSettings() {
   }
   if (workspaceCanWrite()) {
     const ok = await writePortableFile();
-    if (ok) appNotify('Bases ITW sauvegardées.');
-    else if (localServiceAvailable()) appNotify(localWorkspaceError || 'Sauvegarde en cours. Reessaie dans un instant.');
+    if (ok) appNotify('Bases ITW enregistrées.');
+    else if (localServiceAvailable()) appNotify(localWorkspaceError || 'Enregistrement en cours. Réessaie dans un instant.');
     return;
   }
-  appNotify('L’écriture directe dans le fichier n’est pas disponible dans ce navigateur. Utilise « Exporter une copie ITW ».');
+  appNotify('L’écriture directe dans le fichier n’est pas disponible dans ce navigateur.');
 }
 
 async function reloadWorkspaceFromSettings() {
@@ -117,13 +117,6 @@ async function openSettings(initialTab = 'security') {
   sectionTransition.cancel();
   const n = (await activeItems()).length;
   const autoLock = 240;
-  const lastBackup = await setting('lastBackup', null);
-  const backupDate = lastBackup ? new Date(lastBackup) : null;
-  const backupLabel = backupDate && !Number.isNaN(backupDate.getTime()) ? backupDate.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  }) : 'Aucune';
   const width = getExplorerWidth();
   const connected = workspaceCanWrite();
   const loaded = portableReadOnly && !connected;
@@ -214,25 +207,12 @@ async function openSettings(initialTab = 'security') {
             <div><dt>Éléments</dt><dd>${n.toLocaleString('fr-FR')}</dd></div>
             <div><dt>Données chiffrées</dt><dd>${esc(totalLabel)}</dd></div>
             <div><dt>Dépôt complet</dt><dd id="wgRepositorySize">Chargement…</dd></div>
-            <div><dt>Dernière sauvegarde</dt><dd>${esc(backupLabel)}</dd></div>
           </dl>
           <div class="settings-file-actions">
-            <button type="button" class="settings-btn primary" id="saveBaseBtn" ${connected?'':'disabled'} title="${connected?'Sauvegarder dans le fichier connecté':'Écriture directe indisponible pour cette connexion'}">${settingsIcon('save')}Sauvegarder</button>
+            <button type="button" class="settings-btn primary" id="saveBaseBtn" ${connected?'':'disabled'} title="${connected?'Enregistrer dans le fichier connecté':'Écriture directe indisponible pour cette connexion'}">${settingsIcon('save')}Enregistrer</button>
             <button type="button" class="settings-btn" id="reloadBaseBtn">${settingsIcon('refresh-cw')}Recharger</button>
             <button type="button" class="settings-btn" id="changeBaseBtn">${settingsIcon('folder-open')}${desktopBridge.available?(multipleDatabases?'Afficher les dossiers':'Afficher le dossier'):'Changer de base'}</button>
           </div>
-          <h4 class="settings-group-title">Copie et restauration</h4>
-          <div class="settings-row">
-            ${settingsIcon('download')}
-            <div class="settings-row-copy"><div class="settings-row-title">${multipleDatabases?'Copie de toutes les bases':'Copie de la base'}</div><div class="settings-row-desc">${desktopBridge.available?(multipleDatabases?'Sauvegarde complete dans un fichier SQLite':'Base SQLite'):'Fichier ITW'}</div></div>
-            <button type="button" class="settings-btn settings-control" id="exp">${settingsIcon('download')}Exporter</button>
-          </div>
-          <div class="settings-row">
-            ${settingsIcon('upload')}
-            <div class="settings-row-copy"><div class="settings-row-title">Restaurer une sauvegarde</div><div class="settings-row-desc">${desktopBridge.available?'Base SQLite':'Fichier ITW ou JSON'}</div></div>
-            <button type="button" class="settings-btn settings-control" id="imp">${settingsIcon('upload')}Importer</button>
-          </div>
-          <input id="impFile" class="hidden" type="file" accept=".itw,.json,application/json" multiple>
         </section>
         <section class="settings-panel hidden" id="settings-interface" data-settings-panel="interface" role="tabpanel" aria-labelledby="settings-tab-interface">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('sliders-horizontal')}<h3>Interface</h3></div><span class="settings-status settings-status-interface">Local</span></header>
@@ -320,36 +300,6 @@ async function openSettings(initialTab = 'security') {
   });
   $('#reloadBaseBtn').onclick = reloadWorkspaceFromSettings;
   $('#saveBaseBtn').onclick = saveWorkspaceFromSettings;
-  $('#exp').onclick = exportDB;
-  $('#imp').onclick = async () => {
-    if (!db?.native) {
-      $('#impFile').click();
-      return
-    }
-    try {
-      await db.flush();
-      const snapshot = await desktopBridge.call('backup.restore');
-      if (!snapshot) return;
-      db.replace(snapshot);
-      resetSettingsCache(snapshot.settings);
-      window.workspaceSearch?.reset();
-      closeModal();
-      connectedWorkspaceReady = true;
-      lockApplication();
-      if (!await ensureSecuritySettings()) {
-        $('#lock').classList.add('hidden');
-        $('#connectionGate').classList.remove('hidden');
-        await createFirstCodeForWorkspace();
-        await completeRequiredConnection()
-      }
-    } catch (error) {
-      appNotify('Restauration impossible : ' + error.message)
-    }
-  };
-  $('#impFile').onchange = async e => {
-    await importDB(e.target.files);
-    e.target.value = ''
-  };
   const feedback = (message, error = false) => {
     const element = dialog.querySelector('#settingsFeedback');
     element.textContent = message;

@@ -57,15 +57,11 @@ def run():
             expect(page.locator('#githubConnectForm,#githubAccess')).to_have_count(0)
             page.locator('#settingsBtn').click();page.locator('[data-settings-tab=data]').click()
             expect(page.locator('#githubConnectBtn')).to_have_count(0)
-            with page.expect_download() as info:
-                page.locator('#exportRecovery').click()
-                expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
-                page.locator('.app-dialog-submit').click()
-            assert info.value.suggested_filename.endswith('.wgweb')
+            expect(page.locator('#exp,#imp,#webBackupFile,#exportRecovery')).to_have_count(0)
             page.locator('#closeSettingsBtn').click()
             assert page.evaluate("async()=>!!await (await import('./browser/storage.js')).readRecovery()")
             assert page.evaluate("async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');return (await c.open(await s.readRecovery(),'07942685')).payload.items[0].title}")=='Secret de test'
-            print('PASS: ancien appareil lie ouvre avec son code, aucune demande GitHub, copie de secours toujours exportable')
+            print('PASS: ancien appareil lie ouvre avec son code, aucune demande GitHub, copie existante preservee sans export')
             assert page.evaluate("async()=>(await (await import('./browser/storage.js')).read()).version")==3
             csp=page.locator('meta[http-equiv=Content-Security-Policy]').get_attribute('content')
             assert "script-src-attr 'none'" in csp and "'unsafe-eval'" not in csp

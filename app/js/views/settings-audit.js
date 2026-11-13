@@ -10,7 +10,6 @@ function settingsAuditHTML() {
     ]],
     ['Chiffrement et connexions', [
       ['Données de l’espace web', 'AES-256-GCM ; clé dérivée avec PBKDF2-HMAC-SHA-256 à 600 000 itérations. Sel aléatoire et nouvel IV à chaque écriture de l’espace.'],
-      ['Sauvegardes exportées', 'Les nouveaux exports sont protégés en plus par une clé aléatoire de 256 bits, générée sur cet appareil et jamais envoyée au serveur. La clé et le code de la sauvegarde sont nécessaires pour restaurer le fichier. Conservez la clé séparément.'],
       ['Code vérifié par le serveur', 'HMAC-SHA-256 avec un secret serveur, puis PBKDF2-SHA-256 à 100 000 itérations.'],
       ['Connexions HTTPS', 'Le navigateur et les agents communiquent avec l’API par HTTPS. Les jetons d’accès sont envoyés dans les en-têtes ; les requêtes API n’utilisent pas de cookies.'],
       ['Clés de partage protégées séparément', 'Les clés de partage sont chiffrées avec un secret serveur dédié, distinct de celui des données. Les anciennes clés sont migrées sans changer les données. Ce secret reste hors du code et du dépôt.'],
@@ -26,7 +25,6 @@ function settingsAuditHTML() {
     ]]
   ];
   const weaknesses = [
-    ['Anciennes sauvegardes', 'Les fichiers exportés avant cette protection ne changent pas automatiquement. Créez une nouvelle sauvegarde et conservez sa clé séparément du fichier. Le MFA continue de protéger la connexion au serveur.'],
     ['Signature Windows', 'La procédure Authenticode est préparée, mais l’agent ne dispose pas encore d’un certificat d’éditeur reconnu par Windows. Le contrôle SHA-256 ne remplace pas cette signature.']
   ];
   const list = entries => `<ul>${entries.map(([title,description])=>`<li><strong>${esc(title)}</strong><p>${esc(description)}</p></li>`).join('')}</ul>`;

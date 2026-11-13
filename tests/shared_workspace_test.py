@@ -135,19 +135,6 @@ def run(backend=None):
             assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
             print('PASS: nouveau code personnel sur les deux appareils, cle partagee conservee')
 
-            # Restore an older backup encrypted with the previous code into the
-            # shared workspace, preserving the current login code and vault key.
-            first.locator('#settingsBtn').click();first.locator('[data-settings-tab=data]').click()
-            first.locator('#webBackupFile').set_input_files({'name':'synthetic.wgweb','mimeType':'application/json','buffer':json.dumps(original_backup).encode()})
-            first.locator('.app-dialog-submit').click()
-            expect(first.locator('.app-dialog-input')).to_have_attribute('type','password')
-            first.locator('.app-dialog-input').fill(CODE);first.locator('.app-dialog-submit').click()
-            expect(first.locator('#lock')).to_be_visible(timeout=20000);unlock(first,'09876543')
-            second.evaluate('lockApplication()');unlock(second,'09876543')
-            assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Ma fiche existante'
-            assert second.evaluate("async()=>JSON.parse(await decryptBlobWithKey((await get('items','vault-test')).vaultBlobEnc,state.vaultKey)).password")=='SECRET-TEST-42'
-            print('PASS: ancienne sauvegarde restauree et partagee avec le code actuel, coffre rechiffre')
-
             second.evaluate('lockApplication()');ready(second);second.keyboard.type('00000000')
             expect(second.locator('#lockError')).to_contain_text('Réessaie dans',timeout=15000)
             first.evaluate('lockApplication()');ready(first);first.keyboard.type('09876543')

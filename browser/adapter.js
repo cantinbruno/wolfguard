@@ -3,7 +3,7 @@
 // The original UI, editors and tools stay unchanged. Only desktop storage and
 // the access-code entry are adapted to an encrypted browser workspace.
 const webWorkspace = (() => {
-  let cryptography, storage, cloud, tabSessions, shared, tabSession, session = null, envelope = null, pendingBackup = null;
+  let cryptography, storage, cloud, tabSessions, shared, tabSession, session = null, envelope = null;
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
@@ -25,7 +25,7 @@ const webWorkspace = (() => {
   }
   function activateSession(result, clock = {started: Date.now(), active: Date.now()}) {
     result.payload=hydrateVaultHomes(result.payload);
-    session = result; envelope = result.envelope; pendingBackup = null; db = new BrowserDatabase();
+    session = result; envelope = result.envelope; db = new BrowserDatabase();
     if(cloud.enabled){
       session.cloudVersion=cloud.currentVersion();
       try{agentChoice=sessionStorage.getItem(agentChoiceKey());}catch{}
@@ -98,7 +98,7 @@ const webWorkspace = (() => {
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
-  const accessScope = () => cloud?.enabled ? 'shared' : (pendingBackup || envelope)?.salt || '';
+  const accessScope = () => cloud?.enabled ? 'shared' : envelope?.salt || '';
   const accessBlocked = () => attemptsUnavailable || (attemptScope === accessScope() && attemptState.blockedUntil > Date.now());
   async function loadAttempts() {
     const scope=accessScope(), state=await storage.readAttempts(scope);
@@ -191,7 +191,7 @@ const webWorkspace = (() => {
     })();
     return sharedRefreshing;
   }
-  const gateExists = () => !!(pendingBackup || envelope) || (cloud?.enabled && (cloud.isInitialized()!==false || !cloud.canActivate()));
+  const gateExists = () => !!envelope || (cloud?.enabled && (cloud.isInitialized()!==false || !cloud.canActivate()));
   async function claimTab() {
     if(cloud.enabled)return;
     if (releaseTab) return;
@@ -340,12 +340,11 @@ const webWorkspace = (() => {
     if(!$('#webAccessForm')||accountSetupActive)return;
     $('#webUsernameRow').hidden=true;
     const exists=gateExists();
-    $('#lock .access-heading h2').textContent=pendingBackup ? 'Ouvrir une sauvegarde' : exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
-    $('#lock .access-heading').classList.toggle('web-empty-heading',exists && !pendingBackup);
+    $('#lock .access-heading h2').textContent=exists ? '' : creationCode ? 'Confirmer le code' : 'Créer le code de la base';
+    $('#lock .access-heading').classList.toggle('web-empty-heading',exists);
     $('#pinDots').classList.remove('hidden');
     $('#keypad').classList.remove('hidden');
     $('#webAccessForm').hidden=true;
-    $('.web-access-actions').hidden=!pendingBackup;
     $('#pinDots').setAttribute('aria-label',enteredCode.length+' chiffres saisis sur 8');
     const blocked=accessBlocked();
     $('#pinDots').querySelectorAll('.dot').forEach((dot,index)=>{
@@ -358,7 +357,6 @@ const webWorkspace = (() => {
     if(hint)hint.textContent=booting?'Chargement de ton espace…':busy?'Vérification du code…':blocked?'Accès temporairement suspendu':'';
     $('#keypad').querySelectorAll('button').forEach(button=>{button.disabled=busy || locking || booting || blocked;});
     $('#webUnlock').disabled=busy || locking || booting || blocked;
-    $('#webCancelRestore').disabled=busy || locking || booting;
     $('#lock').setAttribute('aria-busy',String(busy || locking || booting));
     clearTimeout(attemptTimer);attemptTimer=null;
     if(attemptsUnavailable){
@@ -382,10 +380,9 @@ const webWorkspace = (() => {
     $('#webPassword').maxLength=exists ? 1024 : 8;
     $('#webPassword').inputMode='numeric';
     if (exists) $('#webPassword').removeAttribute('pattern'); else $('#webPassword').pattern='[0-9]{8}';
-    $('.web-access-hint').textContent='Saisis l’ancien mot de passe de cette base ou de cette sauvegarde.';
+    $('.web-access-hint').textContent='Saisis l’ancien mot de passe de cette base.';
     $('#webUnlock').textContent=exists ? 'Déverrouiller' : 'Créer et ouvrir';
     $('#webUnlock').disabled=busy || locking;
-    $('#webCancelRestore').hidden=!pendingBackup;
     $('#webPassword').value=''; $('#webConfirm').value=''; $('#lockError').textContent='';
     renderKeypad();
     $('#lock').tabIndex=-1;
@@ -542,7 +539,7 @@ const webWorkspace = (() => {
       attemptedScope=accessScope();
       let result;
       if(cloud.enabled)result=await openShared(password);
-      else if (pendingBackup || envelope) result=await cryptography.open(pendingBackup || envelope,password);
+      else if (envelope) result=await cryptography.open(envelope,password);
       else {
         if (password !== $('#webConfirm').value) throw new Error('Les codes ne correspondent pas.');
         cryptography.checkPassword(password); result=await cryptography.create(await seed(),password);
@@ -552,8 +549,7 @@ const webWorkspace = (() => {
       await storage.resetAttempts(attemptedScope);
       attemptState={failures:0,blockedUntil:0};attemptScope=attemptedScope;
       announceAttempts(attemptedScope);
-      if (pendingBackup && envelope && !await appConfirm('Remplacer l’espace de ce navigateur par cette sauvegarde ? Exporte d’abord les modifications à conserver.')) return;
-      if (!cloud.enabled && (pendingBackup || !envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION)) {
+      if (!cloud.enabled && (!envelope || result.envelope.version !== cryptography.WORKSPACE_VERSION)) {
         result.envelope=await cryptography.seal(result.payload,result.key,result.salt,(envelope?.revision || 0)+1);
         await storage.write(result.envelope,envelope?.revision || 0);
         envelope=result.envelope;
@@ -604,95 +600,10 @@ const webWorkspace = (() => {
     $('#content').replaceChildren(); closeModal(); closeContextMenu(); resetSettingsCache();
     document.querySelectorAll('input:not([type=file]),textarea').forEach(element => { element.value=''; });
     document.querySelectorAll('.reader-image-overlay,.folder-menu,.context-menu').forEach(element => element.remove());
-    pendingBackup=null; updateMFAIndicator();saveStatus('Espace verrouillé'); showGate();
+    updateMFAIndicator();saveStatus('Espace verrouillé'); showGate();
     secretClipboard.clear();
     try { await queue; await forgotten; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
-  }
-  async function download(value) {
-    assertFreshSession();const current=session,generation=epoch;let recoveryKey=cryptography.generateBackupKey();
-    try{
-      const accepted=await appPrompt('Copie cette clé et conserve-la séparément du fichier. Elle sera nécessaire, avec le code de la sauvegarde, pour la restaurer. Elle ne sera pas enregistrée dans WolfGuard. Annule si tu ne peux pas la conserver.\n\nTu peux sélectionner la clé et la copier avec Ctrl+C.',recoveryKey,{title:'Clé de la sauvegarde',readOnly:true,confirmLabel:'Clé conservée · Exporter'});
-      if(accepted===null||session!==current||epoch!==generation)return false;
-      assertFreshSession();
-      const backup=await cryptography.protectBackup(value,recoveryKey);
-      if(session!==current||epoch!==generation)return false;
-      assertFreshSession();
-      const url=URL.createObjectURL(new Blob([JSON.stringify(backup)],{type:'application/json'}));
-      const anchor=document.createElement('a');anchor.href=url;anchor.download='WolfGuard-'+new Date().toISOString().slice(0,10)+'.wgweb';anchor.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);return true;
-    }finally{recoveryKey='';}
-  }
-  async function exportRecovery(value){
-    assertFreshSession();const current=session;if(!current)return;
-    if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())throw new Error('Les copies historiques du propriétaire ne sont pas accessibles depuis ce compte.');
-    // Old PIN-encrypted copies remain portable as-is. Copies made with the
-    // account delivery key must be re-encrypted with a chosen, verified PIN.
-    if(!cloud.enabled||!cloud.hasUsers()||value.salt!==current.envelope.salt){await download(value);return;}
-    const restored=await cryptography.openWithKey(value,current.key,current.salt);
-    let code=await appPrompt('Confirme ton code personnel. Une clé de sauvegarde distincte sera ensuite générée.','',{title:'Exporter la copie de récupération',inputType:'password',confirmLabel:'Continuer'});if(code===null)return;
-    try{
-      await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
-      const payload=structuredClone(restored.payload),backup=await cryptography.create(payload,code,value.revision);
-      for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
-      backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,value.revision);if(session===current)await download(backup.envelope);
-    }finally{code='';}
-  }
-  async function exportWorkspace() {
-    assertFreshSession();
-    const current=session; if (!current) return;
-    if(window.WolfGuardAccess?.restricted()&&['library','vault'].some(section=>current.payload.items.some(row=>(row.type==='vault'?'vault':'library')===section)&&!WolfGuardAccess.can(section+'.export'))){appNotify('L’export de toutes les données visibles ne fait pas partie de vos droits.');return;}
-    await queue;
-    if(session!==current)return;
-    let exported=false;
-    if(cloud.enabled&&cloud.hasUsers()){
-      let code=await appPrompt('Confirme ton code personnel. Une clé de sauvegarde distincte sera ensuite générée.','',{title:'Exporter une sauvegarde',inputType:'password',confirmLabel:'Continuer'});if(code===null)return;
-      try{
-        await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
-        const payload=structuredClone(current.payload),backup=await cryptography.create(payload,code,current.envelope.revision);
-        for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
-        backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,current.envelope.revision);if(session===current)exported=await download(backup.envelope);
-      }finally{code='';}
-    }else exported=await download(current.envelope);
-    if(exported)appNotify('Sauvegarde protégée exportée. Conserve sa clé séparément.');
-  }
-  async function importWorkspace(files) {
-    const file=files?.[0]; if (!file || busy || locking) return;
-    if (file.size > cryptography.MAX_BACKUP_FILE_BYTES) throw new Error('Sauvegarde trop volumineuse.');
-    const generation=epoch;let input=JSON.parse(await file.text());
-    if(generation!==epoch)return;
-    if(cryptography.isProtectedBackup(input)){
-      let recoveryKey=await appPrompt('Clé de 64 caractères conservée séparément du fichier. Le code de la sauvegarde sera demandé ensuite.','',{title:'Ouvrir la sauvegarde protégée',inputType:'password',confirmLabel:'Déchiffrer'});
-      if(recoveryKey===null)return;
-      try{input=await cryptography.unprotectBackup(input,recoveryKey.trim());}finally{recoveryKey='';}
-    }
-    if(generation!==epoch)return;
-    const backup=cryptography.validateEnvelope(input);
-    if(cloud.enabled){
-      if(!session)throw new Error('Ouvre ton espace avec ton code avant de restaurer une sauvegarde.');
-      if(!await appConfirm('Remplacer la copie partagée par cette sauvegarde ? Une copie chiffrée de l’espace actuel sera conservée sur cet appareil.'))return;
-      let code=await appPrompt('Code de la sauvegarde','',{title:'Restaurer une sauvegarde',inputType:'password',confirmLabel:'Restaurer'});
-      if(code===null)return;
-      try{
-        const restored=await cryptography.open(backup,code),payload=await upgrade(restored);
-        const current=session;if(!current)throw new Error('Espace verrouillé.');
-        if(cloud.hasUsers()){
-          const home=cloud.currentUser()?.vaultHome,oldHomes=new Set(payload.folders.filter(folder=>WolfGuardPermissions.isVaultHome(folder.id)).map(folder=>folder.id));
-          if(home){
-            payload.folders=payload.folders.filter(folder=>!oldHomes.has(folder.id)).map(folder=>folder.section==='vault'?{...folder,parentId:!folder.parentId||oldHomes.has(folder.parentId)?home.id:folder.parentId}:folder);
-            payload.items=payload.items.map(item=>item.type==='vault'&&(!item.folderId||oldHomes.has(item.folderId))?{...item,folderId:home.id}:item);
-            payload.folders.push(structuredClone(current.payload.folders.find(folder=>folder.id===home.id)||home));
-          }
-        }
-        for(const item of payload.items.filter(item=>item.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],restored.key),current.key);
-        await storage.preserve(current.envelope,true);
-        await commit(target=>{for(const store of STORES)target[store]=payload[store];},{replace:true});
-        await lock();appNotify('Sauvegarde restaurée et synchronisée. Saisis ton code habituel.');
-      }finally{code='';}
-      return;
-    }
-    if (session && !await appConfirm('Ouvrir une sauvegarde verrouille la base actuelle. As-tu exporté les modifications à conserver ?')) return;
-    await lock(); pendingBackup=backup; await loadAttempts(); showGate();
   }
   async function rotatePassword() {
     if(rotating)return;
@@ -729,7 +640,7 @@ const webWorkspace = (() => {
         await cacheSnapshot(result.envelope,current.envelope.revision);
         Object.assign(current,result); envelope=result.envelope;
         if(cloud.enabled)current.cloudVersion=cloud.currentVersion();
-        if (session===current) { state.vaultKey=result.key; await rememberSession(); closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié. Exporte une nouvelle sauvegarde.'); }
+        if (session===current) { state.vaultKey=result.key; await rememberSession(); closeModal(); appNotify(cloud.enabled?'Code modifié sur tous tes appareils.':'Code modifié.'); }
       });
       queue=work.catch(() => {}); await work;
     } catch (error) { appNotify(error.message,{kind:'error'}); }
@@ -752,12 +663,11 @@ const webWorkspace = (() => {
   // Older desktop listeners must not re-enable the keypad during a web timeout.
   refreshPinLockout=renderKeypad;
   lockApplication=lock;
-  exportDB=exportWorkspace;
-  importDB=importWorkspace;
+  exportDB=importDB=async () => { throw new Error('Les sauvegardes sont désactivées.'); };
   writePortableFile=async () => { await queue; return !!session; };
   reloadWorkspaceFromSettings=async () => { if (await appConfirm('Verrouiller et recharger cet espace ?')) await lock(); };
   saveWorkspaceFromSettings=async () => { await queue; appNotify(cloud.enabled?'Les modifications sont enregistrées dans ton espace partagé chiffré.':'Les modifications sont enregistrées et chiffrées dans ce navigateur.'); };
-  changeWorkspaceFromSettings=() => $('#webBackupFile').click();
+  changeWorkspaceFromSettings=() => {};
   changeAccessCode=rotatePassword;
   showChangeCodeForm=() => {
     $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
@@ -816,35 +726,19 @@ const webWorkspace = (() => {
     if (!session) return;
     await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
     if (!session) { closeModal(); return; }
-    $('#imp').onclick=() => $('#webBackupFile').click(); $('#exp').onclick=exportWorkspace;
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré. Exporte régulièrement une sauvegarde chiffrée.';
+    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
       mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
       security.before(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
     }
-    for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
-    $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
+    $('#changeBaseBtn').remove();
     const idle=$('#autoLockSelect');
     idle.replaceChildren(new Option('4 heures','240',true,true));idle.disabled=true;
     idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Verrouillage automatique après 4 heures · Le rechargement et l’activité ne prolongent pas la session';
-    if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())return;
-    const recovery=await storage.readRecovery().catch(()=>null);
-    if(recovery && session && $('#settings-data')){
-      const button=document.createElement('button');button.type='button';button.id='exportRecovery';button.className='settings-btn';
-      button.textContent='Exporter la copie de secours';
-      button.onclick=()=>exportRecovery(cryptography.validateEnvelope(recovery)).catch(error=>appNotify(error.message,{kind:'error'}));
-      $('#settings-data').append(button);
-    }
-    for(const recovery of await storage.recoveries()){
-      if(!session || !$('#settings-data'))break;
-      const button=document.createElement('button');button.type='button';button.className='settings-btn';
-      button.textContent=recovery.key==='memo-consolidation-before-v1'?'Exporter avant le regroupement des fiches':recovery.key==='procedure-technology-before-v1'?'Exporter avant le classement des procédures':recovery.key==='memo-form-cleanup-before-v3'?'Exporter avant le nettoyage des formulaires':recovery.key==='memo-cleanup-before-v2'?'Exporter avant le nettoyage des mails':recovery.key==='memo-organization-before'?'Exporter avant le rangement du mémo':recovery.key==='cloud-original'?'Exporter l’ancienne copie locale':'Exporter la copie locale de secours';
-      button.onclick=()=>exportRecovery(cryptography.validateEnvelope(recovery.envelope)).catch(error=>appNotify(error.message,{kind:'error'}));$('#settings-data').append(button);
-    }
   };
   window.openAccountMFA=async()=>{
     if(!session||!cloud?.hasUsers())return;
@@ -902,7 +796,7 @@ const webWorkspace = (() => {
       if (!/^[0-9]{8}$/.test(code || '')) {
         // Keep old encrypted spaces accessible by pasting their original secret,
         // without displaying another field or button on the keypad screen.
-        if ((pendingBackup || envelope) && code && code.length<=1024) {
+        if (envelope && code && code.length<=1024) {
           event.preventDefault(); enteredCode=''; creationCode='';
           $('#webPassword').value=code; $('#webConfirm').value='';
           authenticate({preventDefault(){}});
@@ -915,12 +809,6 @@ const webWorkspace = (() => {
     form.hidden=true;
     form.innerHTML='<label>Ancien mot de passe<input id="webPassword" type="password" maxlength="1024" autocomplete="current-password" required></label><label id="webConfirmRow" hidden>Confirmer le code<input id="webConfirm" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><p class="web-access-hint"></p><button type="submit" class="primary" id="webUnlock">Déverrouiller</button>';
     $('#lockError').before(form); form.onsubmit=authenticate;
-    const actions=document.createElement('div'); actions.className='web-access-actions';
-    actions.hidden=true;
-    actions.innerHTML='<button type="button" class="secondary" id="webCancelRestore" hidden>Annuler</button><input id="webBackupFile" type="file" accept=".wgweb,application/json" hidden>';
-    $('#lock .lock-card').append(actions);
-    $('#webCancelRestore').onclick=async () => { pendingBackup=null;await loadAttempts();showGate(); };
-    $('#webBackupFile').onchange=event => { importWorkspace(event.target.files).catch(error => appNotify(error.message,{kind:'error'})); event.target.value=''; };
     const status=document.createElement('div'); status.id='webSaveState'; status.className='web-save-state'; status.setAttribute('role','status');status.innerHTML='<span id="webSaveLabel"></span><button type="button" id="webSharedRefresh" aria-label="Actualiser l’espace partagé" hidden>Actualiser</button>';document.body.append(status);
     $('#webSharedRefresh').onclick=()=>refreshShared({manual:true});
     topNavigation.init(); $('#brand').onclick=() => switchPrimaryWorkspace(workspaceModules.landingSection); $('#settingsBtn').onclick=() => openSettings();

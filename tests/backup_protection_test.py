@@ -1,10 +1,8 @@
-"""Restore real protected/legacy backups with disposable data in headless browsers."""
+"""Ensure backup controls are absent while existing encrypted data is preserved."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from threading import Thread
-import json
 from playwright.sync_api import sync_playwright, expect
 from site_fixture import WolfGuardTestHandler
 
@@ -33,7 +31,7 @@ def run():
     Thread(target=server.serve_forever, daemon=True).start()
     url = f'http://127.0.0.1:{server.server_port}/'
     try:
-        with sync_playwright() as p, TemporaryDirectory(prefix='protected-backup-', dir=ROOT/'.cache') as output:
+        with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(accept_downloads=True)
             page = context.new_page()
@@ -52,73 +50,33 @@ def run():
             }""", CODE)
             page.reload()
             unlock(page)
-            page.locator('#settingsBtn').click()
-            page.locator('[data-settings-tab=data]').click()
+            stored = page.evaluate("async()=>JSON.stringify(await (await import('./browser/storage.js')).read())")
+            page.evaluate("async()=>{const s=await import('./browser/storage.js');await s.preserve(await s.read(),true);}")
+            recovery = page.evaluate("async()=>JSON.stringify(await (await import('./browser/storage.js')).readRecovery())")
             downloads = []
             page.on('download', lambda download: downloads.append(download))
-            page.locator('#exp').click()
-            expect(page.locator('.app-dialog-input')).to_have_attribute('readonly', '')
-            page.locator('.app-dialog-cancel').click()
-            expect(page.locator('.app-dialog')).to_have_count(0)
-            assert not downloads
-            with page.expect_download() as event:
-                page.locator('#exp').click()
-                key = page.locator('.app-dialog-input').input_value()
-                assert len(key) == 64
-                for width in [1440,390]:
-                    page.set_viewport_size({'width':width,'height':950})
-                    assert page.locator('.app-dialog').evaluate('el=>el.getBoundingClientRect().width <= innerWidth'), width
-                    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
-                page.locator('.app-dialog-submit').click()
-            target = Path(output)/'protected.wgweb'
-            event.value.save_as(target)
-            exported = json.loads(target.read_text(encoding='utf8'))
-            assert exported['format'] == 'wolfguard-backup'
-            for secret in [key, CODE, 'PRIVATE-RESTORED-SECRET', 'Document conserve']:
-                assert secret not in target.read_text(encoding='utf8')
-            persisted = page.evaluate("""async () => {
-                const s=await import('./browser/storage.js'),db=await s.connect();
-                const records=await new Promise((resolve,reject)=>{const tx=db.transaction('encrypted','readonly'),r=tx.objectStore('encrypted').getAll();tx.oncomplete=()=>resolve(r.result);tx.onerror=reject;});
-                return JSON.stringify({local:{...localStorage},session:{...sessionStorage},records});
-            }""")
-            assert key not in persisted
-            legacy = Path(output)/'legacy.wgweb'
-            legacy.write_text(page.evaluate("async()=>JSON.stringify(await (await import('./browser/storage.js')).read())"), encoding='utf8')
-            page.locator('#exp').click()
-            expect(page.locator('.app-dialog')).to_be_visible()
+            page.locator('#settingsBtn').click()
+            page.locator('[data-settings-tab=data]').click()
+            expect(page.locator('#exp,#imp,#impFile,#webBackupFile,#exportRecovery,#changeBaseBtn')).to_have_count(0)
+            expect(page.locator('#settings-data')).not_to_contain_text('sauvegarde')
+            page.locator('#saveBaseBtn').click()
+            expect(page.locator('.app-notices')).to_contain_text('enregistr')
+            assert page.evaluate("async()=>{for(const fn of [exportDB,importDB]){try{await fn([]);return false;}catch{}}return true;}")
+            page.locator('#closeSettingsBtn').click()
             page.evaluate('lockApplication()')
-            expect(page.locator('.app-dialog')).to_have_count(0)
-            assert len(downloads) == 1
-            restored_context = browser.new_context()
-            restored = restored_context.new_page()
-            restored.on('pageerror', lambda error: errors.append(str(error)))
-            restored.goto(url)
-            ready(restored)
-            restored.locator('#webBackupFile').set_input_files(target)
-            restored.locator('.app-dialog-input').fill('0'*64)
-            restored.locator('.app-dialog-submit').click()
-            expect(restored.locator('.app-notices')).to_contain_text('Clé de sauvegarde incorrecte')
-            assert restored.evaluate('state.vaultKey===null')
-            assert restored.evaluate("async()=>await (await import('./browser/storage.js')).read()") is None
-            restored.locator('#webBackupFile').set_input_files(target)
-            restored.locator('.app-dialog-input').fill(key)
-            restored.locator('.app-dialog-submit').click()
-            expect(restored.locator('#lock .access-heading h2')).to_have_text('Ouvrir une sauvegarde')
-            unlock(restored)
-            assert restored.evaluate("async()=>(await get('items','backup-note')).title") == 'Document conserve'
-            assert restored.evaluate("async()=>(await vaultData(await get('items','backup-vault'))).password") == 'PRIVATE-RESTORED-SECRET'
-            old_context = browser.new_context()
-            old = old_context.new_page()
-            old.goto(url)
-            ready(old)
-            old.locator('#webBackupFile').set_input_files(legacy)
-            expect(old.locator('#lock .access-heading h2')).to_have_text('Ouvrir une sauvegarde')
-            expect(old.locator('.app-dialog')).to_have_count(0)
-            unlock(old)
-            assert old.evaluate("async()=>(await vaultData(await get('items','backup-vault'))).password") == 'PRIVATE-RESTORED-SECRET'
+            expect(page.locator('#webBackupFile,#webCancelRestore')).to_have_count(0)
+            unlock(page)
+            page.reload()
+            expect(page.locator('#app')).to_be_visible(timeout=30000)
+            page.wait_for_function("() => !document.querySelector('#app').inert")
+            assert page.evaluate("async()=>(await get('items','backup-note')).title") == 'Document conserve'
+            assert page.evaluate("async()=>(await vaultData(await get('items','backup-vault'))).password") == 'PRIVATE-RESTORED-SECRET'
+            assert page.evaluate("async()=>JSON.stringify(await (await import('./browser/storage.js')).read())") == stored
+            assert page.evaluate("async()=>JSON.stringify(await (await import('./browser/storage.js')).readRecovery())") == recovery
+            assert not downloads
             assert not errors, errors
             browser.close()
-            print('PASS: export annule ou verrouille sans telechargement, cle non persistee, mauvais secret sans modification, restauration complete du coffre et compatibilite des anciennes sauvegardes.')
+            print('PASS: no backup controls or downloads; encrypted workspace, vault and existing recovery preserved across lock and reload.')
     finally:
         server.shutdown()
         server.server_close()

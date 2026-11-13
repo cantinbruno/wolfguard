@@ -148,23 +148,6 @@ def run():
             page.locator('#settingsBtn').click()
             expect(page.locator('.settings-modal')).to_be_visible()
             page.locator('[data-settings-tab=data]').click()
-            cancelled_downloads=[]
-            page.on('download',lambda download:cancelled_downloads.append(download))
-            page.locator('#exp').click()
-            expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
-            page.locator('.app-dialog-cancel').click()
-            expect(page.locator('.app-dialog')).to_have_count(0)
-            assert not cancelled_downloads
-            with page.expect_download() as info:
-                page.locator('#exp').click()
-                expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
-                backup_key=page.locator('.app-dialog-input').input_value()
-                assert len(backup_key)==64
-                page.locator('.app-dialog-submit').click()
-            backup=Path(temporary)/'backup.wgweb'
-            info.value.save_as(backup)
-            assert json.loads(backup.read_text())['format']=='wolfguard-backup'
-            assert backup_key not in backup.read_text()
             page.locator('#closeSettingsBtn').click()
             page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
@@ -175,7 +158,7 @@ def run():
             enter_code(page,PASSWORD)
             expect(page.locator('#app')).to_be_visible(timeout=15000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
-            print('PASS: sauvegarde complete chiffree, verrouillage, mauvais mot de passe et reouverture')
+            print('PASS: enregistrement chiffre, verrouillage, mauvais mot de passe et reouverture')
 
             page.locator('#settingsBtn').click()
             page.locator('#changeCodeBtn').click()
@@ -193,34 +176,13 @@ def run():
             assert page.evaluate("async()=>(await get('items','saved-task')).completed")
             print('PASS: changement du mot de passe et rechiffrement des secrets du coffre')
 
-            # Restore into another browser profile, without sharing any storage.
-            other=browser.new_context(reduced_motion='reduce')
-            restored=other.new_page()
-            restored.goto(url)
-            restored.locator('#webBackupFile').set_input_files(backup)
-            expect(restored.locator('.app-dialog-input')).to_be_visible()
-            restored.locator('.app-dialog-input').fill('0'*64)
-            restored.locator('.app-dialog-submit').click()
-            expect(restored.locator('.app-notices')).to_contain_text('Clé de sauvegarde incorrecte')
-            assert restored.evaluate('state.vaultKey===null')
-            restored.locator('#webBackupFile').set_input_files(backup)
-            expect(restored.locator('.app-dialog-input')).to_be_visible()
-            restored.locator('.app-dialog-input').fill(backup_key)
-            restored.locator('.app-dialog-submit').click()
-            expect(restored.locator('#lock .access-heading h2')).to_have_text('Ouvrir une sauvegarde')
-            enter_code(restored,PASSWORD)
-            expect(restored.locator('#app')).to_be_visible(timeout=20000)
-            restored.wait_for_function("() => !document.querySelector('#app').inert")
-            assert restored.evaluate("async()=>Boolean((await all('items')).find(i=>i.title==='Fiche confidentielle de test'))")
-            assert restored.evaluate("async()=>(await get('items','saved-task')).content")=='Note de checklist'
-            print('PASS: anciennes taches conservees et restaurables, sans section Checklist')
             cache=ROOT/'.cache'
             cache.mkdir(exist_ok=True)
-            restored.screenshot(path=str(cache/'original-desktop.png'),full_page=True)
-            restored.set_viewport_size({'width':390,'height':844})
-            restored.screenshot(path=str(cache/'original-mobile.png'),full_page=True)
-            assert restored.evaluate('document.documentElement.scrollWidth<=innerWidth')
-            print('PASS: restauration complete et interface originale mobile')
+            page.screenshot(path=str(cache/'original-desktop.png'),full_page=True)
+            page.set_viewport_size({'width':390,'height':844})
+            page.screenshot(path=str(cache/'original-mobile.png'),full_page=True)
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            print('PASS: donnees conservees et interface originale mobile')
             legacy_context=browser.new_context(reduced_motion='reduce')
             legacy=legacy_context.new_page()
             legacy.goto(url)
@@ -233,7 +195,7 @@ def run():
             assert legacy.evaluate("async()=> (await (await import('./browser/storage.js')).read()).version")==3
             print('PASS: reprise automatique des donnees de la precedente version web')
             assert not errors, errors
-            legacy_context.close();other.close();context.close();browser.close()
+            legacy_context.close();context.close();browser.close()
     finally:
         server.shutdown();server.server_close()
 
