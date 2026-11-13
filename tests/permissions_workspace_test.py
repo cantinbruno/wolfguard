@@ -6,7 +6,7 @@ def run():
     with account_ui() as (owner,context,origin,errors):
         url=invite(owner,'rights@example.test');guest_context=context();guest=guest_context.new_page();activate(guest,url,'rights@example.test')
         owner.locator('#wgUserInvitationClose').click();owner.locator('#wgUsersRefresh').click();owner.locator('[data-select-user]').filter(has_text='rights@example.test').click()
-        expect(owner.locator('#wgPermissionForm')).to_be_visible();expect(owner.locator('.permission-row')).to_have_count(12)
+        expect(owner.locator('#wgPermissionForm')).to_be_visible();expect(owner.locator('.permission-row')).to_have_count(6)
         owner.locator('[data-section=library][data-level=read]').click();expect(owner.locator('#wgPermissionSave')).to_be_enabled()
         owner.locator('#settings-tab-interface').click();expect(owner.locator('.app-dialog')).to_be_visible();owner.locator('.app-dialog-cancel').click();expect(owner.locator('#settings-tab-users')).to_have_attribute('aria-selected','true')
         owner.locator('#wgPermissionSave').click();expect(owner.locator('#wgPermissionHost')).to_contain_text('Droits enregistrés')
@@ -22,4 +22,7 @@ def run():
         assert not errors,errors
     print('PASS: simple section matrix, admin switch, unsaved changes, session revocation, read-only enforcement and mobile layout')
 
-if __name__=='__main__':run()
+if __name__=='__main__':
+    run()
+    from security_permissions_test import run as run_security_permissions
+    run_security_permissions()

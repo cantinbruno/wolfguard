@@ -33,6 +33,8 @@ def open_security(page):
 
 
 def open_agent_manager(page):
+    if page.locator('#agentToolPanel').is_visible():
+        page.locator('#agentToolClose').click()
     open_security(page)
     page.locator('#agentsManage').click()
 
