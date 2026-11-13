@@ -119,14 +119,23 @@ namespace WolfGuard {
       }
       Register(installed);
     }
+    internal static ProcessStartInfo WorkerStartInfo(string node,string worker){
+      ProcessStartInfo info=new ProcessStartInfo(node,"\""+worker+"\" --gui"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=Path.GetDirectoryName(worker)};
+      // The extracted payload does not contain the launcher executable. Pass
+      // its real location to the JPEG helper, including versioned installations.
+      info.EnvironmentVariables["WOLFGUARD_AGENT_EXE"]=Assembly.GetExecutingAssembly().Location;
+      info.EnvironmentVariables["WOLFGUARD_AGENT_HOME"]=Home;info.EnvironmentVariables.Remove("NODE_OPTIONS");info.EnvironmentVariables.Remove("NODE_PATH");
+      if(Elevated){string system=Environment.GetFolderPath(Environment.SpecialFolder.System);info.EnvironmentVariables["PATH"]=system+";"+Path.Combine(system,"WindowsPowerShell","v1.0");info.EnvironmentVariables["PSModulePath"]=Path.Combine(system,"WindowsPowerShell","v1.0","Modules");}
+      return info;
+    }
     internal static Process StartWorker(string node,string worker){
-      Process process=new Process{StartInfo=new ProcessStartInfo(node,"\""+worker+"\" --gui"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=Path.GetDirectoryName(worker)}};
+      Process process=new Process{StartInfo=WorkerStartInfo(node,worker)};
       process.OutputDataReceived+=delegate(object sender,DataReceivedEventArgs args){
         if(String.IsNullOrEmpty(args.Data)||args.Data.Length>4096)return;
         try{var value=Json.DeserializeObject(args.Data) as System.Collections.Generic.Dictionary<string,object>;if(value!=null&&value.ContainsKey("state"))Log(Convert.ToString(value["state"]));}catch{}
       };
       process.ErrorDataReceived+=delegate(object sender,DataReceivedEventArgs args){if(!String.IsNullOrEmpty(args.Data))Log("Erreur moteur : consulte les diagnostics du poste.");};
-      process.StartInfo.EnvironmentVariables["WOLFGUARD_AGENT_HOME"]=Home;process.StartInfo.EnvironmentVariables.Remove("NODE_OPTIONS");process.StartInfo.EnvironmentVariables.Remove("NODE_PATH");if(Elevated){string system=Environment.GetFolderPath(Environment.SpecialFolder.System);process.StartInfo.EnvironmentVariables["PATH"]=system+";"+Path.Combine(system,"WindowsPowerShell","v1.0");process.StartInfo.EnvironmentVariables["PSModulePath"]=Path.Combine(system,"WindowsPowerShell","v1.0","Modules");}process.Start();process.StandardInput.AutoFlush=true;process.BeginOutputReadLine();process.BeginErrorReadLine();return process;
+      process.Start();process.StandardInput.AutoFlush=true;process.BeginOutputReadLine();process.BeginErrorReadLine();return process;
     }
     static void Stop(){closing=true;try{Command("{\"type\":\"shutdown\"}");if(child!=null&&!child.WaitForExit(8000))child.Kill();}catch{}}
     [STAThread] public static int Main(string[] args){

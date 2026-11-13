@@ -34,6 +34,49 @@ def run():
         assert (payload/'agent/agent.mjs').is_file()
         assert (payload/'server/lib/wolfguard/scan-spec.mjs').is_file()
         node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+        # Exercise the actual background launch environment. The helper receives
+        # synthetic pixels only; no desktop, input, installation or pairing.
+        fixture=target/'encoder-fixture.mjs'
+        fixture.write_text('''import assert from 'node:assert/strict';
+const {createWindowsEncoder}=await import('''+json.dumps((payload/'agent/remote-windows-encoder.mjs').as_uri())+''');
+const encoder=createWindowsEncoder();
+try {
+  const frame=await encoder.encode(Buffer.from([0,0,220,255,0,0,220,255,0,0,220,255,0,0,220,255]),2,2);
+  assert.equal(frame.width,2);assert.equal(frame.height,2);assert.ok(frame.jpeg.startsWith('/9j/'));
+  process.stdout.write(JSON.stringify({executable:process.env.WOLFGUARD_AGENT_EXE,width:frame.width,height:frame.height}));
+} finally { encoder.close(); }
+''',encoding='utf8')
+        harness=target/'EncoderLaunch.cs'
+        harness.write_text('''using System;
+using System.Diagnostics;
+using System.Reflection;
+public static class EncoderLaunch {
+  public static int Main(string[] args) {
+    Environment.SetEnvironmentVariable("WOLFGUARD_AGENT_EXE", @"C:\\wolfguard-test-missing\\wrong.exe");
+    Environment.SetEnvironmentVariable("NODE_OPTIONS", "--invalid-test-option");
+    Environment.SetEnvironmentVariable("NODE_PATH", @"C:\\wolfguard-test-missing");
+    Assembly assembly=Assembly.LoadFrom(args[0]);
+    MethodInfo method=assembly.GetType("WolfGuard.BackgroundAgent").GetMethod("WorkerStartInfo",BindingFlags.NonPublic|BindingFlags.Static);
+    ProcessStartInfo info=(ProcessStartInfo)method.Invoke(null,new object[]{args[1],args[2]});
+    if(info.UseShellExecute||!info.CreateNoWindow||info.WindowStyle!=ProcessWindowStyle.Hidden)throw new Exception("Visible worker launch");
+    if(info.EnvironmentVariables["WOLFGUARD_AGENT_EXE"]!=assembly.Location||info.EnvironmentVariables.ContainsKey("NODE_OPTIONS")||info.EnvironmentVariables.ContainsKey("NODE_PATH"))throw new Exception("Unsafe or incomplete worker environment");
+    using(Process child=new Process{StartInfo=info}) {
+      child.Start();child.StandardInput.Close();
+      string output=child.StandardOutput.ReadToEnd(),error=child.StandardError.ReadToEnd();
+      if(!child.WaitForExit(15000)){child.Kill();throw new Exception("Encoder test timed out");}
+      if(child.ExitCode!=0)throw new Exception("Synthetic encoding failed: "+error);
+      Console.Write(output);return 0;
+    }
+  }
+}
+''',encoding='utf8')
+        compiler=Path(os.environ['WINDIR'])/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+        probe=target/'EncoderLaunch.exe'
+        subprocess.run([str(compiler),'/nologo','/target:exe','/out:'+str(probe),str(harness)],capture_output=True,text=True,check=True,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
+        probe_result=subprocess.run([str(probe),str(exe),str(node),str(fixture)],capture_output=True,text=True,encoding='utf8',check=True,timeout=30,creationflags=subprocess.CREATE_NO_WINDOW)
+        frame=json.loads(probe_result.stdout)
+        assert Path(frame['executable']).resolve()==exe.resolve()
+        assert frame['width']==2 and frame['height']==2
         subprocess.run([str(node),'--check',str(payload/'agent/agent.mjs')],check=True,timeout=10)
         result=subprocess.run([str(node),str(payload/'agent/agent.mjs'),'--gui'],input='{"type":"shutdown"}\n',env={**os.environ,'WOLFGUARD_AGENT_HOME':str(target/'isolated-profile')},capture_output=True,text=True,encoding='utf8',check=True,timeout=10,creationflags=subprocess.CREATE_NO_WINDOW)
         events=[json.loads(line) for line in result.stdout.splitlines()]
@@ -42,6 +85,6 @@ def run():
     assert startup_value()==startup
     assert (credential.stat().st_mtime_ns if credential.exists() else None)==prior
     assert (installed.read_bytes() if installed.exists() else None)==prior_install
-    print('PASS: safe extraction, headless JSON worker shutdown; no installation, pairing or startup change')
+    print('PASS: safe extraction, real background launch environment, JPEG from synthetic pixels and headless shutdown; no desktop capture, input, installation, pairing or startup change')
 
 if __name__=='__main__':run()
