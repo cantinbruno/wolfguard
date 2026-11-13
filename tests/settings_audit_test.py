@@ -43,8 +43,9 @@ def run():
             expect(panel.locator('input,select,button,details')).to_have_count(0)
             expect(panel).to_contain_text('600 000 itérations')
             expect(panel).to_contain_text('100 000 itérations')
-            expect(panel).to_contain_text('Sessions sans expiration')
-            expect(panel).to_contain_text('Le serveur peut déchiffrer')
+            expect(panel).to_contain_text('Sessions de 4 heures')
+            expect(panel).to_contain_text('secret serveur dédié')
+            expect(panel).to_contain_text('MFA protège la connexion au serveur')
             expect(panel.locator('.settings-protection-group')).to_have_count(3)
             expect(panel.locator('.settings-protection-weaknesses')).to_be_visible()
             for width in [1440,900,390]:

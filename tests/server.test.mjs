@@ -19,7 +19,7 @@ class Bucket {
 }
 function setup(){
   const activation=randomBytes(32).toString('hex');let now=1700000000000;
-  const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:randomBytes(32).toString('hex'),STORAGE_KEY:randomBytes(32).toString('hex'),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
+  const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:randomBytes(32).toString('hex'),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:randomBytes(32).toString('hex'),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   return {env,activation,advance(ms){now+=ms;},async api(path,method='GET',data,token,headers={}){
     const options={method,headers:{Origin:'https://wolfguard.wavetools.fr',...headers}};
     if(token)options.headers.Authorization='Bearer '+token;
@@ -71,14 +71,24 @@ test('two independent sessions recover identical ciphertext; immutable uploads u
   s.env.DB.db.close();
 });
 
-test('sessions remain available indefinitely until explicitly revoked',async()=>{
+test('sessions expire after four absolute hours despite activity and can still be revoked earlier',async()=>{
   const s=setup(),auth=await activate(s);
   try{
-    for(let minute=10;minute<480;minute+=10){s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);}
-    s.advance(365*86400000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);
+    for(let minute=10;minute<240;minute+=10){s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);}
+    s.advance(10*60000-1);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);
+    s.advance(1);assert.equal((await s.api('touch','POST',{},auth.token)).status,401);
     const fresh=await login(s);s.advance(59*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
     s.advance(60*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
     await s.api('logout','POST',{},fresh.token);assert.equal((await s.api('touch','POST',{},fresh.token)).status,401);
+  }finally{s.env.DB.db.close();}
+});
+
+test('legacy indefinite session tokens are rejected even when the stored token is otherwise valid',async()=>{
+  const s=setup(),auth=await activate(s);
+  try{
+    s.env.DB.db.prepare('UPDATE sessions SET expires_at=?').run(Number.MAX_SAFE_INTEGER);
+    assert.equal((await s.api('vault','GET',undefined,auth.token)).status,401);
+    assert.equal((await s.api('touch','POST',{},auth.token)).status,401);
   }finally{s.env.DB.db.close();}
 });
 

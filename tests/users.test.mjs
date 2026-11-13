@@ -120,7 +120,7 @@ class D1{
 }
 async function setup(){
   let now=Date.now();const objects=new Map();
-  const env={DB:new D1(),BUCKET:{async put(key,body,options){objects.set(key,{value:await new Response(body).arrayBuffer(),...options});},async get(key){const row=objects.get(key);return row?{...row,body:new Response(row.value).body}:null;},async delete(key){objects.delete(key);}},AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex')};
+  const env={DB:new D1(),BUCKET:{async put(key,body,options){objects.set(key,{value:await new Response(body).arrayBuffer(),...options});},async get(key){const row=objects.get(key);return row?{...row,body:new Response(row.value).body}:null;},async delete(key){objects.delete(key);}},AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex')};
   const api=(path,body,token,headers={})=>handleAPI(new Request('https://test.invalid/api/'+path,{method:body===undefined?'GET':'POST',headers:{Origin:'https://wolfguard.wavetools.fr','Content-Type':'application/json','CF-Connecting-IP':'192.0.2.1',...(token?{Authorization:'Bearer '+token}:{}),...headers},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   const owner=await(await api('setup',{code:'07942685'},null,{'X-WG-Activation':'b'.repeat(64)})).json();
   const payload={version:2,items:[{id:'private-note',type:'memo',title:'Shared',content:'<p>Preserved</p>'}],folders:[],settings:[],activity:[]};
@@ -132,6 +132,21 @@ async function setup(){
   const createMember=async(username,code,token)=>{const response=await api('users/create',{username},token);assert.equal(response.status,201,await response.clone().text());const result=await response.json();assert.equal((await api('account/complete',{ticket:result.invitation.ticket,username,code})).status,200);return result;};
   return{env,api,owner,initialize,login,createMember,encrypted,payload,material,clock:()=>now,advance:ms=>{now+=ms;}};
 }
+
+test('a repeated account login reuses only the unexpired session and never extends its four-hour deadline',async()=>{
+  const s=await setup();try{
+    await s.initialize();const first=await s.login('cantin.bruno@gmx.fr','09876543');
+    const hash=createHash('sha256').update(first.token).digest('hex');
+    const deadline=s.env.DB.db.prepare('SELECT expires_at FROM sessions WHERE token_hash=?').get(hash).expires_at;
+    s.advance(3*3600000);
+    const repeated=await s.login('cantin.bruno@gmx.fr','09876543');
+    assert.equal(repeated.token,first.token);
+    assert.equal(s.env.DB.db.prepare('SELECT expires_at FROM sessions WHERE token_hash=?').get(hash).expires_at,deadline);
+    s.advance(3600000);
+    assert.equal((await s.api('me',undefined,first.token)).status,401);
+    const next=await s.login('cantin.bruno@gmx.fr','09876543');assert.notEqual(next.token,first.token);
+  }finally{s.env.DB.db.close();}
+});
 
 test('first admin migration retains the encrypted workspace, requires a distinct code, and closes the shared-code path',async()=>{
   const s=await setup();try{

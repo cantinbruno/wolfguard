@@ -18,7 +18,7 @@ class Bucket {
   async get(key){const data=this.objects.get(key);return data?{...data,body:new Response(data.value).body}:null;}
   async delete(key){this.objects.delete(key);}
 }
-const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
+const env={DB:new D1(),BUCKET:new Bucket(),AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update('b'.repeat(64)).digest('hex'),LOCAL_TEST_ORIGIN:process.env.WG_TEST_ORIGIN||'http://127.0.0.1:4178'};
 if(process.env.WG_TEST_CHAT_API==='1')env.CHAT_TEST_FETCH=async(_url,options)=>{
   const data=JSON.parse(options.body);
   if(options.headers.Authorization.includes('invalid'))return Response.json({error:'secret provider detail'},{status:401});

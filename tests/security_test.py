@@ -106,11 +106,16 @@ def run():
             page.evaluate("window.testClipboard='Nouvelle copie a conserver'")
             page.clock.fast_forward(30100)
             assert page.evaluate('window.testClipboard')=='Nouvelle copie a conserver'
-            page.clock.fast_forward(365*86400000)
+            remaining = page.evaluate("4*3600000-(Date.now()-JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.started)")
+            page.clock.fast_forward(remaining-1)
             expect(page.locator('#app')).to_be_visible()
-            assert page.evaluate("async()=>!!await all('items')")
+            page.keyboard.press('Shift')
+            page.clock.fast_forward(1)
+            closed(page)
+            assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
+            unlock(page)
             page.evaluate('lockApplication()');closed(page)
-            print('PASS: clipboard cleanup preserves new copies; sessions are indefinite and manual lock clears keys and content')
+            print('PASS: clipboard cleanup preserves new copies; four-hour expiry and manual lock clear keys, content and reload tickets')
             page.evaluate("""()=>{
               const transaction=IDBDatabase.prototype.transaction;
               IDBDatabase.prototype.transaction=function(stores,mode,...args){

@@ -55,7 +55,7 @@ class D1{
 }
 async function setup(){
   const activation=randomBytes(32).toString('hex');let now=1800000000000;
-  const env={DB:new D1(),BUCKET:{},AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
+  const env={DB:new D1(),BUCKET:{},AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   const api=async(path,body,credential,method=body===undefined?'GET':'POST',origin='https://wolfguard.wavetools.fr')=>handleAPI(new Request('https://test.invalid/api/'+path,{method,headers:{...(origin?{Origin:origin}:{}),...(credential?{Authorization:credential}:{}),'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   // Activation header is intentionally supplied only through this local fixture.
   const response=await handleAPI(new Request('https://test.invalid/api/setup',{method:'POST',headers:{'X-WG-Activation':activation,'Content-Type':'application/json'},body:JSON.stringify({code:'07942685'})}),env,()=>now);

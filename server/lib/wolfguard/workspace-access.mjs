@@ -1,11 +1,11 @@
-import {open as openRecord} from './access.mjs';
+import {openWorkspaceKey} from './workspace-key.mjs';
 import {can,recordLevel,recordSection,isVaultHome} from './permissions.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 const from64=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
 const to64=value=>{let text='';const bytes=new Uint8Array(value);for(let i=0;i<bytes.length;i+=16000)text+=String.fromCharCode(...bytes.subarray(i,i+16000));return btoa(text);};
 const keyFor=material=>crypto.subtle.importKey('raw',from64(material.key),'AES-GCM',false,['encrypt','decrypt']);
 const aad=env=>encoder.encode(env.version===3?JSON.stringify([env.format,env.version,env.cipher,env.kdf,env.iterations,env.revision,env.salt,env.iv]):`${env.format}|${env.version}|AES-256-GCM|PBKDF2-SHA256`);
-export async function canonicalMaterial(row,env){return openRecord(row.workspace_key_cipher,'WolfGuard users v1:workspace-key',env);}
+export async function canonicalMaterial(row,env){return openWorkspaceKey(row,env);}
 export async function deliveryMaterial(row,user,env){
   const material=await canonicalMaterial(row,env);if(!user)return material;
   const raw=await crypto.subtle.importKey('raw',from64(material.key),{name:'HMAC',hash:'SHA-256'},false,['sign']);

@@ -9,6 +9,7 @@ let pinFailures = 0;
 let pinBlockedUntil = 0;
 let pinStateKey = '';
 let pinLockoutTimer = null;
+let accessSessionKey = null, accessSessionDeadline = 0;
 
 function pinIsBlocked() {
   return pinBlockedUntil > Date.now()
@@ -142,6 +143,7 @@ function resetPinUI() {
 }
 
 function lockApplication() {
+  accessSessionKey = null; accessSessionDeadline = 0;
   window.remoteDesktopWorkspace?.reset();
     if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof agentsWorkspace!=='undefined')agentsWorkspace.reset();
   appMessages.dismiss();
@@ -174,10 +176,12 @@ function lockApplication() {
 async function scheduleAutoLock() {
   clearTimeout(autoLockTimer);
   autoLockTimer = null;
-  if ($('#app').classList.contains('hidden')) return;
-  const mins = Number(await setting('autoLockMinutes', 0));
-  if (!mins || mins <= 0) return;
-  autoLockTimer = setTimeout(lockApplication, mins * 60 * 1000);
+  if ($('#app').classList.contains('hidden') || !state.vaultKey) return;
+  if (accessSessionKey !== state.vaultKey || !accessSessionDeadline) {
+    accessSessionKey = state.vaultKey;
+    accessSessionDeadline = performance.now() + 4 * 60 * 60 * 1000;
+  }
+  autoLockTimer = setTimeout(lockApplication, Math.max(1,accessSessionDeadline-performance.now()));
 }
 
 function registerActivityForAutoLock() {

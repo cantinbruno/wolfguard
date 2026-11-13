@@ -90,7 +90,9 @@ def run():
             page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+61000))")
             assert page.evaluate("async()=>!!await all('items')")
             expect(page.locator('#app')).to_be_visible()
-            page.evaluate('lockApplication()');ready(page)
+            page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+4*3600000))")
+            page.reload();ready(page)
+            expect(page.locator('#app')).not_to_be_visible()
             assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
             assert page.evaluate('state.vaultKey===null')
             page.keyboard.type(CODE); unlocked(page)
@@ -104,7 +106,7 @@ def run():
             expect(page.locator('.settings-modal')).not_to_be_visible(timeout=15000)
             page.reload(); unlocked(page)
             assert page.evaluate("async()=>!!await get('items','resume-note')")
-            print('PASS: new tabs stay locked, changing tab preserves the session, indefinite sessions survive refresh, and manual locking clears the ticket')
+            print('PASS: new tabs stay locked, changing tab preserves the session, four-hour sessions resume before their deadline and reject expired reloads, and manual locking clears the ticket')
             local.close()
 
             a = browser.new_context(reduced_motion='reduce'); b = browser.new_context(reduced_motion='reduce')

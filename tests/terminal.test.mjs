@@ -17,7 +17,7 @@ class D1 {
 }
 async function setup(){
   const activation=randomBytes(32).toString('hex');let now=Date.now();
-  const env={DB:new D1(),BUCKET:{async delete(){}},AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
+  const env={DB:new D1(),BUCKET:{async delete(){}},AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   const api=(route,body,credential)=>handleAPI(new Request('https://test.invalid/api/'+route,{method:body===undefined?'GET':'POST',headers:{Origin:'https://wolfguard.wavetools.fr','Content-Type':'application/json',...(credential?{Authorization:credential}:{}),'X-WG-Activation':activation},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   const user='Bearer '+(await (await api('setup',{code:'07942685'})).json()).token;
   const ticket=await (await api('agents/pair',{},user)).json(),agent=await (await api('agent/enroll',{code:ticket.code,name:'Synthetic terminal',platform:process.platform})).json();agent.auth='Agent '+agent.token;

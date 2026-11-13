@@ -18,7 +18,7 @@ class D1 {
 }
 async function setup(){
   const activation=randomBytes(32).toString('hex'),objects=new Map();let now=Date.now();
-  const env={DB:new D1(),BUCKET:{async put(key,data){objects.set(key,String(data));},async get(key){return objects.has(key)?{text:async()=>objects.get(key)}:null;},async delete(key){objects.delete(key);}},AUTH_PEPPER:'1'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
+  const env={DB:new D1(),BUCKET:{async put(key,data){objects.set(key,String(data));},async get(key){return objects.has(key)?{text:async()=>objects.get(key)}:null;},async delete(key){objects.delete(key);}},AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   const api=(route,body,credential,method=body===undefined?'GET':'POST',origin='https://wolfguard.wavetools.fr')=>handleAPI(new Request('https://test.invalid/api/'+route,{method,headers:{Origin:origin,'Content-Type':'application/json',...(credential?{Authorization:credential}:{}),'X-WG-Activation':activation},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   const user='Bearer '+(await (await api('setup',{code:'07942685'})).json()).token;
   async function pair(capabilities=['remote-desktop-v1','network-scan-v3','network-target-v1']){const ticket=await (await api('agents/pair',{},user)).json(),agent=await (await api('agent/enroll',{code:ticket.code,name:'Poste test',platform:'win32'})).json();agent.auth='Agent '+agent.token;await api('agent/poll',{capabilities},agent.auth);return agent;}

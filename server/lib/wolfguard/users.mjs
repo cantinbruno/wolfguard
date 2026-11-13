@@ -5,6 +5,7 @@ import {userPolicy,policyCipher,permissionAPI} from './permission-store.mjs';
 import {profilePolicy,requirePermission,canManagePolicy} from './permissions.mjs';
 import {vaultHome,addVaultIdentity} from './personal-vault.mjs';
 import {deliveryMaterial} from './workspace-access.mjs';
+import {sealWorkspaceKey,openWorkspaceKey} from './workspace-key.mjs';
 const encoder=new TextEncoder();
 const codeOK=value=>typeof value==='string'&&/^[0-9]{8}$/.test(value);
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -103,7 +104,7 @@ export async function handleAccountAPI(request,env,now,h){
   if(!changed)fail(410,'Ce lien n’est plus valide. Demande un nouveau lien à l’administrateur.');
   return json({ok:true});
 }
-export async function workspaceMaterial(row,env){return row.users_enabled?open(row.workspace_key_cipher,'WolfGuard users v1:workspace-key',env):null;}
+export async function workspaceMaterial(row,env){return row.users_enabled?openWorkspaceKey(row,env):null;}
 export async function revokeUserSessions(env,id,now){
   const rows=await env.DB.prepare('DELETE FROM sessions WHERE user_id=? RETURNING token_hash').bind(id).all();
   await stopRemoteOwners(env,rows.results,now);
@@ -127,7 +128,7 @@ export async function handleUsersAPI(request,env,now,session,h){
     if(!codeOK(data.code)||!vault.owner_user_id&&data.code===data.oldCode)fail(400,'Choisis un nouveau code administrateur de 8 chiffres, différent de l’ancien code commun.');
     if(!validMaterial(data.workspace)||data.version!==vault.version||!vault.object_key)fail(409,'La copie partagée a changé. Recharge la connexion pour configurer les utilisateurs.');
     await verifyPIN(data.oldCode,env,now);
-    const id=vault.owner_user_id||random(16),salt=random(16),nameHash=await usernameHash(name,env),nameCipher=await seal(name,'WolfGuard users v1:name:'+id,env),keyCipher=await seal(data.workspace,'WolfGuard users v1:workspace-key',env),codeHash=await pinHash(data.code,salt,env);
+    const id=vault.owner_user_id||random(16),salt=random(16),nameHash=await usernameHash(name,env),nameCipher=await seal(name,'WolfGuard users v1:name:'+id,env),keyCipher=await sealWorkspaceKey(data.workspace,env),codeHash=await pinHash(data.code,salt,env);
     const result=await env.DB.batch([
       env.DB.prepare("INSERT INTO users (id,name_hash,name_cipher,role,pin_salt,pin_hash,code_version,created_at,updated_at,last_login) SELECT ?,?,?,'admin',?,?,1,?,?,? WHERE EXISTS(SELECT 1 FROM vault WHERE id=1 AND users_enabled=0 AND owner_user_id IS NULL AND version=? AND generation=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)").bind(id,nameHash,nameCipher,salt,codeHash,now,now,now,data.version,session.generation,session.hash),
       env.DB.prepare('UPDATE vault SET users_enabled=1,workspace_key_cipher=?,owner_user_id=? WHERE id=1 AND users_enabled=0 AND version=? AND generation=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND name_hash=?) AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)').bind(keyCipher,id,data.version,session.generation,id,nameHash,session.hash),

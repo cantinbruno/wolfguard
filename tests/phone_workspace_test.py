@@ -1,4 +1,4 @@
-"""Retired browser push stays disabled; Authenticator and indefinite sessions remain usable."""
+"""Retired browser push stays disabled; Authenticator and unexpired sessions remain usable."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -56,8 +56,8 @@ def run():
             prompt=page.locator('.app-dialog-input');expect(prompt).to_be_visible()
             prompt.fill(current_otp());page.locator('.app-dialog-submit').click()
             expect(page.locator('#app')).to_be_visible(timeout=20000)
-            advance(24*60*60000)
-            page.evaluate("sessionStorage.setItem('phone-clock-offset',String(24*60*60000))")
+            advance(3*60*60000)
+            page.evaluate("sessionStorage.setItem('phone-clock-offset',String(3*60*60000))")
             page.reload();expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.evaluate('lockApplication()');ready(page)
             page.locator('#lock').focus();page.keyboard.type(CODE)
@@ -65,7 +65,7 @@ def run():
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             assert messages()==[],messages()
             assert not errors,errors
-            browser.close();print('PASS: retired browser association stays disabled, Authenticator and recovery still work, no push delivered, indefinite reload and manual lock')
+            browser.close();print('PASS: retired browser association stays disabled, Authenticator and recovery still work, no push delivered, unexpired reload and manual lock')
     finally:
         process.terminate();process.wait(timeout=5);server.shutdown()
 

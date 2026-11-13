@@ -10,9 +10,8 @@ const webWorkspace = (() => {
   let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false,setupUsername='';
   window.addEventListener('wolfguard-user-changed',()=>{if(session&&cloud?.hasSession()){session.payload=hydrateVaultHomes(session.payload);window.workspaceSearch?.invalidate();}});
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
-  // Sessions stay open until the user locks the space; a second opening of the
-  // same account reattaches to the existing server session.
-  const IDLE_MS = Infinity, SESSION_MS = Infinity;
+  // Absolute deadline: interaction and reload never grant another four hours.
+  const SESSION_MS = 4 * 60 * 60 * 1000;
   function updateMFAIndicator(){
     const button=$('#settingsBtn'),mfa=cloud?.currentUser()?.mfa,pending=!!(session&&cloud?.enabled&&cloud.hasUsers()&&mfa&&!mfa.complete);
     button?.classList.toggle('web-mfa-pending',pending);if(button)button.title=pending?'Paramètres · MFA à configurer':'Paramètres';
@@ -85,15 +84,17 @@ const webWorkspace = (() => {
     }
   }
   function sessionExpired() {
-    // No automatic expiry: only an explicit lock ends the session.
-    return !session;
+    return !session || !sessionClock || Math.max(Date.now()-sessionClock.started,performance.now()-sessionClock.monotonicStart) >= SESSION_MS;
   }
   function assertFreshSession() {
     if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
   }
   function armSessionTimer() {
-    // Indefinite sessions need no deadline timer.
     clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0;
+    if(!session || !sessionClock)return;
+    const remaining=SESSION_MS-Math.max(Date.now()-sessionClock.started,performance.now()-sessionClock.monotonicStart);
+    sessionTimerDue=Date.now()+Math.max(0,remaining);
+    autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
   const attemptChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wolfguard-access-attempts') : null;
@@ -724,8 +725,7 @@ const webWorkspace = (() => {
   ensureSecuritySettings=async () => !!session;
   scheduleAutoLock=async () => armSessionTimer();
   registerActivityForAutoLock=() => {
-    // Activity tracking no longer locks the space; it only refreshes the reload
-    // ticket so a reloaded tab resumes its indefinite session.
+    // Activity refreshes the ticket without changing its absolute deadline.
     for(const name of ['mousedown','keydown','touchstart','wheel','pointermove'])document.addEventListener(name,event=>{
   if(!session||!event.isTrusted)return;
   sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();updateReloadTicket();
@@ -811,8 +811,8 @@ const webWorkspace = (() => {
     for (const row of document.querySelectorAll('#settings-data .settings-row-desc')) row.textContent='Sauvegarde chiffrée .wgweb';
     $('#changeBaseBtn').textContent='Ouvrir une sauvegarde';
     const idle=$('#autoLockSelect');
-    idle.replaceChildren(new Option('Indéfinie','0',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Durée indéfinie · Une deuxième ouverture du compte reprend la première session · Le verrouillage reste manuel';
+    idle.replaceChildren(new Option('4 heures','240',true,true));idle.disabled=true;
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Verrouillage automatique après 4 heures · Le rechargement et l’activité ne prolongent pas la session';
     if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())return;
     const recovery=await storage.readRecovery().catch(()=>null);
     if(recovery && session && $('#settings-data')){

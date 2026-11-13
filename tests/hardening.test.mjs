@@ -54,7 +54,7 @@ test('temporary delegated administrators cannot make permissions permanent, exte
 });
 
 test('large authorized permission and audit records encrypt without argument-stack overflow',async()=>{
-  const env={STORAGE_KEY:'2'.repeat(64)},value={reason:'Donnée privée é'.repeat(16000)};
+  const env={WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64)},value={reason:'Donnée privée é'.repeat(16000)};
   const cipher=await seal(value,'large-record-test',env);
   assert.deepEqual(await open(cipher,'large-record-test',env),value);
   await assert.rejects(open(cipher,'wrong-context',env));
@@ -131,7 +131,7 @@ test('explicitly expired tokens are refused and never revived by the next legiti
     assert.notEqual(fresh.token,owner.token);
     assert.equal((await s.api('me',undefined,owner.token)).status,401);
     assert.equal((await s.api('me',undefined,fresh.token)).status,200);
-    assert.equal(s.env.DB.db.prepare('SELECT expires_at FROM sessions').get().expires_at,Number.MAX_SAFE_INTEGER);
+    assert.equal(s.env.DB.db.prepare('SELECT expires_at FROM sessions').get().expires_at,s.clock()+4*3600000);
   }finally{s.env.DB.db.close();}
 });
 

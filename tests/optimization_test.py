@@ -143,7 +143,7 @@ def run():
             expect(page.locator('#app')).not_to_be_visible()
             assert page.evaluate("state.vaultKey===null && !sessionStorage.getItem('wolfguard-tab-session-v1')")
             assert not errors, errors
-            print('PASS: indefinite session remains open and manual locking clears the reload ticket')
+            print('PASS: session stays open before four hours and manual locking clears the reload ticket')
             print(json.dumps(metrics))
             browser.close()
     finally:

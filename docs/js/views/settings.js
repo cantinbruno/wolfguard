@@ -116,7 +116,7 @@ async function setSettingsTab(name, focus = false) {
 async function openSettings(initialTab = 'security') {
   sectionTransition.cancel();
   const n = (await activeItems()).length;
-  const autoLock = 0;
+  const autoLock = 240;
   const lastBackup = await setting('lastBackup', null);
   const backupDate = lastBackup ? new Date(lastBackup) : null;
   const backupLabel = backupDate && !Number.isNaN(backupDate.getTime()) ? backupDate.toLocaleDateString('fr-FR', {
@@ -191,9 +191,9 @@ async function openSettings(initialTab = 'security') {
           <h4 class="settings-group-title">Session</h4>
           <div class="settings-row">
             ${settingsIcon('lock')}
-            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Durée de la session</label><div class="settings-row-desc">Indéfinie · Une nouvelle ouverture reprend la première session</div></div>
+            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Durée de la session</label><div class="settings-row-desc">Verrouillage automatique après 4 heures</div></div>
             <select id="autoLockSelect" class="settings-select settings-control" disabled>
-              <option value="0" selected>Indéfinie</option>
+              <option value="240" selected>4 heures</option>
             </select>
           </div>
           <div class="settings-row">

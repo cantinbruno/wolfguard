@@ -12,11 +12,10 @@ import {handleChatAPI} from './chat-api.mjs';
 import {handleChatHistory} from './chat-history.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
 import {addVaultIdentity,allVaultHomes,withVaultHomes} from './personal-vault.mjs';
+import {SESSION_MS} from './session-policy.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
-// Sessions have no expiry by design: a new login re-issues a session for the
-// same user instead of creating a parallel one. Manual revocation remains the
-// only way to close a session.
+// Sessions expire four hours after authentication, including legacy reloads.
 const hex = bytes => [...new Uint8Array(bytes)].map(x => x.toString(16).padStart(2,'0')).join('');
 const bytes = value => Uint8Array.from(value.match(/../g) || [], x => parseInt(x,16));
 const random = length => hex(crypto.getRandomValues(new Uint8Array(length)));
@@ -69,18 +68,18 @@ async function issueSession(env,generation,now,request,user=null) {
   const context=await addressContext(request,env);await assertAddressAllowed(env,context,fail);
   // After MFA, reconnect to the same account session. The recoverable token is
   // encrypted at rest with the independent server key, never stored in clear.
-  const existing=user?await env.DB.prepare('SELECT token_hash,token_cipher FROM sessions WHERE user_id=? AND generation=? AND user_version=? AND expires_at>?').bind(user.id,generation,user.code_version||0,now).first():null;
+  const existing=user?await env.DB.prepare('SELECT token_hash,token_cipher,expires_at FROM sessions WHERE user_id=? AND generation=? AND user_version=? AND expires_at>? AND expires_at<=?').bind(user.id,generation,user.code_version||0,now,now+SESSION_MS).first():null;
   if(existing?.token_cipher){
     const previous=await openRecord(existing.token_cipher,'WolfGuard session v1:'+user.id,env);
     if(await digest(previous)!==existing.token_hash)fail(503,'Session illisible.');
-    const valid=await env.DB.prepare('UPDATE sessions SET active_at=?,expires_at=? WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,Number.MAX_SAFE_INTEGER,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
+    const valid=await env.DB.prepare('UPDATE sessions SET active_at=?,expires_at=? WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,existing.expires_at,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
     if(!valid)fail(401,'Ce compte a changé. Reconnecte-toi.');
     await rememberConnection(env,request,existing.token_hash,now,context);
     return previous;
   }
   const issued=await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE active_at IS NULL OR generation<>? OR user_id=?').bind(generation,user?.id||null),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version,token_cipher) SELECT ?,?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,Number.MAX_SAFE_INTEGER,now,user?.id||null,user?.code_version||0,user?await sealRecord(token,'WolfGuard session v1:'+user.id,env):null,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version,token_cipher) SELECT ?,?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,user?await sealRecord(token,'WolfGuard session v1:'+user.id,env):null,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
     await connectionStatement(env,request,hash,now,context)
   ]);
   if(Number(issued[1]?.meta?.changes)!==1){await env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash).run();fail(401,'Ce compte a changé. Reconnecte-toi.');}
@@ -91,8 +90,8 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
-    .bind(now,hash,now,context.hash||'').first();
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND expires_at<=? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
+    .bind(now,hash,now,now+SESSION_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   if(session.user_id&&!session.token_cipher)await env.DB.prepare('UPDATE sessions SET token_cipher=? WHERE token_hash=? AND token_cipher IS NULL').bind(await sealRecord(token,'WolfGuard session v1:'+session.user_id,env),hash).run();
   if(!browserPushEnabled(env))session.user_push=0;
