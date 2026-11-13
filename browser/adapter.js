@@ -7,6 +7,7 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
+  let activityRevision=0,reportedActivity=0,lastCloudPulse=0,cloudPulse=null;
   let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false,setupUsername='';
   window.addEventListener('wolfguard-user-changed',()=>{if(session&&cloud?.hasSession()){session.payload=hydrateVaultHomes(session.payload);window.workspaceSearch?.invalidate();}});
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
@@ -35,7 +36,8 @@ const webWorkspace = (() => {
     const wall = Date.now(), mono = performance.now();
     sessionClock = {...clock, monotonicStart: mono - (wall - clock.started), monotonicActive: mono - (wall - clock.active)};
     armSessionTimer();
-    if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(() => { if (session && !sessionExpired()) cloud.touch().catch(() => lock()); }, 25000); }
+    activityRevision=1;reportedActivity=0;lastCloudPulse=0;
+    if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(pulseCloudSession, 25000); pulseCloudSession(); }
     resetSessionSettings(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
     state.vaultKey = result.key; sessionAccessCode = '';
     topNavigation.refresh?.();
@@ -84,7 +86,17 @@ const webWorkspace = (() => {
     }
   }
   function sessionExpired() {
-    return !session || !sessionClock || Math.max(Date.now()-sessionClock.started,performance.now()-sessionClock.monotonicStart) >= SESSION_MS;
+    return !session || !sessionClock || inactiveFor() >= SESSION_MS;
+  }
+  const inactiveFor=()=>Math.max(0,Date.now()-sessionClock.active,performance.now()-sessionClock.monotonicActive);
+  async function pulseCloudSession(){
+    if(!session||sessionExpired()||cloudPulse)return;
+    const current=session,revision=activityRevision,activityAge=revision>reportedActivity?Math.floor(inactiveFor()):undefined;
+    lastCloudPulse=performance.now();
+    const pending=cloud.touch({activityAge});cloudPulse=pending;
+    try{await pending;if(session===current)reportedActivity=Math.max(reportedActivity,revision);}
+    catch{if(session===current)lock();}
+    finally{if(cloudPulse===pending)cloudPulse=null;}
   }
   function assertFreshSession() {
     if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
@@ -92,7 +104,7 @@ const webWorkspace = (() => {
   function armSessionTimer() {
     clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0;
     if(!session || !sessionClock)return;
-    const remaining=SESSION_MS-Math.max(Date.now()-sessionClock.started,performance.now()-sessionClock.monotonicStart);
+    const remaining=SESSION_MS-inactiveFor();
     sessionTimerDue=Date.now()+Math.max(0,remaining);
     autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
   }
@@ -654,10 +666,12 @@ const webWorkspace = (() => {
   ensureSecuritySettings=async () => !!session;
   scheduleAutoLock=async () => armSessionTimer();
   registerActivityForAutoLock=() => {
-    // Activity refreshes the ticket without changing its absolute deadline.
+    // Only real interaction extends the inactivity deadline; polling does not.
     for(const name of ['mousedown','keydown','touchstart','wheel','pointermove'])document.addEventListener(name,event=>{
   if(!session||!event.isTrusted)return;
-  sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();updateReloadTicket();
+  if(sessionExpired()){lock();return;}
+  sessionClock.active=Date.now();sessionClock.monotonicActive=performance.now();activityRevision++;updateReloadTicket();armSessionTimer();
+  if(cloud.enabled&&performance.now()-lastCloudPulse>=15000)pulseCloudSession();
     },{capture:true,passive:true});
   };
   // Older desktop listeners must not re-enable the keypad during a web timeout.
@@ -738,7 +752,7 @@ const webWorkspace = (() => {
     $('#changeBaseBtn').remove();
     const idle=$('#autoLockSelect');
     idle.replaceChildren(new Option('4 heures','240',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Verrouillage automatique après 4 heures · Le rechargement et l’activité ne prolongent pas la session';
+    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Verrouillage après 4 heures sans activité · Chaque interaction renouvelle ce délai';
   };
   window.openAccountMFA=async()=>{
     if(!session||!cloud?.hasUsers())return;

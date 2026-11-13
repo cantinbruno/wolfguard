@@ -43,7 +43,7 @@ def run():
             expect(panel.locator('input,select,button,details')).to_have_count(0)
             expect(panel).to_contain_text('600 000 itérations')
             expect(panel).to_contain_text('100 000 itérations')
-            expect(panel).to_contain_text('Sessions de 4 heures')
+            expect(panel).to_contain_text('Après 4 heures d’inactivité')
             expect(panel).to_contain_text('secret serveur dédié')
             expect(panel).not_to_contain_text('sauvegarde')
             expect(panel.locator('.settings-protection-group').filter(has_text='Prise en main autorisée')).to_have_count(1)

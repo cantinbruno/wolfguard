@@ -71,7 +71,7 @@ test('two independent sessions recover identical ciphertext; immutable uploads u
   s.env.DB.db.close();
 });
 
-test('sessions expire after four absolute hours despite activity and can still be revoked earlier',async()=>{
+test('background requests do not extend four idle hours and sessions can still be revoked earlier',async()=>{
   const s=setup(),auth=await activate(s);
   try{
     for(let minute=10;minute<240;minute+=10){s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token)).status,200);}
@@ -80,6 +80,31 @@ test('sessions expire after four absolute hours despite activity and can still b
     const fresh=await login(s);s.advance(59*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
     s.advance(60*60000);assert.equal((await s.api('touch','POST',{},fresh.token)).status,200);
     await s.api('logout','POST',{},fresh.token);assert.equal((await s.api('touch','POST',{},fresh.token)).status,401);
+  }finally{s.env.DB.db.close();}
+});
+test('real activity keeps a session alive beyond four hours; expired sessions cannot be renewed',async()=>{
+  const s=setup(),auth=await activate(s);
+  try{
+    for(let i=0;i<60;i++){s.advance(10*60000);assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':'0'})).status,200);}
+    const before=s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get();
+    s.advance(4*3600000-1000);
+    assert.equal((await s.api('touch','POST',{},auth.token)).status,200);
+    assert.deepEqual(s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get(),before);
+    s.advance(1000);
+    assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':'0'})).status,401);
+  }finally{s.env.DB.db.close();}
+});
+test('delayed activity uses its real age, cannot shorten a newer deadline and is validated',async()=>{
+  const s=setup(),auth=await activate(s);
+  try{
+    const initial=s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get();s.advance(3600000);
+    assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':'30000'})).status,200);
+    const renewed=s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get();
+    assert.equal(renewed.expires_at,initial.expires_at+3600000-30000);
+    assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':'60000'})).status,200);
+    assert.deepEqual(s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get(),renewed);
+    for(const age of ['-1','NaN','14400000','999999999'])assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':age})).status,400);
+    assert.equal((await s.api('touch','OPTIONS')).headers.get('Access-Control-Allow-Headers').includes('X-WG-Activity'),true);
   }finally{s.env.DB.db.close();}
 });
 

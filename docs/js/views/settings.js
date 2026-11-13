@@ -184,7 +184,7 @@ async function openSettings(initialTab = 'security') {
           <h4 class="settings-group-title">Session</h4>
           <div class="settings-row">
             ${settingsIcon('lock')}
-            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Durée de la session</label><div class="settings-row-desc">Verrouillage automatique après 4 heures</div></div>
+            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Délai d’inactivité</label><div class="settings-row-desc">Verrouillage après 4 heures sans activité</div></div>
             <select id="autoLockSelect" class="settings-select settings-control" disabled>
               <option value="240" selected>4 heures</option>
             </select>
@@ -309,7 +309,7 @@ async function openSettings(initialTab = 'security') {
     feedback(localWorkspaceError, true);
     updateDataStatus('error')
   }
-  // Sessions are indefinite; the locked-in select is informational only.
+  // The fixed select shows the four-hour inactivity policy.
   const updateWidth = value => {
     const updated = applyExplorerWidth(value);
     $('#navigationWidth').value = String(updated);

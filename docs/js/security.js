@@ -177,17 +177,18 @@ async function scheduleAutoLock() {
   clearTimeout(autoLockTimer);
   autoLockTimer = null;
   if ($('#app').classList.contains('hidden') || !state.vaultKey) return;
-  if (accessSessionKey !== state.vaultKey || !accessSessionDeadline) {
-    accessSessionKey = state.vaultKey;
-    accessSessionDeadline = performance.now() + 4 * 60 * 60 * 1000;
-  }
+  accessSessionKey = state.vaultKey;
+  accessSessionDeadline = performance.now() + 4 * 60 * 60 * 1000;
   autoLockTimer = setTimeout(lockApplication, Math.max(1,accessSessionDeadline-performance.now()));
 }
 
 function registerActivityForAutoLock() {
-  ['mousedown', 'keydown', 'touchstart', 'wheel'].forEach(ev => {
-    document.addEventListener(ev, () => {
-      if (!$('#app').classList.contains('hidden')) scheduleAutoLock();
+  ['mousedown', 'keydown', 'touchstart', 'wheel', 'pointermove'].forEach(ev => {
+    document.addEventListener(ev, event => {
+      if (event.isTrusted && !$('#app').classList.contains('hidden')) {
+        if(accessSessionKey===state.vaultKey&&accessSessionDeadline&&performance.now()>=accessSessionDeadline)lockApplication();
+        else scheduleAutoLock();
+      }
     }, {
       passive: true
     });

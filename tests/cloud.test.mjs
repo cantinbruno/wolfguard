@@ -31,6 +31,11 @@ test('invitation creation and cancellation pass through the authenticated client
   await assert.rejects(cloud.agentRequest('users/arbitrary',{}),/Adresse agent invalide/);
   assert.equal(calls.length,2);
 }));
+test('background heartbeats do not claim activity; real interaction reports its age',()=>client(async cloud=>{
+  const calls=[];globalThis.fetch=async(url,options)=>{calls.push(options);return {ok:true,headers:new Headers(),json:async()=>({ok:true})};};
+  await cloud.touch();await cloud.touch({activityAge:1234});await cloud.touch({activityAge:0});await cloud.touch({activityAge:-1});
+  assert.deepEqual(calls.map(call=>call.headers['X-WG-Activity']),[undefined,'1234','0',undefined]);
+}));
 
 test('cloud deadline covers a response whose headers arrive but body stalls',()=>client(async(cloud,deadlines)=>{
   let reading;

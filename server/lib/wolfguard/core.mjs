@@ -72,7 +72,7 @@ async function issueSession(env,generation,now,request,user=null) {
   if(existing?.token_cipher){
     const previous=await openRecord(existing.token_cipher,'WolfGuard session v1:'+user.id,env);
     if(await digest(previous)!==existing.token_hash)fail(503,'Session illisible.');
-    const valid=await env.DB.prepare('UPDATE sessions SET active_at=?,expires_at=? WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,existing.expires_at,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
+    const valid=await env.DB.prepare('UPDATE sessions SET active_at=?,expires_at=? WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,now+SESSION_MS,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
     if(!valid)fail(401,'Ce compte a changé. Reconnecte-toi.');
     await rememberConnection(env,request,existing.token_hash,now,context);
     return previous;
@@ -90,12 +90,14 @@ async function authorize(request,env,now) {
   const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
   if(!token)fail(401,'Saisis à nouveau ton code.');
   const hash=await digest(token),context=await addressContext(request,env);
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=? WHERE token_hash=? AND expires_at>? AND expires_at<=? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
-    .bind(now,hash,now,now+SESSION_MS,context.hash||'').first();
+  const path=new URL(request.url).pathname,activity=request.method==='POST'&&path==='/api/touch'?request.headers.get('X-WG-Activity'):null;
+  if(activity!==null&&(!/^[0-9]{1,8}$/.test(activity)||Number(activity)>=SESSION_MS))fail(400,'Activité de session invalide.');
+  const activeAt=activity===null?0:Math.max(0,now-Number(activity));
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=MAX(active_at,?),expires_at=MAX(expires_at,?) WHERE token_hash=? AND expires_at>? AND expires_at<=? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
+    .bind(activeAt,activity===null?0:activeAt+SESSION_MS,hash,now,now+SESSION_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   if(session.user_id&&!session.token_cipher)await env.DB.prepare('UPDATE sessions SET token_cipher=? WHERE token_hash=? AND token_cipher IS NULL').bind(await sealRecord(token,'WolfGuard session v1:'+session.user_id,env),hash).run();
   if(!browserPushEnabled(env))session.user_push=0;
-  const path=new URL(request.url).pathname;
   if(path==='/api/touch'||path.startsWith('/api/access'))await rememberConnection(env,request,hash,now,context);
   if(requiresMFA(env)&&session.user_id&&!session.user_otp)fail(401,'Configure Authenticator pour ouvrir une session.',{code:'MFA_SETUP_REQUIRED'});
   if(requiresPhone(env)&&session.user_id&&!session.user_push)fail(401,'Associe ton téléphone pour terminer la configuration MFA.',{code:'MFA_SETUP_REQUIRED'});
@@ -321,7 +323,7 @@ export async function handleAPI(request,env,clock=Date.now) {
   headers.set('X-Frame-Options','DENY');
   headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
   if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
-  if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
+  if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
   if(response.status===429||response.status===401){const data=await response.clone().json();if(data.retryAfter)headers.set('Retry-After',String(data.retryAfter));}
   return new Response(response.body,{status:response.status,headers});
 }

@@ -8,7 +8,7 @@ const PREFIX = 'tab-session:';
 const validId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 function validClock(clock, now = Date.now()) {
   return Number.isSafeInteger(clock?.started) && Number.isSafeInteger(clock?.active) && clock.started > 0 &&
-    clock.started <= clock.active && clock.active <= now && now - clock.active < IDLE_MS && now - clock.started < SESSION_MS;
+    clock.started <= clock.active && clock.active <= now && now - clock.active < IDLE_MS;
 }
 function createTabSession(storage) {
   let ticket = null, record = null, generation = 0, pending = Promise.resolve(), syncedAt = 0;
@@ -42,7 +42,7 @@ function createTabSession(storage) {
     if (!validClock(clock) || key.extractable !== false || key.algorithm?.name !== 'AES-GCM') throw new Error('Session invalide.');
     const id = [...crypto.getRandomValues(new Uint8Array(32))].map(value => value.toString(16).padStart(2, '0')).join('');
     const saved = {id, clock: {started: clock.started, active: clock.active}, cloud, scope, view};
-    const value = {key, salt, started: clock.started, expiresAt: clock.started + SESSION_MS};
+    const value = {key, salt, started: clock.started, expiresAt: clock.active + IDLE_MS};
     await transaction(store => store.put(value, PREFIX + id));
     if (token !== generation) { await transaction(store => store.delete(PREFIX + id)); return false; }
     try { sessionStorage.setItem(HANDLE, JSON.stringify(saved)); }
@@ -55,7 +55,7 @@ function createTabSession(storage) {
     try { sessionStorage.setItem(HANDLE, JSON.stringify(ticket)); } catch { forget().catch(() => {}); return; }
     if (Date.now() - syncedAt < 1000) return;
     syncedAt = Date.now();
-    record = {...record, expiresAt: ticket.clock.started + SESSION_MS};
+    record = {...record, expiresAt: ticket.clock.active + IDLE_MS};
     const id = ticket.id, value = record, token = generation;
     pending = pending.catch(() => {}).then(() => token === generation ? transaction(store => store.put(value, PREFIX + id)) : undefined).catch(() => {
       if (token === generation) { generation++; ticket = null; record = null; try { sessionStorage.removeItem(HANDLE); } catch {} }

@@ -90,6 +90,13 @@ def run():
             page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+61000))")
             assert page.evaluate("async()=>!!await all('items')")
             expect(page.locator('#app')).to_be_visible()
+            started = page.evaluate("JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.started")
+            for _ in range(3):
+                page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+2*3600000))")
+                page.keyboard.press('Shift')
+                page.reload(); unlocked(page)
+                assert page.evaluate("JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.started") == started
+            assert page.evaluate('Date.now()')-started > 4*3600000
             page.evaluate("sessionStorage.setItem('resume-test-offset',String(Number(sessionStorage.getItem('resume-test-offset'))+4*3600000))")
             page.reload();ready(page)
             expect(page.locator('#app')).not_to_be_visible()

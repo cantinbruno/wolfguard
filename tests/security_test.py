@@ -104,16 +104,21 @@ def run():
             page.evaluate("window.testClipboard='Nouvelle copie a conserver'")
             page.clock.fast_forward(30100)
             assert page.evaluate('window.testClipboard')=='Nouvelle copie a conserver'
-            remaining = page.evaluate("4*3600000-(Date.now()-JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.started)")
-            page.clock.fast_forward(remaining-1)
+            remaining = page.evaluate("4*3600000-(Date.now()-JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.active)")
+            page.clock.fast_forward(remaining-1000)
             expect(page.locator('#app')).to_be_visible()
             page.keyboard.press('Shift')
-            page.clock.fast_forward(1)
+            page.clock.fast_forward(2000)
+            expect(page.locator('#app')).to_be_visible()
+            remaining = page.evaluate("4*3600000-(Date.now()-JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).clock.active)")
+            page.clock.fast_forward(remaining-2000)
+            expect(page.locator('#app')).to_be_visible()
+            page.clock.fast_forward(2500)
             closed(page)
             assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
             unlock(page)
             page.evaluate('lockApplication()');closed(page)
-            print('PASS: clipboard cleanup preserves new copies; four-hour expiry and manual lock clear keys, content and reload tickets')
+            print('PASS: activity extends a session beyond four hours; four idle hours and manual lock clear keys, content and reload tickets; clipboard cleanup preserves new copies')
             page.evaluate("""()=>{
               const transaction=IDBDatabase.prototype.transaction;
               IDBDatabase.prototype.transaction=function(stores,mode,...args){

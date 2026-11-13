@@ -6,7 +6,7 @@ function settingsAuditHTML() {
       ['Code personnel', 'Accès par code de 8 chiffres. Les essais incorrects sont ralentis côté serveur.'],
       ['Double authentification', 'Authenticator et validation par téléphone sont pris en charge. Leur obligation dépend de la politique MFA du serveur.'],
       ['Droits des comptes', 'Les permissions sont contrôlées dans l’API pour les fiches, le coffre, les agents et la prise en main. Chaque poste peut être invisible, consultable en lecture ou autorisé en écriture, dans les limites des droits du compte. Les comptes et agents peuvent être révoqués.'],
-      ['Sessions de 4 heures', 'La session expire au plus tard après 4 heures, même si l’application reste utilisée ou est rechargée. Une nouvelle authentification est ensuite nécessaire.']
+      ['Après 4 heures d’inactivité', 'Chaque interaction renouvelle le délai de verrouillage. Sans activité pendant 4 heures, une nouvelle authentification est nécessaire. Les actualisations automatiques ne prolongent pas la session.']
     ]],
     ['Chiffrement et connexions', [
       ['Données de l’espace web', 'AES-256-GCM ; clé dérivée avec PBKDF2-HMAC-SHA-256 à 600 000 itérations. Sel aléatoire et nouvel IV à chaque écriture de l’espace.'],
