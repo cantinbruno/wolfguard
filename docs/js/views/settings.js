@@ -110,7 +110,6 @@ async function setSettingsTab(name, focus = false) {
   workspaceUsers.unmount();
   if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
-  if (name === 'audit') refreshSettingsAudit(dialog.querySelector('#settings-audit'));
   if (focus) button.focus();
   settingsTabsLayout();
 }
@@ -147,7 +146,7 @@ async function openSettings(initialTab = 'security') {
         <div class="settings-identity"><img class="wolf-logo" src="images/logo-loup.svg" alt="Logo loup" width="64" height="64"></div>
         <nav class="settings-tabs" role="tablist" aria-label="Catégories des paramètres" aria-orientation="${matchMedia('(max-width:640px)').matches?'horizontal':'vertical'}">
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-audit" data-settings-tab="audit" role="tab" aria-controls="settings-audit" aria-selected="false" tabindex="-1">${settingsIcon('search')}<span>Architecture et sécurité</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-audit" data-settings-tab="audit" role="tab" aria-controls="settings-audit" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Protection de l’application</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
@@ -262,7 +261,6 @@ async function openSettings(initialTab = 'security') {
   const dialog = $('#modalRoot .modal');
   fetch('build-info.json',{cache:'no-cache'}).then(response=>response.ok?response.json():null).then(info=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent=Number.isSafeInteger(info?.repositoryBytes)?(info.repositoryBytes/1048576).toLocaleString('fr-FR',{maximumFractionDigits:1})+' Mo':'Indisponible';}).catch(()=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent='Indisponible';});
   dialog.classList.add('settings-modal');
-  mountSettingsAudit(dialog.querySelector('#settings-audit'));
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'settingsTitle');
@@ -303,7 +301,7 @@ async function openSettings(initialTab = 'security') {
       return
     }
     if (e.key !== 'Tab') return;
-    const controls = [...dialog.querySelectorAll('button:not([disabled]):not([tabindex="-1"]),input:not([disabled]),select:not([disabled]),summary')].filter(element => element.getClientRects().length);
+    const controls = [...dialog.querySelectorAll('button:not([disabled]):not([tabindex="-1"]),input:not([disabled]),select:not([disabled])')].filter(element => element.getClientRects().length);
     const first = controls[0],
       last = controls[controls.length - 1];
     if (e.shiftKey && document.activeElement === first) {
