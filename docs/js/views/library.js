@@ -93,6 +93,25 @@ function addLibraryCommandJump(heading,item,blocks,target) {
   jump.innerHTML=workspaceSectionIcon('command')+'<span>'+blocks.length+' commande'+(blocks.length>1?'s':'')+' ↓</span>';
   heading.append(jump);
 }
+
+function libraryCardAppearance(item, folder) {
+  const subject = String(item.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const themes = [
+    [/\b(automatisation|devops|ansible|terraform|git|python|docker|kubernetes|script)\b/, 'violet', workspaceNavigationIcon('terminal')],
+    [/\b(securite|pare-feu|firewall|fortinet|fortigate|eset|defender|audit|vulnerabilite|certificat|vpn|stormshield)\b/, 'coral', workspaceSectionIcon('scan-vulnerability')],
+    [/\b(reseau|reseaux|protocoles|dns|dhcp|cisco|juniper|wi-fi|vlan|tcp|routage)\b/, 'cyan', workspaceSectionIcon('scan-map')],
+    [/\b(donnees|stockage|sauvegarde|sql|postgresql|mysql|redis|nas|qnap)\b/, 'amber', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>'],
+    [/\b(cloud|microsoft 365|azure|aws|entra|exchange|messagerie|outlook|gmail)\b/, 'mint', workspaceNavigationIcon('mail')],
+    [/\b(windows|linux|debian|ubuntu|macos|vmware|proxmox|hyper-v|systeme|serveur)\b/, 'blue', workspaceSectionIcon('remote')]
+  ];
+  const match = themes.find(([pattern]) => pattern.test(subject));
+  if (match) return {tone: match[1], icon: match[2]};
+  // Keep custom cards' colors stable when sorting, filtering or paginating.
+  let hash = 0;
+  for (const character of String(folder || item.title || item.id || '')) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  return {tone: ['violet', 'coral', 'cyan', 'amber', 'mint', 'blue'][hash % 6], icon: workspaceSectionIcon('library')};
+}
+
 async function renderLibraryCatalog() {
   trackWorkspaceCollection();
   const {
@@ -106,6 +125,7 @@ async function renderLibraryCatalog() {
     <div class="workspace-catalog-scroll ${view.layout==='cards'?'library-grid-view':'library-list-view'}"><div class="library-list-columns" aria-hidden="true"><span>Fiche</span><span>Dossier</span><span>Commandes</span><span>Mise à jour</span><span></span></div><div id="workspaceCatalogItems" class="workspace-catalog-items ${view.layout==='cards'?'is-grid':'is-list'}"></div><div id="workspaceCatalogEmpty" class="workspace-catalog-empty" hidden></div></div></div>`;
   const entries = scoped.map(item => ({
     item,
+    appearance: libraryCardAppearance(item, names.get(item.folderId)),
     commands: libraryCommands(item),
     folder: names.get(item.folderId) || '',
     search: workspaceCatalogText([item.title, libraryText(item), item.context, item.example, item.vendor, item.platform, ...(item.tags || []), names.get(item.folderId)].join(' '))
@@ -130,6 +150,7 @@ async function renderLibraryCatalog() {
         item
       } = entry, node = document.createElement('article');
       node.className = 'workspace-catalog-item library-card';
+      node.dataset.tone = entry.appearance.tone;
       node.dataset.workspaceItem = item.id;
       node.draggable = true;
       node.innerHTML = '<div class="workspace-item-heading"><span class="library-card-icon" aria-hidden="true">' + workspaceSectionIcon('library') + '</span><button type="button" class="workspace-item-title" title="' + esc(item.title || 'Sans titre') + '">' + esc(item.title || 'Sans titre') + '</button></div><span class="catalog-folder" title="' + esc(entry.folder || 'Mes fiches') + '">' + PROTOCOL_ICONS.folder + '<span>' + esc(entry.folder || 'Mes fiches') + '</span></span><span class="library-card-command-count' + (entry.commands.length ? ' has-commands' : '') + '" aria-label="' + entry.commands.length + ' commande' + (entry.commands.length > 1 ? 's' : '') + '">' + (entry.commands.length ? workspaceSectionIcon('command') + '<span>' + entry.commands.length + '<span class="library-command-unit"> commande' + (entry.commands.length > 1 ? 's' : '') + '</span></span>' : '—') + '</span><div class="library-card-updated">' + workspaceCatalogDateHTML(item) + '</div><div class="workspace-item-actions"><button type="button" class="secondary workspace-icon library-item-menu" aria-haspopup="menu" title="Actions de la fiche" aria-label="Actions pour ' + esc(item.title || 'Sans titre') + '">' + workspaceNavigationIcon('ellipsis') + '</button></div>';
@@ -142,7 +163,7 @@ async function renderLibraryCatalog() {
         if (!entry.commands.length) count.setAttribute('aria-label', 'Fiche mémo');
         copy.append(node.querySelector('.workspace-item-title'), count);
         node.querySelector('.workspace-item-heading').append(copy);
-        node.querySelector('.library-card-icon').innerHTML = workspaceSectionIcon(entry.commands.length ? 'command' : 'library');
+        node.querySelector('.library-card-icon').innerHTML = entry.appearance.icon;
         footer.append(node.querySelector('.catalog-folder'), node.querySelector('.library-card-updated'));
       } else footer.append(node.querySelector('.library-card-command-count'), node.querySelector('.library-card-updated'));
       node.append(footer);

@@ -375,8 +375,14 @@
   scrollbar-color: var(--ui-border) transparent;
 }
 
+.library-card[data-tone="violet"] { --tile-accent: #c4a5ff; }
+.library-card[data-tone="coral"] { --tile-accent: #ffab9e; }
+.library-card[data-tone="cyan"] { --tile-accent: #78dce8; }
+.library-card[data-tone="amber"] { --tile-accent: #f4cd7c; }
+.library-card[data-tone="mint"] { --tile-accent: #8de0bb; }
+.library-card[data-tone="blue"] { --tile-accent: #99bbff; }
+
 .library-catalog .is-grid .library-card {
-  --tile-accent: var(--workspace-library);
   position: relative;
   isolation: isolate;
   display: grid;
@@ -387,9 +393,9 @@
   gap: 16px 12px;
   min-height: 144px;
   padding: 18px 18px 14px;
-  border: 1px solid var(--ui-border);
+  border: 1px solid color-mix(in srgb, var(--tile-accent) 28%, var(--ui-border));
   border-radius: 12px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tile-accent) 4%, var(--ui-surface)), var(--ui-surface) 65%);
+  background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--tile-accent) 16%, transparent), transparent 75%), var(--ui-surface);
   box-shadow: 0 2px 4px #050e1b14, inset 0 1px 0 #ffffff04;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
@@ -397,19 +403,19 @@
 .library-catalog .is-grid .library-card::before {
   content: '';
   position: absolute;
-  top: -1px;
-  left: 18px;
-  width: 52px;
-  height: 2px;
-  border-radius: 0 0 2px 2px;
-  background: linear-gradient(90deg, var(--tile-accent), color-mix(in srgb, var(--tile-accent) 20%, transparent));
+  top: 20px;
+  bottom: 20px;
+  left: -1px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--tile-accent);
   pointer-events: none;
 }
 
 .library-catalog .is-grid .library-card:hover,
 .library-catalog .is-grid .library-card:focus-within {
   border-color: color-mix(in srgb, var(--tile-accent) 55%, var(--ui-border));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--tile-accent) 7%, var(--ui-surface)), var(--ui-surface) 80%);
+  background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--tile-accent) 23%, transparent), transparent 85%), var(--ui-surface);
   box-shadow: 0 6px 16px #050e1b30;
 }
 
@@ -429,10 +435,10 @@
   display: inline-flex;
   width: 44px;
   height: 44px;
-  border: 1px solid color-mix(in srgb, var(--workspace-library) 24%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tile-accent) 38%, transparent);
   border-radius: 11px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--workspace-library) 15%, var(--ui-surface)), color-mix(in srgb, var(--workspace-library) 6%, var(--ui-surface)));
-  color: var(--workspace-library);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--tile-accent) 25%, var(--ui-surface)), color-mix(in srgb, var(--tile-accent) 10%, var(--ui-surface)));
+  color: var(--tile-accent);
   box-shadow: none;
 }
 
@@ -464,6 +470,19 @@
   color: var(--ui-muted);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.library-catalog .is-grid .library-card-command-count.has-commands {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--tile-accent) 22%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--tile-accent) 10%, transparent);
+  color: var(--tile-accent);
+}
+
+.library-catalog .is-grid .workspace-item-title:hover,
+.library-catalog .is-grid .catalog-folder svg {
+  color: var(--tile-accent) !important;
 }
 
 .library-catalog .is-grid .library-card-command-count svg,
