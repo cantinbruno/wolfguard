@@ -1,0 +1,32 @@
+.settings-audit-intro,.settings-audit-help{color:var(--ui-muted);font-size:12px;line-height:1.7;margin:0 0 18px}
+.settings-audit-scope,.settings-audit-priorities{padding:14px 16px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-sidebar);font-size:12px;line-height:1.7;margin:0 0 18px}
+.settings-audit-scope strong,.settings-audit-priorities strong{font-weight:600;color:var(--ui-text)}
+.settings-audit-scope p,.settings-audit-priorities p{margin:5px 0 0;color:var(--ui-muted)}
+.settings-audit-priorities{border-color:#f4cd7c55;background:#f4cd7c08}.settings-audit-priorities strong{color:#f4cd7c}
+.settings-audit-observations{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 18px}
+.settings-audit-observations>div{border:1px solid var(--ui-border);border-radius:7px;padding:12px;min-width:0;background:var(--ui-sidebar)}
+.settings-audit-observations span{display:block;font-size:11px;color:var(--ui-muted);margin-bottom:5px}
+.settings-audit-observations strong{display:block;font-size:12px;line-height:1.6;overflow-wrap:anywhere;font-weight:500}
+.settings-audit-observations [data-state=observed] strong{color:#8de0bb}.settings-audit-observations [data-state=attention] strong{color:#f4cd7c}.settings-audit-observations [data-state=unknown] strong{color:var(--ui-muted)}
+.settings-audit-controls{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}
+.settings-audit-controls label{font-size:11px;color:var(--ui-muted);min-width:0}
+.settings-audit-controls :is(input,select){display:block;width:100%;min-width:0;margin-top:6px;border:1px solid var(--ui-border);border-radius:6px;padding:9px;background:var(--ui-sidebar);color:var(--ui-text);font-family:inherit;font-size:12px;line-height:1.5}
+.settings-audit-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin:14px 0}
+.settings-audit-toolbar p{font-size:11px;color:var(--ui-muted);margin:0}
+.settings-audit-record{border:1px solid var(--ui-border);border-radius:8px;margin:0 0 10px;background:var(--ui-sidebar);overflow:hidden}
+.settings-audit-record[hidden]{display:none}
+.settings-audit-record summary{position:relative;list-style:none;padding:15px 36px 15px 16px;cursor:pointer;overflow-wrap:anywhere}
+.settings-audit-record summary::-webkit-details-marker{display:none}
+.settings-audit-record summary:after{content:'+';position:absolute;right:16px;top:30px;color:var(--ui-muted);font-size:18px}.settings-audit-record[open] summary:after{content:'−'}
+.settings-audit-record summary:hover{background:var(--ui-surface)}
+.settings-audit-record summary:focus-visible{outline:2px solid var(--ui-accent);outline-offset:-3px;border-radius:7px}
+.settings-audit-record summary>span{display:block;font-size:11px;color:var(--ui-muted);line-height:1.6}
+.settings-audit-record summary>.settings-audit-category{font-size:10px;color:#99bbff;margin-bottom:4px}
+.settings-audit-record summary>strong{display:block;font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.6}
+.settings-audit-record dl{margin:0;padding:0 16px;font-size:12px;line-height:1.8}
+.settings-audit-record dl>div{border-top:1px solid var(--ui-border);padding:12px 0}
+.settings-audit-record dt{font-weight:600;margin-bottom:4px;color:var(--ui-text)}
+.settings-audit-record dd{margin:0;color:var(--ui-muted);overflow-wrap:anywhere}.settings-audit-limit dt{color:#f4cd7c}
+.settings-audit-sources{display:flex;flex-wrap:wrap;gap:5px}.settings-audit-sources code{font-size:10px;line-height:1.6;background:var(--ui-surface);padding:3px 6px;border-radius:4px;white-space:normal;overflow-wrap:anywhere}
+.settings-audit-check{display:flex;align-items:center;gap:9px;padding:12px 16px;border-top:1px solid var(--ui-border);font-size:11px;color:var(--ui-muted);cursor:pointer}.settings-audit-check input{width:16px;height:16px;flex:none;accent-color:#8de0bb;margin:0}
+@media(max-width:640px){.settings-audit-controls,.settings-audit-observations{grid-template-columns:minmax(0,1fr)}.settings-audit-toolbar .settings-btn{width:100%;justify-content:center}.settings-audit-record summary{padding-left:12px}.settings-audit-record dl{padding:0 12px}}
