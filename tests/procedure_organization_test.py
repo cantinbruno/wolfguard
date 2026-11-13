@@ -108,8 +108,11 @@ def run():
             with page.expect_download() as exported:
                 page.get_by_role('button',name='Exporter avant le classement des procédures',exact=True).click()
                 page.locator('.app-dialog-input').fill(CODE);page.locator('.app-dialog-submit').click()
+                expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
+                backup_key=page.locator('.app-dialog-input').input_value()
+                page.locator('.app-dialog-submit').click()
             backup=json.loads(Path(exported.value.path()).read_text())
-            assert page.evaluate("""async ({backup,code})=>{const c=await import('./browser/crypto.js');return (await c.open(backup,code)).payload.items.find(row=>row.id==='ad').content;}""",{'backup':backup,'code':CODE})==next(item['content'] for item in before['payload']['items'] if item['id']=='ad')
+            assert page.evaluate("""async ({backup,code,key})=>{const c=await import('./browser/crypto.js');return (await c.open(await c.unprotectBackup(backup,key),code)).payload.items.find(row=>row.id==='ad').content;}""",{'backup':backup,'code':CODE,'key':backup_key})==next(item['content'] for item in before['payload']['items'] if item['id']=='ad')
             second=b.new_page();second.on('pageerror',lambda error:errors.append(str(error)))
             second.goto(url+'?sync-test');unlock(second)
             observed=second.evaluate('async()=>({items:await all("items"),folders:await all("folders")})')

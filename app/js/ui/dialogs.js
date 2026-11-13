@@ -44,6 +44,7 @@ const appMessages = (() => {
       input.type = request.options.inputType === 'password' ? 'password' : 'text';
       input.value = request.value;
       input.placeholder = request.options.placeholder || '';
+      input.readOnly = !!request.options.readOnly;
       if(request.options.autocomplete==='one-time-code')input.autocomplete='one-time-code';
     }
     const cancel = dialog.querySelector('.app-dialog-cancel');

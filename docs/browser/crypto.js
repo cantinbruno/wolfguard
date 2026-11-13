@@ -3,6 +3,8 @@ const FORMAT = 'wolfguard-web';
 export const ITERATIONS = 600000;
 export const WORKSPACE_VERSION = 3;
 export const MAX_BYTES = 32 * 1024 * 1024;
+export const MAX_BACKUP_BYTES = Math.ceil(MAX_BYTES * 4 / 3) + 4096;
+export const MAX_BACKUP_FILE_BYTES = Math.ceil(MAX_BACKUP_BYTES * 4 / 3) + 4096;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 function aad(value) {
@@ -88,6 +90,37 @@ export async function create(payload, password, revision = 1) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(password, salt);
   return {payload, key, salt, envelope: await seal(payload, key, salt, revision)};
+}
+
+export function generateBackupKey() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)),value=>value.toString(16).padStart(2,'0')).join('');
+}
+export function isProtectedBackup(value) { return value?.format === 'wolfguard-backup'; }
+function backupHeader(value) {
+  if(!isProtectedBackup(value)||value.version!==1||value.cipher!=='AES-256-GCM')throw new Error('Format de sauvegarde protégée invalide.');
+  if(unbase64(value.iv,12).length!==12||unbase64(value.data,MAX_BACKUP_BYTES).length<16)throw new Error('Sauvegarde protégée incomplète.');
+  return {format:value.format,version:1,cipher:value.cipher,iv:value.iv,data:value.data};
+}
+function backupAAD(value) { return encoder.encode(JSON.stringify([value.format,value.version,value.cipher,value.iv])); }
+async function backupKey(value) {
+  if(typeof value!=='string'||value.length!==64||!/^[a-fA-F0-9]{64}$/.test(value))throw new Error('La clé de sauvegarde doit contenir ses 64 caractères.');
+  const bytes=Uint8Array.from(value.match(/../g),part=>parseInt(part,16));
+  try{return await crypto.subtle.importKey('raw',bytes,'AES-GCM',false,['encrypt','decrypt']);}finally{bytes.fill(0);}
+}
+export async function protectBackup(envelope,recoveryKey) {
+  const value=validateEnvelope(envelope),key=await backupKey(recoveryKey);
+  const header={format:'wolfguard-backup',version:1,cipher:'AES-256-GCM',iv:base64(crypto.getRandomValues(new Uint8Array(12)))};
+  const bytes=encoder.encode(JSON.stringify(value));
+  try{
+    if(bytes.length>MAX_BACKUP_BYTES-16)throw new Error('Sauvegarde trop volumineuse.');
+    return {...header,data:base64(new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:unbase64(header.iv,12),additionalData:backupAAD(header),tagLength:128},key,bytes)))};
+  }finally{bytes.fill(0);}
+}
+export async function unprotectBackup(envelope,recoveryKey) {
+  const value=backupHeader(envelope),key=await backupKey(recoveryKey);let bytes;
+  try{bytes=new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:unbase64(value.iv,12),additionalData:backupAAD(value),tagLength:128},key,unbase64(value.data,MAX_BACKUP_BYTES)));}
+  catch{throw new Error('Clé de sauvegarde incorrecte ou fichier altéré.');}
+  try{return validateEnvelope(JSON.parse(decoder.decode(bytes)));}finally{bytes.fill(0);}
 }
 export function generatePassword(length = 24) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*-_+=';

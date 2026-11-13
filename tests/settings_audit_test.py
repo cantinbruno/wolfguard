@@ -45,7 +45,12 @@ def run():
             expect(panel).to_contain_text('100 000 itérations')
             expect(panel).to_contain_text('Sessions de 4 heures')
             expect(panel).to_contain_text('secret serveur dédié')
-            expect(panel).to_contain_text('MFA protège la connexion au serveur')
+            expect(panel).to_contain_text('MFA continue de protéger la connexion au serveur')
+            expect(panel).to_contain_text('clé aléatoire de 256 bits')
+            expect(panel.locator('.settings-protection-group').filter(has_text='Prise en main autorisée')).to_have_count(1)
+            expect(panel.locator('.settings-protection-group').filter(has_text='Partage et permissions conservés')).to_have_count(1)
+            expect(panel.locator('.settings-protection-weaknesses')).not_to_contain_text('Prise en main')
+            expect(panel.locator('.settings-protection-weaknesses')).not_to_contain_text('Accès de l’hébergeur')
             expect(panel.locator('.settings-protection-group')).to_have_count(3)
             expect(panel.locator('.settings-protection-weaknesses')).to_be_visible()
             for width in [1440,900,390]:

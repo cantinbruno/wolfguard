@@ -59,6 +59,8 @@ def run():
             expect(page.locator('#githubConnectBtn')).to_have_count(0)
             with page.expect_download() as info:
                 page.locator('#exportRecovery').click()
+                expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
+                page.locator('.app-dialog-submit').click()
             assert info.value.suggested_filename.endswith('.wgweb')
             page.locator('#closeSettingsBtn').click()
             assert page.evaluate("async()=>!!await (await import('./browser/storage.js')).readRecovery()")

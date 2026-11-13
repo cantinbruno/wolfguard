@@ -97,6 +97,7 @@ def run():
             open_security(page);open_security_tool(page,'scan-active')
             page.wait_for_function('()=>!sectionTransition.active')
             page.locator('#scanTarget').fill('192.0.2.42')
+            page.locator('#agentToolClose').click()
             page.locator('.workspace-section-button[data-section=library]').click()
             page.wait_for_function('()=>!sectionTransition.active')
             expect(page.locator('#richEditor')).to_have_text('Brouillon a conserver pendant les scans')
@@ -143,14 +144,27 @@ def run():
             expect(page.locator('#wgAgentLaunch')).to_contain_text('Lancer le scan actif')
             print('PASS: trois outils, reference des ports dans Memo, deux sections scan distinctes, execution Windows explicitement indiquee')
 
+            page.locator('#agentToolClose').click()
             page.locator('#settingsBtn').click()
             expect(page.locator('.settings-modal')).to_be_visible()
             page.locator('[data-settings-tab=data]').click()
+            cancelled_downloads=[]
+            page.on('download',lambda download:cancelled_downloads.append(download))
+            page.locator('#exp').click()
+            expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
+            page.locator('.app-dialog-cancel').click()
+            expect(page.locator('.app-dialog')).to_have_count(0)
+            assert not cancelled_downloads
             with page.expect_download() as info:
                 page.locator('#exp').click()
+                expect(page.locator('.app-dialog-input')).to_have_attribute('readonly','')
+                backup_key=page.locator('.app-dialog-input').input_value()
+                assert len(backup_key)==64
+                page.locator('.app-dialog-submit').click()
             backup=Path(temporary)/'backup.wgweb'
             info.value.save_as(backup)
-            assert json.loads(backup.read_text())['version']==3
+            assert json.loads(backup.read_text())['format']=='wolfguard-backup'
+            assert backup_key not in backup.read_text()
             page.locator('#closeSettingsBtn').click()
             page.evaluate('lockApplication()')
             expect(page.locator('#app')).not_to_be_visible()
@@ -184,6 +198,15 @@ def run():
             restored=other.new_page()
             restored.goto(url)
             restored.locator('#webBackupFile').set_input_files(backup)
+            expect(restored.locator('.app-dialog-input')).to_be_visible()
+            restored.locator('.app-dialog-input').fill('0'*64)
+            restored.locator('.app-dialog-submit').click()
+            expect(restored.locator('.app-notices')).to_contain_text('Clé de sauvegarde incorrecte')
+            assert restored.evaluate('state.vaultKey===null')
+            restored.locator('#webBackupFile').set_input_files(backup)
+            expect(restored.locator('.app-dialog-input')).to_be_visible()
+            restored.locator('.app-dialog-input').fill(backup_key)
+            restored.locator('.app-dialog-submit').click()
             expect(restored.locator('#lock .access-heading h2')).to_have_text('Ouvrir une sauvegarde')
             enter_code(restored,PASSWORD)
             expect(restored.locator('#app')).to_be_visible(timeout=20000)

@@ -609,24 +609,33 @@ const webWorkspace = (() => {
     try { await queue; await forgotten; envelope=await storage.read(); await loadAttempts(); }
     finally { db=null; release(); locking=false; $('#webUnlock').disabled=busy; renderKeypad(); }
   }
-  function download(value) {
-    const url=URL.createObjectURL(new Blob([JSON.stringify(value)],{type:'application/json'}));
-    const anchor=document.createElement('a'); anchor.href=url; anchor.download='WolfGuard-'+new Date().toISOString().slice(0,10)+'.wgweb'; anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url),1000);
+  async function download(value) {
+    assertFreshSession();const current=session,generation=epoch;let recoveryKey=cryptography.generateBackupKey();
+    try{
+      const accepted=await appPrompt('Copie cette clé et conserve-la séparément du fichier. Elle sera nécessaire, avec le code de la sauvegarde, pour la restaurer. Elle ne sera pas enregistrée dans WolfGuard. Annule si tu ne peux pas la conserver.\n\nTu peux sélectionner la clé et la copier avec Ctrl+C.',recoveryKey,{title:'Clé de la sauvegarde',readOnly:true,confirmLabel:'Clé conservée · Exporter'});
+      if(accepted===null||session!==current||epoch!==generation)return false;
+      assertFreshSession();
+      const backup=await cryptography.protectBackup(value,recoveryKey);
+      if(session!==current||epoch!==generation)return false;
+      assertFreshSession();
+      const url=URL.createObjectURL(new Blob([JSON.stringify(backup)],{type:'application/json'}));
+      const anchor=document.createElement('a');anchor.href=url;anchor.download='WolfGuard-'+new Date().toISOString().slice(0,10)+'.wgweb';anchor.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);return true;
+    }finally{recoveryKey='';}
   }
   async function exportRecovery(value){
     assertFreshSession();const current=session;if(!current)return;
     if(cloud.enabled&&cloud.hasUsers()&&!cloud.isAdmin())throw new Error('Les copies historiques du propriétaire ne sont pas accessibles depuis ce compte.');
     // Old PIN-encrypted copies remain portable as-is. Copies made with the
     // account delivery key must be re-encrypted with a chosen, verified PIN.
-    if(!cloud.enabled||!cloud.hasUsers()||value.salt!==current.envelope.salt){download(value);return;}
+    if(!cloud.enabled||!cloud.hasUsers()||value.salt!==current.envelope.salt){await download(value);return;}
     const restored=await cryptography.openWithKey(value,current.key,current.salt);
-    let code=await appPrompt('Ton code personnel protège cette copie exportée.','',{title:'Exporter la copie de récupération',inputType:'password',confirmLabel:'Exporter'});if(code===null)return;
+    let code=await appPrompt('Confirme ton code personnel. Une clé de sauvegarde distincte sera ensuite générée.','',{title:'Exporter la copie de récupération',inputType:'password',confirmLabel:'Continuer'});if(code===null)return;
     try{
       await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
       const payload=structuredClone(restored.payload),backup=await cryptography.create(payload,code,value.revision);
       for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
-      backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,value.revision);if(session===current)download(backup.envelope);
+      backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,value.revision);if(session===current)await download(backup.envelope);
     }finally{code='';}
   }
   async function exportWorkspace() {
@@ -635,21 +644,30 @@ const webWorkspace = (() => {
     if(window.WolfGuardAccess?.restricted()&&['library','vault'].some(section=>current.payload.items.some(row=>(row.type==='vault'?'vault':'library')===section)&&!WolfGuardAccess.can(section+'.export'))){appNotify('L’export de toutes les données visibles ne fait pas partie de vos droits.');return;}
     await queue;
     if(session!==current)return;
+    let exported=false;
     if(cloud.enabled&&cloud.hasUsers()){
-      let code=await appPrompt('Ton code personnel protège cette copie exportée.','',{title:'Exporter une sauvegarde',inputType:'password',confirmLabel:'Exporter'});if(code===null)return;
+      let code=await appPrompt('Confirme ton code personnel. Une clé de sauvegarde distincte sera ensuite générée.','',{title:'Exporter une sauvegarde',inputType:'password',confirmLabel:'Continuer'});if(code===null)return;
       try{
         await cloud.agentRequest('users/verify-code',{code});if(session!==current)return;
         const payload=structuredClone(current.payload),backup=await cryptography.create(payload,code,current.envelope.revision);
         for(const item of payload.items.filter(row=>row.type==='vault'))for(const field of ['vaultBlobEnc','passwordEnc'])if(item[field])item[field]=await encryptBlobWithKey(await decryptBlobWithKey(item[field],current.key),backup.key);
-        backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,current.envelope.revision);if(session===current)download(backup.envelope);
+        backup.envelope=await cryptography.seal(payload,backup.key,backup.salt,current.envelope.revision);if(session===current)exported=await download(backup.envelope);
       }finally{code='';}
-    }else download(current.envelope);
-    appNotify('Sauvegarde chiffrée exportée.');
+    }else exported=await download(current.envelope);
+    if(exported)appNotify('Sauvegarde protégée exportée. Conserve sa clé séparément.');
   }
   async function importWorkspace(files) {
     const file=files?.[0]; if (!file || busy || locking) return;
-    if (file.size > cryptography.MAX_BYTES*1.4) throw new Error('Sauvegarde trop volumineuse.');
-    const backup=cryptography.validateEnvelope(JSON.parse(await file.text()));
+    if (file.size > cryptography.MAX_BACKUP_FILE_BYTES) throw new Error('Sauvegarde trop volumineuse.');
+    const generation=epoch;let input=JSON.parse(await file.text());
+    if(generation!==epoch)return;
+    if(cryptography.isProtectedBackup(input)){
+      let recoveryKey=await appPrompt('Clé de 64 caractères conservée séparément du fichier. Le code de la sauvegarde sera demandé ensuite.','',{title:'Ouvrir la sauvegarde protégée',inputType:'password',confirmLabel:'Déchiffrer'});
+      if(recoveryKey===null)return;
+      try{input=await cryptography.unprotectBackup(input,recoveryKey.trim());}finally{recoveryKey='';}
+    }
+    if(generation!==epoch)return;
+    const backup=cryptography.validateEnvelope(input);
     if(cloud.enabled){
       if(!session)throw new Error('Ouvre ton espace avec ton code avant de restaurer une sauvegarde.');
       if(!await appConfirm('Remplacer la copie partagée par cette sauvegarde ? Une copie chiffrée de l’espace actuel sera conservée sur cet appareil.'))return;
