@@ -33,7 +33,7 @@ const remoteDesktopWorkspace=(()=>{
     function modeLayout(){
       const active=terminalMode(),files=filesMode();terminal.hidden=!active;filesPane.hidden=!files;
       for(const selector of ['#wgRemoteViewport','.remote-session-footer','#wgRemoteTextForm','#wgRemoteControl','#wgRemoteFullscreen'])find(selector).hidden=active||files;
-      for(const mode of ['Desktop','Terminal','Files']){find('#wgRemoteMode'+mode).setAttribute('aria-pressed',String((mode==='Terminal'?terminalMode():mode==='Files'?filesMode():!terminalMode()&&!filesMode())));find('#wgRemoteMode'+mode).disabled=!!session||starting||!!window.WolfGuardAccess&&!WolfGuardAccess.can('remote.write');}
+      for(const mode of ['Desktop','Terminal','Files']){find('#wgRemoteMode'+mode).setAttribute('aria-pressed',String((mode==='Terminal'?terminalMode():mode==='Files'?filesMode():!terminalMode()&&!filesMode())));find('#wgRemoteMode'+mode).disabled=!!session||starting||!!window.WolfGuardAccess&&(!WolfGuardAccess.can('remote.write')||!!agent&&!!WolfGuardAccess.canAgent&&!WolfGuardAccess.canAgent(agent.id,'remote.write'));}
     }
     let filesPath='',filesEntries=[],fileBusy=false,filesInitialized=false,parentPath=null;
     const fileJoin=(base,name)=>base.replace(/[\\/]$/,'')+'/'+name;
@@ -133,7 +133,7 @@ const remoteDesktopWorkspace=(()=>{
       agent=selected;find('#wgRemoteAgent').textContent=agent?agent.name+' · '+workspaceAgents.platformName(agent.platform):'Aucun poste sélectionné';
       find('#wgRemotePresence').textContent=agent?agent.online?'● Agent connecté':'○ Agent hors ligne':'';find('#wgRemotePresence').dataset.online=String(!!agent?.online);
       const compatible=agent?.capabilities?.includes(filesMode()?'remote-files-v1':terminalMode()?'remote-terminal-v1':'remote-desktop-v1');
-      find('#wgRemoteConnect').disabled=!!session||ending||starting||!agent?.online||!compatible||!!window.WolfGuardAccess&&!WolfGuardAccess.can('remote.write');
+      find('#wgRemoteConnect').disabled=!!session||ending||starting||!agent?.online||!compatible||!!window.WolfGuardAccess&&(!WolfGuardAccess.can('remote.write')||!!agent&&!!WolfGuardAccess.canAgent&&!WolfGuardAccess.canAgent(agent.id,'remote.write'));
       find('#wgRemoteHint').textContent=!agent?'Choisis le poste dans Agents.':!agent.online?'Démarre l’agent sur le poste.':!compatible?'Mets à jour l’agent depuis Agents.':'';
     }
     async function image(frame,current){

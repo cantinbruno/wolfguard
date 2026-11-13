@@ -23,14 +23,14 @@ globalThis.WolfGuardAgentUpdates=(()=>{
     const sameSession=()=>!!key&&state.vaultKey===key&&cloud.hasSession()&&cloud.currentUser()?.id===userId;
     if(!sameSession())throw new Error('Connecte-toi pour mettre à jour ce poste.');
     if(!/^[a-f0-9]{32}$/.test(agent.id||''))throw new Error('Poste non associé.');
-    if(!cloud.can('agents.write')||!cloud.can('remote.write'))throw new Error('Les droits Agents et Prise en main en écriture sont nécessaires.');
+    if(!cloud.can('agents.write')||!cloud.can('remote.write')||!!globalThis.WolfGuardAccess?.canAgent&&(!WolfGuardAccess.canAgent(agent.id,'agents.write')||!WolfGuardAccess.canAgent(agent.id,'remote.write')))throw new Error('Les droits Agents et Prise en main en écriture sont nécessaires.');
     if(!agent.online)throw new Error('Démarre l’agent pour le mettre à jour.');
     if(!agent.capabilities?.includes('remote-terminal-v1'))throw new Error('Installe une première fois l’agent récent sur ce poste.');
     const value={running:true,status:'preparing',message:'Préparation de la mise à jour…'};states.set(agent.id,value);
     const change=(status,message)=>{Object.assign(value,{status,message});onChange(value);};let session=null;
     const request=(path,body)=>{
       if(!sameSession())throw new Error('Session fermée. Vérifie la version du poste après reconnexion.');
-      if(!cloud.can('agents.write')||!cloud.can('remote.write'))throw new Error('Les droits de mise à jour ne sont plus accordés.');
+      if(!cloud.can('agents.write')||!cloud.can('remote.write')||!!globalThis.WolfGuardAccess?.canAgent&&(!WolfGuardAccess.canAgent(agent.id,'agents.write')||!WolfGuardAccess.canAgent(agent.id,'remote.write')))throw new Error('Les droits de mise à jour ne sont plus accordés.');
       return cloud.agentRequest(path,body);
     };
     try{
@@ -79,6 +79,7 @@ globalThis.WolfGuardAgentUpdates=(()=>{
       const target=await release();
       for(const agent of agents){
         if(!sameSession()||!allowed())return;
+        if(globalThis.WolfGuardAccess?.canAgent&&!['agents.write','remote.write'].every(right=>WolfGuardAccess.canAgent(agent.id,right)))continue;
         const last=attempts.get(agent.id);
         if(agent.local||!agent.online||agent.version===target.version||!Object.hasOwn(WolfGuardUpdateCommand.UPDATE_FILES,agent.platform)||!agent.capabilities?.includes('remote-terminal-v1')||agent.capabilities.includes('auto-update-v1')||states.get(agent.id)?.running||last?.version===target.version&&Date.now()-last.at<15*60000)continue;
         attempts.set(agent.id,{version:target.version,at:Date.now()});

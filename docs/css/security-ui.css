@@ -238,6 +238,11 @@
 .permission-security input:focus-visible, .permission-security summary:focus-visible { outline: 2px solid #a6cbea; outline-offset: 3px; }
 .permission-agent-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 18px; max-height: 190px; overflow: auto; margin: 10px 0; padding: 10px 12px; border: 1px solid var(--ui-border); border-radius: 7px; scrollbar-width: thin; }
 .permission-agent-list span { min-width: 0; overflow-wrap: anywhere; }
+.permission-agent-list.permission-agent-rights { display: block; max-height: 290px; padding: 0 12px; }
+.permission-agent-right { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; }
+.permission-agent-right + .permission-agent-right { border-top: 1px solid var(--ui-border); }
+.permission-agent-right > strong { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 500; }
+.permission-agent-right .permission-row-levels button { padding: 6px 8px; font-size: 11px; }
 .permission-agent-scope > small { display: block; margin-top: 10px; font-size: 11px; color: var(--ui-muted); line-height: 1.6; }
 .permission-security-summary { margin-top: 16px; font-size: 12px; }
 .permission-security-summary > summary { cursor: pointer; color: var(--ui-muted); padding: 3px 0; }
@@ -267,6 +272,7 @@
   .permission-security { padding: 14px 12px; }
   .permission-security .permission-security-level { align-items: stretch; gap: 10px; }
   .permission-agent-list { grid-template-columns: minmax(0, 1fr); }
+  .permission-agent-right { grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .settings-modal.agents-modal { width: 100%; max-height: 100dvh; border: 0; border-radius: 0; }
   .agents-modal > h2 { padding: 0 16px; }
   .agents-modal .agents-dialog-content { padding: 16px; }

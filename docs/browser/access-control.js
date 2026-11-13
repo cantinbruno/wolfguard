@@ -5,6 +5,7 @@ window.WolfGuardAccess=(()=>{
   const restricted=()=>!!(cloud()?.enabled&&cloud()?.hasUsers()&&user()?.role!=='admin');
   const personalVaultHome=()=>cloud()?.enabled&&cloud()?.hasUsers()?user()?.vaultHome:null;
   const can=key=>!cloud()?.enabled||!cloud()?.hasUsers()||WolfGuardPermissions.can(user(),key);
+  const canAgent=(id,key='agents.read')=>!cloud()?.enabled||!cloud()?.hasUsers()||WolfGuardPermissions.canAgent(user(),id,Date.now(),key);
   const visibleAccounts=()=>restricted()?[]:null;
   const sectionKey=section=>section==='vault'?'vault':section==='remote'?'remote':section.startsWith('scan-')?'scan.'+section.slice(5):section==='tools'?'tools':section==='agents'?'agents':section==='edr'?'edr':'library';
   function allows(section){if(section==='modules')return true;if(section==='chatbot')return false;if(section==='edr')return can('edr');const key=sectionKey(section);return key==='remote'?can('remote'):can(key+'.read')||can(key+'.write');}
@@ -51,5 +52,5 @@ window.WolfGuardAccess=(()=>{
     if(expiry)expiryTimer=setTimeout(()=>{if(user()?.id===expiryUser&&Date.now()>=expiry)lockApplication();else watchExpiry();},Math.min(2147483647,expiry-Date.now()+25));
   }
   window.addEventListener('wolfguard-user-changed',()=>{topNavigation.refresh?.();watchExpiry();schedule();});
-  return Object.freeze({can,allows,restricted,personalVaultHome,level,action,assertChanges,reject,paint});
+  return Object.freeze({can,canAgent,allows,restricted,personalVaultHome,level,action,assertChanges,reject,paint});
 })();

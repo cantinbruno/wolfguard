@@ -21,6 +21,7 @@ const PERMISSION_SECTIONS = [
   ['access', 'Connexions']
 ];
 const SECTION_LEVELS = [['read', 'Lecture'], ['write', 'Écriture'], ['deny', 'Invisible']];
+const AGENT_SECTIONS = ['agents','scan.passive','scan.active','scan.map','scan.vulnerability','edr','remote'];
 const SECTION_IDS = PERMISSION_SECTIONS.map(([id]) => id);
 // Legacy granular keys remain understood so old policies keep loading.
 const GROUP_ACTIONS = {
@@ -70,6 +71,12 @@ function normalizePolicy(input) {
   const expiry = input.expiresAt ?? null; if (expiry !== null && (!Number.isSafeInteger(expiry) || expiry < 1 || expiry > 8640000000000000)) throw new Error('Date de fin invalide.');
   if (input.agents !== undefined && input.agents !== null && (!Array.isArray(input.agents) || input.agents.length > 200 || input.agents.some(id => !/^[a-f0-9]{32}$/.test(id)))) throw new Error('Liste de postes invalide.');
   const agents = input.agents === undefined || input.agents === null ? null : [...new Set(input.agents)];
+  let individual={};
+  if(input.agentLevels!==undefined){
+    const levels=input.agentLevels;
+    if(!levels||typeof levels!=='object'||Array.isArray(levels)||Object.keys(levels).length>200||Object.entries(levels).some(([id,level])=>!/^[a-f0-9]{32}$/.test(id)||!['read','write','deny'].includes(level)))throw new Error('Droits par poste invalides.');
+    individual={agentLevels:Object.fromEntries(Object.entries(levels))};
+  }
   let compatibility={};
   if(input.legacyGrants){
     if(!Array.isArray(input.legacyGrants)||input.legacyGrants.some(key=>!PERMISSION_KEYS.includes(key)))throw new Error('Droits hérités invalides.');
@@ -83,7 +90,7 @@ function normalizePolicy(input) {
     }
     compatibility={legacyGrants:[...new Set(input.legacyGrants)],scopes};
   }
-  return { ...compatibility,version: 2, profile: typeof input.profile === 'string' ? input.profile : 'custom', admin: !!input.admin, sections, agents, expiresAt: expiry };
+  return { ...compatibility,...individual,version: 2, profile: typeof input.profile === 'string' ? input.profile : 'custom', admin: !!input.admin, sections, agents, expiresAt: expiry };
 }
 function grantsOf(policy) {
   if(policy.legacyGrants)return [...policy.legacyGrants];
@@ -109,10 +116,15 @@ function can(user, key, now = Date.now()) {
   const readKeys = LEVEL_ACTIONS.read[section] || [];
   return key === section || readKeys.includes(key);
 }
-function canAgent(user, id, now = Date.now()) {
-  if (!can(user, 'agents.read', now)) return false;
+function canAgent(user, id, now = Date.now(), action = 'agents.read') {
+  if (!can(user, 'agents.read', now)||!can(user,action,now)) return false;
   const policy = user?.permissions;
-  return user?.role==='admin'||!policy||policy.admin||policy.agents==null||policy.agents.includes(id);
+  if(user?.role==='admin'||policy?.admin)return true;
+  if(policy?.agents!=null&&!policy.agents.includes(id))return false;
+  const level=policy?.agentLevels?.[id]??'write';
+  if(level==='deny')return false;
+  // Per-machine levels only restrict existing section permissions.
+  return level==='write'||AGENT_SECTIONS.includes(action)||AGENT_SECTIONS.some(section=>[section+'.read',section+'.export'].includes(action));
 }
 const LEVEL_ORDER = { deny: 0, read: 1, write: 2 };
 function recordSection(record, kind = 'items') { return kind === 'folders' ? (record.section === 'vault' ? 'vault' : 'library') : (record.type === 'vault' ? 'vault' : 'library'); }
@@ -148,6 +160,11 @@ function canManagePolicy(actor, target, now = Date.now()) {
   if (target.admin) return false;
   if(grantsOf(target).some(key=>!can(actor,key,now)))return false;
   if(ownPolicy.agents!=null&&(target.agents==null||target.agents.some(id=>!ownPolicy.agents.includes(id))))return false;
+  const affected=new Set([...Object.keys(ownPolicy.agentLevels||{}),...Object.keys(target.agentLevels||{})]);
+  const targetUser={role:'member',permissions:target};
+  for(const id of affected)for(const action of [...PERMISSION_KEYS.filter(key=>AGENT_SECTIONS.some(section=>key.startsWith(section+'.'))),'tools.write']){
+    if(canAgent(targetUser,id,now,action)&&!canAgent(actor,id,now,action))return false;
+  }
   if(ownPolicy.scopes&&JSON.stringify(ownPolicy.scopes)!==JSON.stringify(target.scopes))return false;
   for (const section of SECTION_IDS) {
     // A manager may only hand out levels at or below his own for each section.
@@ -157,5 +174,5 @@ function canManagePolicy(actor, target, now = Date.now()) {
   return true;
 }
 
-return Object.freeze({PERMISSION_SECTIONS,SECTION_LEVELS,PERMISSION_KEYS,LEVEL_ACTIONS,PERMISSION_PROFILES,profilePolicy,normalizePolicy,grantsOf,can,canAgent,recordSection,vaultHomeId,isVaultHome,isInPersonalVault,recordLevel,requirePermission,canManagePolicy});
+return Object.freeze({PERMISSION_SECTIONS,SECTION_LEVELS,AGENT_SECTIONS,PERMISSION_KEYS,LEVEL_ACTIONS,PERMISSION_PROFILES,profilePolicy,normalizePolicy,grantsOf,can,canAgent,recordSection,vaultHomeId,isVaultHome,isInPersonalVault,recordLevel,requirePermission,canManagePolicy});
 })();

@@ -13,7 +13,7 @@ async function expire(env,now){
 }
 async function ownerAllowed(env,row,now){
   const user=await env.DB.prepare('SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE u.id=? AND u.code_version=? AND u.disabled_at IS NULL AND u.credential_pending=0 AND s.token_hash=? AND s.user_version=u.code_version AND s.generation=? AND s.expires_at>? AND s.active_at>? AND s.generation=(SELECT generation FROM vault WHERE id=1)').bind(row.user_id,row.user_version,row.session_hash,row.generation,now,now-3600000).first();
-  if(!user)return false;user.permissions=await userPolicy(user,env);return can(user,'tools.write',now)&&await accessibleAgent(env,user,row.agent_id,now);
+  if(!user)return false;user.permissions=await userPolicy(user,env);return can(user,'tools.write',now)&&await accessibleAgent(env,user,row.agent_id,now,'tools.write');
 }
 export async function claimAI(env,agent,now,h){
   await expire(env,now);
@@ -42,7 +42,7 @@ export async function handleAI(request,env,now,h){
   const {fail,json}=h,session=await h.authorize(request,env,now);requirePermission(session.user,'tools.write',fail,now);await expire(env,now);
   const url=new URL(request.url);
   if(url.pathname==='/api/ai'&&request.method==='POST'){
-    const data=await h.body(100000);if(!validId(data.agentId)||!await accessibleAgent(env,session.user,data.agentId,now))fail(403,'Choisis un poste autorisé.');
+    const data=await h.body(100000);if(!validId(data.agentId)||!await accessibleAgent(env,session.user,data.agentId,now,'tools.write'))fail(403,'Choisis un poste autorisé.');
     let input;try{input=chatInput(data);}catch(error){fail(400,error.message);}
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first();
     if(!agent||agent.last_seen<=now-20000)fail(409,'Le poste est hors ligne. Démarre son agent WolfGuard.');
@@ -56,7 +56,7 @@ export async function handleAI(request,env,now,h){
   if(['/api/ai','/api/ai/cancel'].includes(url.pathname)){
     const data=request.method==='POST'?await h.body():{},id=data.id||url.searchParams.get('id');if(!validId(id))fail(400,'Demande IA invalide.');
     const row=await env.DB.prepare('SELECT * FROM ai_jobs WHERE id=? AND user_id=? AND generation=?').bind(id,session.user.id,session.generation).first();
-    if(!row)fail(404,'Demande IA introuvable.');if(!await accessibleAgent(env,session.user,row.agent_id,now))fail(403,'Ce poste ne fait plus partie de tes accès.');
+    if(!row)fail(404,'Demande IA introuvable.');if(!await accessibleAgent(env,session.user,row.agent_id,now,'tools.write'))fail(403,'Ce poste ne fait plus partie de tes accès.');
     if(url.pathname.endsWith('/cancel')&&request.method==='POST'){await env.DB.prepare(`UPDATE ai_jobs SET status='cancelled' WHERE id=? AND status IN ${pending}`).bind(id).run();return json({ok:true});}
     if(url.pathname==='/api/ai'&&request.method==='GET')return json({id,status:row.status,...(row.result_cipher?await open(row.result_cipher,'WolfGuard AI result v1:'+id,env):{}),...(row.status==='failed'&&!row.result_cipher?{error:'Le traitement a expiré. Vérifie Ollama et le modèle sur le poste.'}:{})});
   }

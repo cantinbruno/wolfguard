@@ -5,7 +5,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import * as browserCrypto from '../browser/crypto.js';
-import {profilePolicy,normalizePolicy,can,recordLevel,canManagePolicy,vaultHomeId} from '../server/lib/wolfguard/permissions.mjs';
+import {profilePolicy,normalizePolicy,can,canAgent,recordLevel,canManagePolicy,vaultHomeId,AGENT_SECTIONS} from '../server/lib/wolfguard/permissions.mjs';
 import {openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from '../server/lib/wolfguard/workspace-access.mjs';
 import {policyCipher} from '../server/lib/wolfguard/permission-store.mjs';
 import {seal as sealRecord} from '../server/lib/wolfguard/access.mjs';
@@ -144,6 +144,51 @@ async function enroll(s,name){
   assert.equal((await agentAPI('agent/poll',{capabilities:['network-scan-v3','network-target-v1','remote-desktop-v1','remote-terminal-v1','ai-chat-v1','endpoint-protection-v1']})).status,200);
   return {...agent,api:agentAPI};
 }
+test('per-agent levels restrict section rights, survive normalization and bound delegated grants',()=>{
+  const a='a'.repeat(32),b='b'.repeat(32),c='c'.repeat(32),policy=profilePolicy('reader');
+  for(const section of AGENT_SECTIONS)policy.sections[section]='write';
+  policy.agentLevels={[a]:'read',[b]:'write',[c]:'deny'};
+  assert.deepEqual(normalizePolicy(policy).agentLevels,policy.agentLevels);
+  for(const action of ['agents.revoke','scan.active.run','scan.map.delete','edr.manage','remote.write']){
+    assert.equal(canAgent(user(policy),a,Date.now(),action),false,action);
+    assert.equal(canAgent(user(policy),b,Date.now(),action),true,action);
+  }
+  assert.equal(canAgent(user(policy),a),true);assert.equal(canAgent(user(policy),c),false);
+  assert.equal(canAgent(user({...policy,sections:{...policy.sections,remote:'deny'}}),b,Date.now(),'remote.write'),false);
+  assert.equal(canAgent(user({...policy,agents:[a]}),b),false);
+  assert.equal(canAgent(user({...policy,expiresAt:10}),b,10),false);
+  assert.equal(canAgent({role:'admin',permissions:policy},c),true);
+  for(const levels of [null,[],{bad:'read'},{[a]:'admin'},Object.fromEntries(Array.from({length:201},(_,i)=>[i.toString(16).padStart(32,'0'),'read']))])assert.throws(()=>normalizePolicy({...policy,agentLevels:levels}));
+  const target=structuredClone(policy);delete target.agentLevels;
+  assert.equal(canManagePolicy(user(policy),target),false);
+  target.agents=[b];assert.equal(canManagePolicy(user(policy),target),true);
+  target.agents=[a];assert.equal(canManagePolicy(user(policy),target),false);
+  target.agentLevels={[a]:'read'};assert.equal(canManagePolicy(user(policy),target),true);
+});
+test('one account can read one agent, operate another and never access an invisible agent',async()=>{
+  const s=await setup();try{
+    const a=await enroll(s,'Read only'),b=await enroll(s,'Operator'),c=await enroll(s,'Hidden');
+    const policy=profilePolicy('reader');for(const section of AGENT_SECTIONS)policy.sections[section]='write';
+    policy.agentLevels={[a.id]:'read',[b.id]:'write',[c.id]:'deny'};
+    assert.equal((await s.assign(policy)).status,200);const auth=await s.login('12345678');
+    assert.deepEqual(auth.user.permissions.agentLevels,policy.agentLevels);
+    assert.deepEqual((await(await s.api('agents',undefined,auth.token)).json()).agents.map(row=>row.id).sort(),[a.id,b.id].sort());
+    assert.deepEqual((await(await s.api('edr',undefined,auth.token)).json()).endpoints.map(row=>row.id).sort(),[a.id,b.id].sort());
+    assert.equal((await s.api('edr/events?agentId='+a.id,undefined,auth.token)).status,200);
+    for(const agent of [a,c]){
+      for(const [path,data]of [['scans',{agentId:agent.id,workspace:'active',strategy:'active',target:'192.0.2.1',ports:'443'}],['remote/start',{agentId:agent.id}],['remote/start',{agentId:agent.id,mode:'terminal'}],['remote/start',{agentId:agent.id,mode:'files'}],['agents/revoke',{id:agent.id}],['edr/command',{agentId:agent.id,action:'refresh'}],['edr/acknowledge',{agentId:agent.id,key:'a'.repeat(64)}],['edr/policy',{agentId:agent.id,revision:0,policy:{}}]])assert.equal((await s.api(path,data,auth.token)).status,403,path);
+    }
+    const remote=await s.api('remote/start',{agentId:b.id,mode:'terminal'},auth.token);assert.equal(remote.status,201);const live=await remote.json();
+    assert.equal((await s.api('remote/stop',{id:live.id},auth.token)).status,200);
+    assert.equal((await s.api('edr/command',{agentId:b.id,action:'refresh'},auth.token)).status,201);
+    const readJob=await(await s.api('scans',{agentId:a.id,workspace:'active',strategy:'active',target:'192.0.2.1',ports:'443'},s.owner.token)).json();
+    const writeJob=await s.api('scans',{agentId:b.id,workspace:'active',strategy:'active',target:'192.0.2.1',ports:'443'},auth.token);assert.equal(writeJob.status,201);
+    assert.equal((await s.api('scans?agentId='+a.id,undefined,auth.token)).status,200);
+    for(const path of ['scans/cancel','scans/delete'])assert.equal((await s.api(path,{id:readJob.id},auth.token)).status,403,path);
+    const oldClient=structuredClone(policy);delete oldClient.agentLevels;
+    assert.equal((await s.assign(oldClient)).status,409,'an old browser cannot erase per-agent restrictions');
+  }finally{s.env.DB.db.close();}
+});
 test('scan history, result lookup and cancellation enforce both scan type and agent scope',async()=>{
   const s=await setup();try{
     const a=await enroll(s,'Allowed'),b=await enroll(s,'Private');

@@ -96,6 +96,14 @@ test('automatic bootstrap respects write rights and locking',async()=>{
     assert.equal(calls.filter(call=>call.path==='remote/terminal/command').length,0);
   }
 });
+test('manual and automatic updates refuse a read-only agent even with global write rights',async()=>{
+  const {fixture,calls,agent}=updateFixture();
+  fixture.WolfGuardAccess={can:()=>true,canAgent:()=>false};
+  await assert.rejects(fixture.WolfGuardAgentUpdates.start(agent),/droits Agents/);
+  await fixture.WolfGuardAgentUpdates.automatic([agent]);
+  assert.equal(calls.length,0);
+  assert.equal(fixture.WolfGuardAgentUpdates.state(agent.id),null);
+});
 
 test('installed agents check releases periodically without a browser and never reinstall the current version',async()=>{
   let clock=1000,checks=0,installs=0;

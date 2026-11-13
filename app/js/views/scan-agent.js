@@ -51,9 +51,9 @@ const webScanAgent = (() => {
       find('#wgAgentPresence').dataset.online = String(!!agent?.online);
       find('#wgAgentPresence').hidden = !agent;
       let validTarget=true;if(['active','passive'].includes(kind)){try{webScanModel.singleTarget(values().target);}catch{validTarget=false;}}
-      find('#wgAgentLaunch').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.write') || !validTarget || busy || !agent?.online || !!running || !compatible;
+      find('#wgAgentLaunch').disabled = !!window.WolfGuardAccess&&(!WolfGuardAccess.can('scan.'+kind+'.write')||!!agent&&!!WolfGuardAccess.canAgent&&!WolfGuardAccess.canAgent(agent.id,'scan.'+kind+'.write')) || !validTarget || busy || !agent?.online || !!running || !compatible;
       const otherScan=running&&(running.workspace||running.strategy)!==kind;
-      find('#wgAgentStop').disabled = !!window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.write') || busy || !running || !!otherScan;
+      find('#wgAgentStop').disabled = !!window.WolfGuardAccess&&(!WolfGuardAccess.can('scan.'+kind+'.write')||!!agent&&!!WolfGuardAccess.canAgent&&!WolfGuardAccess.canAgent(agent.id,'scan.'+kind+'.write')) || busy || !running || !!otherScan;
       find('#wgAgentStop').hidden = !running || !!otherScan;
       find('#wgAgentStop').textContent = 'Arrêter';
       find('#wgAgentLaunch').title=otherScan?'Poste occupé : '+(scanInsights.definitions[running.workspace||running.strategy]?.short||'autre scan')+'. Son arrêt se fait depuis sa propre rubrique.':'';

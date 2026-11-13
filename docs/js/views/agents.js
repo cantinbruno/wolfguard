@@ -24,7 +24,7 @@ const agentsWorkspace = (() => {
     $('#content').replaceChildren(root);
     const live = () => token === generation && root.isConnected && isSecurityWorkspace(state.section) && state.vaultKey === key && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
-    const can = right => !window.WolfGuardAccess || WolfGuardAccess.can(right);
+    const can = (right,agent=null) => !window.WolfGuardAccess || WolfGuardAccess.can(right)&&(!agent||!WolfGuardAccess.canAgent||WolfGuardAccess.canAgent(agent.id,right));
     let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
     let detailAgentId = null, detailHTML = '';
@@ -80,7 +80,7 @@ const agentsWorkspace = (() => {
     }
     function updateInfo(agent) {
       const task = WolfGuardAgentUpdates.state(agent.id), current = !stale && !releaseStale && !!publishedRelease && agent.version === publishedRelease.version;
-      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write') || !can('remote.write') ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
+      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write',agent) || !can('remote.write',agent) ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
       return {task,current,reason,canUpdate:!reason && !current && !task?.running, outdated:!!publishedRelease && !!agent.version && !current};
     }
     function updateHTML(agent) {
@@ -119,7 +119,7 @@ const agentsWorkspace = (() => {
     }
 
     function reason(action, agent) {
-      if (!workspaceModules.allows(action.section) || (action.mode && !can('remote.write'))) return 'Droit d’accès non accordé';
+      if (!workspaceModules.allows(action.section) || (action.mode && !can('remote.write',agent))) return 'Droit d’accès non accordé';
       if (stale) return 'Connexion au service à vérifier';
       if (action.id !== 'edr' && WolfGuardAgentUpdates.state(agent.id)?.running) return 'Mise à jour de l’agent en cours';
       if (!action.offline && !agent.online) return 'Le poste doit être connecté';

@@ -15,7 +15,7 @@ def run():
             assert response.status == 200
             return response.json()['id']
 
-        allowed, excluded, reserved = [enroll(name) for name in ['Poste atelier', 'Poste direction', 'Poste administrateur']]
+        allowed, excluded, reserved, reader = [enroll(name) for name in ['Poste atelier', 'Poste direction', 'Poste administrateur', 'Poste consultation']]
         owner.evaluate("id => WolfGuardCloud.agentRequest('agents/restricted', {id, restricted:true})", reserved)
         invitation = invite(owner, 'security-rights@example.test')
         guest_context = context()
@@ -30,10 +30,11 @@ def run():
         owner.locator('[data-security-level=write]').click()
         owner.locator('[data-agent-scope=selected]').check()
         expect(owner.locator('.permission-agent-scope > small')).to_contain_text('0 poste')
-        owner.locator('[data-permission-agent="' + allowed + '"]').check()
-        owner.locator('[data-permission-agent="' + reserved + '"]').check()
+        owner.locator('[data-agent-right-id="' + allowed + '"][data-agent-level=write]').click()
+        owner.locator('[data-agent-right-id="' + reserved + '"][data-agent-level=write]').click()
+        owner.locator('[data-agent-right-id="' + reader + '"][data-agent-level=read]').click()
         owner.locator('[data-section=library][data-level=read]').click()
-        expect(owner.locator('[data-permission-agent="' + allowed + '"]')).to_be_checked()
+        expect(owner.locator('[data-agent-right-id="' + allowed + '"][data-agent-level=write]')).to_have_attribute('aria-pressed','true')
         owner.locator('#wgPermissionSave').click()
         expect(owner.locator('#wgPermissionHost')).to_contain_text('Droits enregistrés')
 
@@ -42,7 +43,8 @@ def run():
 
         saved = policy()
         assert all(saved['sections'][section] == 'write' for section in SECURITY)
-        assert set(saved['agents']) == {allowed, reserved}
+        assert set(saved['agents']) == {allowed, reserved, reader}
+        assert saved['agentLevels'][reader] == 'read' and saved['agentLevels'][allowed] == 'write'
         assert saved['sections']['library'] == 'read' and saved['admin'] is False
 
         def reconnect():
@@ -55,7 +57,9 @@ def run():
             guest.wait_for_function('() => !document.querySelector("#app").inert')
 
         reconnect()
-        assert guest.evaluate("async () => (await WolfGuardCloud.agentRequest('agents')).agents.map(a => a.id)") == [allowed]
+        assert set(guest.evaluate("async () => (await WolfGuardCloud.agentRequest('agents')).agents.map(a => a.id)")) == {allowed, reader}
+        assert guest.evaluate("id => WolfGuardAccess.canAgent(id,'agents.read') && !WolfGuardAccess.canAgent(id,'remote.write') && !WolfGuardAccess.canAgent(id,'scan.active.write')", reader)
+        assert guest.evaluate("id => WolfGuardAccess.canAgent(id,'remote.write')", allowed)
         responses = []
         guest.on('response', lambda response: responses.append((urlsplit(response.url).path, response.status)))
         for agent_id in [excluded, reserved, enroll('Nouveau poste')]:
@@ -68,6 +72,9 @@ def run():
                 assert result, endpoint
         denials = [status for path, status in responses if path in ['/api/scans', '/api/remote/start', '/api/edr/events']]
         assert len(denials) >= 9 and all(status == 403 for status in denials), responses
+        for endpoint, data in [('remote/start', {'agentId': reader, 'mode': 'terminal'}), ('scans', {'agentId': reader, 'workspace': 'active', 'strategy': 'active', 'target': '192.0.2.1'}), ('agents/revoke', {'id': reader}), ('edr/command', {'agentId': reader, 'action': 'refresh'})]:
+            assert guest.evaluate("async ({endpoint,data}) => {try {await WolfGuardCloud.agentRequest(endpoint,data);return false} catch {return true}}", {'endpoint': endpoint, 'data': data})
+        assert guest.evaluate("async id => !!await WolfGuardCloud.agentRequest('edr/events?agentId='+id)", reader)
 
         owner.locator('[data-security-level=read]').click()
         owner.locator('#wgPermissionSave').click()
@@ -75,7 +82,7 @@ def run():
         assert all(policy()['sections'][section] == 'read' for section in SECURITY)
         reconnect()
         assert guest.evaluate("WolfGuardCloud.can('agents.read') && !WolfGuardCloud.can('agents.write') && !WolfGuardCloud.can('remote.write') && !WolfGuardCloud.can('scan.active.run')")
-        assert guest.evaluate("async () => (await WolfGuardCloud.agentRequest('agents')).agents.map(a => a.id)") == [allowed]
+        assert set(guest.evaluate("async () => (await WolfGuardCloud.agentRequest('agents')).agents.map(a => a.id)")) == {allowed, reader}
 
         # Viewing and changing another section must not flatten existing mixed rights.
         owner.evaluate("""async () => {
@@ -92,7 +99,7 @@ def run():
         owner.locator('#wgPermissionSave').click()
         expect(owner.locator('#wgPermissionSave')).to_be_disabled()
         assert policy()['sections']['remote'] == 'deny'
-        assert set(policy()['agents']) == {allowed, reserved}
+        assert set(policy()['agents']) == {allowed, reserved, reader}
 
         # Harmonising security must preserve legacy restrictions on unrelated data.
         owner.evaluate("""async () => {
@@ -124,7 +131,7 @@ def run():
         owner.locator('[data-section=tools][data-level=read]').click()
         owner.locator('#wgPermissionSave').click()
         expect(owner.locator('#wgPermissionSave')).to_be_disabled()
-        assert set(policy()['agents']) == {allowed, reserved}
+        assert set(policy()['agents']) == {allowed, reserved, reader}
         owner.unroute(API + '/api/agents')
         owner.locator('#wgPermissionAdmin').check()
         expect(owner.locator('[data-agent-scope=all]')).to_be_checked()
@@ -132,7 +139,7 @@ def run():
         expect(owner.locator('.permission-agent-scope')).to_contain_text('y compris ceux réservés aux administrateurs')
         owner.locator('#wgPermissionAdmin').uncheck()
         expect(owner.locator('[data-agent-scope=selected]')).to_be_checked()
-        expect(owner.locator('[data-permission-agent="' + allowed + '"]')).to_be_checked()
+        expect(owner.locator('[data-agent-right-id="' + allowed + '"][data-agent-level=write]')).to_have_attribute('aria-pressed','true')
         owner.locator('.permission-security').scroll_into_view_if_needed()
         owner.screenshot(path=str(ROOT / '.cache/security-rights-desktop.png'), animations='disabled')
         for width in [1440, 850, 390, 320]:

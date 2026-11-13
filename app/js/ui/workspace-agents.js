@@ -70,6 +70,7 @@ const workspaceAgents = (() => {
       find('#wgAgentPairCode small').textContent=Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0');
       find('#wgAgentPairProgress').value=Math.min(600,remaining);
     }
+    const canPost=(id,right)=>!!cloud()?.can(right)&&(!window.WolfGuardAccess?.canAgent||WolfGuardAccess.canAgent(id,right));
     function renderAgents(){
       const presence=find('#wgAgentSettingsPresence'),picker=find('#wgAgentSelect');
       presence.dataset.state=stale?'unknown':selected?selected.online?'online':'offline':'empty';
@@ -97,7 +98,7 @@ const workspaceAgents = (() => {
       find('#wgAgentAdd').hidden=!(admin()||cloud()?.can?.('agents.pair'));
       find('#wgAgentPair').disabled=busy||!available()||limit||!(admin()||cloud()?.can?.('agents.pair'));
       find('#wgAgentShare').disabled=find('#wgAgentPair').disabled;
-      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!(admin()||cloud()?.can?.('agents.revoke'));
+      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!canPost(button.dataset.agentRevoke,'agents.revoke');
       for(const button of root.querySelectorAll('[data-agent-start]'))button.hidden=!(admin()||cloud()?.can('agents.pair'));
       if(firstLoad){showTab(agents.length||!admin()?'fleet':'connect');firstLoad=false;}
     }
