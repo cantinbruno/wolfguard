@@ -8,9 +8,11 @@ Le Mémo conserve les dossiers, sous-dossiers, fiches, contenus riches, images, 
 
 L’écran Sécurité conserve le poste choisi pendant l’utilisation de ses outils : scans, cartographie, vulnérabilités, EDR, bureau, terminal et fichiers. Un simple clic sur le nom ou une cellule du poste ouvre sa fiche. Le clic droit et l’appui long ouvrent les options du poste. Les paramètres regroupent les protections de l’application, Authenticator, les préférences et les écrans d’administration autorisés.
 
-La fiche présente l’identité et la connexion du poste, ses protections récentes, WolfGuard Antivirus, les alertes et les outils regroupés par usage. La maintenance et la mise à jour de l’agent sont directement accessibles. Les identifiants complets et la politique EDR sont repliables ; un rafraîchissement conserve leur ouverture et le focus. Une valeur inconnue n’est pas remplacée par zéro.
+La fiche est organisée en trois onglets : « Vue d’ensemble » pour la connexion, les protections, WolfGuard Antivirus et la maintenance ; « Outils » pour les accès à distance et diagnostics ; « Détails » pour les identifiants et la politique EDR. Un rafraîchissement conserve l’onglet, l’ouverture des détails et le focus. Les onglets se parcourent aussi avec les flèches, Début et Fin. Une valeur inconnue n’est pas remplacée par zéro.
 
-« Gérer les agents » ouvre explicitement la liste de gestion : choix du poste utilisé, options de visibilité et révocation confirmée. « Ajouter un agent » ouvre directement l’installation, même après le premier chargement ou avec une liste vide. Ces deux destinations sont distinctes. « Gérer ce poste » depuis une fiche déplie l’agent concerné ; fermer la gestion revient à sa fiche. Les droits poste par poste et les limitations hors ligne restent appliqués.
+L’en-tête du parc possède **un seul bouton « Gérer les agents »**. L’ajout de postes reste dans cette fenêtre, à l’onglet « Ajouter un poste » ; ne pas réintroduire un bouton d’ajout séparé ni un second accès de gestion dans la fiche. Les droits poste par poste et les limitations hors ligne restent appliqués.
+
+Le tableau conserve le tri, la recherche, les filtres et les états de mise à jour. Ses lignes sont plus espacées et les dates abrégées. Sur téléphone, chaque ligne devient une carte du poste sans défilement horizontal ; une sélection de colonne et un bouton de sens remplacent les en-têtes de tri. Le clic simple ouvre toujours la fiche ; clic droit et appui long conservent les options. Le rafraîchissement manuel reste à côté des filtres.
 
 La section Données ne propose plus de sauvegardes utilisateur. Les anciens formats et outils de migration conservés dans le code servent à la compatibilité ; ne pas les remettre dans le parcours courant.
 

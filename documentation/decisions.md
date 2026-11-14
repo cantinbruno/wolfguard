@@ -13,7 +13,7 @@ Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvell
 | Sauvegardes | Pas d’export/import de sauvegardes proposé dans l’interface. Ne pas supprimer les copies techniques de récupération ou les données existantes. |
 | Agents | Réglages de droits poste par poste, en plus des permissions de section. Une restriction individuelle ne peut pas élargir les droits globaux. |
 | Antivirus | Moteur libre intégré choisi par l’utilisateur : ClamAV. Première intégration Windows x64 : analyse réactive de dossiers et quarantaine chiffrée ; sans blocage avant exécution ni remplacement complet de Defender. Protections natives conservées. Voir `documentation/antivirus.md`. |
-| Interface sécurité | Présentation cohérente et compacte ; garder les outils et le poste sélectionné dans le même contexte. |
+| Interface sécurité | Un seul bouton « Gérer les agents » dans le parc, ajout à l’intérieur. Fiche avec Vue d’ensemble / Outils / Détails ; tableau adapté au mobile. Garder les outils et le poste sélectionné dans le même contexte. |
 | Windows | Procédure Authenticode préparée ; l’obtention payante d’un certificat a été abandonnée. Ne pas relancer cet achat ni inventer une signature reconnue. |
 | Tests du poste | Aucun test qui ouvre une fenêtre, prend le focus ou injecte clavier/souris sans demande explicite. Les tests Playwright sans fenêtre utilisent des profils temporaires. |
 | IA locale | Continue dans VS Code et Ollama sur ce PC, modèle `wolfguard-code:9b`. Préserver le profil local et ses réglages. |
