@@ -35,6 +35,7 @@ Les tests utilisent `.cache/site-document.html` et les sorties de compilation. R
 | Frontend et navigation Sécurité | `npm run test:agents-console` ; test navigateur de la vue concernée |
 | Protection de l’application | `npm run test:security` |
 | Agent et mises à jour | `node --test tests/agent.test.mjs tests/agent-update.test.mjs tests/agent-posix.test.mjs` |
+| Antivirus intégré et quarantaine | `node --test tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs` ; `python tests/antivirus_workspace_test.py` |
 | Bureau, terminal et fichiers | `node --test tests/remote.test.mjs tests/terminal.test.mjs tests/files.test.mjs` |
 | Publication | `node scripts/check-publication.mjs` ; `node --test tests/publication.test.mjs` |
 

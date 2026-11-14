@@ -2,6 +2,7 @@ import {accessibleAgent,administrator} from './agent-access.mjs';
 import {can,canAgent,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {endpointSnapshot,endpointPolicy,endpointHealth,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMANDS} from './endpoint-spec.mjs';
+import {antivirusCommand} from './antivirus-spec.mjs';
 
 const idOK=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
 export const canReadEndpoints=(user,now)=>can(user,'edr.read',now)||(can(user,'agents.read',now)&&can(user,'scan.vulnerability.read',now));
@@ -16,10 +17,19 @@ export async function handleEndpointAPI(request,env,now,h){
     if(!row)return false;const user={id:row.id,role:row.role,permissions:await userPolicy(row,env)};
     return can(user,'edr.manage',now)&&await accessibleAgent(env,user,command.agent_id,now,'edr.manage');
   }
-  async function claim(agent,canEnforce){
+  async function claim(agent,canEnforce,antivirusCapable=false,pendingCommandId=''){
+    if(pendingCommandId){
+      const pending=await env.DB.prepare('SELECT status,expires_at FROM endpoint_commands WHERE id=? AND agent_id=? AND generation=?').bind(pendingCommandId,agent.id,agent.generation).first();
+      if(!pending||['cancelled','expired','completed','failed'].includes(pending.status))return {cancelled:pendingCommandId};
+    }
+    const running=await env.DB.prepare("SELECT * FROM endpoint_commands WHERE agent_id=? AND status='running' ORDER BY created_at LIMIT 1").bind(agent.id).first();
+    if(running&&(running.expires_at<=now||!await issuerAllowed(running))){
+      await env.DB.prepare("UPDATE endpoint_commands SET status=? WHERE id=? AND status='running'").bind(running.expires_at<=now?'expired':'cancelled',running.id).run();
+      return {cancelled:running.id};
+    }
     await env.DB.prepare("UPDATE endpoint_commands SET status='expired' WHERE agent_id=? AND status IN ('queued','running') AND expires_at<=?").bind(agent.id,now).run();
     const current=await env.DB.prepare("SELECT id FROM endpoint_commands WHERE agent_id=? AND status='running' AND expires_at>?").bind(agent.id,now).first();if(current)return null;
-    const queued=await env.DB.prepare("SELECT * FROM endpoint_commands WHERE agent_id=? AND generation=? AND status='queued' AND expires_at>? AND (?=1 OR action='refresh') ORDER BY created_at,id LIMIT 1").bind(agent.id,agent.generation,now,canEnforce?1:0).first();
+    const queued=await env.DB.prepare("SELECT * FROM endpoint_commands WHERE agent_id=? AND generation=? AND status='queued' AND expires_at>? AND ((?=1 AND action NOT LIKE 'av-%') OR action='refresh' OR (?=1 AND action LIKE 'av-%')) ORDER BY created_at,id LIMIT 1").bind(agent.id,agent.generation,now,canEnforce?1:0,antivirusCapable?1:0).first();
     if(!queued)return null;
     if(!await issuerAllowed(queued)){await env.DB.prepare("UPDATE endpoint_commands SET status='cancelled' WHERE id=?").bind(queued.id).run();return null;}
     const lease=random(32),claimed=await env.DB.prepare("UPDATE endpoint_commands SET status='running',lease_hash=?,updated_at=? WHERE id=? AND status='queued' AND NOT EXISTS(SELECT 1 FROM endpoint_commands WHERE agent_id=? AND status='running') RETURNING id").bind(await digest(lease),now,queued.id,agent.id).first();
@@ -52,7 +62,8 @@ export async function handleEndpointAPI(request,env,now,h){
         .bind(agent.id,key,event.occurredAt,now,event.status,event.severity,encrypted,agent.id,agent.generation));
     }
     const result=await env.DB.batch(statements),policy=await policyFor(agent.id);
-    return json({accepted:!!result[0]?.meta?.changes,...policy,command:await claim(agent,snapshot.canEnforce)});
+    const claimed=await claim(agent,snapshot.canEnforce,snapshot.wolfguardAntivirus?.capable===true,snapshot.wolfguardAntivirus?.commandId||'');
+    return json({accepted:!!result[0]?.meta?.changes,...policy,command:claimed?.cancelled?null:claimed,...(claimed?.cancelled?{cancelCommand:claimed.cancelled}:{})});
   }
   const session=await authorize(request,env,now),user=session.user;
   if(!canReadEndpoints(user,now))fail(403,'Ton compte ne peut pas consulter la protection des postes.',{code:'PERMISSION_DENIED'});
@@ -71,7 +82,7 @@ export async function handleEndpointAPI(request,env,now,h){
     for(const row of rows.results){
       if(!await accessibleAgent(env,user,row.id,now))continue;
       const metadata=await open(row.name_cipher,row.id+':name'),snapshot=row.snapshot_cipher?await open(row.snapshot_cipher,row.id+':endpoint-state'):null,online=row.last_seen>now-90000,fresh=online&&!!row.received_at&&now-row.received_at<120000&&now-row.collected_at<120000;
-      endpoints.push({id:row.id,...metadata,online,lastSeen:row.last_seen,receivedAt:row.received_at||null,collectedAt:row.collected_at||null,health:endpointHealth(snapshot,fresh),snapshot:snapshot?{...snapshot,events:undefined}:null,alerts:row.alerts,blocks:row.blocks,policy:row.policy_cipher?await open(row.policy_cipher,row.id+':endpoint-policy'):{...DEFAULT_ENDPOINT_POLICY},revision:row.revision||0});
+      endpoints.push({id:row.id,...metadata,online,lastSeen:row.last_seen,receivedAt:row.received_at||null,collectedAt:row.collected_at||null,health:endpointHealth(snapshot,fresh,now),snapshot:snapshot?{...snapshot,events:undefined}:null,alerts:row.alerts,blocks:row.blocks,policy:row.policy_cipher?await open(row.policy_cipher,row.id+':endpoint-policy'):{...DEFAULT_ENDPOINT_POLICY},revision:row.revision||0});
     }
     return json({endpoints,serverTime:now});
   }
@@ -105,10 +116,17 @@ export async function handleEndpointAPI(request,env,now,h){
     return json({ok:true,revision:data.revision+1,policy});
   }
   if(path==='/api/edr/command'){
-    if(!ENDPOINT_COMMANDS.includes(data.action))fail(400,'Action de protection inconnue.');
-    const queued=await env.DB.prepare("SELECT COUNT(*) n FROM endpoint_commands WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first();if(queued.n>=3)fail(429,'Trois actions sont déjà en attente pour ce poste.');
+    const ownAntivirus=antivirusCommand(data.action);
+    if(!ENDPOINT_COMMANDS.includes(data.action)&&!ownAntivirus)fail(400,'Action de protection inconnue.');
+    if(ownAntivirus){
+      const row=await env.DB.prepare('SELECT snapshot_cipher FROM endpoint_states WHERE agent_id=? AND generation=?').bind(agent.id,agent.generation).first();
+      const snapshot=row?.snapshot_cipher?await open(row.snapshot_cipher,agent.id+':endpoint-state'):null;
+      if(!snapshot?.wolfguardAntivirus?.capable)fail(409,'Mets à jour cet agent pour installer WolfGuard Antivirus.');
+    }
     if(!user.id)fail(403,'Active les comptes personnels avant de gérer les protections.');
     const current=await authorize(request,env,now);requirePermission(current.user,'edr.manage',fail,now);if(!await accessibleAgent(env,current.user,agent.id,now,'edr.manage'))fail(403,'Le périmètre de postes a changé.');
+    if(data.action==='av-pause')await env.DB.prepare("UPDATE endpoint_commands SET status='cancelled' WHERE agent_id=? AND action LIKE 'av-%' AND status IN ('queued','running')").bind(agent.id).run();
+    const queued=await env.DB.prepare("SELECT COUNT(*) n FROM endpoint_commands WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first();if(queued.n>=3)fail(429,'Trois actions sont déjà en attente pour ce poste.');
     const id=random(16),insert=await env.DB.prepare(`INSERT INTO endpoint_commands(id,agent_id,generation,requested_by,user_version,action,status,created_at,updated_at,expires_at)
       SELECT ?,?,?,?,?,?,'queued',?,?,? WHERE
       (SELECT COUNT(*) FROM endpoint_commands WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?)<3

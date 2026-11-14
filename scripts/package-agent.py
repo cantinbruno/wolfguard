@@ -32,7 +32,12 @@ for name in ['topology.mjs','version.mjs','auto-update.mjs','update-command.mjs'
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['agent/topology.ps1']='agent/topology.ps1'
-for name in ['files-spec.mjs','remote-spec.mjs','terminal-spec.mjs']:
+for name in ['antivirus.mjs','antivirus-engine.mjs','antivirus-store.mjs','antivirus-dependencies.json']:
+    FILES['agent/'+name]='agent/'+name
+    POSIX_FILES['agent/'+name]='agent/'+name
+FILES['agent/antivirus-windows.ps1']='agent/antivirus-windows.ps1'
+
+for name in ['files-spec.mjs','remote-spec.mjs','terminal-spec.mjs','antivirus-spec.mjs']:
     FILES['server/lib/wolfguard/'+name]='server/lib/wolfguard/'+name
     POSIX_FILES['server/lib/wolfguard/'+name]='server/lib/wolfguard/'+name
 POSIX_FILES.update({'Start-Agent.sh':'agent/Start-Agent.sh','Start-Agent.command':'agent/Start-Agent.command','LIRE-MOI.txt':'agent/LIRE-MOI-POSIX.txt'})

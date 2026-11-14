@@ -39,4 +39,6 @@ Le code à huit chiffres reste une limite face à des essais hors ligne sur d’
 
 ## Vérification
 
+WolfGuard intègre ClamAV sur Windows x64 : moteur épinglé et contrôlé par SHA-256, signatures officielles, quarantaine AES-256-GCM avec clé DPAPI, restauration sans écrasement et commandes autorisées poste par poste. La surveillance est réactive et limitée aux dossiers affichés ; elle ne remplace pas la prévention de Defender. Les limites, contrôles et procédures sont détaillés dans [Antivirus](antivirus.md).
+
 Voir [Développement](developpement.md) pour les suites ciblées. Les contrôles couvrent les permissions, sessions, MFA, stockage et modes distants. Ils ne constituent pas un audit indépendant ni une garantie d’absence de faille.

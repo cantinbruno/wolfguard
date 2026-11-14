@@ -10,6 +10,8 @@ Windows utilise les lanceurs PowerShell/C# et les composants de capture. Linux e
 
 Pour le bureau Windows, les dépendances et composants natifs sont décrits dans `agent/remote-dependencies.json` et les modules `remote-*`. Le composant d’image doit être démarré depuis les ressources de la version courante.
 
+Le moteur libre ClamAV peut être installé depuis la vue EDR sur Windows x64. Il analyse les dossiers utilisateur indiqués et traite ses détections dans une quarantaine chiffrée locale. Cette surveillance réactive ne bloque pas l’exécution avant le verdict et laisse les protections natives actives. Voir [Antivirus : activation, droits et limites](../antivirus.md).
+
 ## Association, droits et mise à jour
 
 L’association d’un poste est indépendante de la connexion du compte navigateur. Un lien personnel peut permettre une association unique pendant une durée limitée. Garder les jetons d’agent hors des archives publiques.

@@ -22,6 +22,7 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | Association et autorisations des postes | `server/lib/wolfguard/agents.mjs`, `agent-access.mjs` |
 | Scans et réseau | `agent/network.mjs`, `agent/topology.mjs`, `agent/collect.ps1`, vues `app/js/views/scan-*` |
 | EDR | `agent/endpoint*`, `agent/protect.ps1`, `server/lib/wolfguard/endpoints.mjs` |
+| Antivirus WolfGuard | `agent/antivirus*`, `server/lib/wolfguard/antivirus-spec.mjs`, `app/js/views/edr.js` ; voir [couverture et limites](antivirus.md) |
 | Bureau, terminal et fichiers | modules `remote*`, `terminal*`, `files*` dans `agent/` et `server/lib/wolfguard/` |
 | Avis CERT-FR | `server/lib/wolfguard/certfr.mjs` et vues de rapports |
 | Mise à jour d’un agent | `agent/update-command.mjs`, `agent/auto-update.mjs`, `app/js/agent-updates.js` |

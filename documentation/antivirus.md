@@ -1,60 +1,56 @@
-# Objectif : WolfGuard assure la protection antivirus
+# WolfGuard Antivirus avec ClamAV
 
-L’utilisateur veut que WolfGuard assure la détection et le traitement des menaces sur les postes. Le pilotage de Defender et des protections natives décrit dans le code actuel ne suffit pas à cet objectif.
+L’utilisateur a choisi un **moteur libre intégré**. L’agent Windows x64 intègre désormais l’installation de ClamAV, ses mises à jour de signatures, l’analyse réelle des contenus et une quarantaine chiffrée réversible. L’antivirus natif et le pare-feu restent actifs.
 
-**État : architecture à réaliser. Aucun moteur antivirus autonome n’a été ajouté par cette page.** Le choix entre intégration d’un moteur libre éprouvé et développement d’un moteur propre reste à préciser. Ne pas présenter une future fonctionnalité comme déjà installée ou validée.
+**Couverture de cette première version : surveillance réactive de dossiers utilisateur, sans interception avant ouverture ou exécution.** Ce n’est pas un remplacement complet de Defender, un antivirus inscrit au Centre de sécurité Windows ou un EDR complet. Linux et macOS conservent leur collecte native ; aucun moteur WolfGuard n’y est activé par cette version.
 
-## Composants nécessaires
+## Activation sur un poste
 
-| Composant | Comportement attendu |
-| --- | --- |
-| Moteur de détection | Analyse réelle des contenus, exécutables, documents et archives avec verdict explicite ; distinction entre sain, détecté, erreur et analyse incomplète. |
-| Mises à jour | Vérification de l’origine et de l’intégrité du moteur et des bases ; conservation de la dernière version valide ; échec visible sans annoncer une protection à jour. |
-| Quarantaine | Conservation sécurisée et non exécutable du contenu détecté, identité du fichier et empreinte vérifiées, contrôle des liens et des accès ; restauration autorisée et journalisée. |
-| Surveillance | Définition explicite des fichiers et événements couverts ; distinction entre détection après écriture et blocage avant ouverture ou exécution. |
-| Service du poste | Démarrage et récupération après panne, séparation des privilèges, communication locale contrôlée et état de santé vérifiable. |
-| Interface et API | Actions autorisées poste par poste, événements fiables, visibilité sur les limites et sur l’état réel du moteur WolfGuard. |
+1. Installer ou mettre à jour l’agent Windows depuis les fichiers publiés.
+2. Ouvrir Sécurité, sélectionner le poste, puis EDR.
+3. Dans « WolfGuard Antivirus », choisir « Installer et activer WolfGuard Antivirus » et confirmer.
+4. Attendre la confirmation du poste et vérifier la version du moteur, les signatures, les dossiers couverts et les éventuelles erreurs.
 
-Une erreur, une base absente ou périmée, un fichier inaccessible ou un dépassement de limite ne doit jamais devenir un verdict « sain ». Une perte de contact ne prouve pas que la protection du poste fonctionne encore.
+L’installation n’est pas déclenchée sur toute la flotte automatiquement. Un agent ancien affiche une demande de mise à jour. Une commande en attente ne vaut pas installation réussie. La politique « Protéger » est nécessaire à la surveillance automatique ; « Observer » la suspend. Les analyses manuelles restent possibles. Suspendre WolfGuard ne désactive jamais Defender ni le pare-feu.
 
-## Choix du moteur
+## Moteur et signatures
 
-Une possibilité est d’intégrer ClamAV, qui fournit un moteur réel d’analyse et une base de signatures. Les obligations de licence et de redistribution doivent être respectées ; lier directement libclamav impose sa compatibilité GPL. Ne pas modifier la licence du projet ni redistribuer un binaire tiers sans examiner ce choix.
+Le manifeste `agent/antivirus-dependencies.json` fixe ClamAV 1.5.4 Windows x64 : archive officielle de 225 774 978 octets, SHA-256 imposé, téléchargement HTTPS limité aux domaines de distribution GitHub autorisés. L’archive complète est extraite dans un dossier protégé ; chemins sortants, doublons, liens et extractions excessives sont refusés. Une installation interrompue ne devient pas le moteur actif et peut être relancée. Les exécutables sont contrôlés à la reprise de l’agent.
 
-Un moteur développé entièrement pour WolfGuard exige aussi une base de détection, ses mises à jour, l’analyse des formats, les limites anti-déni de service et une évaluation des faux positifs et faux négatifs. Des listes d’extensions ou quelques empreintes maison ne constituent pas cette couverture.
+Le moteur extrait représente environ 940 Mo ; prévoir plusieurs Go libres pour l’archive, les bases, les copies temporaires et la quarantaine. Il n’est pas inclus dans le petit installateur WolfGuard : le poste le télécharge lors de l’activation.
 
-## Particularité Windows
+FreshClam télécharge et vérifie les bases officielles. Une tentative automatique intervient lorsque leur date de création dépasse un jour, avec au moins une heure entre les essais après échec. « Actualiser les signatures » permet une demande immédiate. L’état affiche la date réelle du contenu CVD/CLD, pas la date du fichier. Des bases absentes ou âgées de plus de deux jours empêchent de conclure qu’un fichier est sain. La version du moteur reste épinglée : son évolution demande une nouvelle version de l’agent et une validation du manifeste.
 
-Le composant ClamOnAcc de ClamAV fournit le contrôle à l’accès sous Linux. Il n’apporte pas ce mécanisme sous Windows. Un watcher Windows qui déclenche un scan après l’écriture peut laisser un programme s’exécuter avant le verdict : le nommer protection réactive, sans annoncer un blocage préventif.
+ClamAV est exécuté comme programme séparé avec ses notices et sa licence GNU GPL v2, conservées dans l’archive officielle. L’intégration ne modifie pas la licence du reste du projet et ne lie pas directement libclamav. Sources et notices de cette version : [publication officielle](https://github.com/Cisco-Talos/clamav/releases/tag/clamav-1.5.4), [libclamav et licence](https://docs.clamav.net/manual/Development/libclamav.html).
 
-La prévention Windows demande un mécanisme d’interception adapté et des tests de concurrence. Si un pilote minifiltre est développé, sa distribution exige aussi le parcours de signature Windows approprié. La signature d’un exécutable et celle d’un pilote sont deux sujets distincts ; aucun certificat ne doit être acheté ou installé sans décision explicite.
+## Analyse et limites
 
-## Quarantaine et autorisations
+Les dossiers fixes sont `Downloads`, `Desktop`, `Documents` du compte exécutant l’agent et son répertoire temporaire, lorsqu’ils sont accessibles. **Les bibliothèques redirigées, notamment OneDrive, ne sont pas automatiquement résolues** : consulter les chemins effectivement affichés. L’analyse n’explore pas tout le disque, les volumes réseau, les autres comptes ou les liens/jonctions.
 
-- Agir sur les octets effectivement analysés ; vérifier l’identité et l’empreinte avant déplacement pour éviter les substitutions entre scan et action.
-- Refuser les chemins hors périmètre, liens symboliques, jonctions, points de réanalyse et restaurations qui écraseraient un autre fichier.
-- Protéger le magasin, ses métadonnées et ses clés ; ne pas réutiliser le répertoire des téléchargements de l’utilisateur.
-- Préférer une quarantaine réversible à la suppression automatique. La restauration et la suppression définitive demandent une action autorisée.
-- Appliquer les droits de section et par poste sur chaque opération, y compris une commande déjà en attente après révocation.
+La surveillance vérifie les fichiers nouveaux ou modifiés, avec un délai de 30 secondes après la fin du passage précédent. Limites par passage : profondeur 16, 10 000 entrées parcourues, 2 000 fichiers à examiner, 64 Mio par fichier ; l’analyse des archives est aussi bornée. Un lot contient au maximum 20 fichiers et 64 Mio. Les opérations sont annulables ; une analyse dure au maximum dix minutes. La mise en route du scanner et la taille des bases peuvent ajouter un délai notable. Une limite ou une erreur est signalée sans produire un verdict sain. Cette couverture ne détecte pas toutes les menaces, les attaques en mémoire ou un processus déjà exécuté.
 
-## État affiché et compatibilité
+Le moteur analyse une copie privée des octets lus. Chaque verdict est associé au chemin exact de cette copie. Après détection, l’agent vérifie à nouveau l’identité et l’empreinte du fichier avant de le déplacer. Un fichier modifié, un lien, un fichier à liens multiples ou une action non confirmée n’est pas supprimé automatiquement.
 
-Conserver des états distincts pour le moteur WolfGuard, l’antivirus natif et le pare-feu. Ne pas renommer une détection Defender en détection propre à WolfGuard. Le code actuel de collecte et de pilotage reste décrit dans [Agents](agents/README.md) et [Sécurité](securite.md).
+## Quarantaine et droits
 
-Préserver les protections existantes pendant le développement. Ne pas désactiver Defender, ajouter des exclusions larges, activer un mode de pilotes de test ou contourner Secure Boot pour faire fonctionner un prototype sur un poste utilisé.
+Le contenu et les métadonnées sont chiffrés avec AES-256-GCM, IV aléatoire et données authentifiées distinctes. La clé aléatoire est protégée par DPAPI pour le compte Windows de l’agent. Les ACL limitent le magasin au compte autorisé, aux administrateurs et à SYSTEM ; une exécution élevée protège aussi son écriture contre le jeton non élevé. Cela ne rend pas le magasin inaccessible à un administrateur ou à un compte d’agent compromis. Ne pas supprimer sa clé : elle est nécessaire à la restauration.
 
-## Validation avant mise en production
+Le magasin est placé dans le dossier de données de l’agent, sous `antivirus/`, et limité à 100 entrées et 2 Gio. Sur un autre volume, un déplacement peut échouer : le fichier original est alors conservé et la détection reste non résolue. Un échec nécessitant une récupération manuelle bloque la suppression de sa copie de secours. Aucun nettoyage ne doit effacer une récupération encore nécessaire.
 
-Utiliser des machines virtuelles et fichiers de test inoffensifs. Aucun test de blocage, quarantaine, pilote ou changement de protection sur le poste de l’utilisateur sans demande explicite.
+La restauration ne remplace jamais un fichier existant, reste dans le périmètre du poste et exige une confirmation. Un fichier restauré peut être détecté à nouveau lors du passage suivant. « Supprimer la copie » efface la copie chiffrée, sans promettre de supprimer un original dont le déplacement a échoué.
 
-Vérifier au minimum : fichier de test reconnu, fichiers sains inchangés, absence de signatures, limites d’archives, fichiers verrouillés, changement de fichier pendant l’analyse, pannes, mises à jour altérées, droits révoqués, quarantaine et restauration. Les performances et la couverture doivent être mesurées sur les plateformes réellement prises en charge.
+Toutes les commandes passent par les droits `edr.manage` et les restrictions **poste par poste**, contrôlés à la demande, à l’attribution et au résultat. Les requêtes ne transportent pas un chemin libre à supprimer/restaurer, mais un identifiant opaque local. Une révocation ou expiration annule une commande en cours au prochain échange. La suspension peut annuler une analyse ou installation déjà attribuée. Les états hors ligne sont présentés comme non confirmés. Aucun contenu de fichier analysé n’est envoyé au serveur ; les chemins et verdicts remontent dans la télémétrie chiffrée existante.
 
-Le passage à un antivirus autonome est un chantier fonctionnel distinct. Cette spécification ne valide ni l’efficacité antivirus du produit actuel ni son remplacement des protections déjà actives.
+## Maintenance et validation
 
-## Références techniques
+Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/views/edr.js`.
 
-- [ClamAV : analyse et limites de l’outil](https://docs.clamav.net/manual/Usage/Scanning.html).
-- [ClamAV : contrôle à l’accès sous Linux](https://docs.clamav.net/manual/OnAccess.html).
-- [libclamav : interface et licence](https://docs.clamav.net/manual/Development/libclamav.html).
-- [Microsoft : minifiltres de système de fichiers](https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/creating-an-inf-file-for-a-minifilter-driver).
-- [Microsoft : exigences de signature des pilotes](https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/code-signing-reqs).
+```powershell
+node --test tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs
+python tests/antivirus_workspace_test.py
+python scripts/package-agent.py --check
+```
+
+Les tests couvrent les erreurs de moteur, téléchargements altérés, limites, substitutions, stockage chiffré, restauration sans écrasement, commandes annulées, droits révoqués, compatibilité des anciens agents et interface mobile. Le moteur officiel et ses bases ont aussi été exécutés sur des fichiers témoins inoffensifs isolés. Ces contrôles ne constituent pas une certification antivirus ou un audit indépendant. Aucun pilote, exclusion Defender ou changement des protections du poste utilisateur n’est nécessaire à ces tests.
+
+Le blocage préventif Windows reste un chantier distinct : [ClamOnAcc concerne Linux](https://docs.clamav.net/manual/OnAccess.html). Si un minifiltre Windows est développé ultérieurement, il faudra aussi traiter [son intégration](https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/creating-an-inf-file-for-a-minifilter-driver) et [sa signature](https://learn.microsoft.com/en-us/windows-hardware/drivers/dashboard/code-signing-reqs). L’utilisateur a abandonné l’achat d’un certificat : ne pas engager cette démarche sans nouvelle demande.
