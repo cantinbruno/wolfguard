@@ -54,9 +54,38 @@ export async function handleOTP(request,env,now,session,h){
   const {fail,json,body,verifyPIN}=h,path=new URL(request.url).pathname;
   const user=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
   if(!user)fail(401,'Reconnecte-toi.');
-  if(path==='/api/users/otp'&&request.method==='GET')return json({enabled:!!user.otp_secret_cipher,required:requiresMFA(env)});
+  if(path==='/api/users/otp'&&request.method==='GET')return json({enabled:!!user.otp_secret_cipher,required:requiresMFA(env),canReplace:true});
   if(request.method!=='POST')fail(404,'Adresse inconnue.');
   const data=await body();
+  if(path==='/api/users/otp/replace'){
+    if(!user.otp_secret_cipher)fail(409,'Configure d’abord Authenticator.');
+    await verifyPIN(data.code,env,now,()=>consumeOTP(user,data.otp,env,now),user);
+    const secret=encodeSecret(crypto.getRandomValues(new Uint8Array(20))),ticket=Array.from(crypto.getRandomValues(new Uint8Array(32)),n=>n.toString(16).padStart(2,'0')).join('');
+    const pending={secret,ticket:await recoveryHash(ticket),replaces:await recoveryHash(user.otp_secret_cipher),version:user.code_version,session:session.hash};
+    const cipher=await seal(pending,context(user.id),env);
+    const updated=await env.DB.prepare('UPDATE users SET otp_pending_cipher=?,otp_pending_until=? WHERE id=? AND otp_secret_cipher=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>?) RETURNING id').bind(cipher,now+600000,user.id,user.otp_secret_cipher,user.code_version,session.hash,now).first();
+    if(!updated)fail(409,'Le compte a changé. Recommence le changement de téléphone.');
+    return json({secret,ticket,expiresAt:now+600000,uri:'otpauth://totp/'+encodeURIComponent('WolfGuard:'+session.user.username)+'?secret='+secret+'&issuer=WolfGuard&algorithm=SHA1&digits=6&period=30'});
+  }
+  if(path==='/api/users/otp/replace/confirm'||path==='/api/users/otp/replace/cancel'){
+    const pending=user.otp_pending_cipher?await open(user.otp_pending_cipher,context(user.id),env):null;
+    const valid=typeof pending==='object'&&pending!==null&&user.otp_secret_cipher&&user.otp_pending_until>now&&typeof data.ticket==='string'&&/^[a-f0-9]{64}$/.test(data.ticket)&&pending.ticket===await recoveryHash(data.ticket)&&pending.replaces===await recoveryHash(user.otp_secret_cipher)&&pending.version===user.code_version&&pending.session===session.hash;
+    if(path.endsWith('/cancel')){
+      if(valid)await env.DB.prepare('UPDATE users SET otp_pending_cipher=NULL,otp_pending_until=NULL WHERE id=? AND otp_pending_cipher=? AND otp_secret_cipher=? AND code_version=?').bind(user.id,user.otp_pending_cipher,user.otp_secret_cipher,user.code_version).run();
+      return json({ok:true});
+    }
+    if(!valid)fail(409,'Ce changement de téléphone a expiré ou a été remplacé. Recommence depuis les paramètres.');
+    let recoveryCodes,replacementUser;
+    await verifyPIN(data.code,env,now,async()=>{
+      const step=await matchingStep(pending.secret,data.otp,now);if(step===null)return false;
+      recoveryCodes=Array.from({length:8},()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),n=>n.toString(16).padStart(2,'0')).join(''));
+      const cipher=await seal(pending.secret,context(user.id),env),recovery=await seal(await Promise.all(recoveryCodes.map(recoveryHash)),recoveryContext(user.id),env);
+      replacementUser=await env.DB.prepare('UPDATE users SET otp_secret_cipher=?,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=?,otp_recovery_cipher=?,code_version=code_version+1 WHERE id=? AND otp_pending_cipher=? AND otp_pending_until>? AND otp_secret_cipher=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>?) RETURNING *').bind(cipher,step,recovery,user.id,user.otp_pending_cipher,now,user.otp_secret_cipher,user.code_version,session.hash,now).first();
+      return !!replacementUser;
+    },user);
+    const token=await h.issueSession(env,session.generation,now,request,replacementUser);
+    return json({enabled:true,recoveryCodes,token});
+  }
   if(path==='/api/users/otp/setup'){
     await verifyPIN(data.code,env,now,user);
     if(user.otp_secret_cipher)fail(409,'Authenticator est déjà activé.');

@@ -75,11 +75,46 @@ def run():
             expect(prompt).to_be_visible();prompt.fill(codes[0]);page.locator('.app-dialog-submit').click()
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             page.locator('#settingsBtn').click();page.locator('#settings-tab-security').click();expect(page.locator('#webOTPPassword')).to_be_visible()
+            page.locator('#webOTPChangePhone').click()
+            page.locator('#webOTPReplacePassword').fill(CODE);page.locator('#webOTPReplaceCurrent').fill(codes[1])
+            page.locator('#webOTPReplaceForm button[type=submit]').click()
+            expect(page.locator('#webOTPSecret')).to_be_visible()
+            assert page.locator('#webOTPSecret').input_value()!=secret
+            page.locator('#webOTPCancel').click()
+            expect(page.locator('#webOTPSettings')).to_contain_text('Changement annulé')
+            page.locator('#webOTPChangePhone').click()
+            page.locator('#webOTPReplacePassword').fill(CODE);page.locator('#webOTPReplaceCurrent').fill(codes[2])
+            page.locator('#webOTPReplaceForm button[type=submit]').click()
+            expect(page.locator('#webOTPSecret')).to_be_visible()
+            new_secret=page.locator('#webOTPSecret').input_value();assert new_secret!=secret
+            for width in [390,320]:
+                page.set_viewport_size({'width':width,'height':900})
+                assert page.locator('#webOTPSettings').evaluate('(e)=>e.scrollWidth<=e.clientWidth&&e.getBoundingClientRect().right<=innerWidth')
+            page.screenshot(path=str(ROOT/'.cache/mfa-change-phone-mobile.png'),animations='disabled')
+            page.set_viewport_size({'width':1440,'height':1000})
+            expected=otp(new_secret,time.time()+60)
+            page.locator('#webOTPCode').fill('000000' if expected!='000000' else '111111')
+            page.get_by_role('button',name='Confirmer le nouveau téléphone',exact=True).click()
+            expect(page.locator('#webOTPSettings [role=status]')).to_contain_text('incorrect')
+            expect(page.locator('#app')).to_be_visible()
+            with urlopen(backend+'/__test/advance/5001'): pass
+            page.locator('#webOTPCode').fill(otp(new_secret,time.time()+65.001))
+            page.get_by_role('button',name='Confirmer le nouveau téléphone',exact=True).click()
+            expect(page.locator('#webOTPSettings')).to_contain_text('Le nouveau téléphone est confirmé')
+            new_codes=page.get_by_role('textbox',name='Codes de secours').input_value().splitlines()
+            assert len(new_codes)==8 and not set(new_codes)&set(codes)
+            page.reload();expect(page.locator('#app')).to_be_visible(timeout=20000)
+            page.evaluate('lockApplication()');ready(page)
+            page.locator('#lock').focus();page.keyboard.type(CODE)
+            expect(prompt).to_be_visible();prompt.fill(new_codes[0]);page.locator('.app-dialog-submit').click()
+            expect(page.locator('#app')).to_be_visible(timeout=20000)
+            codes=new_codes
+            page.locator('#settingsBtn').click();page.locator('#settings-tab-security').click()
             page.locator('#webOTPPassword').fill(CODE);page.locator('#webOTPCode').fill(codes[1]);page.locator('#webOTPForm button[type=submit]').click()
             expect(page.locator('#webOTPFeedback')).to_contain_text('désactivé')
             assert not errors, errors
             browser.close()
-            print('PASS: code-only entry, Authenticator setup, mobile layout, OTP login, reload, recovery and disabling')
+            print('PASS: Authenticator setup, phone replacement and cancellation, mobile layout, OTP login, reload, rotated recovery and disabling')
     finally:
         process.terminate();process.wait(timeout=5);server.shutdown()
 

@@ -107,6 +107,30 @@ test('revoked sessions and blocked IPs notify the app, while a wrong login code 
   await assert.rejects(cloud.login('00000000'),{code:'CLOUD_ACCESS'});assert.equal(events.length,1);
   await assert.rejects(cloud.agentRequest('access'),{code:'CLOUD_ACCESS'});assert.equal(events.length,2);
 }));
+test('a wrong MFA replacement code reports verification failure without discarding the session',()=>client(async cloud=>{
+  const events=[];window.dispatchEvent=event=>events.push(event.type);
+  globalThis.fetch=async()=>({ok:false,status:401,json:async()=>({error:'OTP incorrect',retryAfter:5})});
+  await assert.rejects(cloud.agentRequest('users/otp/replace/confirm',{}),{code:'CLOUD_ERROR'});
+  assert.equal(cloud.hasSession(),true);assert.deepEqual(events,[]);
+}));
+test('MFA replacement adopts the new token and ignores old in-flight revocations before and after renewal',()=>client(async cloud=>{
+  const events=[],waiting=[];window.dispatchEvent=event=>events.push(event.type);
+  globalThis.fetch=async()=>new Promise(resolve=>waiting.push(resolve));
+  const first=cloud.agentRequest('agents'),second=cloud.agentRequest('agents');
+  const rejectedFirst=assert.rejects(first,{code:'CLOUD_STALE_SESSION'}),rejectedSecond=assert.rejects(second,{code:'CLOUD_STALE_SESSION'});
+  const replacement=cloud.agentRequest('users/otp/replace/confirm',{});
+  waiting[0]({ok:false,status:401,json:async()=>({error:'Expired old token'})});await rejectedFirst;
+  waiting[2]({ok:true,headers:new Headers(),json:async()=>({token:'b'.repeat(64),enabled:true})});await replacement;
+  assert.equal(cloud.sessionState().token,'b'.repeat(64));
+  waiting[1]({ok:false,status:401,json:async()=>({error:'Expired old token'})});await rejectedSecond;
+  assert.deepEqual(events,[]);
+}));
+test('a replacement response cannot reopen a session locked while confirmation was in flight',()=>client(async cloud=>{
+  let finish;globalThis.fetch=async()=>new Promise(resolve=>finish=resolve);
+  const pending=cloud.agentRequest('users/otp/replace/confirm',{});cloud.detach();
+  finish({ok:true,headers:new Headers(),json:async()=>({token:'b'.repeat(64)})});await pending;
+  assert.equal(cloud.hasSession(),false);
+}));
 
 test('cloud keeps authorization, version headers and conflict errors intact',()=>client(async(cloud)=>{
   const calls=[];

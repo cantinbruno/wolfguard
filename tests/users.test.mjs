@@ -133,7 +133,7 @@ async function setup(){
   return{env,api,owner,initialize,login,createMember,encrypted,payload,material,clock:()=>now,advance:ms=>{now+=ms;}};
 }
 
-test('a repeated account login reuses only the unexpired session and never extends its four-hour deadline',async()=>{
+test('a repeated account login reuses an unexpired session and renews its four-hour idle deadline',async()=>{
   const s=await setup();try{
     await s.initialize();const first=await s.login('cantin.bruno@gmx.fr','09876543');
     const hash=createHash('sha256').update(first.token).digest('hex');
@@ -141,8 +141,8 @@ test('a repeated account login reuses only the unexpired session and never exten
     s.advance(3*3600000);
     const repeated=await s.login('cantin.bruno@gmx.fr','09876543');
     assert.equal(repeated.token,first.token);
-    assert.equal(s.env.DB.db.prepare('SELECT expires_at FROM sessions WHERE token_hash=?').get(hash).expires_at,deadline);
-    s.advance(3600000);
+    assert.equal(s.env.DB.db.prepare('SELECT expires_at FROM sessions WHERE token_hash=?').get(hash).expires_at,deadline+3*3600000);
+    s.advance(4*3600000);
     assert.equal((await s.api('me',undefined,first.token)).status,401);
     const next=await s.login('cantin.bruno@gmx.fr','09876543');assert.notEqual(next.token,first.token);
   }finally{s.env.DB.db.close();}
@@ -420,6 +420,52 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
     assert.equal((await s.api('login',{code:'09876543',otp:recoveryCodes[0]})).status,401);s.advance(5001);
     assert.equal((await s.api('users/otp/disable',{code:'09876543',otp:recoveryCodes[1]},logged.token)).status,200);
     assert.equal((await s.api('login',{code:'09876543'})).status,200);
+  }finally{s.env.DB.db.close();}
+});
+test('changing phones keeps mandatory MFA active until a verified atomic replacement and rotates recovery codes',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const initial=await(await s.api('users/otp/setup',{code:'09876543'},owner.token)).json();
+    const enabled=await(await s.api('users/otp/enable',{code:'09876543',otp:await otpAt(initial.secret,Math.floor(s.clock()/30000))},owner.token)).json();
+    s.env.MFA_REQUIRED='1';
+    const before=s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(owner.user.id).otp_secret_cipher;
+    const start=await s.api('users/otp/replace',{code:'09876543',otp:enabled.recoveryCodes[0]},owner.token);assert.equal(start.status,200);
+    const pending=await start.json();assert.notEqual(pending.secret,initial.secret);assert.match(pending.ticket,/^[a-f0-9]{64}$/);
+    assert.equal(s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(owner.user.id).otp_secret_cipher,before);
+    s.advance(60000);assert.equal((await s.api('login',{code:'09876543',otp:await otpAt(initial.secret,Math.floor(s.clock()/30000))})).status,200);
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'invalid',ticket:pending.ticket},owner.token)).status,401);s.advance(5001);
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'123456',ticket:'0'.repeat(64)},owner.token)).status,409);
+    const confirmed=await s.api('users/otp/replace/confirm',{code:'09876543',otp:await otpAt(pending.secret,Math.floor(s.clock()/30000)),ticket:pending.ticket},owner.token);assert.equal(confirmed.status,200);
+    const result=await confirmed.json();assert.equal(result.recoveryCodes.length,8);assert.ok(result.recoveryCodes.every(code=>!enabled.recoveryCodes.includes(code)));
+    const stored=s.env.DB.db.prepare('SELECT otp_secret_cipher,otp_pending_cipher,otp_pending_until FROM users WHERE id=?').get(owner.user.id);
+    assert.notEqual(stored.otp_secret_cipher,before);assert.equal(stored.otp_pending_cipher,null);assert.equal(stored.otp_pending_until,null);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM users').all());for(const secret of [pending.secret,pending.ticket,...result.recoveryCodes])assert.ok(!disk.includes(secret));
+    assert.notEqual(result.token,owner.token);assert.equal((await s.api('me',undefined,owner.token)).status,401);assert.equal((await s.api('me',undefined,result.token)).status,200);
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'123456',ticket:pending.ticket},result.token)).status,409);
+    s.advance(60000);
+    assert.equal((await s.api('login',{code:'09876543',otp:enabled.recoveryCodes[7]})).status,401);s.advance(5001);
+    assert.equal((await s.api('login',{code:'09876543',otp:await otpAt(initial.secret,Math.floor(s.clock()/30000))})).status,401);s.advance(10001);
+    assert.equal((await s.api('login',{code:'09876543',otp:result.recoveryCodes[0]})).status,200);
+    s.advance(60000);assert.equal((await s.api('login',{code:'09876543',otp:await otpAt(pending.secret,Math.floor(s.clock()/30000))})).status,200);
+  }finally{s.env.DB.db.close();}
+});
+test('phone replacement cancels, expires and supersedes pending tickets without changing the active factor',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    const setup=await(await s.api('users/otp/setup',{code:'09876543'},owner.token)).json();
+    const {recoveryCodes}=await(await s.api('users/otp/enable',{code:'09876543',otp:await otpAt(setup.secret,Math.floor(s.clock()/30000))},owner.token)).json();
+    const before=s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(owner.user.id).otp_secret_cipher;
+    const first=await(await s.api('users/otp/replace',{code:'09876543',otp:recoveryCodes[0]},owner.token)).json();
+    const second=await(await s.api('users/otp/replace',{code:'09876543',otp:recoveryCodes[1]},owner.token)).json();
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'123456',ticket:first.ticket},owner.token)).status,409);
+    assert.equal((await s.api('users/otp/replace/cancel',{ticket:first.ticket},owner.token)).status,200);
+    assert.ok(s.env.DB.db.prepare('SELECT otp_pending_cipher FROM users WHERE id=?').get(owner.user.id).otp_pending_cipher);
+    assert.equal((await s.api('users/otp/replace/cancel',{ticket:second.ticket},owner.token)).status,200);
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'123456',ticket:second.ticket},owner.token)).status,409);
+    const expired=await(await s.api('users/otp/replace',{code:'09876543',otp:recoveryCodes[2]},owner.token)).json();s.advance(600001);
+    assert.equal((await s.api('users/otp/replace/confirm',{code:'09876543',otp:'123456',ticket:expired.ticket},owner.token)).status,409);
+    assert.equal(s.env.DB.db.prepare('SELECT otp_secret_cipher FROM users WHERE id=?').get(owner.user.id).otp_secret_cipher,before);
+    assert.equal((await s.api('login',{code:'09876543',otp:await otpAt(setup.secret,Math.floor(s.clock()/30000))})).status,200);
   }finally{s.env.DB.db.close();}
 });
 

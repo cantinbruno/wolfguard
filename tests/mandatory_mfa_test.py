@@ -64,6 +64,7 @@ def run():
                 expect(owner.locator('#webMFAStepPhone,#webDuoSettings')).to_have_count(0)
                 expect(owner.locator('#webPhoneSettings')).to_have_count(0)
             expect(owner.get_by_role('button',name='Désactiver Authenticator',exact=True)).to_have_count(0)
+            expect(owner.get_by_role('button',name='Changer de téléphone',exact=True)).to_be_visible()
             owner.locator('#settings-tab-users').click();owner.locator('#wgUserAdd').click();owner.locator('#wgUserName').fill('personal-mfa@example.test');owner.locator('#wgUserSave').click();expect(owner.locator('#wgUserInvitation')).to_be_visible()
             invitation=owner.locator('#wgUserInvitationLink').input_value()
             guest=context().new_page();guest.goto(invitation);expect(guest.locator('#webAccountSetupForm')).to_be_visible(timeout=15000)
