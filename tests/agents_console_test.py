@@ -64,6 +64,11 @@ def run():
                 page.locator('[data-fleet-agent="' + agents[index]['id'] + '"]').click(button='right')
                 expect(page.locator('#agentActions')).to_be_visible()
                 expect(page.locator('#agentActions h2')).to_have_text(agents[index]['name'])
+            def select_agent(index):
+                page.locator('[data-fleet-agent="' + agents[index]['id'] + '"]').click()
+                expect(page.locator('#agentDetailsPanel')).to_be_visible()
+                expect(page.locator('#agentDetailsTarget')).to_have_text(agents[index]['name'])
+                page.locator('#agentDetailsClose').click()
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             page.goto(origin + '/?sync-test')
@@ -90,10 +95,10 @@ def run():
             state['endpoints_only'] = False
             page.locator('#agentsRefresh').click()
             expect(page.locator('#agentActions')).to_have_count(0)
-            page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
+            select_agent(0)
             expect(page.locator('#agentActions')).to_have_count(0)
-            # A real double-click must survive the selection triggered by its first click.
-            page.locator('[data-fleet-agent="' + agents[1]['id'] + '"] strong').dblclick()
+            # One click opens the correct record while the selected machine is being saved.
+            page.locator('[data-fleet-agent="' + agents[1]['id'] + '"] strong').click()
             expect(page.locator('#agentDetailsPanel')).to_be_visible()
             assert page.locator('#agentDetailsPanel').evaluate("el => el.matches(':modal')")
             expect(page.locator('#agentDetailsTarget')).to_have_text(agents[1]['name'])
@@ -104,6 +109,9 @@ def run():
             page.keyboard.press('Escape')
             expect(page.locator('#agentDetailsPanel')).to_be_hidden()
             expect(page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]')).to_be_focused()
+            page.keyboard.press('Enter')
+            expect(page.locator('#agentDetailsTarget')).to_have_text(agents[1]['name'])
+            page.keyboard.press('Escape')
             # Context details target the clicked machine without changing the tool selection.
             options(0)
             page.locator('[data-fleet-action="details"]').click()
@@ -130,13 +138,13 @@ def run():
             assert page.evaluate('setting("scanAgentId", "")') == agents[0]['id']
             page.locator('#agentToolClose').click()
             # Cells outside the name also open the same record, including offline agents.
-            page.locator('[data-agent-row="' + agents[2]['id'] + '"] td').nth(1).dblclick()
+            page.locator('[data-agent-row="' + agents[2]['id'] + '"] td').nth(1).click()
             expect(page.locator('#agentDetailsTarget')).to_have_text(agents[2]['name'])
             expect(page.locator('#agentDetailsBody')).to_contain_text('Hors ligne')
             expect(page.locator('#agentDetailsBody')).not_to_contain_text('Microsoft Defender')
             expect(page.locator('[data-detail-action="terminal"]')).to_be_disabled()
             page.keyboard.press('Escape')
-            page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
+            select_agent(0)
             options(1)
             assert page.evaluate('setting("scanAgentId", "")') == agents[0]['id']
             expect(page.locator('#agentToolPanel')).to_be_hidden()
@@ -175,7 +183,7 @@ def run():
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
             expect(page.locator('#agentActions')).to_have_count(0)
             page.locator('#agentToolClose').click()
-            page.locator('[data-fleet-agent="' + agents[0]['id'] + '"]').click()
+            select_agent(0)
             expect(page.locator('.agents-table th')).to_have_count(6)
             expect(page.locator('[data-agent-row="' + agents[0]['id'] + '"] [data-health="protected"]')).to_have_text('Protégé')
             expect(page.locator('[data-agent-row="' + agents[1]['id'] + '"] .agents-alerts')).to_have_text('3')
@@ -275,10 +283,12 @@ def run():
             expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
             page.locator('[data-agent-sort="name"]').click()
             page.locator('[data-agent-row="' + agents[1]['id'] + '"] td').nth(1).click()
+            expect(page.locator('#agentDetailsTarget')).to_have_text(agents[1]['name'])
+            page.locator('#agentDetailsClose').click()
             expect(page.locator('#agentActions')).to_have_count(0)
             page.screenshot(path=str(ROOT / '.cache/ems-endpoints-desktop.png'), animations='disabled', full_page=True)
             expect(page.locator('#agentsDensity')).to_have_count(0)
-            page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
+            select_agent(1)
             expect(page.locator('#agentActions')).to_have_count(0)
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
 
@@ -351,13 +361,15 @@ def run():
             page.locator('#agentsFilter').select_option('offline')
             expect(page.locator('[data-fleet-agent]')).to_have_count(1)
             page.locator('[data-fleet-agent]').click()
+            expect(page.locator('#agentDetailsTarget')).to_have_text(agents[2]['name'])
+            page.locator('#agentDetailsClose').click()
             expect(page.locator('#agentActions')).to_have_count(0)
             options(2)
             expect(page.locator('[data-fleet-action="terminal"]')).to_be_disabled()
             expect(page.locator('[data-fleet-action="edr"]')).to_be_enabled()
             page.keyboard.press('Escape')
             page.locator('#agentsFilter').select_option('all')
-            page.locator('[data-fleet-agent="' + agents[3]['id'] + '"]').click()
+            select_agent(3)
             expect(page.locator('#agentActions')).to_have_count(0)
             options(3)
             expect(page.locator('[data-fleet-action="active"]')).to_be_enabled()
@@ -383,7 +395,7 @@ def run():
                     page.screenshot(path=str(ROOT / f'.cache/security-compact-{width}.png'), animations='disabled')
             page.keyboard.press('Escape')
             page.set_viewport_size({'width':1440,'height':1000})
-            page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]').click()
+            select_agent(1)
             options(1)
             page.evaluate("""async () => {const access=WolfGuardAccess;window.WolfGuardAccess={...access,can:right=>right==='remote.write'?false:access.can(right)};await agentsWorkspace.render()}""")
             expect(page.locator('[data-fleet-action="terminal"]')).to_be_disabled()
@@ -404,7 +416,7 @@ def run():
             expect(page.locator('#agentDetailsBody')).to_have_count(0)
             assert not errors, errors
             browser.close()
-            print('PASS: double-click and context records, offline/stale/missing/restricted details, keyboard and long press, exact action targets, modal tools and return focus, lock cleanup, telemetry, filters and mobile layout')
+            print('PASS: single-click, keyboard activation and context records, offline/stale/missing/restricted details, keyboard and long press, exact action targets, modal tools and return focus, lock cleanup, telemetry, filters and mobile layout')
     finally:
         process.terminate()
         process.wait(timeout=10)

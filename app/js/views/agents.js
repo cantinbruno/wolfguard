@@ -49,7 +49,7 @@ const agentsWorkspace = (() => {
         <div class="agents-table-scroll" tabindex="0" role="region" aria-label="Tableau des postes, défilement horizontal si nécessaire">
           <table class="agents-table"><caption class="agents-visually-hidden">Agents associés et derniers états de protection. Sélectionne un poste pour utiliser ses outils.</caption><thead><tr>${columns.map(([field,label])=>'<th scope="col" data-agent-column="'+field+'" aria-sort="'+(field==='name'?'ascending':'none')+'"><button type="button" data-agent-sort="'+field+'">'+label+'<span class="agents-sort-indicator" aria-hidden="true">'+(field==='name'?'↑':'↕')+'</span></button></th>').join('')}</tr></thead><tbody id="agentsList"></tbody></table>
         </div>
-        <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span class="agents-check-legend" aria-label="Légende des protections"><span data-check="enabled">✓ Activé</span><span data-check="disabled">! À traiter</span><span data-check="unknown">? À confirmer</span></span><span>Double-clic pour la fiche · Clic droit ou appui long pour les options.</span></footer>
+        <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span class="agents-check-legend" aria-label="Légende des protections"><span data-check="enabled">✓ Activé</span><span data-check="disabled">! À traiter</span><span data-check="unknown">? À confirmer</span></span><span>Clic pour ouvrir la fiche · Clic droit ou appui long pour les options.</span></footer>
       </section>
       <div class="agents-main">
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
@@ -237,7 +237,7 @@ const agentsWorkspace = (() => {
     async function choose(id) {
       const agent = agents.find(item => item.id === id);
       if (!agent || selecting || !live() || selected?.id === id) return;
-      // Keep the clicked nodes in place so the browser can deliver a double-click.
+      // Keep the clicked row available while its selection is being saved.
       selecting = true;
       try { await setSetting('scanAgentId', id); if (live()) { selected = agent; if (state.section !== 'security') await renderTool(true); } }
       catch (error) { if (live()) find('#agentsStatus').textContent = error.message; }
@@ -368,12 +368,9 @@ const agentsWorkspace = (() => {
       const update = event.target.closest('[data-agent-install-update]'); if(update){ if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate); return; }
       if(event.target.closest('a[download]'))return;
       const security = event.target.closest('[data-agent-security]'); if(security){ if(!security.disabled)runAction('edr',security.dataset.agentSecurity); return; }
-      const row = event.target.closest('[data-agent-row]'); if (row) choose(row.dataset.agentRow);
-    };
-    find('#agentsList').ondblclick = event => {
-      if (event.target.closest('[data-agent-install-update],[data-agent-security],a,select,input')) return;
+      if (event.target.closest('a,select,input')) return;
       const row = event.target.closest('[data-agent-row]');
-      if (row) { event.preventDefault(); openDetails(row.dataset.agentRow); }
+      if (row) { choose(row.dataset.agentRow); openDetails(row.dataset.agentRow); }
     };
     find('#agentsList').oncontextmenu = event => {
       const row = event.target.closest('[data-agent-row]');

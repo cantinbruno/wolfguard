@@ -6,7 +6,7 @@ Cette page décrit le source du projet. Pour connaître ce qui est effectivement
 
 Le Mémo conserve les dossiers, sous-dossiers, fiches, contenus riches, images, pièces jointes, commandes et recherches. Le Coffre-fort classe les accès et masque les champs sensibles ; il reste personnel, y compris pour les administrateurs. Outils regroupe les utilitaires réseau et de fichiers.
 
-L’écran Sécurité conserve le poste choisi pendant l’utilisation de ses outils : scans, cartographie, vulnérabilités, EDR, bureau, terminal et fichiers. Les paramètres regroupent les protections de l’application, Authenticator, les préférences et les écrans d’administration autorisés.
+L’écran Sécurité conserve le poste choisi pendant l’utilisation de ses outils : scans, cartographie, vulnérabilités, EDR, bureau, terminal et fichiers. Un simple clic sur le nom ou une cellule du poste ouvre sa fiche. Le clic droit et l’appui long ouvrent les options du poste. Les paramètres regroupent les protections de l’application, Authenticator, les préférences et les écrans d’administration autorisés.
 
 La section Données ne propose plus de sauvegardes utilisateur. Les anciens formats et outils de migration conservés dans le code servent à la compatibilité ; ne pas les remettre dans le parcours courant.
 
