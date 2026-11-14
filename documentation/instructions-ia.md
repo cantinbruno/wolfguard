@@ -1,6 +1,6 @@
 # Reprise du projet
 
-Tous les guides du projet restent dans `documentation/`. Ne pas créer de README à la racine ou dans `server/`. Le fichier racine `AGENTS.md` reste uniquement un point d’entrée technique vers ces consignes. Les notices intégrées aux installateurs et les licences restent aux chemins nécessaires à leur distribution.
+Tous les guides et consignes du projet restent dans `documentation/`. Ne pas créer de README ni de fichier AGENTS.md à la racine, ni de README dans `server/`. Continue charge la règle `.continue/rules/01-wolfguard.md`, qui renvoie directement à ces consignes. Les notices intégrées aux installateurs et les licences restent aux chemins nécessaires à leur distribution.
 
 Lire `documentation/reprise-ia.md`, puis `documentation/decisions.md` et la page utile depuis `documentation/README.md` avant de modifier le projet. La documentation de développement est centralisée dans `documentation/` ; `docs/` reste le site généré pour GitHub Pages.
 
