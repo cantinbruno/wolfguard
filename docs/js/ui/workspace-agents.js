@@ -22,11 +22,11 @@ const workspaceAgents = (() => {
     const agents=response.agents||[],selected=saved?agents.find(agent=>agent.id===saved):agents.at(-1);
     return {agents,selected:selected||null};
   }
-  function mount(root){
+  function mount(root,{tab:initialTab=null,agentId=null}={}){
     unmount();const token=generation,key=state.vaultKey;
     const live=()=>generation===token&&root.isConnected&&state.vaultKey===key&&!$('#app').classList.contains('hidden');
     const find=selector=>root.querySelector(selector),admin=()=>!!cloud()?.isAdmin();
-    let agents=[],selected=null,busy=false,refreshing=null,firstLoad=true,stale=false,tab='fleet',expanded='',expiresAt=0,shareExpiresAt=0,knownIds=new Set(),listHTML='',pickerHTML='';
+    let agents=[],selected=null,busy=false,refreshing=null,firstLoad=true,stale=false,tab=initialTab||'fleet',tabTouched=false,expanded=agentId||'',expiresAt=0,shareExpiresAt=0,knownIds=new Set(),listHTML='',pickerHTML='';
     root.innerHTML=`<header class="settings-panel-head agent-manager-heading"><div><div class="settings-heading">${settingsIcon('monitor')}<h3>Agents</h3></div><p>Le poste utilisé pour les scans et la prise en main.</p></div><button type="button" class="settings-btn settings-btn-icon" id="wgAgentRefresh" aria-label="Actualiser les postes" title="Actualiser">${settingsIcon('refresh-cw')}</button></header>
       <section class="agent-manager-current" aria-labelledby="wgAgentCurrentTitle"><span class="agent-manager-current-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div class="agent-manager-current-copy"><span class="agent-manager-eyebrow">POSTE UTILISÉ</span><h4 id="wgAgentCurrentTitle">Chargement…</h4><p id="wgAgentCurrentDetail">Recherche de tes postes associés.</p></div><span id="wgAgentSettingsPresence" class="agent-manager-presence" data-state="loading" role="status">Chargement…</span><label class="agent-manager-switch"><span>Changer de poste</span><select id="wgAgentSelect" class="settings-select" disabled><option>Chargement…</option></select></label></section>
       <p id="wgAgentConnectionNotice" class="settings-agent-notice" role="status" hidden></p><p id="wgAgentSetupError" class="settings-agent-error" role="alert"></p><p id="wgAgentSetupStatus" role="status" aria-live="polite"></p>
@@ -49,11 +49,13 @@ const workspaceAgents = (() => {
     showDownload();
     function showTab(value,focus=false){
       tab=value;
+      const title=root.closest('.agents-modal')?.querySelector('#agentsTitle');if(title)title.textContent=tab==='connect'?'Ajouter un poste':'Gestion des agents';
       for(const button of root.querySelectorAll('[data-agent-tab]')){const active=button.dataset.agentTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus({preventScroll:true});}
       find('#wgAgentFleetPanel').hidden=tab!=='fleet';find('#wgAgentConnect').hidden=tab!=='connect';
     }
-    for(const button of root.querySelectorAll('[data-agent-tab]'))button.onclick=()=>showTab(button.dataset.agentTab);
-    find('.agent-manager-tabs').onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();showTab(event.key==='Home'?'fleet':event.key==='End'?'connect':tab==='fleet'?'connect':'fleet',true);};
+    for(const button of root.querySelectorAll('[data-agent-tab]'))button.onclick=()=>{tabTouched=true;showTab(button.dataset.agentTab);};
+    find('.agent-manager-tabs').onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();tabTouched=true;showTab(event.key==='Home'?'fleet':event.key==='End'?'connect':tab==='fleet'?'connect':'fleet',true);};
+    showTab(initialTab||'fleet');
     find('#wgAgentViewPosts').onclick=()=>showTab('fleet',true);
     const lastSeen=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'Non renseignée':date.toLocaleString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',year:'numeric'});};
     function clearCode(){const area=find('#wgAgentPairCode');area.hidden=true;expiresAt=0;find('#wgAgentConnectPair').removeAttribute('href');find('#wgAgentPair').textContent='Télécharger l’installateur personnel';}
@@ -90,17 +92,22 @@ const workspaceAgents = (() => {
         return '<article class="agent-manager-machine" data-agent-id="'+esc(agent.id)+'" data-selected="'+chosen+'"><div class="agent-manager-machine-row"><span class="agent-manager-platform-icon" aria-hidden="true">'+platformIcon(agent.platform)+'</span><div class="agent-manager-machine-copy"><div><strong>'+esc(agent.name)+'</strong>'+(chosen?'<span class="agent-manager-selected">Utilisé</span>':'')+'</div><small>'+platformName(agent.platform)+(!network?' · Scans réseau à mettre à jour':audit?'':' · Audit à mettre à jour')+'</small></div><span class="agent-manager-presence" data-state="'+(stale?'unknown':agent.online?'online':'offline')+'">'+(stale?'À vérifier':agent.online?'Connecté':'Hors ligne')+'</span><div class="agent-manager-actions"><button type="button" class="settings-btn" data-agent-use="'+esc(agent.id)+'" '+(chosen||busy?'disabled':'')+'>'+(chosen?'Utilisé':'Utiliser')+'</button><button type="button" class="settings-btn settings-btn-icon" data-agent-details="'+esc(agent.id)+'" aria-label="Détails de '+esc(agent.name)+'" aria-expanded="'+open+'" aria-controls="wgAgentInfo-'+esc(agent.id)+'">'+settingsIcon(open?'x':'sliders-horizontal')+'</button></div></div><div class="agent-manager-machine-details" id="wgAgentInfo-'+esc(agent.id)+'" '+(open?'':'hidden')+'><dl><div><dt>Système</dt><dd>'+platformName(agent.platform)+'</dd></div><div><dt>Dernière connexion</dt><dd>'+esc(lastSeen(agent.lastSeen))+'</dd></div><div><dt>Scans réseau actif / passif</dt><dd>'+(network?'Pris en charge':'Mise à jour de l’agent nécessaire')+'</dd></div><div><dt>Audit de sécurité</dt><dd>'+(audit?'Pris en charge':'Mise à jour de l’agent nécessaire')+'</dd></div><div><dt>Prise en main du bureau</dt><dd>'+(desktop?'Prise en charge':'Mise à jour de l’agent nécessaire')+'</dd></div><div><dt>Utilisation</dt><dd>'+(chosen?'Poste commun aux scans et à la prise en main':'Poste disponible')+'</dd></div></dl>'+(!agent.online?'<p class="agent-manager-offline-help">Ouvre WolfGuard Agent sur ce poste et vérifie sa connexion à Internet.</p>':'')+(!audit||!network||!desktop?'<button type="button" class="settings-btn" data-agent-update="'+esc(agent.platform)+'">'+settingsIcon('download')+'Installer la dernière version</button>':'')+(admin()||cloud()?.currentUser()?.permissions?.admin?'<label class="users-checkbox"><input type="checkbox" data-agent-restricted="'+esc(agent.id)+'" '+(agent.restricted?'checked':'')+' '+(busy?'disabled':'')+'>Restreint · visible uniquement par les administrateurs</label>':'')+'<div class="agent-manager-revoke-row"><p>Retirer ce poste coupe son accès et arrête ses scans et partages en cours.</p><button type="button" class="settings-btn agent-manager-revoke" data-agent-revoke="'+esc(agent.id)+'" '+(busy?'disabled':'')+'>Révoquer l’accès</button></div></div></article>';
       }).join('')||'<div class="agent-manager-empty">'+settingsIcon('monitor')+'<strong>Ton premier poste, en quelques étapes</strong><p>Associe un poste Windows, Linux ou macOS pour exécuter tes scans depuis cet espace.</p><button type="button" class="settings-btn primary" data-agent-start>Connecter un poste</button></div>';
       if(html!==listHTML){
-        const focused=document.activeElement,focusId=focused?.dataset.agentDetails||focused?.dataset.agentUse,action=focused?.hasAttribute('data-agent-details')?'details':'use';
+        const focused=document.activeElement,focusAttr=['data-agent-details','data-agent-use','data-agent-revoke','data-agent-install-update','data-agent-restricted'].find(attr=>focused?.hasAttribute(attr)),focusId=focusAttr&&focused.getAttribute(focusAttr);
         find('#wgAgentManage').innerHTML=html;listHTML=html;
-        if(focusId){const target=[...root.querySelectorAll('[data-agent-'+action+']')].find(button=>button.dataset[action==='details'?'agentDetails':'agentUse']===focusId);if(target&&!target.disabled)target.focus({preventScroll:true});}
+        for(const card of root.querySelectorAll('[data-agent-id]')){
+          const revoke=card.querySelector('[data-agent-revoke]');if(!revoke)continue;
+          revoke.textContent='Révoquer';revoke.setAttribute('aria-label','Révoquer l’accès de '+agents.find(agent=>agent.id===card.dataset.agentId)?.name);
+          card.querySelector('.agent-manager-actions').append(revoke);
+        }
+        if(focusId){const target=root.querySelector('['+focusAttr+'="'+CSS.escape(focusId)+'"]');if(target&&!target.disabled)target.focus({preventScroll:true});}
       }
       const limit=agents.length>=200;find('#wgAgentCapacity').hidden=!limit;
       find('#wgAgentAdd').hidden=!(admin()||cloud()?.can?.('agents.pair'));
       find('#wgAgentPair').disabled=busy||!available()||limit||!(admin()||cloud()?.can?.('agents.pair'));
       find('#wgAgentShare').disabled=find('#wgAgentPair').disabled;
-      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||!canPost(button.dataset.agentRevoke,'agents.revoke');
+      for(const button of root.querySelectorAll('[data-agent-revoke]'))button.disabled=busy||stale||!canPost(button.dataset.agentRevoke,'agents.revoke');
       for(const button of root.querySelectorAll('[data-agent-start]'))button.hidden=!(admin()||cloud()?.can('agents.pair'));
-      if(firstLoad){showTab(agents.length||!admin()?'fleet':'connect');firstLoad=false;}
+      if(firstLoad){if(!tabTouched)showTab(initialTab||(agents.length||!admin()?'fleet':'connect'));firstLoad=false;}
     }
     async function refresh(){
       if(!live()||busy)return;
@@ -117,7 +124,7 @@ const workspaceAgents = (() => {
           WolfGuardAgentUpdates.automatic(agents,{onChange:()=>{if(live())renderAgents();}});
         }catch(exception){
           if(!live())return;stale=true;const notice=find('#wgAgentConnectionNotice');notice.hidden=false;notice.textContent='Connexion au service indisponible. '+exception.message;
-          if(firstLoad){showTab('connect');find('#wgAgentManage').textContent='Les postes n’ont pas pu être chargés.';}
+          if(firstLoad){if(!tabTouched)showTab(initialTab||'connect');find('#wgAgentManage').textContent='Les postes n’ont pas pu être chargés.';}
           else renderAgents();
           find('#wgAgentSettingsPresence').dataset.state='unknown';find('#wgAgentSettingsPresence').textContent='À vérifier';
         }finally{if(live())find('#wgAgentRefresh').disabled=false;}
@@ -189,11 +196,12 @@ const workspaceAgents = (() => {
   return {mount,unmount,snapshot,platformName,available};
 })();
 
-async function openAgentsInterface(){
+async function openAgentsInterface(options={}){
   if($('#app').classList.contains('hidden'))return;
+  const returnFocus=document.activeElement;
   modal('Agents','<button type="button" class="settings-btn settings-btn-icon settings-close" id="closeAgentsBtn" aria-label="Fermer les agents">'+settingsIcon('x')+'</button><div class="agents-dialog-content"><section id="settings-agents"></section></div>');
   const dialog=$('#modalRoot .modal');dialog.classList.add('settings-modal','agents-modal');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.querySelector('h2').id='agentsTitle';dialog.setAttribute('aria-labelledby','agentsTitle');dialog.parentElement.classList.add('settings-wrap');
-  const close=()=>{closeModal();($('#agentsManage') || $('#securityBtn'))?.focus();};$('#closeAgentsBtn').onclick=close;dialog.parentElement.onclick=event=>{if(event.target===dialog.parentElement)close();};
+  const close=()=>{closeModal();if(typeof options.onClose==='function')options.onClose();else(returnFocus?.isConnected&&returnFocus!==document.body?returnFocus:$('#agentsManage') || $('#securityBtn'))?.focus();};$('#closeAgentsBtn').onclick=close;dialog.parentElement.onclick=event=>{if(event.target===dialog.parentElement)close();};
   dialog.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}if(event.key!=='Tab')return;const controls=[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href]')].filter(node=>node.getClientRects().length&&node.tabIndex!==-1),first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}};
-  workspaceAgents.mount($('#settings-agents'));$('#closeAgentsBtn').focus();
+  workspaceAgents.mount($('#settings-agents'),options);$('#closeAgentsBtn').focus();
 }

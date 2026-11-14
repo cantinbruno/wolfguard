@@ -57,8 +57,8 @@ const agentsWorkspace = (() => {
     </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle">Fiche du poste</h2></div><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
     find('#agentsAdd').hidden = !can('agents.pair');
     find('#agentsManage').hidden = !can('agents.read');
-    find('#agentsManage').onclick = () => openAgentsInterface();
-    find('#agentsAdd').onclick = async () => { await openAgentsInterface(); $('#wgAgentAdd')?.click(); };
+    find('#agentsManage').onclick = () => openAgentsInterface({tab:'fleet'});
+    find('#agentsAdd').onclick = () => openAgentsInterface({tab:'connect'});
 
     function protection(agent) {
       const endpoint = protections.get(agent.id);
@@ -268,43 +268,46 @@ const agentsWorkspace = (() => {
       const snapshot = status.snapshot, policy = endpoint?.policy;
       const checks = {enabled:'Activé',disabled:'Désactivé / à actualiser',passive:'Passif · antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
       const count = value => Number.isSafeInteger(value) && value >= 0 ? value : 'Non renseigné';
+      const metric = value => Number.isSafeInteger(value) && value >= 0 ? value : '—';
       const fields = rows => '<dl>' + rows.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd>' + esc(String(value ?? 'Non renseigné')) + '</dd></div>').join('') + '</dl>';
-      const section = (title,rows) => '<section class="agent-details-section"><h3>' + title + '</h3>' + fields(rows) + '</section>';
+      const tool = action => {
+        const unavailable = reason(action,agent);
+        const icon = ['terminal','files'].includes(action.mode) ? workspaceNavigationIcon(action.mode) : workspaceSectionIcon(action.section);
+        return '<button type="button" data-detail-action="'+action.id+'" '+(unavailable||selecting?'disabled':'')+'><i aria-hidden="true">'+icon+'</i><span><strong>'+action.label+'</strong><small>'+esc(unavailable||action.description)+'</small></span><b aria-hidden="true">↗</b></button>';
+      };
+      const own = snapshot?.wolfguardAntivirus;
+      const ownLabel = !own ? 'Agent à mettre à jour' : !own.installed ? 'Moteur à installer' : !own.enabled ? 'Surveillance suspendue' : ({ready:'Surveillance réactive',scanning:'Analyse en cours',updating:'Signatures en cours',installing:'Installation en cours',error:'Intervention nécessaire'})[own.state]||'État à confirmer';
+      const connected = stale ? 'À confirmer' : agent.online ? 'Connecté' : 'Hors ligne';
+      const manageAllowed = can('agents.read',agent) && workspaceAgents.available();
+      const detailsOpen = find('#agentDetailsTechnical')?.open, policyOpen = find('#agentDetailsPolicy')?.open;
       find('#agentDetailsTarget').textContent = agent.name;
-      const html = '<div class="agent-details-summary"><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><div><h3>' + esc(agent.name) + '</h3><p>' + esc(workspaceAgents.platformName(agent.platform)) + ' · ' + (stale ? 'Connexion à vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</p></div><span class="agents-health" data-health="' + status.health + '">' + status.label + '</span></div>'
-        + (stale ? '<p class="agents-notice">Le service est indisponible. La connexion et les protections du poste ne sont plus confirmées.</p>' : '')
-        + '<div class="agent-details-grid">' + section('Identité et connexion',[
-          ['Nom du poste',agent.name],['Système',workspaceAgents.platformName(agent.platform)],['Identifiant du poste',agent.id],
-          ['Type de connexion',agent.local ? 'Poste local' : 'Agent associé'],['Disponibilité',stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne'],
-          ['Dernier contact',timestamp(agent.lastSeen)],['Utilisation',selected?.id === agent.id ? 'Poste sélectionné pour les outils' : 'Poste disponible'],
-          ['Visibilité',Object.hasOwn(agent,'restricted') ? agent.restricted ? 'Administrateurs uniquement' : 'Selon les droits d’accès au parc' : 'Selon les droits d’accès au parc']
-        ]) + section('Agent et mises à jour',[
-          ['Version installée',agent.version || 'Non remontée'],['Version publiée',!releaseStale ? publishedRelease?.version || 'Indisponible' : 'Indisponible'],
-          ['Mises à jour automatiques',agent.capabilities?.includes('auto-update-v1') ? 'Activées · vérification toutes les 5 minutes, site fermé compris' : agent.capabilities?.includes('remote-terminal-v1') ? 'Première mise à niveau automatique depuis le site' : 'Installation initiale d’un agent récent nécessaire'],
-          ['État de la version',info.current ? 'À jour · confirmée par le poste' : releaseStale || !publishedRelease || stale ? 'À vérifier' : info.outdated ? 'Mise à jour disponible' : 'Version non remontée'],
-          ['Dernière opération',info.task?.message || 'Aucune mise à jour en cours'],['Mise à jour à distance',info.reason || (info.current ? 'Dernière version installée' : info.task?.running ? 'En cours' : 'Disponible')]
-        ]) + section('Protection du poste',[
-          ['État de protection',status.label],['Dernier relevé',timestamp(status.collectedAt)],['Réception du relevé',timestamp(endpoint?.receivedAt)],
-          ['Fournisseur antivirus',snapshot?.provider || 'Non confirmé'],
-          ...[['Antivirus','antivirus'],['Protection en temps réel','realtime'],['Pare-feu','firewall'],['Signatures antivirus','signatures']].map(([label,field]) => [label,checks[snapshot?.[field]] || 'À confirmer']),
-          ['Version des signatures',snapshot?.signatureVersion || 'Non confirmée'],['Menaces actives du relevé',count(snapshot?.activeThreats)],
-          ['Alertes non acquittées',count(status.alerts)],['Blocages sur 24 h',count(endpoint?.blocks)],
-          ['Actions sur les protections',snapshot ? snapshot.canEnforce ? 'Prises en charge par le composant système' : 'Privilèges système nécessaires' : 'Non confirmées']
-        ]) + section('Politique EDR configurée',[
-          ['Mode demandé',policy ? policy.mode === 'protect' ? 'Protéger et maintenir les protections' : 'Observer les protections existantes' : edrAllowed ? 'Non renseigné' : 'Accès non accordé'],
-          ['Maintien du temps réel',policy ? policy.realtime ? 'Demandé' : 'Non demandé' : 'Non renseigné'],
-          ['Maintien du pare-feu',policy ? policy.firewall ? 'Demandé' : 'Non demandé' : 'Non renseigné'],
-          ['Révision demandée',count(endpoint?.revision)],['Révision appliquée confirmée',count(snapshot?.appliedRevision)]
-        ]) + '</div><p class="agents-notice">Les protections actuelles sont confirmées uniquement avec un relevé récent d’un poste connecté. La politique décrit les réglages demandés ; son application doit être confirmée par l’agent.</p>'
-        + (snapshot?.warnings || []).map(message => '<p class="agents-notice">' + esc(message) + '</p>').join('')
-        + '<section class="agent-details-section"><h3>Outils et fonctions du poste</h3><div class="agent-details-actions">' + actions.map(action => {
-          const unavailable = reason(action,agent);
-          return '<button type="button" data-detail-action="' + action.id + '" ' + (unavailable || selecting ? 'disabled' : '') + '><strong>' + action.label + '</strong><span>' + esc(unavailable || action.description) + '</span></button>';
-        }).join('') + '</div></section><p class="agent-details-note">Les informations matérielles (processeur, mémoire, disques) et les adresses réseau ne sont pas remontées par cet inventaire.</p>';
+      const html = `<section class="agent-record-hero" data-connection="${stale?'unknown':agent.online?'online':'offline'}">
+        <div class="agent-record-avatar" aria-hidden="true">${settingsIcon('monitor')}</div>
+        <div class="agent-record-identity"><span class="agents-eyebrow">${esc(workspaceAgents.platformName(agent.platform))} · ${agent.local?'POSTE LOCAL':'AGENT WOLFGUARD'}</span><h3>${esc(agent.name)}</h3><div class="agent-record-badges"><span class="agent-record-presence"><i></i>${connected}</span><span class="agents-health" data-health="${status.health}">${status.label}</span>${selected?.id===agent.id?'<span class="agent-record-selected">Poste sélectionné</span>':''}</div></div>
+        <div class="agent-record-contact"><span>Dernier contact</span><strong>${esc(timestamp(agent.lastSeen))}</strong></div>
+      </section>
+      ${stale||!agent.online?'<p class="agent-record-notice">'+(stale?'Le service est indisponible. Les états affichés restent à confirmer.':'Ce poste est hors ligne. Ses protections actuelles ne peuvent pas être confirmées.')+'</p>':''}
+      <div class="agent-record-layout"><div class="agent-record-main">
+        <section class="agent-record-card"><header><div><span class="agents-eyebrow">SÉCURITÉ</span><h3>Protection du poste</h3></div><span class="agent-record-provider">${esc(snapshot?.provider||'Relevé non confirmé')}</span></header>
+        <div class="agent-record-checks">${[['Antivirus','antivirus'],['Temps réel','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i><span>'+label+'<strong>'+esc(checks[value])+'</strong></span></div>';}).join('')}</div>
+        <div class="agent-record-antivirus"><span class="agent-record-app-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><strong>WolfGuard Antivirus</strong><p>${esc(ownLabel)}</p></div>${own?.engineVersion?'<code>'+esc(own.engineVersion)+'</code>':''}</div>
+        <div class="agent-record-counters"><div><strong>${metric(status.alerts)}</strong><span>Alertes ouvertes</span></div><div><strong>${metric(endpoint?.blocks)}</strong><span>Blocages · 24 h</span></div><div><strong>${metric(snapshot?.activeThreats)}</strong><span>Menaces actives</span></div></div>
+        <p class="agent-record-caption">Dernier relevé : ${esc(timestamp(status.collectedAt))}. Seul un relevé récent d’un poste connecté confirme ses protections.</p>
+        ${(snapshot?.warnings||[]).map(message=>'<p class="agent-record-notice">'+esc(message)+'</p>').join('')}
+        </section>
+        <section class="agent-record-tools"><header><span class="agents-eyebrow">AGIR SUR CE POSTE</span><h3>Outils et diagnostics</h3></header><h4>Accès à distance</h4><div class="agent-details-actions">${actions.filter(a=>a.mode).map(tool).join('')}</div><h4>Analyse et protection</h4><div class="agent-details-actions">${actions.filter(a=>!a.mode).map(tool).join('')}</div></section>
+      </div><aside class="agent-record-side">
+        <section class="agent-record-card agent-record-maintenance"><header><div><span class="agents-eyebrow">MAINTENANCE</span><h3>Agent et mises à jour</h3></div>${settingsIcon('refresh-cw')}</header><span class="agent-record-version" data-current="${info.current}">${info.current?'Agent à jour':info.task?.running?'Mise à jour en cours':info.outdated?'Mise à jour disponible':'Version à vérifier'}</span>${updateHTML(agent)}<p class="agent-record-caption">${agent.capabilities?.includes('auto-update-v1')?'Vérification automatique toutes les 5 minutes, même lorsque le site est fermé.':'La mise à jour conserve l’association du poste.'}</p></section>
+        <section class="agent-record-card"><header><div><span class="agents-eyebrow">ADMINISTRATION</span><h3>Gestion du poste</h3></div></header><p class="agent-record-caption">${agent.restricted?'Visible uniquement par les administrateurs.':'Accès selon les droits attribués à chaque compte.'}</p><button type="button" class="agent-record-manage" data-detail-manage ${manageAllowed?'':'disabled'}>${settingsIcon('sliders-horizontal')}Gérer ce poste<span aria-hidden="true">↗</span></button><p class="agent-record-caption">${manageAllowed?'Choisir le poste utilisé, régler sa visibilité ou révoquer son accès.':'La gestion nécessite une connexion au service et un accès Agents sur ce poste.'}</p></section>
+        <details id="agentDetailsPolicy" class="agent-record-disclosure" ${policyOpen?'open':''}><summary>Politique EDR configurée</summary>${fields([['Mode demandé',policy?policy.mode==='protect'?'Protéger et maintenir les protections':'Observer les protections existantes':edrAllowed?'Non renseigné':'Accès non accordé'],['Maintien du temps réel',policy?policy.realtime?'Demandé':'Non demandé':'Non renseigné'],['Maintien du pare-feu',policy?policy.firewall?'Demandé':'Non demandé':'Non renseigné'],['Révision demandée',count(endpoint?.revision)],['Révision appliquée confirmée',count(snapshot?.appliedRevision)]])}<p class="agent-record-caption">Les réglages demandés ne prouvent pas leur application par l’agent.</p></details>
+      </aside></div>
+      <details id="agentDetailsTechnical" class="agent-record-disclosure" ${detailsOpen?'open':''}><summary>Informations techniques et identifiants</summary>${fields([['Identifiant du poste',agent.id],['Version installée',agent.version||'Non remontée'],['Version publiée',!releaseStale?publishedRelease?.version||'Indisponible':'Indisponible'],['Version des signatures',snapshot?.signatureVersion||'Non confirmée'],['Réception du relevé',timestamp(endpoint?.receivedAt)],['Actions sur les protections',snapshot?snapshot.canEnforce?'Prises en charge par le composant système':'Privilèges système nécessaires':'Non confirmées']])}<p class="agent-record-caption">Les informations matérielles et les adresses réseau ne sont pas remontées par cet inventaire.</p></details>`;
       if (html !== detailHTML) {
-        const action = document.activeElement?.dataset.detailAction;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, manage = focused?.hasAttribute('data-detail-manage'), disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
+        else if (update || manage) (find(manage?'[data-detail-manage]':'[data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
+        else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
     }
     async function refresh() {
@@ -464,6 +467,10 @@ const agentsWorkspace = (() => {
     find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); dismissDetails(true); }, {signal});
     find('#agentDetailsPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     find('#agentDetailsBody').onclick = event => {
+      const update = event.target.closest('[data-agent-install-update]');
+      if(update){if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate);return;}
+      const manage = event.target.closest('[data-detail-manage]');
+      if(manage){if(manage.disabled)return;const id=detailAgentId;dismissDetails();openAgentsInterface({tab:'fleet',agentId:id,onClose:()=>{if(live())openDetails(id);}});return;}
       const button = event.target.closest('[data-detail-action]');
       if (button && !button.disabled) runAction(button.dataset.detailAction,detailAgentId);
     };

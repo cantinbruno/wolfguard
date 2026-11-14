@@ -151,26 +151,85 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
 #agentToolHost .security-workspace-heading {justify-content: flex-end; margin-bottom: 12px}
 #agentToolHost .edr-console {display: block}
 #agentToolHost .edr-detail {min-width: 0; border: 0; padding: 0}
-.agent-details-panel {width: min(1120px, calc(100vw - 48px))}
-.agent-details-body {flex: 1; min-height: 0; min-width: 0; padding: 18px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin}
-.agent-details-summary {display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; padding: 14px; border: 1px solid var(--agents-line); border-radius: 8px; background: var(--ui-surface)}
-.agent-details-summary > div {flex: 1; min-width: 0}
-.agent-details-summary h3 {margin: 0; font-size: 18px; overflow-wrap: anywhere}
-.agent-details-summary p {margin: 5px 0 0; font-size: 12px; color: var(--ui-muted)}
-.agent-details-grid {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px}
-.agent-details-section {min-width: 0; padding: 15px; border: 1px solid var(--agents-line); border-radius: 8px; background: var(--ui-surface)}
-.agent-details-section h3 {margin: 0 0 12px; font-size: 14px}
-.agent-details-section dl {display: grid; gap: 0; margin: 0}
-.agent-details-section dl > div {display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; padding: 9px 0; border-top: 1px solid var(--agents-line); font-size: 12px; line-height: 1.5}
-.agent-details-section dt {color: var(--ui-muted)}
-.agent-details-section dd {min-width: 0; margin: 0; overflow-wrap: anywhere}
-.agent-details-actions {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px}
-.agent-details-actions button {display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; padding: 12px; border: 1px solid var(--agents-line); border-radius: 6px; background: var(--ui-sidebar); color: var(--ui-text); text-align: left; cursor: pointer; overflow-wrap: anywhere}
-.agent-details-actions button:hover:enabled {border-color: var(--agents-accent); background: var(--ui-raised)}
-.agent-details-actions button:disabled {cursor: default; color: var(--ui-subtle)}
-.agent-details-actions strong {font-size: 12px; font-weight: 600}
-.agent-details-actions span, .agent-details-note {font-size: 11px; color: var(--ui-muted); line-height: 1.6}
-.agent-details-note {margin: 14px 0 0}
+.agent-details-panel {--record-blue:#9edcff; --record-green:#91ddbd; width:min(1160px,calc(100vw - 48px)); border-top-color:var(--record-blue)}
+.agent-details-panel .agents-tool-heading {background:var(--ui-sidebar)}
+.agent-details-body {flex:1; min-height:0; min-width:0; padding:24px; overflow:auto; overscroll-behavior:contain; scrollbar-width:thin}
+.agent-record-hero {display:flex; align-items:center; gap:18px; padding:24px; margin-bottom:22px; border:1px solid color-mix(in srgb,var(--record-blue) 24%,var(--agents-line)); border-radius:14px; background:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--record-blue) 10%,transparent),transparent 65%),var(--ui-surface)}
+.agent-record-avatar {display:grid; place-items:center; flex:none; width:64px; height:64px; color:var(--record-blue); background:color-mix(in srgb,var(--record-blue) 10%,var(--ui-sidebar)); border:1px solid color-mix(in srgb,var(--record-blue) 25%,transparent); border-radius:16px}
+.agent-record-avatar svg {width:31px; height:31px}
+.agent-record-identity {min-width:0; flex:1}
+.agent-record-identity h3 {margin:5px 0 12px; font-size:clamp(21px,2.4vw,29px); letter-spacing:-.7px; font-weight:650; overflow-wrap:anywhere}
+.agent-record-badges {display:flex; align-items:center; flex-wrap:wrap; gap:8px}
+.agent-record-presence,.agent-record-selected {display:inline-flex; align-items:center; gap:6px; font-size:10px; color:var(--ui-muted)}
+.agent-record-presence i {width:6px; height:6px; border-radius:50%; background:var(--ui-muted)}
+[data-connection=online] .agent-record-presence {color:var(--record-green)}
+[data-connection=online] .agent-record-presence i {background:var(--record-green); box-shadow:0 0 0 3px color-mix(in srgb,var(--record-green) 10%,transparent)}
+.agent-record-selected {border-left:1px solid var(--agents-line); padding-left:8px}
+.agent-record-contact {display:grid; gap:6px; text-align:right; font-size:11px; color:var(--ui-muted)}
+.agent-record-contact strong {font-size:12px; font-weight:500; color:var(--ui-text)}
+.agent-record-layout {display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:20px; margin-bottom:20px; align-items:start}
+.agent-record-main,.agent-record-side {display:grid; gap:20px; min-width:0}
+.agent-record-card {min-width:0; padding:20px; border:1px solid var(--agents-line); border-radius:12px; background:var(--ui-surface)}
+.agent-record-card>header {display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:18px}
+.agent-record-card h3,.agent-record-tools h3 {margin:4px 0 0; font-size:16px; font-weight:600; letter-spacing:-.25px}
+.agent-record-card>header>svg {width:20px; height:20px; color:var(--record-blue)}
+.agent-record-provider {max-width:100%; color:var(--ui-muted); font-size:10px; overflow-wrap:anywhere}
+.agent-record-checks {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 12px}
+.agent-record-checks>div {display:flex; align-items:flex-start; gap:10px; min-width:0; font-size:11px; color:var(--ui-muted)}
+.agent-record-checks i {display:grid; place-items:center; flex:none; width:25px; height:25px; border-radius:7px; background:var(--ui-sidebar); color:var(--ui-muted); font-size:12px; font-style:normal}
+.agent-record-checks [data-check=enabled] i {color:var(--record-green); background:color-mix(in srgb,var(--record-green) 10%,var(--ui-sidebar))}
+.agent-record-checks [data-check=disabled] i {color:#f3c18d; background:#e9ad7610}
+.agent-record-checks strong {display:block; margin-top:5px; color:var(--ui-text); font-size:11px; font-weight:500; overflow-wrap:anywhere}
+.agent-record-antivirus {display:flex; align-items:center; gap:10px; margin-top:20px; padding:14px 0; border-block:1px solid var(--agents-line)}
+.agent-record-antivirus>div {flex:1; min-width:0}
+.agent-record-antivirus strong {font-size:12px; font-weight:600}
+.agent-record-antivirus p {margin:4px 0 0; font-size:11px; color:var(--ui-muted)}
+.agent-record-antivirus code {font-size:10px; color:var(--record-blue); overflow-wrap:anywhere; max-width:100px}
+.agent-record-app-icon {color:var(--record-blue); flex:none}
+.agent-record-app-icon svg {width:23px; height:23px}
+.agent-record-counters {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:18px 0 0}
+.agent-record-counters>div {padding:0 12px; border-left:1px solid var(--agents-line)}
+.agent-record-counters>div:first-child {padding-left:0; border-left:0}
+.agent-record-counters strong {display:block; font-size:20px; font-weight:600; overflow-wrap:anywhere}
+.agent-record-counters span {display:block; margin-top:5px; font-size:10px; color:var(--ui-muted)}
+.agent-record-caption {margin:14px 0 0; font-size:10px; line-height:1.7; color:var(--ui-muted); overflow-wrap:anywhere}
+.agent-record-tools>header {margin-bottom:18px}
+.agent-record-tools h4 {margin:16px 0 9px; font-size:11px; font-weight:500; color:var(--ui-muted)}
+.agent-details-actions {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px}
+.agent-details-actions button {display:flex; align-items:center; gap:10px; min-width:0; padding:12px; border:1px solid var(--agents-line); border-radius:9px; background:var(--ui-surface); color:var(--ui-text); text-align:left; cursor:pointer; overflow-wrap:anywhere; transition:background .15s,border-color .15s}
+.agent-details-actions button:hover:enabled {border-color:color-mix(in srgb,var(--record-blue) 55%,transparent); background:var(--ui-raised)}
+.agent-details-actions button:disabled {cursor:default; opacity:.55}
+.agent-details-actions button>i {display:grid; place-items:center; width:28px; height:28px; flex:none; border-radius:7px; background:color-mix(in srgb,var(--record-blue) 7%,var(--ui-sidebar)); color:var(--record-blue)}
+.agent-details-actions svg {width:15px; height:15px}
+.agent-details-actions button>span {flex:1; min-width:0}
+.agent-details-actions strong {font-size:11px; font-weight:600}
+.agent-details-actions small {display:block; margin-top:4px; color:var(--ui-muted); font-size:10px; line-height:1.5}
+.agent-details-actions b {font-weight:400; font-size:13px; color:var(--ui-muted)}
+.agent-record-version {display:inline-flex; padding:5px 8px; margin-bottom:16px; font-size:10px; border:1px solid #e9ad7630; border-radius:5px; color:#f3c18d; background:#e9ad7608}
+.agent-record-version[data-current=true] {border-color:color-mix(in srgb,var(--record-green) 25%,transparent); color:var(--record-green); background:color-mix(in srgb,var(--record-green) 7%,transparent)}
+.agent-record-maintenance .agents-version-line {justify-content:space-between; gap:8px}
+.agent-record-maintenance .agents-update-status {display:block; margin-top:10px; white-space:normal; line-height:1.6}
+.agent-record-manage {display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:15px; padding:10px; border:1px solid var(--agents-line); border-radius:7px; background:var(--ui-sidebar); color:var(--ui-text); font-size:11px; cursor:pointer}
+.agent-record-manage svg {width:14px; height:14px}
+.agent-record-manage span {margin-left:auto; color:var(--ui-muted)}
+.agent-record-manage:hover:enabled {border-color:var(--record-blue)}
+.agent-record-manage:disabled {opacity:.55;cursor:default}
+.agent-record-disclosure {min-width:0; border:1px solid var(--agents-line); border-radius:9px; background:var(--ui-surface); font-size:11px}
+.agent-record-disclosure summary {padding:14px 16px; color:var(--ui-muted); cursor:pointer; font-weight:500}
+.agent-record-disclosure[open] summary {color:var(--ui-text); border-bottom:1px solid var(--agents-line)}
+.agent-record-disclosure dl {margin:0; padding:5px 16px}
+.agent-record-disclosure dl>div {display:grid; gap:6px; padding:10px 0; border-bottom:1px solid var(--agents-line)}
+.agent-record-disclosure dl>div:last-child {border:0}
+.agent-record-disclosure dt {color:var(--ui-muted); font-size:10px}
+.agent-record-disclosure dd {margin:0; overflow-wrap:anywhere; font-family:var(--font-mono,monospace); font-size:10px; line-height:1.7}
+.agent-record-disclosure>.agent-record-caption {padding:0 16px 14px; margin-top:5px}
+.agent-record-notice {margin:0 0 16px; padding:10px 12px; border-left:2px solid #d7ac7a; border-radius:0 6px 6px 0; background:#d7ac7a09; color:var(--ui-muted); font-size:11px; line-height:1.6}
+.agents-modal .agent-manager-heading .settings-heading h3 {font-size:18px}
+.agents-modal .agent-manager-machine-row {grid-template-columns:32px minmax(0,1fr) auto}
+.agents-modal .agent-manager-machine-row>.agent-manager-presence {grid-column:2; grid-row:2; justify-self:start}
+.agents-modal .agent-manager-actions {grid-column:3; grid-row:1/3; max-width:none; flex-wrap:wrap}
+.agents-modal .agent-manager-actions [data-agent-revoke] {color:#e7aaa5; border-color:#e7aaa530; font-size:10px; padding:6px 8px; min-height:31px}
+@media(max-width:900px) {.agent-record-layout{grid-template-columns:minmax(0,1fr)}.agent-record-side{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.agent-record-side>.agent-record-disclosure{grid-column:1/-1}.agent-record-contact{display:none}}
 .agents-empty {padding: 25px 18px; text-align: center; color: var(--ui-muted); white-space: normal}
 .agents-empty h2 {font-size: 15px; font-weight: 650; color: var(--ui-text)}
 .agents-empty p, .agents-notice {font-size: 12px; line-height: 1.6}
@@ -221,9 +280,22 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
   .agents-tool-panel {width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; border: 0; border-radius: 0}
   .agents-tool-heading, #agentToolHost {padding: 10px}
   .agents-tool-heading button {font-size: 10px; padding: 8px}
-  .agent-details-grid, .agent-details-actions {grid-template-columns: minmax(0, 1fr)}
-  .agent-details-body {padding: 10px}
-  .agent-details-section {padding: 12px}
+  .agent-details-panel {width:100vw}
+  .agent-details-body {padding:14px}
+  .agent-record-hero {padding:16px;gap:12px;margin-bottom:16px;border-radius:10px}
+  .agent-record-avatar {width:44px;height:44px;border-radius:12px}
+  .agent-record-avatar svg {width:25px;height:25px}
+  .agent-record-identity h3 {font-size:21px;letter-spacing:-.4px;margin-top:6px}
+  .agent-record-selected {display:none}
+  .agent-record-side,.agent-details-actions {grid-template-columns:minmax(0,1fr)}
+  .agent-record-card {padding:16px}
+  .agent-record-layout,.agent-record-main,.agent-record-side {gap:16px}
+  .agent-record-counters>div {padding-inline:8px}
+  .agent-record-counters strong {font-size:18px}
+  .agent-record-counters span {font-size:9px}
+  .agent-record-checks {gap:16px 8px}
+  .agents-modal .agent-manager-machine-row {grid-template-columns:28px minmax(0,1fr)}
+  .agents-modal .agent-manager-actions {grid-column:1/-1;grid-row:3;justify-content:flex-start;margin-top:5px}
 }
 @media(pointer:coarse) {
   .agents-update-button {min-height: 32px}

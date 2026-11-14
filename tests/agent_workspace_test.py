@@ -39,6 +39,7 @@ def run():
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'07942685');await s.write(result.envelope,0)}""")
             first.goto('http://127.0.0.1:4178/?sync-test&agent-test#activate='+('b'*64));unlock(first)
             open_agent_manager(first)
+            first.locator('#wgAgentAdd').click()
             with first.expect_download() as linked:first.locator('#wgAgentPair').click()
             assert linked.value.suggested_filename=='Installer-WolfGuard.cmd'
             expect(first.locator('#wgAgentConnectPair')).to_have_attribute('href',__import__('re').compile(r'^wolfguard-agent://pair\?code=[a-f0-9]{32}$'))

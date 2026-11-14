@@ -18,6 +18,8 @@ L’association d’un poste est indépendante de la connexion du compte navigat
 
 Les permissions sont réglables poste par poste et restent limitées par les droits de section. Les opérations déjà en cours doivent être révoquées lorsque les accès nécessaires disparaissent. Voir [Droits](../droits.md).
 
+Dans le parc, le bouton « Gérer les agents » ouvre la liste avec les commandes de choix et de révocation. « Ajouter un agent » ouvre l’installation et ne doit pas revenir sur la liste après le chargement asynchrone. La fiche du poste fournit l’accès aux outils, à la mise à jour et à la gestion de cet agent précis ; ses identifiants complets restent dans les informations techniques repliables.
+
 La mise à jour télécharge uniquement les fichiers autorisés, contrôle le manifeste et les empreintes, puis attend le retour du poste avec la version attendue. Préserver son association. Un SHA-256 vérifié n’est pas une signature d’éditeur Windows.
 
 ## Packaging

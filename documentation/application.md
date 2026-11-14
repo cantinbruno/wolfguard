@@ -8,6 +8,10 @@ Le Mémo conserve les dossiers, sous-dossiers, fiches, contenus riches, images, 
 
 L’écran Sécurité conserve le poste choisi pendant l’utilisation de ses outils : scans, cartographie, vulnérabilités, EDR, bureau, terminal et fichiers. Un simple clic sur le nom ou une cellule du poste ouvre sa fiche. Le clic droit et l’appui long ouvrent les options du poste. Les paramètres regroupent les protections de l’application, Authenticator, les préférences et les écrans d’administration autorisés.
 
+La fiche présente l’identité et la connexion du poste, ses protections récentes, WolfGuard Antivirus, les alertes et les outils regroupés par usage. La maintenance et la mise à jour de l’agent sont directement accessibles. Les identifiants complets et la politique EDR sont repliables ; un rafraîchissement conserve leur ouverture et le focus. Une valeur inconnue n’est pas remplacée par zéro.
+
+« Gérer les agents » ouvre explicitement la liste de gestion : choix du poste utilisé, options de visibilité et révocation confirmée. « Ajouter un agent » ouvre directement l’installation, même après le premier chargement ou avec une liste vide. Ces deux destinations sont distinctes. « Gérer ce poste » depuis une fiche déplie l’agent concerné ; fermer la gestion revient à sa fiche. Les droits poste par poste et les limitations hors ligne restent appliqués.
+
 La section Données ne propose plus de sauvegardes utilisateur. Les anciens formats et outils de migration conservés dans le code servent à la compatibilité ; ne pas les remettre dans le parcours courant.
 
 ## Scans et cartographie
@@ -26,7 +30,7 @@ Les versions rétroportées, avis multi-produits, échecs réseau et limites de 
 
 ## EDR et prise en main
 
-L’EDR utilise les moteurs de protection natifs. Il distingue protection active, état ancien, erreur de collecte et action confirmée. Les actions de protection nécessitent les droits correspondants.
+L’EDR distingue WolfGuard Antivirus avec ClamAV et les protections natives. Il sépare protection active, état ancien, erreur de collecte et action confirmée. Les actions de protection nécessitent les droits correspondants. La [couverture antivirus actuelle](antivirus.md) reste réactive et limitée aux dossiers indiqués.
 
 Bureau, terminal et fichiers sont des modes distincts, contrôlés côté API. Un agent associé peut accepter une prise en main sans confirmation locale ; l’association et les droits sont donc déterminants. Les transferts sont limités au périmètre accepté par l’agent et ne doivent pas écraser silencieusement des fichiers.
 
