@@ -1,3 +1,13 @@
+# Reprise du projet
+
+Lire `documentation/reprise-ia.md`, puis `documentation/decisions.md` et la page utile depuis `documentation/README.md` avant de modifier le projet. La documentation de développement est centralisée dans `documentation/` ; `docs/` reste le site généré pour GitHub Pages.
+
+Examiner `git status`, `git diff` et `git diff --cached` avant chaque tâche. Préserver les modifications en attente et préparer uniquement les fichiers concernés. Ne pas utiliser un ajout Git global ni écraser un changement préexistant pour faciliter la publication.
+
+Les secrets, données et profils personnels `.continue/agents/` restent locaux. Ne pas les lire pour comprendre le code, les afficher ou les committer. Les règles partagées de Continue sont dans `.continue/rules/`.
+
+Mettre à jour le guide concerné après un changement de comportement. Reconstruire `docs/` avec `npm run build` pour les changements de l'application ou des agents distribués ; un changement de documentation seule ne demande pas de reconstruction du site. Les vérifications et les procédures de publication sont décrites dans `documentation/developpement.md` et `documentation/publication.md`.
+
 # Publication du dépôt
 
 La synchronisation automatique du dossier est désactivée à la demande de l’utilisateur.

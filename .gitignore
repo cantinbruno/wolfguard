@@ -28,3 +28,6 @@ test-results/
 donnees/
 backups/
 maintenance/
+
+# Personal Continue profiles can contain API credentials; shared rules stay tracked.
+.continue/agents/

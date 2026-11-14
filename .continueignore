@@ -1,0 +1,26 @@
+# Generated public site: edit app/ and browser/ instead.
+docs/
+# Reproducible work files and dependencies.
+.cache/
+node_modules/
+**/node_modules/
+**/__pycache__/
+test-results/
+app/vendor/
+server/vendor/
+# Private profiles, secrets and user data.
+.continue/agents/
+.env
+.env.*
+**/.env
+**/.env.*
+*.sqlite*
+*.db
+*.wgweb
+*.itw
+*.dpapi
+site-access*.json
+donnees/
+backups/
+# Binary distributions are produced by the packaging scripts.
+app/downloads/
