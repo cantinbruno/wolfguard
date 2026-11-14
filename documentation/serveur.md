@@ -1,6 +1,6 @@
 # Serveur et API
 
-Le dossier `server/` contient le source de l’API, sa chaîne Worker/Vinext, ses migrations D1 et sa configuration d’hébergement. Son [README d’entrée](../server/README.md) renvoie ici.
+Le dossier `server/` contient le source de l’API, sa chaîne Worker/Vinext, ses migrations D1 et sa configuration d’hébergement. Sa documentation est regroupée sur cette page.
 
 ## Hébergement à préserver
 

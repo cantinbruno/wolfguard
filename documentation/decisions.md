@@ -6,6 +6,7 @@ Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvell
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |
 | Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. Surveillance Windows désactivée. |
+| Documentation | Guides uniquement dans `documentation/`, sans README à la racine ou dans `server/`. `AGENTS.md` à la racine sert seulement d’entrée technique vers les consignes centralisées. |
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |
 | Sessions | 4 heures **d’inactivité**, pas 4 heures de durée totale. Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
 | MFA | Authenticator ; option « Changer de téléphone ». L’ancien facteur reste actif jusqu’à confirmation du nouveau. Les codes de secours restent nécessaires à la récupération MFA. |

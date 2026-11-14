@@ -2,7 +2,7 @@
 
 Application web de gestion de mémos, coffres personnels et postes associés.
 
-**Commencer par [la documentation](documentation/README.md).** Pour reprendre le développement avec l’IA locale, lire [Reprise IA](documentation/reprise-ia.md), puis les [consignes du dépôt](AGENTS.md).
+**Commencer par [la documentation](README.md).** Pour reprendre le développement avec l’IA locale, lire [Reprise IA](reprise-ia.md), puis les [consignes du dépôt](instructions-ia.md).
 
 | Dossier | Rôle |
 | --- | --- |
@@ -17,6 +17,6 @@ Application web de gestion de mémos, coffres personnels et postes associés.
 
 Le frontend est publié sur **https://wolfguard.wavetools.fr/** depuis `main:/docs`. Le serveur Sites se déploie séparément. Le lien privé et les secrets restent hors du dépôt.
 
-Après chaque tâche terminée : contrôles adaptés, ajout sélectif des fichiers, commit, puis **`git push origin main`**. GitHub Pages publie ensuite le frontend. La tâche Windows de surveillance reste désactivée. Voir [Publication](documentation/publication.md).
+Après chaque tâche terminée : contrôles adaptés, ajout sélectif des fichiers, commit, puis **`git push origin main`**. GitHub Pages publie ensuite le frontend. La tâche Windows de surveillance reste désactivée. Voir [Publication](publication.md).
 
 Les licences et notices des bibliothèques restent à côté des fichiers dans `app/vendor/` et `server/vendor/`. Les guides `agent/LIRE-MOI*.txt` restent inclus dans les installateurs.

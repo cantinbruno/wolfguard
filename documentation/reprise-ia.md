@@ -1,6 +1,6 @@
 # Reprendre le projet avec l’IA locale
 
-Lire ce document et [AGENTS.md](../AGENTS.md) au début d’une nouvelle tâche. La conversation passée n’est pas nécessaire pour retrouver les règles du projet.
+Lire ce document et les [instructions du dépôt](instructions-ia.md) au début d’une nouvelle tâche. La conversation passée n’est pas nécessaire pour retrouver les règles du projet.
 
 ## Première lecture
 
@@ -39,4 +39,4 @@ Le push GitHub ne déploie pas l’API Sites. Une tâche sur le serveur exige au
 
 Les clés privées, fichiers `.env`, profils de connexion dans `.continue/agents/`, bases, jetons et données utilisateur ne servent pas à comprendre l’architecture. Ne pas en afficher le contenu, les copier dans un prompt, les ajouter à Git ou les publier. Les contrôles doivent masquer les valeurs.
 
-Pour continuer sans historique de conversation : « Lis AGENTS.md et documentation/reprise-ia.md, examine l’état Git, puis réalise la tâche suivante : … ».
+Pour continuer sans historique de conversation : « Lis documentation/instructions-ia.md et documentation/reprise-ia.md, examine l’état Git, puis réalise la tâche suivante : … ».

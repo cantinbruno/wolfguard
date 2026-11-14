@@ -3,7 +3,7 @@ name: WolfGuard - reprise et publication
 alwaysApply: true
 ---
 
-Lire AGENTS.md et documentation/reprise-ia.md avant de modifier ce projet.
+Lire documentation/instructions-ia.md et documentation/reprise-ia.md avant de modifier ce projet.
 Utiliser documentation/README.md pour trouver le guide utile et lire seulement les fichiers concernés.
 
 Préserver les changements Git existants et les secrets. Ne pas lire les profils personnels .continue/agents/ ni les fichiers de clés.

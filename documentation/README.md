@@ -2,6 +2,8 @@
 
 Ce dossier centralise les explications du projet. **`docs/` est le site généré, pas la documentation de développement.**
 
+La [présentation du projet](projet.md) et les [instructions des outils IA](instructions-ia.md) sont également regroupées ici. Aucun README n’est conservé à la racine du dépôt ou dans `server/`.
+
 ## Parcours de reprise
 
 1. [Reprise IA](reprise-ia.md) : travail à effectuer à chaque nouvelle session.
