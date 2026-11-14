@@ -12,6 +12,7 @@ Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvell
 | MFA | Authenticator ; option « Changer de téléphone ». L’ancien facteur reste actif jusqu’à confirmation du nouveau. Les codes de secours restent nécessaires à la récupération MFA. |
 | Sauvegardes | Pas d’export/import de sauvegardes proposé dans l’interface. Ne pas supprimer les copies techniques de récupération ou les données existantes. |
 | Agents | Réglages de droits poste par poste, en plus des permissions de section. Une restriction individuelle ne peut pas élargir les droits globaux. |
+| Objectif antivirus | WolfGuard doit à terme assurer lui-même la détection et la gestion des menaces. Le pilotage actuel des protections natives reste en place pendant ce chantier. Voir `documentation/antivirus.md` ; aucun moteur autonome n’est encore livré. |
 | Interface sécurité | Présentation cohérente et compacte ; garder les outils et le poste sélectionné dans le même contexte. |
 | Windows | Procédure Authenticode préparée ; l’obtention payante d’un certificat a été abandonnée. Ne pas relancer cet achat ni inventer une signature reconnue. |
 | Tests du poste | Aucun test qui ouvre une fenêtre, prend le focus ou injecte clavier/souris sans demande explicite. Les tests Playwright sans fenêtre utilisent des profils temporaires. |

@@ -17,6 +17,7 @@ La [présentation du projet](projet.md) et les [instructions des outils IA](inst
 | --- | --- |
 | Fonctions de l’application et limites des scans | [Application](application.md) |
 | Connexion, chiffrement, MFA et limites de sécurité | [Sécurité](securite.md) |
+| Objectif antivirus autonome, composants et validation nécessaires | [Antivirus WolfGuard](antivirus.md) |
 | Permissions des comptes et droits poste par poste | [Droits](droits.md) |
 | API, stockage, migrations et déploiement du serveur | [Serveur](serveur.md) |
 | Installateurs, services et prise en main | [Agents](agents/README.md) |
