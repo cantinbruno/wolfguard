@@ -93,7 +93,7 @@ const agentsWorkspace = (() => {
       const file = {win32:'WolfGuard-Agent-Windows.exe',linux:'WolfGuard-Agent-Linux.zip',darwin:'WolfGuard-Agent-macOS.zip'}[agent.platform];
       const control=manual ? '<a class="agents-update-button" href="downloads/' + file + '" download title="Télécharger l’agent récent à installer sur ce poste">Installer</a>' : '<button type="button" class="agents-update-button" data-agent-install-update="' + esc(agent.id) + '" data-current="' + info.current + '" ' + (!info.canUpdate ? 'disabled' : '') + ' title="' + esc(message) + '">' + label + '</button>';
       const feedback='<small class="agents-update-status" data-agent-update-status="' + esc(agent.id) + '" data-state="' + (info.current ? 'completed' : info.task?.status || 'idle') + '" title="' + esc(message) + '" role="status">' + esc(message) + '</small>';
-      if(record)return '<div class="agent-record-update"><div><span>Maintenance</span><strong data-current="'+info.current+'">'+(info.current?'Agent à jour':info.task?.running?'Mise à jour en cours':info.outdated?'Mise à jour disponible':'Version à vérifier')+'</strong></div>'+control+'</div>'+(info.task?.running||!info.current&&(info.task?.status==='failed'||info.reason)?feedback:'');
+      if(record)return '<div class="agent-record-update" data-update="'+(info.current?'current':info.task?.running?'running':info.task?.status==='failed'?'failed':info.outdated?'available':'unknown')+'"><div><span>Maintenance</span><strong data-current="'+info.current+'">'+(info.current?'Agent à jour':info.task?.running?'Mise à jour en cours':info.outdated?'Mise à jour disponible':'Version à vérifier')+'</strong></div>'+control+'</div>'+(info.task?.running||!info.current&&(info.task?.status==='failed'||info.reason)?feedback:'');
       return '<div class="agents-version-line"><code title="' + esc(agent.version || 'Version non remontée') + '">' + esc(agent.version?.slice(0,8) || 'Non remontée') + '</code>' + control + '</div>' + feedback;
     }
     function contactHTML(value){
@@ -285,16 +285,17 @@ const agentsWorkspace = (() => {
       const edrAllowed = can('edr.read') && workspaceModules.allows('edr');
       const endpoint = edrAllowed && !protectionStale && !stale ? protections.get(agent.id) : null;
       const snapshot = status.snapshot, policy = endpoint?.policy;
-      const checks = {enabled:'Activé',disabled:'Désactivé / à actualiser',passive:'Passif · antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
+      const checks = {enabled:'Activé',disabled:'Désactivé',passive:'Antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
       const count = value => Number.isSafeInteger(value) && value >= 0 ? value : 'Non renseigné';
       const metric = value => Number.isSafeInteger(value) && value >= 0 ? value : '—';
-      const fields = rows => '<dl>' + rows.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd>' + esc(String(value ?? 'Non renseigné')) + '</dd></div>').join('') + '</dl>';
+      const fields = rows => '<dl>' + rows.map(([label,value,format]) => '<div><dt>' + esc(label) + '</dt><dd>' + (format==='version'?'<code class="agent-record-code">'+esc(String(value??'Non remontée'))+'</code>':format?'<span class="agent-record-value" data-tone="'+esc(format)+'">'+esc(String(value??'Non renseigné'))+'</span>':esc(String(value??'Non renseigné'))) + '</dd></div>').join('') + '</dl>';
       const tool = action => {
         const unavailable = reason(action,agent);
         const icon = ['terminal','files'].includes(action.mode) ? workspaceNavigationIcon(action.mode) : workspaceSectionIcon(action.section);
         return '<button type="button" data-detail-action="'+action.id+'" '+(unavailable||selecting?'disabled':'')+'><i aria-hidden="true">'+icon+'</i><span><strong>'+action.label+'</strong><small>'+esc(unavailable||action.description)+'</small></span><span class="agent-record-tool-state">'+(unavailable?'Indisponible':'Ouvrir')+'</span></button>';
       };
       const own = snapshot?.wolfguardAntivirus;
+      const ownState=!snapshot||!own?'unknown':!own.installed?'missing':!own.enabled?'paused':own.state==='error'?'error':own.state==='ready'?'ready':['scanning','updating','installing'].includes(own.state)?'running':'unknown';
       const ownLabel = !snapshot ? 'État non confirmé' : !own ? 'Agent à mettre à jour' : !own.installed ? 'Moteur à installer' : !own.enabled ? 'Surveillance suspendue' : ({ready:'Surveillance réactive',scanning:'Analyse en cours',updating:'Signatures en cours',installing:'Installation en cours',error:'Intervention nécessaire'})[own.state]||'État à confirmer';
       const connected = stale ? 'À confirmer' : agent.online ? 'Connecté' : 'Hors ligne';
       const detailsOpen = find('#agentDetailsTechnical')?.open, policyOpen = find('#agentDetailsPolicy')?.open;
@@ -324,9 +325,9 @@ const agentsWorkspace = (() => {
                 <div><span>État des protections</span><strong>${esc(status.label)}</strong></div>
               </div>
               <div class="agent-record-counters">
-                <div data-alert="${status.alerts>0}"><strong>${metric(status.alerts)}</strong><span>Alertes ouvertes</span></div>
-                <div><strong>${metric(endpoint?.blocks)}</strong><span>Blocages · 24 h</span></div>
-                <div data-alert="${snapshot?.activeThreats>0}"><strong>${metric(snapshot?.activeThreats)}</strong><span>Menaces actives</span></div>
+                <div data-metric="alerts" data-alert="${status.alerts>0}" data-known="${Number.isSafeInteger(status.alerts)&&status.alerts>=0}"><strong>${metric(status.alerts)}</strong><span>${settingsIcon('circle-alert')}Alertes ouvertes</span></div>
+                <div data-metric="blocks" data-known="${Number.isSafeInteger(endpoint?.blocks)&&endpoint.blocks>=0}"><strong>${metric(endpoint?.blocks)}</strong><span>${settingsIcon('lock')}Blocages · 24 h</span></div>
+                <div data-metric="threats" data-alert="${snapshot?.activeThreats>0}" data-known="${Number.isSafeInteger(snapshot?.activeThreats)&&snapshot.activeThreats>=0}"><strong>${metric(snapshot?.activeThreats)}</strong><span>${settingsIcon('shield-alert')}Menaces actives</span></div>
               </div>
             </div>
             <div class="agent-record-overview">
@@ -334,17 +335,17 @@ const agentsWorkspace = (() => {
                 ${sectionHeading('shield-check','Protection du poste','<button type="button" class="agent-record-events" data-record-edr '+(reason(actions.find(a=>a.id==='edr'),agent)||selecting?'disabled':'')+'>'+settingsIcon('list')+'Événements</button>')}
                 <div class="agent-record-section-label"><h4>Protection du système</h4><span>${esc(snapshot?.provider||'Fournisseur non confirmé')}</span></div>
                 <div class="agent-record-checks">
-                  ${[['Antivirus','antivirus'],['Temps réel','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><span>'+label+'</span><strong><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i>'+esc(checks[value])+'</strong></div>';}).join('')}
+                  ${[['Antivirus','antivirus'],['Temps réel','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><span>'+label+'</span><strong><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i>'+esc(field==='signatures'&&value==='disabled'?'À actualiser':checks[value])+'</strong></div>';}).join('')}
                 </div>
                 <section class="agent-record-antivirus">
                   <div class="agent-record-section-label"><h4>WolfGuard Antivirus</h4><span>ClamAV</span></div>
-                  <div class="agent-record-antivirus-state"><span aria-hidden="true">${settingsIcon('shield')}</span><strong>${esc(ownLabel)}</strong></div>
+                  <div class="agent-record-antivirus-state" data-av-state="${ownState}"><span aria-hidden="true">${settingsIcon('shield')}</span><strong>${esc(ownLabel)}</strong></div>
                   ${fields([['Moteur',own?.installed?own.engineVersion||'Version non renseignée':own?'Non installé':'Non confirmé'],['Dernière analyse',own?.lastScanAt?timestamp(own.lastScanAt):'Non renseignée'],['Signatures mises à jour',own?.signatureAt?timestamp(own.signatureAt):'Non renseignées']])}
                 </section>
               </section>
               <section class="agent-record-card agent-record-general agent-record-maintenance">
                 ${sectionHeading('monitor','Poste et agent')}
-                ${fields([['Nom du poste',agent.name],['Système',workspaceAgents.platformName(agent.platform)],['Version',agent.version?.slice(0,12)||'Non remontée'],['Mises à jour',agent.capabilities?.includes('auto-update-v1')?'Automatiques (5 min)':'Manuelles'],['Dernier contact',timestamp(agent.lastSeen)]])}
+                ${fields([['Nom du poste',agent.name],['Système',workspaceAgents.platformName(agent.platform),'info'],['Version',agent.version?.slice(0,12)||'Non remontée','version'],['Mises à jour',agent.capabilities?.includes('auto-update-v1')?'Automatiques (5 min)':'Manuelles'],['Politique configurée',policy?policy.mode==='protect'?'Protection':'Observation':edrAllowed?'Non renseignée':'Accès non accordé',policy?'info':null],['Dernier contact',timestamp(agent.lastSeen)]])}
                 ${updateHTML(agent,{record:true})}
               </section>
             </div>
