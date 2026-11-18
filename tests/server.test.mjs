@@ -108,6 +108,36 @@ test('delayed activity uses its real age, cannot shorten a newer deadline and is
   }finally{s.env.DB.db.close();}
 });
 
+test('an in-flight request stays authorized when a newer heartbeat renews the session first',async()=>{
+  for(const path of ['vault','touch']){
+    const s=setup(),auth=await activate(s);
+    let release;
+    try{
+      const encrypted=await create(payload,'07942685');
+      assert.equal((await s.upload(encrypted.envelope,0,auth.token)).status,200);
+      s.advance(1000);
+      const prepare=s.env.DB.prepare.bind(s.env.DB);
+      let notify,paused=false;
+      const entered=new Promise(resolve=>notify=resolve),gate=new Promise(resolve=>release=resolve);
+      s.env.DB.prepare=sql=>{
+        const statement=prepare(sql);
+        if(!paused&&sql.startsWith('UPDATE sessions SET active_at=MAX')){
+          paused=true;const first=statement.first.bind(statement);
+          statement.first=async()=>{notify();await gate;return first();};
+        }
+        return statement;
+      };
+      const older=s.api(path,path==='vault'?'GET':'POST',path==='vault'?undefined:{},auth.token);
+      await entered;s.advance(57);
+      assert.equal((await s.api('touch','POST',{},auth.token,{'X-WG-Activity':'3'})).status,200);
+      const renewed=s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get();
+      release();
+      assert.equal((await older).status,200,path);
+      assert.deepEqual(s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get(),renewed);
+    }finally{release?.();s.env.DB.db.close();}
+  }
+});
+
 test('legacy indefinite session tokens are rejected even when the stored token is otherwise valid',async()=>{
   const s=setup(),auth=await activate(s);
   try{

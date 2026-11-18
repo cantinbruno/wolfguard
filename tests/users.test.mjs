@@ -148,6 +148,33 @@ test('a repeated account login reuses an unexpired session and renews its four-h
   }finally{s.env.DB.db.close();}
 });
 
+test('a login overlapping a newer heartbeat reuses the session without shortening its deadline',async()=>{
+  const s=await setup();let release;
+  try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543');
+    s.advance(1000);
+    const prepare=s.env.DB.prepare.bind(s.env.DB);
+    let notify,paused=false;
+    const entered=new Promise(resolve=>notify=resolve),gate=new Promise(resolve=>release=resolve);
+    s.env.DB.prepare=sql=>{
+      const statement=prepare(sql);
+      if(!paused&&sql.startsWith('SELECT token_hash,token_cipher,expires_at FROM sessions')){
+        paused=true;const first=statement.first.bind(statement);
+        statement.first=async()=>{notify();await gate;return first();};
+      }
+      return statement;
+    };
+    const login=s.login('cantin.bruno@gmx.fr','09876543');
+    await entered;s.advance(57);
+    assert.equal((await s.api('touch',{},owner.token,{'X-WG-Activity':'3'})).status,200);
+    const renewed=s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get();
+    release();
+    assert.equal((await login).token,owner.token);
+    assert.deepEqual(s.env.DB.db.prepare('SELECT active_at,expires_at FROM sessions').get(),renewed);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,1);
+  }finally{release?.();s.env.DB.db.close();}
+});
+
 test('first admin migration retains the encrypted workspace, requires a distinct code, and closes the shared-code path',async()=>{
   const s=await setup();try{
     const old=await(await s.api('login',{code:'07942685'})).json();

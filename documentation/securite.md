@@ -12,6 +12,8 @@ L’expiration est **4 heures après la dernière activité réelle**, sans plaf
 
 Une erreur réseau, un délai dépassé ou une indisponibilité temporaire pendant `POST /api/touch` conserve la session et déclenche une nouvelle tentative automatique. L’activité non confirmée est renvoyée avec son âge réel. Une réponse qui refuse la session verrouille toujours l’application ; le délai local d’inactivité continue de s’appliquer pendant la coupure. Régression : `tests/session_resume_test.py`.
 
+Le serveur valide la durée maximale d’une session par rapport à son activité enregistrée, et non au début de la requête en cours. Un renouvellement concurrent ne doit pas faire refuser une lecture déjà commencée ni remplacer son jeton lors d’une connexion simultanée. Les horodatages restent croissants. Régressions : `tests/server.test.mjs` et `tests/users.test.mjs`.
+
 ## MFA et changement de téléphone
 
 TOTP utilise six chiffres et des périodes de 30 secondes, avec consommation atomique des compteurs. Les secrets et états en attente sont chiffrés. Les codes de secours sont à usage unique ; ils ne sont pas des sauvegardes des données.
