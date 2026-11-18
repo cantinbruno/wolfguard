@@ -37,6 +37,75 @@ def seed(page):
     }""", CODE)
 
 
+def check_network_sessions(browser, url, backend):
+    context = browser.new_context(reduced_motion='reduce')
+    mode = {'failure': None}
+    touches = []
+    logouts = []
+
+    def proxy(route):
+        path = urlsplit(route.request.url).path
+        if path == '/api/logout':
+            logouts.append(path)
+        if path == '/api/touch':
+            touches.append(dict(route.request.headers))
+            if mode['failure'] == 'offline':
+                route.abort('internetdisconnected')
+                return
+            if mode['failure'] == 'malformed':
+                route.fulfill(status=200, content_type='application/json', body='invalid json')
+                return
+            if isinstance(mode['failure'], int):
+                route.fulfill(status=mode['failure'], content_type='application/json', body='{}')
+                return
+        route.fulfill(response=route.fetch(url=backend + path + ('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
+
+    context.route(API + '/**', proxy)
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.clock.install()
+    page.goto(url + '?sync-test'); ready(page)
+    with page.expect_response(API + '/api/touch'):
+        page.keyboard.type(CODE); unlocked(page)
+    credential = page.evaluate('WolfGuardCloud.sessionState().token')
+    ticket = page.evaluate("JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).id")
+
+    # Failed activity reports must be retried, without losing the current tab,
+    # credentials or workspace. Advance the real heartbeat timer in the browser.
+    page.keyboard.press('Shift')
+    for failure in [503, 429, 'malformed', 'offline']:
+        mode['failure'] = failure
+        page.evaluate("document.querySelector('#webSaveLabel').textContent=''")
+        page.clock.fast_forward(26000)
+        expect(page.locator('#webSaveLabel')).to_contain_text('Nouvelle tentative automatique')
+        expect(page.locator('#app')).to_be_visible()
+        assert page.evaluate('WolfGuardCloud.sessionState().token') == credential
+        assert page.evaluate("JSON.parse(sessionStorage.getItem('wolfguard-tab-session-v1')).id") == ticket
+        assert touches[-1].get('x-wg-activity') is not None
+        assert not logouts, logouts
+
+    mode['failure'] = None
+    with page.expect_response(API + '/api/touch'):
+        page.clock.fast_forward(26000)
+    expect(page.locator('#webSaveLabel')).to_contain_text('Synchronisé et chiffré')
+    assert page.evaluate('WolfGuardCloud.sessionState().token') == credential
+    assert touches[-1].get('x-wg-activity') is not None
+    with page.expect_response(API + '/api/touch'):
+        page.clock.fast_forward(26000)
+    assert 'x-wg-activity' not in touches[-1], touches[-1]
+
+    # A server-side revocation must still lock immediately on the next pulse.
+    assert context.request.post(backend + '/api/logout', headers={'Authorization': 'Bearer ' + credential}).status == 200
+    page.clock.fast_forward(26000)
+    expect(page.locator('#app')).not_to_be_visible()
+    assert page.evaluate('state.vaultKey===null')
+    assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
+    assert not errors, errors
+    context.close()
+    print('PASS: transient heartbeat errors preserve the session, retry activity and recover automatically; server revocation still clears keys and the reload ticket')
+
+
 def run():
     node = Path(os.environ['LOCALAPPDATA']) / 'WolfGuardWeb/runtime/node.exe'
     server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT/'docs')))
@@ -143,7 +212,9 @@ def run():
             expect(first.locator('#app')).not_to_be_visible()
             assert first.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
             assert not errors, errors
-            a.close(); b.close(); browser.close()
+            a.close(); b.close()
+            check_network_sessions(browser, url, backend)
+            browser.close()
             print('PASS: cloud refresh reuses its authenticated session, fetches the latest data and restores the section; a revoked server session cannot resume')
     finally:
         server.shutdown(); server.server_close(); backend_process.terminate(); backend_process.wait(timeout=10)

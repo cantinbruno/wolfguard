@@ -10,6 +10,8 @@ Le serveur vérifie le code avec un sel, un secret indépendant et PBKDF2-SHA-25
 
 L’expiration est **4 heures après la dernière activité réelle**, sans plafond absolu de durée. Le navigateur suit l’horloge civile et monotone. Le serveur renouvelle l’échéance via `POST /api/touch` avec un âge d’activité valide ; le polling seul ne renouvelle pas. Un jeton expiré ne se réactive pas. Le verrouillage, la révocation, les changements de code ou de droits restent applicables. Sources : `browser/adapter.js`, `browser/tab-session.js`, `server/lib/wolfguard/core.mjs`, `session-policy.mjs`.
 
+Une erreur réseau, un délai dépassé ou une indisponibilité temporaire pendant `POST /api/touch` conserve la session et déclenche une nouvelle tentative automatique. L’activité non confirmée est renvoyée avec son âge réel. Une réponse qui refuse la session verrouille toujours l’application ; le délai local d’inactivité continue de s’appliquer pendant la coupure. Régression : `tests/session_resume_test.py`.
+
 ## MFA et changement de téléphone
 
 TOTP utilise six chiffres et des périodes de 30 secondes, avec consommation atomique des compteurs. Les secrets et états en attente sont chiffrés. Les codes de secours sont à usage unique ; ils ne sont pas des sauvegardes des données.

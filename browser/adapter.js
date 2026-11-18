@@ -7,11 +7,11 @@ const webWorkspace = (() => {
   let queue = Promise.resolve(), epoch = 0, busy = false, locking = false, releaseTab = null;
   let enteredCode = '', creationCode = '', booting = true;
   let sessionClock = null, rotating = false, cloudHeartbeat = null, sessionTimerDue = 0;
-  let activityRevision=0,reportedActivity=0,lastCloudPulse=0,cloudPulse=null;
+  let activityRevision=0,reportedActivity=0,lastCloudPulse=0,cloudPulse=null,cloudPulseFailed=false;
   let sharedTimer=null, sharedRefreshing=null, agentChoice=null,accountSetupActive=false,mfaWaiting=false,setupUsername='';
   window.addEventListener('wolfguard-user-changed',()=>{if(session&&cloud?.hasSession()){session.payload=hydrateVaultHomes(session.payload);window.workspaceSearch?.invalidate();}});
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
-  // Absolute deadline: interaction and reload never grant another four hours.
+  // Only real interaction renews the four-hour inactivity deadline.
   const SESSION_MS = 4 * 60 * 60 * 1000;
   function updateMFAIndicator(){
     const button=$('#settingsBtn'),mfa=cloud?.currentUser()?.mfa,pending=!!(session&&cloud?.enabled&&cloud.hasUsers()&&mfa&&!mfa.complete);
@@ -36,7 +36,7 @@ const webWorkspace = (() => {
     const wall = Date.now(), mono = performance.now();
     sessionClock = {...clock, monotonicStart: mono - (wall - clock.started), monotonicActive: mono - (wall - clock.active)};
     armSessionTimer();
-    activityRevision=1;reportedActivity=0;lastCloudPulse=0;
+    activityRevision=1;reportedActivity=0;lastCloudPulse=0;cloudPulseFailed=false;
     if (cloud.enabled) { clearInterval(cloudHeartbeat); cloudHeartbeat = setInterval(pulseCloudSession, 25000); pulseCloudSession(); }
     resetSessionSettings(result.payload.settings); connectedWorkspaceReady = true; portableFileName = cloud.enabled ? 'Espace partagé chiffré' : 'Espace local chiffré';
     state.vaultKey = result.key; sessionAccessCode = '';
@@ -94,8 +94,21 @@ const webWorkspace = (() => {
     const current=session,revision=activityRevision,activityAge=revision>reportedActivity?Math.floor(inactiveFor()):undefined;
     lastCloudPulse=performance.now();
     const pending=cloud.touch({activityAge});cloudPulse=pending;
-    try{await pending;if(session===current)reportedActivity=Math.max(reportedActivity,revision);}
-    catch(error){if(session===current&&error.code!=='CLOUD_STALE_SESSION')lock();}
+    try{
+      await pending;
+      if(session===current){
+        reportedActivity=Math.max(reportedActivity,revision);
+        if(cloudPulseFailed){cloudPulseFailed=false;saveStatus(savedMessage());}
+      }
+    }catch(error){
+      if(session!==current)return;
+      if(error.code==='CLOUD_ACCESS')await lock();
+      else if(error.code!=='CLOUD_STALE_SESSION'){
+        // A failed heartbeat does not revoke the session. The next pulse retries
+        // the unacknowledged activity; the local idle deadline still applies.
+        cloudPulseFailed=true;saveStatus('Connexion indisponible · Nouvelle tentative automatique');
+      }
+    }
     finally{if(cloudPulse===pending)cloudPulse=null;}
   }
   function assertFreshSession() {
