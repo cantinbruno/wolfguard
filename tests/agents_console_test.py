@@ -39,6 +39,7 @@ def run():
         elif url.path == '/api/edr':
             summary_calls.append(url.path)
             endpoints = [{**agent, 'health': ['protected','attention','protected','unknown'][index], 'alerts': 3 if index == 1 else 0, 'blocks': 0, 'collectedAt': None if index == 3 else int(time.time()*1000) - (300000 if state['old_reports'] else 0), 'snapshot': None if index == 3 else {'provider':'Microsoft Defender' if index == 0 else 'Protection native', 'antivirus':'enabled','realtime':'disabled' if index == 1 else 'enabled','firewall':'enabled','signatures':'enabled','canEnforce':False}, 'policy': {'mode': 'observe', 'realtime': True, 'firewall': True}, 'revision': 0} for index, agent in enumerate(agents)]
+            endpoints[0]['snapshot'].update(activeThreats=0, wolfguardAntivirus={'version': 1, 'capable': True, 'installed': True, 'enabled': True, 'state': 'ready', 'engineVersion': '1.5.4', 'signatureVersion': 'synthetic-001', 'signatureAt': int(time.time()*1000)-3600000, 'lastScanAt': int(time.time()*1000)-600000, 'lastUpdateAt': int(time.time()*1000)-3600000, 'scannedFiles': 24, 'pendingFiles': 0, 'errors': 0, 'message': 'Surveillance de test', 'coverage': 'reactive', 'scope': ['C:\\Synthetic'], 'quarantine': [], 'quarantineTotal': 0})
             if state['protection_fail']: route.fulfill(status=503, json={'error': 'Relevés indisponibles'})
             else: route.fulfill(json={'endpoints': endpoints, 'serverTime': int(time.time()*1000)})
         elif url.path == '/api/edr/events':
@@ -125,7 +126,7 @@ def run():
                 page.set_viewport_size({'width':width,'height':1000})
                 assert page.locator('.agents-table-scroll').evaluate('el=>el.scrollWidth<=el.clientWidth'), width
                 expect(page.locator('#agentsMobileSort')).to_be_visible()
-                assert page.locator('[data-agent-sort]').evaluate_all('buttons=>buttons.every(button=>button.tabIndex===-1)')
+                page.wait_for_function("() => [...document.querySelectorAll('[data-agent-sort]')].every(button=>button.tabIndex===-1)")
                 page.locator('#agentsMobileSort').select_option('alerts')
                 expect(page.locator('[data-agent-column="alerts"]')).to_have_attribute('aria-sort','ascending')
                 page.locator('#agentsMobileDirection').click()
@@ -134,7 +135,7 @@ def run():
                 page.locator('#agentsMobileSort').select_option('name')
                 page.screenshot(path=str(ROOT/f'.cache/fleet-mobile-{width}.png'))
             page.set_viewport_size({'width':1440,'height':1000})
-            assert page.locator('[data-agent-sort]').evaluate_all('buttons=>buttons.every(button=>button.tabIndex===0)')
+            page.wait_for_function("() => [...document.querySelectorAll('[data-agent-sort]')].every(button=>button.tabIndex===0)")
             state['endpoints_only'] = True
             page.locator('#agentsRefresh').click()
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
@@ -168,11 +169,29 @@ def run():
             expect(page.locator('#agentDetailsBody')).to_contain_text('Politique EDR configurée')
             expect(page.locator('[data-detail-action]')).to_have_count(8)
             expect(page.locator('#agentDetailsTechnical')).not_to_have_attribute('open','')
+            expect(page.locator('.agent-record-tabs')).to_have_attribute('aria-orientation', 'vertical')
+            expect(page.locator('.agent-record-general')).to_contain_text(agents[0]['name'])
+            expect(page.locator('.agent-record-antivirus')).to_contain_text('1.5.4')
+            assert page.locator('#agentDetailsPanel svg').evaluate_all('icons=>icons.every(icon=>icon.childElementCount>0)')
+            assert page.locator('.agent-record-sidebar').bounding_box()['x'] < page.locator('.agent-record-content').bounding_box()['x']
             page.screenshot(path=str(ROOT/'.cache/agent-record-desktop.png'))
+            page.locator('.agent-record-content').evaluate('el=>el.scrollTop=120')
+            record_scroll = page.locator('.agent-record-content').evaluate('el=>el.scrollTop')
+            assert record_scroll > 0
+            page.locator('#agentDetailsRefresh').click()
+            expect(page.locator('#agentDetailsRefresh')).to_be_enabled()
+            expect(page.locator('#agentDetailsTarget')).to_have_text(agents[0]['name'])
+            assert page.locator('.agent-record-content').evaluate('el=>el.scrollTop') == record_scroll
+            page.locator('.agent-record-content').evaluate('el=>el.scrollTop=0')
             expect(page.locator('[data-detail-manage]')).to_have_count(0)
             expect(page.locator('#agentRecord-overview')).to_be_visible()
             expect(page.locator('#agentRecord-tools')).to_be_hidden()
             page.locator('[data-record-tab="overview"]').focus()
+            page.keyboard.press('ArrowDown')
+            expect(page.locator('[data-record-tab="tools"]')).to_be_focused()
+            expect(page.locator('#agentRecord-tools')).to_be_visible()
+            page.keyboard.press('ArrowUp')
+            expect(page.locator('[data-record-tab="overview"]')).to_be_focused()
             page.keyboard.press('End')
             expect(page.locator('[data-record-tab="details"]')).to_be_focused()
             expect(page.locator('#agentRecord-details')).to_be_visible()
@@ -193,11 +212,13 @@ def run():
                 assert page.locator('#agentDetailsPanel').evaluate('el => el.scrollWidth <= el.clientWidth'), width
                 assert page.locator('#agentDetailsBody').evaluate('el => el.scrollWidth <= el.clientWidth'), width
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
+                expect(page.locator('.agent-record-tabs')).to_have_attribute('aria-orientation', 'horizontal' if width <= 700 else 'vertical')
                 if width==390:
                     page.screenshot(path=str(ROOT/'.cache/agent-record-mobile.png'))
                     page.locator('[data-record-tab="overview"]').click()
                     page.screenshot(path=str(ROOT/'.cache/agent-overview-mobile.png'))
                     page.locator('[data-record-tab="tools"]').click()
+            page.screenshot(path=str(ROOT/'.cache/agent-record-tools-mobile.png'))
             page.set_viewport_size({'width': 1440, 'height': 1000})
             # Starting an existing tool from a record must select that record's target.
             page.locator('[data-detail-action="active"]').click()
