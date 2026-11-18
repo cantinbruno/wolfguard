@@ -174,7 +174,10 @@ def run():
             expect(page.locator('.agent-record-antivirus')).to_contain_text('1.5.4')
             assert page.locator('#agentDetailsPanel svg').evaluate_all('icons=>icons.every(icon=>icon.childElementCount>0)')
             assert page.locator('.agent-record-sidebar').bounding_box()['x'] < page.locator('.agent-record-content').bounding_box()['x']
+            expect(page.locator('.agent-record-overview > .agent-record-card')).to_have_count(2)
+            assert page.locator('.agent-record-content').evaluate('el=>el.scrollHeight<=el.clientHeight'), 'The desktop overview must fit without clipping its essential information'
             page.screenshot(path=str(ROOT/'.cache/agent-record-desktop.png'))
+            page.set_viewport_size({'width':1440,'height':720})
             page.locator('.agent-record-content').evaluate('el=>el.scrollTop=120')
             record_scroll = page.locator('.agent-record-content').evaluate('el=>el.scrollTop')
             assert record_scroll > 0
@@ -183,6 +186,7 @@ def run():
             expect(page.locator('#agentDetailsTarget')).to_have_text(agents[0]['name'])
             assert page.locator('.agent-record-content').evaluate('el=>el.scrollTop') == record_scroll
             page.locator('.agent-record-content').evaluate('el=>el.scrollTop=0')
+            page.set_viewport_size({'width':1440,'height':1000})
             expect(page.locator('[data-detail-manage]')).to_have_count(0)
             expect(page.locator('#agentRecord-overview')).to_be_visible()
             expect(page.locator('#agentRecord-tools')).to_be_hidden()
