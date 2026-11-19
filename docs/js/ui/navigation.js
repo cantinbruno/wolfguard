@@ -11,7 +11,7 @@ async function openSection(section, itemId = null, options = {}) {
   if (section === 'library' && itemId && primaryWorkspaces.memo?.dirty && primaryWorkspaces.memo.state.item !== itemId && !await appConfirm('Quitter le mémo en cours sans enregistrer ses modifications ?')) return false;
   if ($('#app').classList.contains('hidden') && !state.vaultKey) return false;
   return sectionTransition.navigate(section, async isCurrent => {
-    if (section === 'library'&&!canRestoreMemoWorkspace(itemId)&&!window.WolfGuardAccess?.restricted()) await ensureUnifiedLibrary();
+    if (section === 'library'&&!(itemId&&state.section==='library'&&$('#content > .library-workspace'))&&!canRestoreMemoWorkspace(itemId)&&!window.WolfGuardAccess?.restricted()) await ensureUnifiedLibrary();
     if (portReference) {
       const reference = (await all('items')).find(item => item.referenceCatalogId === MEMO_PORT_REFERENCE && !item.deletedAt);
       itemId = reference?.id || null;
@@ -30,7 +30,7 @@ async function openSection(section, itemId = null, options = {}) {
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
     state.folder = options.resume?.folder || null;
-    state.item = options.resume?.item || null;
+    state.item = options.resume?.item || itemId || null;
     state.mode = 'view';
     $('#sidebar').classList.add('hidden');
     $('#content').style.padding = '';
@@ -42,10 +42,6 @@ async function openSection(section, itemId = null, options = {}) {
     if (section === 'library' && restoreMemoWorkspace(itemId)) return true;
     if (section === 'library') primaryWorkspaces.memo = null;
     await renderWorkspace();
-    if (itemId && isCurrent()) {
-      state.item = itemId;
-      await renderWorkspace();
-    }
   });
 }
 async function isFolderDescendant(candidateId, ancestorId) {
@@ -276,6 +272,7 @@ function renderUnifiedTree(folders, items, parentId = null, depth = 0, counts = 
 
     out += `
       <div class="tree-row tree-folder-row ${state.folder===f.id && !state.item?'active':''}"
+           data-tree-folder="${esc(f.id)}"
            style="padding-left:${8+depth*10}px"
            draggable="true"
            data-wg-dragstart="folderDragStart(event,'${f.id}')"
@@ -303,6 +300,7 @@ function renderUnifiedTree(folders, items, parentId = null, depth = 0, counts = 
   for (const item of childItems) {
     out += `
       <div class="tree-row tree-item-row ${state.item===item.id?'active':''}"
+           data-tree-item="${esc(item.id)}"
            style="padding-left:${8+depth*10}px"
            draggable="true"
            data-wg-dragstart="itemDragStart(event,'${item.id}')"
@@ -489,17 +487,17 @@ async function renderUnifiedExplorer(detailHtml = '') {
 }
 
 let renderWorkspaceQueued = 0;
-async function renderWorkspace() {
-  // Coalesce rapid successive calls (folder navigation, network refresh,
-  // shared-workspace updates) into a single paint to keep transitions smooth.
+async function renderWorkspace({preserveExplorer=false}={}) {
+  // Coalesce calls from the same task without imposing a frame of latency on
+  // every navigation or waiting for animation frames in an inactive tab.
   const ticket = ++renderWorkspaceQueued;
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await Promise.resolve();
   if (ticket !== renderWorkspaceQueued) return;
   if (state.section === 'modules') renderModulesWorkspace();
   else if (isSecurityWorkspace(state.section)) await agentsWorkspace.render();
   else if (state.section === 'tools') await renderNetworkTools();
   else if (state.section === 'protocol') await renderProtocolWorkspace();
-  else if (state.section === 'library') await renderLibraryWorkspace();
+  else if (state.section === 'library') await renderLibraryWorkspace({preserveExplorer});
   else if (state.section === 'vault') await renderVaultWorkspace();
   else throw new Error('Espace de travail inconnu.');
   if (['library', 'vault'].includes(state.section)) installWorkspaceDetailNavigation();

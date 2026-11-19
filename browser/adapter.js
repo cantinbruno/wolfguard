@@ -298,7 +298,14 @@ const webWorkspace = (() => {
     constructor() { this.native = true; }
     async get(store,id) { assertFreshSession();await queue;assertFreshSession();if(cloud.enabled&&store==='settings'&&id==='scanAgentId')return {key:id,value:agentChoice};return structuredClone(session?.payload[store]?.find(record => (store === 'settings' ? record.key : record.id) === id)); }
     async all(store) { assertFreshSession();await queue;assertFreshSession();return structuredClone(session?.payload[store] || []); }
-    readOnly(store) { return this.all(store); }
+    readForDisplay(store,id) {
+      assertFreshSession();
+      // Render the last confirmed snapshot while background writes continue.
+      // Ordinary get/all and all mutations keep their existing queue ordering.
+      const rows=session.payload[store] || [];
+      return structuredClone(id===undefined?rows:rows.find(record=>(store==='settings'?record.key:record.id)===id));
+    }
+    readOnly(store) { return this.readForDisplay(store); }
     storageFiles() { return [{id:'main',name:cloud?.enabled?'Espace partagé chiffré':'Espace local chiffré',path:location.origin,itemCount:session?.payload.items.length || 0}]; }
     batch(operations) {
       assertFreshSession();

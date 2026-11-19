@@ -5,7 +5,7 @@ async function openItem(id) {
   if (!await confirmDiscardChanges()) return;
   try {
     saveExplorerScroll();
-    const x = await get('items', id);
+    const x = await readForDisplay('items', id);
     if (x?.consolidatedInto) return openConsolidatedChapter(x);
     if (!x || x.deletedAt || !workspaceModules.allowsItem(x)) return;
     state.item = id;
@@ -13,7 +13,7 @@ async function openItem(id) {
     state.mode = 'view';
 
     // Afficher immédiatement : l'ouverture ne dépend plus des statistiques.
-    await renderWorkspace();
+    await renderWorkspace({preserveExplorer:state.section==='library'});
 
     // Statistiques non bloquantes.
     try {
@@ -171,7 +171,7 @@ async function folderMenu(id) {
 }
 
 async function openById(id) {
-  const x = await get('items', id);
+  const x = await readForDisplay('items', id);
   if (x?.consolidatedInto) return openConsolidatedChapter(x);
   if (!x || x.deletedAt || !workspaceModules.allowsItem(x) || $('#app').classList.contains('hidden')) return;
   const sec = sectionForItem(x);
@@ -180,7 +180,7 @@ async function openById(id) {
 
 async function openConsolidatedChapter(source) {
   if (source.deletedAt || $('#app').classList.contains('hidden')) return;
-  const guide=await get('items',source.consolidatedInto);
+  const guide=await readForDisplay('items',source.consolidatedInto);
   if (!guide || guide.deletedAt || !workspaceModules.allowsItem(guide)) return;
   if (!await openSection('library',guide.id)) return;
   const chapter=[...document.querySelectorAll('[data-guide-chapter]')].find(node=>node.dataset.guideChapter===source.id);

@@ -64,6 +64,11 @@ function put(s, o) {
   })
 }
 
+function readForDisplay(store, id) {
+  if (db?.readForDisplay) return db.readForDisplay(store, id);
+  return id === undefined ? all(store) : get(store, id);
+}
+
 function get(s, k) {
   if (db?.native) return db.get(s, k);
   return new Promise((res, rej) => {

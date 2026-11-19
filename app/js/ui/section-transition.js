@@ -4,31 +4,9 @@ const sectionTransition = (() => {
   let pending = null,
     current = null,
     draining = false;
-  const visibleAnimations = () => current ? [
-    ...current.animations,
-    ...document.getAnimations().filter(animation => ['section-old-view', 'section-new-view'].includes(animation.animationName))
-  ] : [];
   const restore = run => {
-    run.transition?.skipTransition();
-    run.animations.forEach(animation => animation.cancel());
     run.content.inert = false;
     run.content.removeAttribute('aria-busy');
-    delete run.content.dataset.transitionPhase;
-    delete run.content.dataset.transitionMode;
-    delete document.documentElement.dataset.sectionTransition;
-    delete document.documentElement.dataset.sectionDirection;
-    delete document.documentElement.dataset.sectionEffect;
-  };
-  const animate = async (run, frames, duration) => {
-    try {
-      const animation = run.content.animate(frames, {
-        duration,
-        easing: 'cubic-bezier(.4,0,.2,1)',
-        fill: 'both'
-      });
-      run.animations.push(animation);
-      await animation.finished;
-    } catch {}
   };
   const perform = async request => {
     const content = $('#content'),
@@ -36,59 +14,16 @@ const sectionTransition = (() => {
     const run = {
       content,
       key: state.vaultKey,
-      animations: [],
-      cancelled: false,
-      transition: null,
-      rendered: false,
-      error: null
+      cancelled: false
     };
     current = run;
     const canRender = () => !run.cancelled && !pending;
-    const crossing = primarySectionFor(request.section) !== primarySectionFor(state.section);
-    // Slide in the prepared workspace; never slide away the only visible view
-    // before an asynchronous renderer has finished loading its replacement.
-    const motion = request.section !== state.section && !(isSecurityWorkspace(request.section) && isSecurityWorkspace(state.section)) && !app.classList.contains('hidden') && app.style.visibility !== 'hidden' && !unlockTransition.active && !!Element.prototype.animate;
-    const sections = availablePrimarySections();
-    const from = sections.indexOf(primarySectionFor(state.section));
-    const to = sections.indexOf(primarySectionFor(request.section));
-    const direction = to > from ? 1 : -1;
-    const shift = '14px';
-    const update = async () => {
-      if (!canRender()) return;
-      content.dataset.transitionPhase = 'render';
-      try {
-        run.rendered = await request.render(canRender) !== false
-      } catch (error) {
-        run.error = error;
-        throw error
-      }
-    };
     try {
+      content.inert = true;
       content.setAttribute('aria-busy', 'true');
-      if (motion) {
-        content.inert = true;
-        document.documentElement.dataset.sectionTransition = 'active';
-        document.documentElement.dataset.sectionDirection = direction === 1 ? 'forward' : 'backward';
-        document.documentElement.dataset.sectionEffect = crossing ? 'workspace' : 'slide';
-      }
-      // Animate the actual content in every browser. Native View Transitions
-      // can finish without displaying any frames under some system settings.
-      content.dataset.transitionMode = 'direct';
       if (!canRender()) return false;
-      if (!run.rendered) await update();
-      if (!run.rendered || !canRender()) return false;
-      if (motion) {
-        run.animations.forEach(animation => animation.cancel());
-        content.dataset.transitionPhase = 'in';
-        await animate(run, [{
-          opacity: crossing ? 1 : 0,
-          transform: 'translateX(' + (direction === 1 ? '' : '-') + shift + ')'
-        }, {
-          opacity: 1,
-          transform: 'translateX(0)'
-        }], 100);
-      }
-      return canRender();
+      const rendered = await request.render(canRender) !== false;
+      return rendered && canRender();
     } catch (error) {
       if (canRender() && state.vaultKey === run.key && !app.classList.contains('hidden')) {
         if (state.section !== request.section) appNotify(error.message || 'Impossible d’ouvrir cette section.', {kind: 'error'});
@@ -134,7 +69,7 @@ const sectionTransition = (() => {
       return !!pending || !!current && !current.cancelled
     },
     get animations() {
-      return visibleAnimations()
+      return []
     },
     navigate(section, render) {
       return new Promise((resolve, reject) => {
@@ -145,8 +80,6 @@ const sectionTransition = (() => {
           resolve,
           reject
         };
-        current?.transition?.skipTransition();
-        current?.animations.forEach(animation => animation.cancel());
         drain();
       });
     },

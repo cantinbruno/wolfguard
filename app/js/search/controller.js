@@ -2,9 +2,9 @@
 
 /* SEARCH */
 window.workspaceSearch = new WorkspaceSearch({
-  readItems: async () => (await activeItems()).filter(workspaceModules.allowsItem),
-  readFolders: activeFolders,
-  readActivity: () => all('activity'),
+  readItems: async () => (await readForDisplay('items')).filter(item=>!isDeleted(item)&&!item.consolidatedInto&&workspaceModules.allowsItem(item)),
+  readFolders: async () => (await readForDisplay('folders')).filter(folder=>!isDeleted(folder)&&!folder.consolidatedFolder),
+  readActivity: () => readForDisplay('activity'),
   sectionForItem,
   typeLabel,
   escape: esc,

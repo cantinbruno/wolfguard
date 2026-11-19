@@ -35,7 +35,7 @@ def run(backend=None):
     try:
         with sync_playwright() as p:
             browser=p.chromium.launch();a=browser.new_context(reduced_motion='reduce');b=browser.new_context(reduced_motion='reduce')
-            errors=[];calls=[];vault_calls=[];held=[];hold_next=[False]
+            errors=[];calls=[];vault_calls=[];held=[];hold_next=[False];hold_put=[False]
             for context in [a,b]:
                 def proxy(route):
                     calls.append(urlsplit(route.request.url).path)
@@ -43,6 +43,8 @@ def run(backend=None):
                     if urlsplit(route.request.url).path=='/api/vault':vault_calls.append((route.request.method,response.status))
                     if hold_next[0] and urlsplit(route.request.url).path=='/api/vault' and route.request.method=='GET':
                         hold_next[0]=False;held.append((route,response));return
+                    if hold_put[0] and urlsplit(route.request.url).path=='/api/vault' and route.request.method=='PUT':
+                        hold_put[0]=False;held.append((route,response));return
                     route.fulfill(response=response)
                 context.route(API+'/**',proxy)
             first=a.new_page();first.on('pageerror',lambda e:errors.append(str(e)))
@@ -122,6 +124,39 @@ def run(backend=None):
             assert first.evaluate("async()=>(await get('settings','parallel-local-test')).value")=='local'
             assert first.evaluate("async()=>(await get('settings','parallel-remote-test')).value")=='remote'
             print('PASS: navigation en',round(first.evaluate('quickNavigationMs')),'ms et enregistrement sans attendre une ancienne réponse de synchronisation')
+
+            first.evaluate("""async()=>{
+              await db.batch(['a','b'].map(id=>({action:'put',store:'items',record:{id:'read-'+id,type:'memo',unifiedDocument:true,title:'Lecture '+id,content:'<p>Texte '+id+'</p>',tags:[],commandBlocks:[]}})));
+              await openSection('library');
+              await renderWorkspace();
+            }""")
+            hold_put[0]=True
+            first.evaluate("()=>{window.memoTree=document.querySelector('#unifiedTree');window.firstRead=openItem('read-a')}")
+            for _ in range(100):
+                if held:break
+                first.wait_for_timeout(20)
+            assert held, 'The first memo statistics save must still be pending'
+            first.evaluate("""()=>{
+              window.serialReadDone=false;window.serialRead=get('items','read-a').then(()=>window.serialReadDone=true);
+              window.memoReadStart=performance.now();window.secondRead=openItem('read-b');
+            }""")
+            expect(first.locator('#detailHost .reader-document-heading h1')).to_have_text('Lecture b',timeout=1200)
+            assert first.evaluate("memoTree===document.querySelector('#unifiedTree')"), 'Opening another memo must retain its navigation tree'
+            expect(first.locator('[data-tree-item="read-b"]')).to_have_class('tree-row tree-item-row active')
+            assert not first.evaluate('serialReadDone'), 'Normal reads must retain their write ordering'
+            print('PASS: seconde fiche affichée en',round(first.evaluate('performance.now()-memoReadStart')),'ms pendant l’enregistrement des statistiques précédentes')
+            for route,response in held:route.fulfill(response=response)
+            held.clear()
+            first.evaluate('async()=>{await firstRead;await secondRead;await serialRead;await db.flush()}')
+            assert first.evaluate("async()=>(await get('items','read-a')).viewCount")==1
+            assert first.evaluate("async()=>(await get('items','read-b')).viewCount")==1
+            assert first.evaluate("()=>{const copy=readForDisplay('items','read-a');copy.title='Changed copy';return readForDisplay('items','read-a').title}")=='Lecture a'
+            renders=first.evaluate("""async()=>{
+              const original=renderUnifiedExplorer;let calls=0;
+              renderUnifiedExplorer=async(...args)=>{calls++;return original(...args)};
+              try{await openById('read-a');return calls}finally{renderUnifiedExplorer=original}
+            }""")
+            assert renders==1, 'A direct memo link must render once without first drawing the full catalog'
 
             first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
             first.evaluate('async()=>{await db.flush();state.mode="edit"}')

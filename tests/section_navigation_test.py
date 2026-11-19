@@ -151,6 +151,19 @@ def run():
             assert calls==0, 'Returning to the parked memo must not repeat migrations'
             expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
             print('PASS: Sécurité disponible en', round(page.evaluate('fleetNavigationMs')), 'ms avec réponse serveur encore suspendue')
+            result=page.evaluate("""async()=>{
+              const original=requestAnimationFrame,callbacks=[];
+              requestAnimationFrame=callback=>{callbacks.push(callback);return callbacks.length};
+              const start=performance.now();
+              try{
+                const navigation=(async()=>{await switchPrimaryWorkspace('tools');await switchPrimaryWorkspace('library')})();
+                const completed=await Promise.race([navigation.then(()=>true),new Promise(resolve=>setTimeout(()=>resolve(false),500))]);
+                return {completed,elapsed:performance.now()-start};
+              }finally{requestAnimationFrame=original;for(const callback of callbacks)original(callback)}
+            }""")
+            assert result['completed'], 'Navigation must not await an animation frame'
+            expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            print('PASS: aller-retour Mémo/Outils en',round(result['elapsed']),'ms sans attendre les images d’animation')
             assert not errors, errors
             print('PASS: clics rapprochés, nouvel essai depuis l’onglet courant et brouillon conservé')
             browser.close()

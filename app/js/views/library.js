@@ -27,10 +27,14 @@ async function newLibraryItem() {
   $('#fTitle')?.select();
 }
 
-async function renderLibraryWorkspace() {
-  await renderUnifiedExplorer();
+async function renderLibraryWorkspace({preserveExplorer=false}={}) {
+  if(preserveExplorer && $('#content > .library-workspace')) {
+    for(const row of document.querySelectorAll('#unifiedTree .tree-row')) {
+      row.classList.toggle('active',row.dataset.treeItem ? row.dataset.treeItem===state.item : row.dataset.treeFolder ? !state.item&&row.dataset.treeFolder===state.folder : !state.item&&!state.folder);
+    }
+  } else await renderUnifiedExplorer();
   if (!state.item) return renderLibraryCatalog();
-  const item = await get('items', state.item);
+  const item = await readForDisplay('items', state.item);
   if (!item) return;
   if (state.mode === 'edit') return renderLibraryEdit(item);
   const blocks = libraryCommands(item);

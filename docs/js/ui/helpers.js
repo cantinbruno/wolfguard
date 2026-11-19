@@ -12,7 +12,7 @@ function documentHTML(html) {
 
 async function breadcrumbHTML(item) {
   try {
-    const folders = await activeFolders();
+    const folders = (await readForDisplay('folders')).filter(folder => !isDeleted(folder) && !folder.consolidatedFolder);
     const section = sectionForItem(item);
     const sec = {
       library: 'Mes fiches',
