@@ -64,6 +64,46 @@ def run():
             print('PASS: préparation lente sans page vide')
 
             page.evaluate("switchPrimaryWorkspace('library')")
+            page.evaluate("""()=>{
+              const original=flattenRedundantSectionRoots;
+              window.obsoleteWaiting=false;window.obsoleteDone=false;
+              flattenRedundantSectionRoots=async()=>{window.obsoleteWaiting=true;await new Promise(resolve=>window.releaseObsolete=resolve);return original()};
+              window.restoreObsolete=()=>flattenRedundantSectionRoots=original;
+              window.obsoleteNavigation=switchPrimaryWorkspace('vault').then(result=>{window.obsoleteDone=true;return result});
+            }""")
+            page.wait_for_function('()=>window.obsoleteWaiting')
+            page.locator('.workspace-section-button[data-section=tools]').click()
+            expect(page.locator('.network-tools-page')).to_be_visible(timeout=1200)
+            page.wait_for_function('()=>window.obsoleteDone',timeout=1200)
+            assert page.evaluate('async()=>await obsoleteNavigation') is False
+            page.evaluate('()=>{restoreObsolete();releaseObsolete()}')
+            page.wait_for_timeout(50)
+            expect(page.locator('.workspace-section-button[data-section=tools]')).to_have_attribute('aria-pressed','true')
+            assert page.evaluate('!sectionTransition.active&&!document.querySelector("#content").inert')
+            page.evaluate("switchPrimaryWorkspace('library')")
+            expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            print('PASS: attente obsolète annulée avant sa réponse, dernier onglet accessible et brouillon intact')
+
+            page.evaluate("""()=>{
+              const original=renderVaultWorkspace;
+              window.obsoleteRendering=false;window.obsoleteRenderFinished=false;
+              renderVaultWorkspace=async(...args)=>{window.obsoleteRendering=true;await new Promise(resolve=>window.releaseOldRender=resolve);try{return await original(...args)}finally{window.obsoleteRenderFinished=true}};
+              window.restoreOldRender=()=>renderVaultWorkspace=original;
+              window.oldRenderNavigation=switchPrimaryWorkspace('vault');
+            }""")
+            page.wait_for_function('()=>window.obsoleteRendering')
+            page.locator('.workspace-section-button[data-section=tools]').click()
+            expect(page.locator('.network-tools-page')).to_be_visible(timeout=1200)
+            assert page.evaluate('async()=>await oldRenderNavigation') is False
+            page.evaluate('()=>{restoreOldRender();releaseOldRender()}')
+            page.wait_for_function('()=>window.obsoleteRenderFinished')
+            expect(page.locator('.network-tools-page')).to_be_visible()
+            expect(page.locator('.catalog-vault')).to_have_count(0)
+            page.evaluate("switchPrimaryWorkspace('library')")
+            expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            print('PASS: ancien rendu ignoré après son annulation, sans remplacer la section suivante')
+
+            page.evaluate("switchPrimaryWorkspace('library')")
             assert page.evaluate('navigationEditor===document.querySelector("#richEditor")')
             page.evaluate("""()=>{
               const original=renderVaultWorkspace;
@@ -164,6 +204,32 @@ def run():
             assert result['completed'], 'Navigation must not await an animation frame'
             expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
             print('PASS: aller-retour Mémo/Outils en',round(result['elapsed']),'ms sans attendre les images d’animation')
+            for index in range(100):
+                section=['tools','vault','security','library'][index%4]
+                button=page.locator('.workspace-section-button[data-section='+section+']')
+                button.click()
+                expect(button).to_have_attribute('aria-pressed','true')
+                page.wait_for_function('()=>!sectionTransition.active')
+                expect(page.locator({'tools':'.network-tools-page','vault':'.catalog-vault','security':'.agents-workspace','library':'#richEditor'}[section])).to_be_visible()
+                visible_content(page)
+                assert page.evaluate('!document.querySelector("#content").inert')
+            expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            print('PASS: 100 changements par les boutons entre les quatre sections, navigation toujours active et brouillon intact')
+            page.evaluate("""()=>{
+              const original=renderVaultWorkspace;
+              window.lockedRenderWaiting=false;window.lockedRenderFinished=false;
+              renderVaultWorkspace=async(...args)=>{window.lockedRenderWaiting=true;await new Promise(resolve=>window.releaseLockedRender=resolve);try{return await original(...args)}finally{window.lockedRenderFinished=true}};
+              window.restoreLockedRender=()=>renderVaultWorkspace=original;
+              window.lockedNavigation=switchPrimaryWorkspace('vault');
+            }""")
+            page.wait_for_function('()=>window.lockedRenderWaiting')
+            page.evaluate('lockApplication()')
+            assert page.evaluate('async()=>await lockedNavigation') is False
+            page.evaluate('()=>{restoreLockedRender();releaseLockedRender()}')
+            page.wait_for_function('()=>window.lockedRenderFinished')
+            expect(page.locator('#app')).not_to_be_visible()
+            assert page.evaluate('state.vaultKey===null&&!sectionTransition.active&&!document.querySelector("#content").childElementCount')
+            print('PASS: verrouillage pendant un rendu suspendu, aucune donnée réaffichée par sa réponse tardive')
             assert not errors, errors
             print('PASS: clics rapprochés, nouvel essai depuis l’onglet courant et brouillon conservé')
             browser.close()

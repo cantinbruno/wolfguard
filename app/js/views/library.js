@@ -27,21 +27,27 @@ async function newLibraryItem() {
   $('#fTitle')?.select();
 }
 
-async function renderLibraryWorkspace({preserveExplorer=false}={}) {
+async function renderLibraryWorkspace({preserveExplorer=false,isCurrent=()=>true}={}) {
+  if (!isCurrent()) return false;
   if(preserveExplorer && $('#content > .library-workspace')) {
     for(const row of document.querySelectorAll('#unifiedTree .tree-row')) {
       row.classList.toggle('active',row.dataset.treeItem ? row.dataset.treeItem===state.item : row.dataset.treeFolder ? !state.item&&row.dataset.treeFolder===state.folder : !state.item&&!state.folder);
     }
-  } else await renderUnifiedExplorer();
-  if (!state.item) return renderLibraryCatalog();
+  } else if (await renderUnifiedExplorer('',isCurrent) === false) return false;
+  if (!isCurrent()) return false;
+  if (!state.item) return renderLibraryCatalog(isCurrent);
   const item = await readForDisplay('items', state.item);
+  if (!isCurrent()) return false;
   if (!item) return;
-  if (state.mode === 'edit') return renderLibraryEdit(item);
+  if (state.mode === 'edit') return renderLibraryEdit(item,isCurrent);
   const blocks = libraryCommands(item);
-  await renderDocumentReader(libraryDocument(item), await breadcrumbHTML(item), {
+  const breadcrumb = await breadcrumbHTML(item);
+  if (!isCurrent()) return false;
+  await renderDocumentReader(libraryDocument(item), breadcrumb, {
     relations: false,
     outline: false
   });
+  if (!isCurrent()) return false;
   const root = $('#detailHost .document-reader');
   if (!root) return;
   root.classList.add('unified-reader');
@@ -116,12 +122,13 @@ function libraryCardAppearance(item, folder) {
   return {tone: ['violet', 'coral', 'cyan', 'amber', 'mint', 'blue'][hash % 6], icon: workspaceSectionIcon('library')};
 }
 
-async function renderLibraryCatalog() {
+async function renderLibraryCatalog(isCurrent=()=>true) {
   trackWorkspaceCollection();
   const {
     folders,
     items
   } = await explorerData(), view = workspaceView(), key = state.vaultKey, folder = folders.find(folder => folder.id === state.folder), scoped = workspaceScopedItems(folders, items), names = new Map(folders.map(folder => [folder.id, folder.name]));
+  if (!isCurrent()) return false;
   view.kind = 'all';
   $('#detailHost').innerHTML = `<div class="workspace-catalog library-catalog">
     <header class="library-heading">${workspaceNavigationButton()}<div><h1>${esc(folder?.name||'Mes fiches')} <span class="library-heading-count">${scoped.length}</span></h1></div><button type="button" class="primary library-create" aria-label="Nouvelle fiche" data-wg-click="newLibraryItem()">${PROTOCOL_ICONS.plus}<span>Nouvelle fiche</span></button></header>
@@ -242,8 +249,9 @@ function addLibraryCommand() {
     bubbles: true
   }));
 }
-async function renderLibraryEdit(item) {
+async function renderLibraryEdit(item, isCurrent=()=>true) {
   const folders = await foldersForSection('library');
+  if (!isCurrent()) return false;
   const referenceFields=[['description','Description de la fiche'],['context','Contexte et précautions'],['platform','Environnement'],['vendor','Éditeur / technologie'],['prerequisites','Prérequis']];
   const hasReference=referenceFields.some(([field])=>item[field]);
   const referenceEditor=hasReference?'<section class="library-editor-reference" aria-labelledby="libraryReferenceTitle"><h3 id="libraryReferenceTitle">Description et contexte</h3><div>'+referenceFields.map(([field,label])=>'<label>'+label+(['description','context','prerequisites'].includes(field)?'<textarea data-reference-field="'+field+'" rows="'+(field==='prerequisites'?2:3)+'">'+esc(item[field]??'')+'</textarea>':'<input data-reference-field="'+field+'" value="'+esc(item[field]??'')+'">')+'</label>').join('')+'</div></section>':'';

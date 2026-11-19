@@ -16,8 +16,12 @@ const sectionTransition = (() => {
       key: state.vaultKey,
       cancelled: false
     };
+    // Superseding a request releases its waits immediately. Its underlying
+    // reads may finish later, so renderers also check this run before painting.
+    const interrupted = new Promise(resolve => { run.interrupt = () => { run.cancelled = true; resolve(); }; });
     current = run;
     const canRender = () => !run.cancelled && !pending;
+    canRender.wait = promise => Promise.race([promise, interrupted]);
     try {
       content.inert = true;
       content.setAttribute('aria-busy', 'true');
@@ -80,6 +84,7 @@ const sectionTransition = (() => {
           resolve,
           reject
         };
+        current?.interrupt();
         drain();
       });
     },
@@ -87,7 +92,7 @@ const sectionTransition = (() => {
       pending?.resolve(false);
       pending = null;
       if (current) {
-        current.cancelled = true;
+        current.interrupt();
         restore(current)
       }
     }

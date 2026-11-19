@@ -112,26 +112,28 @@ function vaultCatalogItemHTML(entry) {
   return '<div class="workspace-item-heading"><span class="workspace-item-icon catalog-vault-icon" aria-hidden="true">' + workspaceSectionIcon('vault') + '</span><div class="catalog-vault-title"><button type="button" class="workspace-item-title">' + esc(entry.item.title || 'Sans titre') + '</button>' + workspaceCatalogDateHTML(entry.item) + '</div></div>' +
     workspaceCatalogMetaHTML(entry) + '<div class="catalog-vault-security">' + settingsIcon('lock') + '<code aria-label="Mot de passe masqu\u00e9">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</code></div>';
 }
-async function renderVaultWorkspace() {
+async function renderVaultWorkspace({isCurrent=()=>true}={}) {
   const home=window.WolfGuardAccess?.personalVaultHome();
-  if(home){const folders=await all('folders'),selected=folders.find(row=>row.id===state.folder);if(!selected||!WolfGuardPermissions.isInPersonalVault(WolfGuardCloud.currentUser(),selected,'folders',folders))state.folder=home.id;}
-  await renderUnifiedExplorer();
+  if(home){const folders=await all('folders');if(!isCurrent())return false;const selected=folders.find(row=>row.id===state.folder);if(!selected||!WolfGuardPermissions.isInPersonalVault(WolfGuardCloud.currentUser(),selected,'folders',folders))state.folder=home.id;}
+  if (await renderUnifiedExplorer('',isCurrent) === false || !isCurrent()) return false;
   if (state.item) {
     const item = await get('items', state.item);
-    if (item) await renderVaultDetail(item);
+    if (!isCurrent()) return false;
+    if (item) await renderVaultDetail(item,isCurrent);
   } else {
-    await renderVaultCatalog();
+    await renderVaultCatalog(isCurrent);
   }
 }
-async function renderVaultDetail(item) {
-  if (!item) return;
+async function renderVaultDetail(item, isCurrent=()=>true) {
+  if (!item || !isCurrent()) return;
   if(item.secretsRestricted){$('#detailHost').innerHTML='<div class="vault-view"><div class="detail-head"><div class="detail-title"><h2>'+esc(item.title||'Sans titre')+'</h2></div><div class="detail-actions">'+itemActionsHTML(item)+'</div></div><div class="vault-view-body"><p class="access-help">Vous pouvez consulter cette fiche. Le déchiffrement de ses secrets ne fait pas partie de vos droits.</p></div></div>';return;}
-  if (state.mode === 'edit') return renderVaultEdit(item);
+  if (state.mode === 'edit') return renderVaultEdit(item,isCurrent);
   const key = state.vaultKey;
   const d = await vaultData(item, true);
+  if (!isCurrent()) return false;
   const password = String(d.password || '');
   const crumb = await breadcrumbHTML(item);
-  if (!itemActionSessionValid(key)) return;
+  if (!isCurrent() || !itemActionSessionValid(key)) return;
   $('#detailHost').innerHTML = `
     <div class="vault-view">
       <div class="detail-head">
@@ -191,12 +193,14 @@ async function renderVaultDetail(item) {
   await renderItemRelations(item, $('#detailHost .vault-view-body'));
 }
 
-async function renderVaultEdit(item) {
+async function renderVaultEdit(item, isCurrent=()=>true) {
   const key = state.vaultKey;
   const folders = await foldersForSection('vault');
+  if (!isCurrent()) return false;
   const d = await vaultData(item, true);
+  if (!isCurrent()) return false;
   const crumb = await breadcrumbHTML(item);
-  if (!itemActionSessionValid(key)) return;
+  if (!isCurrent() || !itemActionSessionValid(key)) return;
   $('#detailHost').innerHTML = `
     <div class="vault-edit">
       <div class="edit-banner" style="margin:14px 20px 0"><div>${crumb}<b>Modification de l'accès</b><div class="muted" style="font-size:12px">Tous les champs sensibles de cette fiche sont chiffrés ensemble.</div></div><button class="secondary" data-wg-click="setMode('view')">Annuler</button></div>

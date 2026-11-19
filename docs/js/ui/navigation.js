@@ -11,12 +11,15 @@ async function openSection(section, itemId = null, options = {}) {
   if (section === 'library' && itemId && primaryWorkspaces.memo?.dirty && primaryWorkspaces.memo.state.item !== itemId && !await appConfirm('Quitter le mémo en cours sans enregistrer ses modifications ?')) return false;
   if ($('#app').classList.contains('hidden') && !state.vaultKey) return false;
   return sectionTransition.navigate(section, async isCurrent => {
-    if (section === 'library'&&!(itemId&&state.section==='library'&&$('#content > .library-workspace'))&&!canRestoreMemoWorkspace(itemId)&&!window.WolfGuardAccess?.restricted()) await ensureUnifiedLibrary();
+    if (section === 'library'&&!(itemId&&state.section==='library'&&$('#content > .library-workspace'))&&!canRestoreMemoWorkspace(itemId)&&!window.WolfGuardAccess?.restricted()) await isCurrent.wait(ensureUnifiedLibrary());
+    if (!isCurrent()) return false;
     if (portReference) {
-      const reference = (await all('items')).find(item => item.referenceCatalogId === MEMO_PORT_REFERENCE && !item.deletedAt);
+      const items = await isCurrent.wait(all('items'));
+      if (!isCurrent()) return false;
+      const reference = items.find(item => item.referenceCatalogId === MEMO_PORT_REFERENCE && !item.deletedAt);
       itemId = reference?.id || null;
     }
-    if (!desktopBridge.available && section === 'vault'&&!window.WolfGuardAccess?.restricted()) await flattenRedundantSectionRoots();
+    if (!desktopBridge.available && section === 'vault'&&!window.WolfGuardAccess?.restricted()) await isCurrent.wait(flattenRedundantSectionRoots());
 
     if (!isCurrent()) return false;
     closeContextMenu();
@@ -41,7 +44,7 @@ async function openSection(section, itemId = null, options = {}) {
     topNavigation.setActive(section);
     if (section === 'library' && restoreMemoWorkspace(itemId)) return true;
     if (section === 'library') primaryWorkspaces.memo = null;
-    await renderWorkspace();
+    await isCurrent.wait(renderWorkspace({isCurrent}));
   });
 }
 async function isFolderDescendant(candidateId, ancestorId) {
@@ -438,11 +441,12 @@ function restoreExplorerScroll() {
   if (tree) tree.scrollTop = explorerScrollTop;
 }
 
-async function renderUnifiedExplorer(detailHtml = '') {
+async function renderUnifiedExplorer(detailHtml = '', isCurrent = () => true) {
   const {
     folders,
     items
   } = await explorerData();
+  if (!isCurrent()) return false;
   const sec = sectionName();
 
   $('#content').innerHTML = `
@@ -487,19 +491,22 @@ async function renderUnifiedExplorer(detailHtml = '') {
 }
 
 let renderWorkspaceQueued = 0;
-async function renderWorkspace({preserveExplorer=false}={}) {
+async function renderWorkspace({preserveExplorer=false,isCurrent=()=>true}={}) {
   // Coalesce calls from the same task without imposing a frame of latency on
   // every navigation or waiting for animation frames in an inactive tab.
   const ticket = ++renderWorkspaceQueued;
+  const key = state.vaultKey, section = state.section;
+  const fresh = () => ticket === renderWorkspaceQueued && isCurrent() && state.vaultKey === key && state.section === section;
   await Promise.resolve();
-  if (ticket !== renderWorkspaceQueued) return;
+  if (!fresh()) return false;
   if (state.section === 'modules') renderModulesWorkspace();
   else if (isSecurityWorkspace(state.section)) await agentsWorkspace.render();
   else if (state.section === 'tools') await renderNetworkTools();
   else if (state.section === 'protocol') await renderProtocolWorkspace();
-  else if (state.section === 'library') await renderLibraryWorkspace({preserveExplorer});
-  else if (state.section === 'vault') await renderVaultWorkspace();
+  else if (state.section === 'library') await renderLibraryWorkspace({preserveExplorer,isCurrent:fresh});
+  else if (state.section === 'vault') await renderVaultWorkspace({isCurrent:fresh});
   else throw new Error('Espace de travail inconnu.');
+  if (!fresh()) return false;
   if (['library', 'vault'].includes(state.section)) installWorkspaceDetailNavigation();
   if (workspaceModules.has('tools')) mountToolboxNavigation();
   syncMemoDraftIndicator();

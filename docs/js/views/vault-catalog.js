@@ -1,7 +1,7 @@
 'use strict';
 
 // Vault collections use public metadata only; secrets are decrypted in the detail view.
-async function renderVaultCatalog() {
+async function renderVaultCatalog(isCurrent=()=>true) {
   trackWorkspaceCollection();
   const key = state.vaultKey;
   const view = workspaceView('vault');
@@ -9,6 +9,7 @@ async function renderVaultCatalog() {
     folders,
     items
   } = await explorerData();
+  if (!isCurrent()) return false;
   const folder = folders.find(record => record.id === state.folder);
   const scoped = workspaceScopedItems(folders, items);
   const names = new Map(folders.map(record => [record.id, record.name]));
