@@ -102,6 +102,9 @@ def check_network_sessions(browser, url, backend):
     assert page.evaluate('state.vaultKey===null')
     assert page.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
     assert not errors, errors
+    # The workspace refresh can still be completing after the revoking pulse.
+    # Let its proxy handler finish before disposing its API response context.
+    context.unroute_all(behavior='wait')
     context.close()
     print('PASS: transient heartbeat errors preserve the session, retry activity and recover automatically; server revocation still clears keys and the reload ticket')
 

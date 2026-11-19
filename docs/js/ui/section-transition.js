@@ -52,7 +52,7 @@ const sectionTransition = (() => {
     const from = sections.indexOf(primarySectionFor(state.section));
     const to = sections.indexOf(primarySectionFor(request.section));
     const direction = to > from ? 1 : -1;
-    const shift = crossing ? '100%' : '14px';
+    const shift = '14px';
     const update = async () => {
       if (!canRender()) return;
       content.dataset.transitionPhase = 'render';
@@ -86,7 +86,7 @@ const sectionTransition = (() => {
         }, {
           opacity: 1,
           transform: 'translateX(0)'
-        }], crossing ? 300 : 120);
+        }], 100);
       }
       return canRender();
     } catch (error) {

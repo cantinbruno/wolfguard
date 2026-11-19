@@ -171,28 +171,31 @@ const webWorkspace = (() => {
     if(!cloud?.enabled||!session)return false;
     if(sharedRefreshing)return sharedRefreshing;
     if(!canRefreshShared()){if(manual)saveStatus('Brouillon ou formulaire ouvert · Actualisation après sa fermeture');return false;}
-    const current=session,generation=epoch;
+    const current=session,generation=epoch,since=current.cloudVersion;
     const fresh=()=>session===current&&epoch===generation&&!sessionExpired();
-    const work=queue.then(async()=>{
-      if(!fresh()||!canRefreshShared())return false;
-      const latest=await cloud.refresh(current.cloudVersion);
-      if(!latest||!fresh()||!canRefreshShared())return false;
-      const version=cloud.currentVersion(),result=await cryptography.openWithKey(latest,current.key,current.salt);
-      result.payload=hydrateVaultHomes(result.payload);
-      validate(result.payload);
-      if(!fresh()||!canRefreshShared())return false;
-      const changed=!shared.sameValue(current.payload.items,result.payload.items)||!shared.sameValue(current.payload.folders,result.payload.folders);
-      await storage.cacheShared(result.envelope,version);
-      if(!fresh())return false;
-      Object.assign(current,result,{cloudVersion:version});envelope=result.envelope;
-      resetSessionSettings(result.payload.settings);window.workspaceSearch?.invalidate();updateReloadTicket();
-      if(primaryWorkspaces.memo?.state.mode!=='edit')primaryWorkspaces.memo=null;
-      saveStatus('À jour · Espace partagé chiffré');
-      return changed;
-    });
-    queue=work.catch(()=>{});
     sharedRefreshing=(async()=>{
       try{
+        // Fetch and decrypt without occupying the database queue. Local reads,
+        // navigation and saves can continue while the network is slow.
+        const latest=await cloud.readSnapshot(since);
+        if(!latest||!fresh()||!canRefreshShared()||current.cloudVersion!==since)return false;
+        const {version}=latest,result=await cryptography.openWithKey(latest.envelope,current.key,current.salt);
+        result.payload=hydrateVaultHomes(result.payload);validate(result.payload);
+        const work=queue.then(async()=>{
+          // A save may have completed since this fetch started. Never replace
+          // that newer local snapshot with the older response.
+          if(!fresh()||!canRefreshShared()||current.cloudVersion!==since)return false;
+          const changed=!shared.sameValue(current.payload.items,result.payload.items)||!shared.sameValue(current.payload.folders,result.payload.folders);
+          await storage.cacheShared(result.envelope,version);
+          if(!fresh()||!canRefreshShared())return false;
+          Object.assign(current,result,{cloudVersion:version});envelope=result.envelope;
+          cloud.acceptSnapshotVersion(version);
+          resetSessionSettings(result.payload.settings);window.workspaceSearch?.invalidate();updateReloadTicket();
+          if(primaryWorkspaces.memo?.state.mode!=='edit')primaryWorkspaces.memo=null;
+          saveStatus('À jour · Espace partagé chiffré');
+          return changed;
+        });
+        queue=work.catch(()=>{});
         const changed=await work;
         // Scans and remote sessions keep their own live DOM and connections.
         if(changed&&fresh()&&canRefreshShared()&&['library','vault'].includes(state.section)){

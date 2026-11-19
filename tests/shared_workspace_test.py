@@ -35,12 +35,14 @@ def run(backend=None):
     try:
         with sync_playwright() as p:
             browser=p.chromium.launch();a=browser.new_context(reduced_motion='reduce');b=browser.new_context(reduced_motion='reduce')
-            errors=[];calls=[];vault_calls=[]
+            errors=[];calls=[];vault_calls=[];held=[];hold_next=[False]
             for context in [a,b]:
                 def proxy(route):
                     calls.append(urlsplit(route.request.url).path)
                     response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else ''))
                     if urlsplit(route.request.url).path=='/api/vault':vault_calls.append((route.request.method,response.status))
+                    if hold_next[0] and urlsplit(route.request.url).path=='/api/vault' and route.request.method=='GET':
+                        hold_next[0]=False;held.append((route,response));return
                     route.fulfill(response=response)
                 context.route(API+'/**',proxy)
             first=a.new_page();first.on('pageerror',lambda e:errors.append(str(e)))
@@ -99,6 +101,27 @@ def run(backend=None):
             assert second.evaluate("async()=>!(await get('items','blank-stp'))")
             print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
+
+            # Keep an older refresh response in flight while navigating and saving.
+            first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
+            second.evaluate("async()=>put('settings',{key:'parallel-remote-test',value:'remote'})")
+            hold_next[0]=True
+            first.locator('#webSharedRefresh').click()
+            for _ in range(100):
+                if held:break
+                first.wait_for_timeout(20)
+            assert held, 'The refresh response must be held before testing navigation'
+            first.evaluate("()=>{window.quickNavigationDone=false;const start=performance.now();window.quickNavigation=switchPrimaryWorkspace('vault').then(()=>{window.quickNavigationDone=true;window.quickNavigationMs=performance.now()-start})}")
+            first.wait_for_function('()=>window.quickNavigationDone',timeout=1200)
+            expect(first.locator('.catalog-vault')).to_be_visible()
+            first.evaluate("()=>{window.parallelSaveDone=false;window.parallelSave=put('settings',{key:'parallel-local-test',value:'local'}).then(()=>window.parallelSaveDone=true)}")
+            first.wait_for_function('()=>window.parallelSaveDone',timeout=2000)
+            for route,response in held:route.fulfill(response=response)
+            held.clear()
+            first.evaluate('async()=>{await quickNavigation;await parallelSave;await webWorkspace.refreshShared();await db.flush()}')
+            assert first.evaluate("async()=>(await get('settings','parallel-local-test')).value")=='local'
+            assert first.evaluate("async()=>(await get('settings','parallel-remote-test')).value")=='remote'
+            print('PASS: navigation en',round(first.evaluate('quickNavigationMs')),'ms et enregistrement sans attendre une ancienne réponse de synchronisation')
 
             first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
             first.evaluate('async()=>{await db.flush();state.mode="edit"}')

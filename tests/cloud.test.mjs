@@ -84,6 +84,14 @@ test('shared refresh cancels an unchanged body and accepts the caller snapshot v
   assert.deepEqual(await cloud.refresh(1),{format:'newer'});
 }));
 
+test('background snapshot reads do not advance the accepted workspace version',()=>client(async cloud=>{
+  globalThis.fetch=async()=>({ok:true,headers:new Headers({'X-WG-Version':'2'}),json:async()=>({format:'newer'})});
+  const snapshot=await cloud.readSnapshot(1);
+  assert.deepEqual(snapshot,{envelope:{format:'newer'},version:2});assert.equal(cloud.currentVersion(),1);
+  cloud.acceptSnapshotVersion(snapshot.version);assert.equal(cloud.currentVersion(),2);
+  assert.throws(()=>cloud.acceptSnapshotVersion(0),/Version distante invalide/);
+}));
+
 test('OTP login sends no username and cannot accept a session before the second factor',()=>client(async cloud=>{
   const requests=[];
   globalThis.fetch=async(url,options)=>{requests.push(JSON.parse(options.body));return {ok:true,headers:new Headers(),json:async()=>requests.length===1?{otpRequired:true}:{token:'c'.repeat(64),version:4,usersEnabled:true,user:{id:'user',username:'alice@example.test',role:'member'}}};};

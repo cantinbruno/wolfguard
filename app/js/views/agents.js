@@ -557,6 +557,9 @@ const agentsWorkspace = (() => {
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails};
+    // The fleet shell is usable immediately. Its server refresh must not hold
+    // the shared navigation queue or prevent leaving the Security section.
+    if(state.section==='security'){refresh().catch(console.error);return;}
     await refresh();
     await renderTool();
   }

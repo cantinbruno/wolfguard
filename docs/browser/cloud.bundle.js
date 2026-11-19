@@ -85,12 +85,21 @@ async function load(){
   if(!Number.isSafeInteger(remoteVersion)||remoteVersion<1)throw new Error('Version distante invalide.');
   version=remoteVersion;return data;
 }
-async function refresh(since){
+async function readSnapshot(since){
   const response=await request('vault',{skipVersion:since});
   const latest=Number(response.headers.get('X-WG-Version'));
   if(!Number.isSafeInteger(latest)||latest<1)throw new Error('Version distante invalide.');
   if(response.data===null)return null;
-  version=latest;return response.data;
+  return {envelope:response.data,version:latest};
+}
+function acceptSnapshotVersion(value){
+  if(!Number.isSafeInteger(value)||value<1)throw new Error('Version distante invalide.');
+  version=value;
+}
+async function refresh(since){
+  const snapshot=await readSnapshot(since);
+  if(!snapshot)return null;
+  acceptSnapshotVersion(snapshot.version);return snapshot.envelope;
 }
 async function save(envelope,rotation,expectedVersion=version){
   if(!token)throw new Error('Saisis à nouveau ton code pour enregistrer.');
@@ -161,5 +170,5 @@ function clear(){
   token='';version=0;user=null;usersEnabled=false;
 }
 
-return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,initialize,load,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,chatSettings,chatCompletion,clear});
+return Object.freeze({API_ORIGIN,enabled,isInitialized,canActivate,hasSession,currentVersion,currentUser,hasUsers,isAdmin,can,sessionState,restoreSession,detach,status,hasAccountInvitation,clearAccountInvitation,inspectAccountInvitation,completeAccountInvitation,login,initialize,load,readSnapshot,acceptSnapshotVersion,refresh,save,prepareRotation,me,initializeUsers,changePersonalCode,touch,agentRequest,chatHistory,chatSettings,chatCompletion,clear});
 })();

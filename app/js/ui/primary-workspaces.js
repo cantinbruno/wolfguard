@@ -99,9 +99,13 @@ function rememberPrimaryWorkspace(destination) {
   syncMemoDraftIndicator();
 }
 
-function restoreMemoWorkspace(itemId = null) {
+function canRestoreMemoWorkspace(itemId = null) {
   const saved = primaryWorkspaces.memo;
-  if (!saved?.nodes?.some(node => node.nodeType === Node.ELEMENT_NODE) || saved.key !== state.vaultKey || (itemId && itemId !== saved.state.item)) return false;
+  return !!saved?.nodes?.some(node => node.nodeType === Node.ELEMENT_NODE) && saved.key === state.vaultKey && (!itemId || itemId === saved.state.item);
+}
+function restoreMemoWorkspace(itemId = null) {
+  if(!canRestoreMemoWorkspace(itemId))return false;
+  const saved = primaryWorkspaces.memo;
   Object.assign(state, saved.state);
   $('#content').replaceChildren(...saved.nodes);
   primaryWorkspaces.memo = null;

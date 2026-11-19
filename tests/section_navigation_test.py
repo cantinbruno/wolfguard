@@ -127,6 +127,30 @@ def run():
             expect(page.locator('.catalog-vault')).to_be_visible()
             page.evaluate("switchPrimaryWorkspace('library')")
             expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            # A slow fleet response must not occupy the section navigation queue.
+            page.evaluate("""()=>{
+              const original=workspaceAgents.snapshot;
+              workspaceAgents.snapshot=async()=>{window.fleetWaiting=true;await new Promise(resolve=>window.releaseFleet=resolve);return original()};
+              window.restoreFleet=()=>workspaceAgents.snapshot=original;
+              window.fleetNavigationDone=false;
+              const start=performance.now();
+              window.fleetNavigation=switchPrimaryWorkspace('security').then(()=>{window.fleetNavigationDone=true;window.fleetNavigationMs=performance.now()-start});
+            }""")
+            page.wait_for_function('()=>window.fleetWaiting')
+            page.wait_for_function('()=>window.fleetNavigationDone', timeout=1200)
+            expect(page.locator('.agents-workspace')).to_be_visible()
+            page.evaluate("switchPrimaryWorkspace('tools')")
+            expect(page.locator('.network-tools-page')).to_be_visible()
+            page.evaluate('()=>{restoreFleet();releaseFleet()}')
+            calls=page.evaluate("""async()=>{
+              const original=ensureUnifiedLibrary;let calls=0;
+              ensureUnifiedLibrary=async()=>{calls++;return original()};
+              try{await switchPrimaryWorkspace('library');return calls}
+              finally{ensureUnifiedLibrary=original}
+            }""")
+            assert calls==0, 'Returning to the parked memo must not repeat migrations'
+            expect(page.locator('#richEditor')).to_have_text('Brouillon à préserver')
+            print('PASS: Sécurité disponible en', round(page.evaluate('fleetNavigationMs')), 'ms avec réponse serveur encore suspendue')
             assert not errors, errors
             print('PASS: clics rapprochés, nouvel essai depuis l’onglet courant et brouillon conservé')
             browser.close()
