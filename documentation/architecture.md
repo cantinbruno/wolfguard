@@ -32,6 +32,8 @@ Les noms de modules de la colonne serveur sont relatifs à `server/lib/wolfguard
 
 ## Sources et fichiers générés
 
+Les 25 fiches de civilisations AoE IV et leurs ouvertures terrestres sont définies dans `app/js/data/aoe4-civilizations.js`. À l’ouverture de Mémo, `ensureUnifiedLibrary()` les ajoute dans la branche Jeux / AoE IV, ou retrouve une branche AoE existante sous Jeux. L’ajout est atomique avec les autres migrations et passe par le stockage chiffré habituel. Les fiches commencées sont reconnues par leur civilisation : leur identifiant et leurs métadonnées restent inchangés, et leur contenu est conservé sous « Notes déjà présentes ». Les notes de matchups ambiguës restent intactes. Le marqueur `aoe4-civilizations-guide-version` empêche les doublons et respecte les corrections ou suppressions ultérieures. Vérifications : `node --test tests/aoe4-civilizations.test.mjs` et `python tests/aoe4_civilizations_test.py` (navigateur sans fenêtre, compte de test uniquement).
+
 `scripts/build-web.mjs` copie l’interface dans `docs/`, produit les bundles navigateur, les empreintes SRI et la porte d’entrée chiffrée. Il copie le modèle de permissions du serveur vers `browser/permissions.js`. Modifier d’abord le modèle serveur, puis reconstruire.
 
 Les archives et exécutables publiés dans `app/downloads/` et `docs/downloads/` proviennent du packaging. Ne pas les remplacer manuellement avec une version de test.

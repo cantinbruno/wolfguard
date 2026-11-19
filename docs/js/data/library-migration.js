@@ -153,8 +153,13 @@ async function ensureUnifiedLibrary() {
       if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
     }
     const citations=buildMemoCitationCleanup(normalized);
+    for(const operation of citations.operations) {
+      const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
+      if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
+    }
+    const aoe4=buildAOE4Civilizations(normalized);
     if(db!==migrationDatabase||state.vaultKey!==migrationKey)throw new Error('Session modifiée pendant la préparation des référentiels.');
-    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations,...citations.operations];
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations,...citations.operations,...aoe4.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);
