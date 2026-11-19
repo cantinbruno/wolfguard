@@ -35,11 +35,13 @@ def run(backend=None):
     try:
         with sync_playwright() as p:
             browser=p.chromium.launch();a=browser.new_context(reduced_motion='reduce');b=browser.new_context(reduced_motion='reduce')
-            errors=[];calls=[]
+            errors=[];calls=[];vault_calls=[]
             for context in [a,b]:
                 def proxy(route):
                     calls.append(urlsplit(route.request.url).path)
-                    route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
+                    response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else ''))
+                    if urlsplit(route.request.url).path=='/api/vault':vault_calls.append((route.request.method,response.status))
+                    route.fulfill(response=response)
                 context.route(API+'/**',proxy)
             first=a.new_page();first.on('pageerror',lambda e:errors.append(str(e)))
             first.goto(url);ready(first)
@@ -97,6 +99,27 @@ def run(backend=None):
             assert second.evaluate("async()=>!(await get('items','blank-stp'))")
             print('PASS: rangement du memo applique une fois et synchronise, sauvegarde chiffree anterieure lisible')
             print('PASS: navigateur vierge, un seul code, recuperation du memo et du secret du coffre')
+
+            first.reload();expect(first.locator('#app')).to_be_visible(timeout=20000);first.wait_for_function('()=>!document.querySelector("#app").inert')
+            first.evaluate('async()=>{await db.flush();state.mode="edit"}')
+            vault_calls.clear()
+            first.evaluate("async()=>put('settings',{key:'save-latency-test',value:true})")
+            assert vault_calls==[('PUT',200)],vault_calls
+            print('PASS: enregistrement courant en une requete PUT, sans rechargement prealable')
+
+            second.evaluate('async()=>{await db.flush();state.mode="edit";window.mergeBase=await get("items","memo-test")}')
+            first.evaluate("async()=>{const item=await get('items','memo-test');item.title='Titre simultane conserve';await put('items',item)}")
+            vault_calls.clear()
+            second.evaluate("async()=>{const item=structuredClone(window.mergeBase);item.content='<p>Contenu simultane conserve</p>';await db.saveEditedItem(item,window.mergeBase)}")
+            assert vault_calls==[('PUT',409),('GET',200),('PUT',200)],vault_calls
+            assert second.evaluate("async()=>(await get('items','memo-test')).title")=='Titre simultane conserve'
+            assert second.evaluate("async()=>(await get('items','memo-test')).content")=='<p>Contenu simultane conserve</p>'
+            vault_calls.clear()
+            result=second.evaluate("async()=>{const item=structuredClone(window.mergeBase);item.title='Brouillon local ancien';try{await db.saveEditedItem(item,window.mergeBase);return 'incorrect'}catch(e){return e.code}}")
+            assert result=='SHARED_CONFLICT',result
+            assert vault_calls==[],vault_calls
+            first.evaluate('state.mode="view"');second.evaluate('state.mode="view"')
+            print('PASS: fusion apres conflit de version, brouillon deja obsolete refuse sans envoi')
 
             # Existing encrypted archives are retained when the scan UI only offers export.
             archive={'version':1,'reports':[{'name':'Releve partage de test','rows':[{'address':'192.0.2.77','transport':'ARP','status':'observed'}]}]}

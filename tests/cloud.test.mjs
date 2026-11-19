@@ -2,13 +2,14 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
 // Exercise the real cloud client with synthetic responses and a controllable deadline.
-async function client(run){
-  const names=['location','window','fetch','setTimeout','clearTimeout'];
+async function client(run,{activation=false}={}){
+  const names=['location','window','history','fetch','setTimeout','clearTimeout'];
   const previous=new Map(names.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
   const deadlines=new Map();let timer=0;
   try{
-    globalThis.location=new URL('http://localhost/?sync-test');
+    globalThis.location=new URL('http://localhost/?sync-test'+(activation?'#activate='+'b'.repeat(64):''));
     globalThis.window={addEventListener(){}};
+    globalThis.history={replaceState(){}};
     globalThis.setTimeout=(callback,delay)=>{assert.ok([45000,95000].includes(delay));deadlines.set(++timer,callback);return timer;};
     globalThis.clearTimeout=id=>deadlines.delete(id);
     const cloud=await import('../browser/cloud.js?test='+crypto.randomUUID());
@@ -142,6 +143,29 @@ test('cloud keeps authorization, version headers and conflict errors intact',()=
   globalThis.fetch=async()=>({ok:false,status:409,json:async()=>({error:'Version plus récente',retryAfter:4})});
   await assert.rejects(cloud.agentRequest('agents'),{code:'CLOUD_CONFLICT',retryAfter:4});
 }));
+
+test('save pins the expected snapshot version even if another load advanced the client',()=>client(async cloud=>{
+  const calls=[];
+  globalThis.fetch=async(_url,options)=>{
+    calls.push(options);
+    return {ok:true,headers:new Headers({'X-WG-Version':'7'}),json:async()=>options.method==='PUT'?{version:3}:{format:'synthetic'}};
+  };
+  await cloud.load();assert.equal(cloud.currentVersion(),7);
+  await cloud.save({format:'synthetic'},undefined,2);
+  assert.equal(calls[1].headers['X-WG-Version'],'2');assert.equal(cloud.currentVersion(),3);
+  await assert.rejects(cloud.save({},undefined,-1),/Version distante invalide/);
+  assert.equal(calls.length,2);
+}));
+
+test('initial setup can save the first snapshot at version zero',()=>client(async cloud=>{
+  const calls=[];
+  globalThis.fetch=async(_url,options)=>{
+    calls.push(options);
+    return {ok:true,headers:new Headers(),json:async()=>options.method==='PUT'?{version:1}:{token:'c'.repeat(64),version:0}};
+  };
+  await cloud.initialize('12345678');await cloud.save({format:'synthetic'});
+  assert.equal(calls[1].headers['X-WG-Version'],'0');assert.equal(cloud.currentVersion(),1);
+},{activation:true}));
 
 test('chat and push test routes use the authenticated client and reject arbitrary paths',()=>client(async cloud=>{
  const calls=[];globalThis.fetch=async(url,options)=>{calls.push(new URL(url).pathname);return {ok:true,headers:new Headers(),json:async()=>({ok:true})};};

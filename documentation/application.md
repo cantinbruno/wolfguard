@@ -16,6 +16,8 @@ Le tableau conserve le tri, la recherche, les filtres et les états de mise à j
 
 La section Données ne propose plus de sauvegardes utilisateur. Les anciens formats et outils de migration conservés dans le code servent à la compatibilité ; ne pas les remettre dans le parcours courant.
 
+L’enregistrement partagé envoie directement la copie chiffrée avec la version de l’espace chargé, sans téléchargement préalable ni double chiffrement systématique. Le serveur vérifie cette version de façon atomique. Si une autre personne a enregistré entre-temps, le navigateur recharge la copie récente et fusionne les changements indépendants avant de réessayer (trois tentatives au total). Deux modifications incompatibles du même contenu restent refusées et le brouillon chiffré est conservé sur l’appareil. L’indicateur « Synchronisé » attend toujours la confirmation distante et l’écriture locale. Vérifications : `node --test tests/cloud.test.mjs tests/shared-workspace.test.mjs` et `python tests/shared_workspace_test.py` (sans fenêtre, données synthétiques).
+
 ## Scans et cartographie
 
 Les quatre scans conservent leurs cibles, réglages, filtres, résultats et références de comparaison séparément pendant la session. Le poste choisi peut être commun. L’état occupé appartient au poste ; arrêter une rubrique ne doit pas arrêter arbitrairement une autre opération.

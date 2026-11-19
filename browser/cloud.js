@@ -91,11 +91,12 @@ export async function refresh(since){
   if(response.data===null)return null;
   version=latest;return response.data;
 }
-export async function save(envelope,rotation){
+export async function save(envelope,rotation,expectedVersion=version){
   if(!token)throw new Error('Saisis à nouveau ton code pour enregistrer.');
+  if(!Number.isSafeInteger(expectedVersion)||expectedVersion<0)throw new Error('Version distante invalide.');
   const body=JSON.stringify(envelope),size=new TextEncoder().encode(body).length;
-  const {data}=await request('vault',{method:'PUT',body,headers:{'Content-Type':'application/json','X-WG-Version':String(version),'X-WG-Size':String(size),...(rotation?{'X-WG-Rotation':rotation}:{})}});
-  if(!Number.isSafeInteger(data.version)||data.version!==version+1)throw new Error('Confirmation distante invalide.');
+  const {data}=await request('vault',{method:'PUT',body,headers:{'Content-Type':'application/json','X-WG-Version':String(expectedVersion),'X-WG-Size':String(size),...(rotation?{'X-WG-Rotation':rotation}:{})}});
+  if(!Number.isSafeInteger(data.version)||data.version!==expectedVersion+1)throw new Error('Confirmation distante invalide.');
   version=data.version;if(data.token)token=data.token;
 }
 export async function prepareRotation(oldCode,newCode){return (await post('rotation',{oldCode,newCode,version})).rotation;}

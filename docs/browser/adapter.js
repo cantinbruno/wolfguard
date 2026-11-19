@@ -256,23 +256,32 @@ const webWorkspace = (() => {
       validate(payload);
       window.WolfGuardAccess?.assertChanges(base,payload);
       for(const version of Array.isArray(backupOrganization)?backupOrganization:backupOrganization?[backupOrganization]:[])await storage.preserveOrganization(current.envelope,version);
-      let encrypted = await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
+      let encrypted;
       if(cloud.enabled){
-        const wanted=payload,recovery=encrypted;
+        const wanted=payload;
         try{
           for(let attempt=0;attempt<3;attempt++){
-            const latest=await cryptography.openWithKey(await cloud.load(),current.key,current.salt);validate(latest.payload);
-            latest.payload=hydrateVaultHomes(latest.payload);
+            // The server atomically checks this snapshot's version. Reload and
+            // merge only after a conflict, avoiding a full download per save.
+            let latest=current,expectedVersion=current.cloudVersion;
+            if(attempt>0){
+              const remote=await cloud.load();expectedVersion=cloud.currentVersion();
+              latest=await cryptography.openWithKey(remote,current.key,current.salt);validate(latest.payload);
+              latest.payload=hydrateVaultHomes(latest.payload);
+            }
             if(session!==current||generation!==epoch)throw new Error('Espace verrouillé.');
             if(replace&&!shared.sameValue(base,latest.payload))throw shared.sharedConflict();
             payload=validate(shared.mergeWorkspace(base,wanted,latest.payload));
             encrypted=await cryptography.seal(payload,current.key,current.salt,latest.envelope.revision+1);
             assertFreshSession();if(session!==current||generation!==epoch)throw new Error('Espace verrouillé.');
-            try{await cloud.save(encrypted);break;}catch(error){if(error.code!=='CLOUD_CONFLICT'||attempt===2)throw error;}
+            try{await cloud.save(encrypted,undefined,expectedVersion);break;}catch(error){if(error.code!=='CLOUD_CONFLICT'||attempt===2)throw error;}
           }
-        }catch(error){await storage.preserve(recovery,true);if(error.code==='CLOUD_ACCESS'||error.code==='INVALID_ACCESS_CODE')queueMicrotask(()=>lock());throw error;}
+        }catch(error){
+          const recovery=await cryptography.seal(wanted,current.key,current.salt,current.envelope.revision+1);
+          await storage.preserve(recovery,true);if(error.code==='CLOUD_ACCESS'||error.code==='INVALID_ACCESS_CODE')queueMicrotask(()=>lock());throw error;
+        }
         if(session!==current || generation!==epoch)throw new Error('Espace verrouillé. La copie distante est enregistrée.');
-      }
+      }else encrypted=await cryptography.seal(payload,current.key,current.salt,current.envelope.revision+1);
       await cacheSnapshot(encrypted,current.envelope.revision);
       current.payload = payload; current.envelope = encrypted; envelope = encrypted;
       if(cloud.enabled)current.cloudVersion=cloud.currentVersion();
