@@ -67,13 +67,15 @@ function rememberPrimaryWorkspace(destination) {
       top: node.scrollTop,
       left: node.scrollLeft
     }));
-    const fragment = document.createDocumentFragment();
-    fragment.append(...content.childNodes);
+    // Keep the current view mounted until the next renderer replaces it.
+    // Holding its nodes preserves editor state without exposing an empty page
+    // while a database read or shared synchronization is still pending.
+    const nodes = [...content.childNodes];
     primaryWorkspaces.memo = {
-      fragment,
+      nodes,
       scrolls,
       key: state.vaultKey,
-      dirty: fragment.querySelector('#detailHost')?.dataset.editorDirty === 'true',
+      dirty: content.querySelector('#detailHost')?.dataset.editorDirty === 'true',
       state: {
         section: state.section,
         folder: state.folder,
@@ -99,9 +101,9 @@ function rememberPrimaryWorkspace(destination) {
 
 function restoreMemoWorkspace(itemId = null) {
   const saved = primaryWorkspaces.memo;
-  if (!saved || saved.key !== state.vaultKey || (itemId && itemId !== saved.state.item)) return false;
+  if (!saved?.nodes?.some(node => node.nodeType === Node.ELEMENT_NODE) || saved.key !== state.vaultKey || (itemId && itemId !== saved.state.item)) return false;
   Object.assign(state, saved.state);
-  $('#content').replaceChildren(saved.fragment);
+  $('#content').replaceChildren(...saved.nodes);
   primaryWorkspaces.memo = null;
   requestAnimationFrame(() => {
     for (const {
@@ -121,7 +123,7 @@ async function switchPrimaryWorkspace(section) {
   if (!workspaceModules.allows(section)) return false;
   const target = primarySectionFor(section);
   if (target === 'security') return openSection(section);
-  if (target === primarySectionFor(state.section)) {
+  if (target === primarySectionFor(state.section) && $('#content').childElementCount && !$('#content .section-load-error')) {
     // A click back to the current tab cancels a pending switch before its DOM swap.
     if (sectionTransition.active) return sectionTransition.navigate(state.section, async () => {
       topNavigation.setActive(state.section);
@@ -140,6 +142,8 @@ async function switchPrimaryWorkspace(section) {
   });
 }
 document.addEventListener('input', () => syncMemoDraftIndicator());
+// Security tool dialogs stop bubbling keyboard events. Primary section
+// shortcuts must still reach navigation before those dialog handlers run.
 document.addEventListener('keydown', event => {
   const digit=/^[0-9]$/.test(event.key)?event.key:/^Digit([0-9])$/.exec(event.code||'')?.[1];
   if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !digit || $('#app').classList.contains('hidden') || $('#modalRoot').children.length) return;
@@ -147,4 +151,4 @@ document.addEventListener('keydown', event => {
   if(!destination)return;
   event.preventDefault();
   switchPrimaryWorkspace(destination);
-});
+}, {capture: true});

@@ -35,6 +35,7 @@ const sectionTransition = (() => {
       app = $('#app');
     const run = {
       content,
+      key: state.vaultKey,
       animations: [],
       cancelled: false,
       transition: null,
@@ -44,7 +45,8 @@ const sectionTransition = (() => {
     current = run;
     const canRender = () => !run.cancelled && !pending;
     const crossing = primarySectionFor(request.section) !== primarySectionFor(state.section);
-    // Keep the original workspace slide on both the web and the desktop.
+    // Slide in the prepared workspace; never slide away the only visible view
+    // before an asynchronous renderer has finished loading its replacement.
     const motion = request.section !== state.section && !(isSecurityWorkspace(request.section) && isSecurityWorkspace(state.section)) && !app.classList.contains('hidden') && app.style.visibility !== 'hidden' && !unlockTransition.active && !!Element.prototype.animate;
     const sections = availablePrimarySections();
     const from = sections.indexOf(primarySectionFor(state.section));
@@ -62,9 +64,9 @@ const sectionTransition = (() => {
       }
     };
     try {
+      content.setAttribute('aria-busy', 'true');
       if (motion) {
         content.inert = true;
-        content.setAttribute('aria-busy', 'true');
         document.documentElement.dataset.sectionTransition = 'active';
         document.documentElement.dataset.sectionDirection = direction === 1 ? 'forward' : 'backward';
         document.documentElement.dataset.sectionEffect = crossing ? 'workspace' : 'slide';
@@ -72,16 +74,6 @@ const sectionTransition = (() => {
       // Animate the actual content in every browser. Native View Transitions
       // can finish without displaying any frames under some system settings.
       content.dataset.transitionMode = 'direct';
-      if (motion && !run.rendered) {
-        content.dataset.transitionPhase = 'out';
-        await animate(run, [{
-          opacity: 1,
-          transform: 'translateX(0)'
-        }, {
-          opacity: crossing ? 1 : 0,
-          transform: 'translateX(' + (direction === 1 ? '-' : '') + shift + ')'
-        }], crossing ? 240 : 60);
-      }
       if (!canRender()) return false;
       if (!run.rendered) await update();
       if (!run.rendered || !canRender()) return false;
@@ -97,6 +89,23 @@ const sectionTransition = (() => {
         }], crossing ? 300 : 120);
       }
       return canRender();
+    } catch (error) {
+      if (canRender() && state.vaultKey === run.key && !app.classList.contains('hidden')) {
+        if (state.section !== request.section) appNotify(error.message || 'Impossible d’ouvrir cette section.', {kind: 'error'});
+        else {
+          const notice = document.createElement('section');
+          notice.className = 'section-load-error';
+          notice.setAttribute('role', 'alert');
+          const heading = document.createElement('h2'), message = document.createElement('p'), retry = document.createElement('button');
+          heading.textContent = 'Impossible d’ouvrir cette section';
+          message.textContent = error.message || 'Le chargement a été interrompu.';
+          retry.type = 'button'; retry.className = 'primary'; retry.textContent = 'Réessayer';
+          retry.onclick = () => openSection(request.section).catch(console.error);
+          notice.append(heading, message, retry);
+          content.replaceChildren(notice);
+        }
+      }
+      throw error;
     } finally {
       restore(run);
       if (current === run) current = null;

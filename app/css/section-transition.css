@@ -4,6 +4,17 @@
   overflow: clip;
 }
 
+.section-load-error {
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 24px;
+  line-height: 1.6;
+}
+
+.section-load-error p {
+  overflow-wrap: anywhere;
+}
+
 :root[data-section-transition="active"] {
   view-transition-name: none;
   --section-slide-direction: 1;

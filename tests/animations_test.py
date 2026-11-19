@@ -76,14 +76,14 @@ def run():
             print('PASS: agrandissement puis eclatement du loup, meme avec animations Windows reduites')
 
             page.locator('.workspace-section-button[data-section=tools]').click()
-            page.wait_for_function("()=>{const el=document.querySelector('#content');return el.dataset.transitionMode==='direct' && new DOMMatrix(getComputedStyle(el).transform).m41 < -1}")
+            page.wait_for_function("()=>{const el=document.querySelector('#content');return el.dataset.transitionMode==='direct' && Math.abs(new DOMMatrix(getComputedStyle(el).transform).m41) > 1}")
             page.screenshot(path=str(cache/'section-slide.png'))
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'forward' in page.evaluate('window.motionTrace.workspace')
             page.locator('.workspace-section-button[data-section=library]').click()
             page.wait_for_function("()=>!sectionTransition.active")
             assert 'backward' in page.evaluate('window.motionTrace.workspace')
-            assert page.evaluate('window.motionTrace.slides.length')>=4
+            assert page.evaluate('window.motionTrace.slides.length')>=2
             open_security(page);open_security_tool(page,'scan-passive')
             page.wait_for_function("()=>!sectionTransition.active")
             expect(page.locator('#securityBtn')).to_have_attribute('aria-pressed','true')
