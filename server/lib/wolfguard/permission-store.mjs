@@ -6,7 +6,7 @@ export async function permissionAPI(path,request,env,now,session,vault,h){
   const {fail,json,body,random,revokeUserSessions}=h;
   if(!can(session.user,'users.permissions',now))fail(403,'Ton profil ne permet pas d’attribuer les droits.');
   if(request.method==='GET'){
-    if(path==='/api/users/permissions')return json({sections:PERMISSION_SECTIONS,levels:SECTION_LEVELS,profiles:PERMISSION_PROFILES,defaultProfile:'reader',agentLevels:true});
+    if(path==='/api/users/permissions')return json({sections:PERMISSION_SECTIONS,levels:SECTION_LEVELS,profiles:PERMISSION_PROFILES,defaultProfile:'guest',agentLevels:true});
     if(path==='/api/users/permissions/audit'){
       const rows=await env.DB.prepare('SELECT id,created_at,details_cipher FROM permission_audit ORDER BY created_at DESC,id DESC LIMIT 100').all(),events=[];
       for(const row of rows.results)events.push({id:row.id,createdAt:row.created_at,...await open(row.details_cipher,'WolfGuard permissions audit v1:'+row.id,env)});

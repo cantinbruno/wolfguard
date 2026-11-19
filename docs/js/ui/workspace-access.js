@@ -17,6 +17,7 @@ const workspaceAccess=(()=>{
     function render(){
       if(!live())return;
       const disabled=busy||stale||!available()||!cloud()?.can('access.manage');
+      find('.access-permissions').textContent=cloud()?.can('access.manage')?'Tu peux gérer les connexions. Les sessions du propriétaire restent protégées.':'Lecture seule : tu peux consulter les connexions et les IP bloquées.';
       find('#wgAccessBlockSubmit').disabled=disabled;find('#wgAccessBlockIP').disabled=disabled;
       if(!data)return;
       find('#wgAccessCount').textContent=data.connections.length+' session'+(data.connections.length>1?'s':'');

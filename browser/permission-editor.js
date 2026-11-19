@@ -14,6 +14,7 @@ window.WolfGuardPermissionEditor=(()=>{
       const [catalog,fleet]=await Promise.all([request('',undefined,signal),WolfGuardCloud.agentRequest('agents',undefined,{signal}).catch(()=>null)]);
       if(!live())return;
       let policy=structuredClone(user.permissions),saving=false,reasonDraft='',savedMessage='';
+      const roleIcons={admin:'shield-check',editor:'pencil',observer:'eye',guest:'user'};
       const model=WolfGuardPermissions;
       let initial=JSON.stringify(model.normalizePolicy(policy));
       function dirty(){
@@ -57,14 +58,19 @@ window.WolfGuardPermissionEditor=(()=>{
       }
       function render(focusSelector){
         const opened=new Set([...host.querySelectorAll('details[open]')].map(row=>row.querySelector('summary')?.textContent));
+        const role=model.policyProfile(policy),activeRole=catalog.profiles.find(row=>row.id===role);
+        const exceptions=policy.agents!==null||Object.values(policy.agentLevels||{}).some(level=>level!=='write')||!!policy.scopes;
         reasonDraft=host.querySelector('#wgPermissionReason')?.value??reasonDraft;
         host.innerHTML=`<form class="permission-editor${embedded?' permission-embedded':''}" id="wgPermissionForm">
           <header><div><span class="users-eyebrow">ACCÈS AU COMPTE</span><h4>Droits d’accès</h4></div>${embedded?'<button type="button" class="settings-btn" data-open-agent-rights aria-controls="wgPermissionAgentScope" aria-expanded="false">Poste par poste</button>':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
           <p class="access-feedback permission-save-notice" data-permission-save-notice role="status">${esc(savedMessage)}</p>
           <fieldset ${saving?'disabled':''}>
-            <label class="users-checkbox permission-admin-switch"><input type="checkbox" id="wgPermissionAdmin" ${policy.admin?'checked':''}><span><strong>Administrateur</strong><small>Écriture sur toutes les sections</small></span></label>
+            <div class="permission-role-heading"><span>Rôle du compte</span><span class="permission-role-current">${esc(activeRole?.name||'Personnalisé')}</span></div>
+            <div class="permission-profile-choices" role="group" aria-label="Rôle du compte">${catalog.profiles.filter(row=>!row.legacy).map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(role===row.id)+'"><span class="permission-role-icon" aria-hidden="true">'+settingsIcon(roleIcons[row.id]||'user')+'</span><span class="permission-role-copy"><strong>'+esc(row.name)+'</strong><span>'+esc(row.description)+'</span></span><span class="permission-role-check" aria-hidden="true">'+(role===row.id?'✓':'')+'</span></button>').join('')}</div>
+            <p class="permission-role-help">${role==='custom'?'Ce compte conserve des droits personnalisés. Choisis un rôle pour les simplifier.':role==='guest'?'Ce compte peut se connecter, mais aucune section n’est visible.':role==='admin'?'Accès à tous les postes, y compris ceux réservés aux administrateurs.':'Les postes réservés aux administrateurs restent invisibles et inaccessibles.'}${exceptions&&!policy.admin?' Des exceptions sont conservées dans les réglages avancés.':''}</p>
+            <details class="permission-customization" id="wgPermissionCustomization"><summary>Réglages avancés <span>Sections et postes</span></summary>
             <label class="permission-bulk"><span>Appliquer à toutes les sections</span><select data-permission-bulk aria-label="Appliquer un niveau à toutes les sections"><option value="">Choisir un niveau…</option>${catalog.levels.map(([value,label])=>'<option value="'+value+'">'+esc(label)+'</option>').join('')}</select></label>
-            <div hidden class="permission-profile-choices" aria-label="Profils d’accès">${catalog.profiles.filter(row=>row.id!=='legacy').map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(policy.admin&&row.id==='admin'||!policy.admin&&JSON.stringify(model.profilePolicy(row.id).sections)===JSON.stringify(policy.sections)+'')+'"><strong>'+esc(row.name)+'</strong><span>'+esc(row.description)+'</span></button>').join('')}</div>
+            <fieldset class="permission-section-settings" ${policy.admin?'disabled':''}>
             <div class="permission-matrix">${catalog.sections.filter(([section])=>!securitySections.includes(section)).map(([section,name])=>{
               const current=policy.sections[section];
               return '<div class="permission-row" data-permission-section="'+esc(section)+'"><span class="permission-row-name">'+esc(name)+'</span><div class="permission-row-levels" role="group" aria-label="Niveau pour '+esc(name)+'">'+
@@ -72,18 +78,19 @@ window.WolfGuardPermissionEditor=(()=>{
                 '</div></div>';
             }).join('')}</div>
             ${securityHTML()}
+            </fieldset></details>
             <details class="permission-advanced"><summary>Durée et motif du changement</summary><label>Fin des autorisations (facultatif)<input id="wgPermissionExpiry" type="datetime-local" value="${policy.expiresAt?new Date(policy.expiresAt-new Date(policy.expiresAt).getTimezoneOffset()*60000).toISOString().slice(0,16):''}"></label><label>Motif du changement<input id="wgPermissionReason" maxlength="500" placeholder="Ex. Accès temporaire pour une intervention"></label></details>
             <div class="permission-save-bar"><div><span data-permission-draft role="status"></span><p>Enregistrer déconnecte les sessions de ce compte.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer les droits'}</button></div></div>
           </fieldset><p data-permission-error class="access-error" role="alert"></p></form>`;
         host.querySelectorAll('details').forEach(row=>{row.open=opened.has(row.querySelector('summary')?.textContent);});
         const scope=host.querySelector('#wgPermissionAgentScope'),shortcut=host.querySelector('[data-open-agent-rights]');
-        if(shortcut){const sync=()=>shortcut.setAttribute('aria-expanded',String(scope.open));sync();scope.addEventListener('toggle',sync);shortcut.onclick=()=>{scope.open=true;sync();const detail=root.querySelector('#wgUserDetail');if(detail)detail.scrollTop+=scope.getBoundingClientRect().top-detail.getBoundingClientRect().top-12;scope.querySelector('summary').focus({preventScroll:true});};}
+        if(shortcut){const advanced=host.querySelector('#wgPermissionCustomization');const sync=()=>shortcut.setAttribute('aria-expanded',String(scope.open&&advanced.open));sync();scope.addEventListener('toggle',sync);advanced.addEventListener('toggle',sync);shortcut.onclick=()=>{advanced.open=true;scope.open=true;sync();const detail=root.querySelector('#wgUserDetail');if(detail)detail.scrollTop+=scope.getBoundingClientRect().top-detail.getBoundingClientRect().top-12;scope.querySelector('summary').focus({preventScroll:true});};}
         host.querySelectorAll('[data-close-permissions]').forEach(button=>button.onclick=()=>{if(saving)return;if(embedded){policy=structuredClone(user.permissions);reasonDraft='';savedMessage='';render();}else reset(root);});
         if(user.role==='admin')return;
         host.querySelector('#wgPermissionReason').value=reasonDraft;
+        host.querySelector('#wgPermissionReason').oninput=dirty;
         host.querySelector('[data-permission-bulk]').onchange=event=>{if(event.target.value){setLevel(catalog.sections.map(([section])=>section),event.target.value);render();}};
-        host.querySelector('#wgPermissionAdmin').onchange=event=>{delete policy.legacyGrants;delete policy.scopes;policy.admin=event.target.checked;savedMessage='';render();};
-        host.querySelectorAll('[data-permission-profile]').forEach(button=>button.onclick=()=>{policy=model.profilePolicy(button.dataset.permissionProfile);savedMessage='';render();});
+        host.querySelectorAll('[data-permission-profile]').forEach(button=>button.onclick=()=>{const {agents,agentLevels,expiresAt}=policy;policy={...model.profilePolicy(button.dataset.permissionProfile),agents,expiresAt,...(agentLevels?{agentLevels}: {})};savedMessage='';render('[data-permission-profile="'+button.dataset.permissionProfile+'"]');});
         host.querySelectorAll('[data-section]').forEach(button=>button.onclick=()=>{setLevel([button.dataset.section],button.dataset.level);render('[data-section="'+button.dataset.section+'"][data-level="'+button.dataset.level+'"]');});
         host.querySelectorAll('[data-security-level]').forEach(button=>button.onclick=()=>{setLevel(securitySections,button.dataset.securityLevel);render('[data-security-level="'+button.dataset.securityLevel+'"]');});
         host.querySelectorAll('[data-agent-scope]').forEach(input=>input.onchange=()=>{policy.agents=input.dataset.agentScope==='all'?null:policy.agents||[];savedMessage='';render('[data-agent-scope="'+input.dataset.agentScope+'"]');});
@@ -93,9 +100,9 @@ window.WolfGuardPermissionEditor=(()=>{
           event.preventDefault();if(saving)return;const error=host.querySelector('[data-permission-error]');
           if(policy.expiresAt!==null&&policy.expiresAt<=Date.now()){error.textContent='Choisis une date de fin future ou laisse ce champ vide.';return;}
           saving=true;host.dataset.saving='true';host.querySelector('fieldset').disabled=true;
-          try{const saved=await request('',{id:user.id,revision:user.permission_revision,policy:model.normalizePolicy(policy),reason:host.querySelector('#wgPermissionReason').value},signal);if(saved.reconnect){await lockApplication();return;}if(!live())return;user={...user,permissions:model.normalizePolicy(policy),permission_revision:saved.revision};policy=structuredClone(user.permissions);initial=JSON.stringify(model.normalizePolicy(policy));savedMessage='Droits enregistrés. Les sessions de ce compte ont été déconnectées.';saving=false;host.dataset.saving='false';host.dataset.dirty='false';render();await onSaved(saved);}
+          try{const saved=await request('',{id:user.id,revision:user.permission_revision,policy:model.normalizePolicy(policy),reason:host.querySelector('#wgPermissionReason').value},signal);if(saved.reconnect){await lockApplication();return;}if(!live())return;user={...user,permissions:model.normalizePolicy(policy),permission_revision:saved.revision};policy=structuredClone(user.permissions);initial=JSON.stringify(model.normalizePolicy(policy));reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='Droits enregistrés. Les sessions de ce compte ont été déconnectées.';saving=false;host.dataset.saving='false';host.dataset.dirty='false';render();await onSaved(saved);}
           catch(problem){if(live()){error.textContent=problem.message;host.querySelector('fieldset').disabled=false;}}
-          finally{saving=false;if(live())host.dataset.saving='false';}
+          finally{saving=false;if(live()){host.dataset.saving='false';dirty();}}
         };
         dirty();
         if(focusSelector)host.querySelector(focusSelector)?.focus({preventScroll:true});

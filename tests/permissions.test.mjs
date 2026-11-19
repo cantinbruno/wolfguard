@@ -5,7 +5,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import * as browserCrypto from '../browser/crypto.js';
-import {profilePolicy,normalizePolicy,can,canAgent,recordLevel,canManagePolicy,vaultHomeId,AGENT_SECTIONS} from '../server/lib/wolfguard/permissions.mjs';
+import {profilePolicy,normalizePolicy,can,canAgent,recordLevel,canManagePolicy,vaultHomeId,AGENT_SECTIONS,PERMISSION_SECTIONS,PERMISSION_KEYS,policyProfile,userRole} from '../server/lib/wolfguard/permissions.mjs';
 import {openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from '../server/lib/wolfguard/workspace-access.mjs';
 import {policyCipher} from '../server/lib/wolfguard/permission-store.mjs';
 import {seal as sealRecord} from '../server/lib/wolfguard/access.mjs';
@@ -35,6 +35,49 @@ async function setup(){
   return {env,api,upload,login,owner,added,assign,load,canonical,source,master,advance:ms=>{now+=ms;}};
 }
 const user=policy=>({role:'member',permissions:policy});
+
+test('five roles distinguish the protected owner, full admins, editors, observers and default guests',()=>{
+  assert.equal(userRole({role:'admin'}),'Propriétaire');
+  assert.equal(profilePolicy().profile,'guest');
+  for(const [id,label] of [['admin','Administrateur'],['editor','Éditeur'],['observer','Observateur'],['guest','Invité']]){
+    const policy=profilePolicy(id),account=user(policy);
+    assert.equal(policyProfile(normalizePolicy(policy)),id);assert.equal(userRole(account),label);
+    for(const [section] of PERMISSION_SECTIONS){
+      assert.equal(can(account,section+'.read'),id!=='guest',id+': '+section);
+      assert.equal(can(account,section+'.write'),id==='admin'||id==='editor'&&section!=='users',id+': '+section);
+    }
+    assert.equal(can(account,'users.permissions'),id==='admin');
+    assert.equal(can(account,'users.manage'),id==='admin');
+    if(id==='guest')for(const key of PERMISSION_KEYS)assert.equal(can(account,key),false,key);
+    if(id==='observer')for(const key of ['library.create','vault.edit','agents.pair','scan.active.run','remote.terminal','edr.manage','users.manage','users.permissions','access.manage'])assert.equal(can(account,key),false,key);
+  }
+  assert.equal(can(user(profilePolicy('reader')),'users.read'),false,'legacy readers never gain management visibility');
+  const custom=profilePolicy('guest');custom.sections.library='read';custom.profile='admin';
+  assert.equal(userRole(user(custom)),'Personnalisé','labels follow effective rights, never an untrusted profile name');
+});
+
+test('role presets enforce read-only management and private machines through the real API',async()=>{
+  const s=await setup();try{
+    const agent=await enroll(s,'Private role test');
+    await s.api('agents/restricted',{id:agent.id,restricted:true},s.owner.token);
+    for(const id of ['editor','observer','guest','admin']){
+      assert.equal((await s.assign(profilePolicy(id))).status,200);
+      const auth=await s.login('12345678');
+      assert.equal(auth.user.role,'member','assigning admin never changes the owner identity');
+      assert.equal((await s.api('users',undefined,auth.token)).status,id==='guest'?403:200);
+      assert.equal((await s.api('access',undefined,auth.token)).status,id==='guest'?403:200);
+      assert.equal((await s.api('users/permissions',undefined,auth.token)).status,id==='admin'?200:403);
+      assert.equal((await s.api('users/permissions',{id:s.owner.user.id,revision:1,policy:profilePolicy('guest')},auth.token)).status,id==='admin'?409:403);
+      const fleet=await(await s.api('agents',undefined,auth.token)).json();assert.equal(fleet.agents.length,id==='admin'?1:0);
+      if(id!=='admin'){
+        assert.equal((await s.api('edr/events?agentId='+agent.id,undefined,auth.token)).status,403);
+        assert.equal((await s.api('agents/restricted',{id:agent.id,restricted:false},auth.token)).status,403);
+      }else{
+        assert.equal((await s.api('agents/restricted',{id:agent.id,restricted:false},auth.token)).status,200);
+      }
+    }
+  }finally{s.env.DB.db.close();}
+});
 test('section levels: read/write/deny with an administrator switch',()=>{
   const policy=profilePolicy('none');
   assert.equal(can(user(policy),'library.read'),false);assert.equal(can({role:'admin'},'library.read'),true);

@@ -39,18 +39,33 @@ for (const [group, actions] of Object.entries(GROUP_ACTIONS)) {
   LEVEL_ACTIONS.read[group] = actions.filter(action => ['read', 'use', 'secrets', 'export'].includes(action)).map(action => group + '.' + action);
 }
 export const PERMISSION_PROFILES = [
-  { id: 'none', name: 'Aucun accès', description: 'Aucune section visible.', sections: Object.fromEntries(SECTION_IDS.map(id => [id, 'deny'])), admin: false },
-  { id: 'reader', name: 'Lecture seule', description: 'Toutes les sections en lecture, sauf la gestion.', sections: Object.fromEntries(SECTION_IDS.map(id => [id, ['users', 'access'].includes(id) ? 'deny' : 'read'])), admin: false },
-  { id: 'admin', name: 'Administrateur', description: 'Écriture sur toutes les sections.', sections: null, admin: true },
+  { id: 'admin', name: 'Administrateur', description: 'Écriture partout, droits et accès compris.', sections: null, admin: true },
+  { id: 'editor', name: 'Éditeur', description: 'Écriture partout, sauf la gestion des utilisateurs et des droits.', sections: Object.fromEntries(SECTION_IDS.map(id => [id, id === 'users' ? 'read' : 'write'])), admin: false },
+  { id: 'observer', name: 'Observateur', description: 'Lecture partout, aucune modification.', sections: Object.fromEntries(SECTION_IDS.map(id => [id, 'read'])), admin: false },
+  { id: 'guest', name: 'Invité', description: 'Tout est invisible. Rôle des nouveaux comptes.', sections: Object.fromEntries(SECTION_IDS.map(id => [id, 'deny'])), admin: false },
   { id: 'legacy', name: 'Accès existants', description: 'Droits hérités de la gestion avancée précédente.', sections: null, admin: false, legacy: true }
 ];
-export function profilePolicy(id = 'reader') {
+export function profilePolicy(id = 'guest') {
   if(id==='full')id='admin';
+  // Keep old policies readable without granting new access during migration.
+  if(id==='none')return {...profilePolicy('guest'),profile:id};
+  if(id==='reader'){const policy=profilePolicy('observer');policy.profile=id;policy.sections.users='deny';policy.sections.access='deny';return policy;}
   if(id==='endpoint-manager'){const policy=profilePolicy('none');policy.profile=id;policy.sections.agents='write';policy.sections.edr='write';policy.sections.tools='write';return policy;}
   const profile = PERMISSION_PROFILES.find(p => p.id === id); if (!profile) throw new Error('Profil inconnu.');
   if (profile.legacy) return normalizePolicy({version:1,profile:'legacy',grants:PERMISSION_KEYS.filter(key=>!key.startsWith('users.')&&!key.startsWith('access.')&&!key.startsWith('ai.')&&!['agents.pair','agents.revoke','edr.manage','edr.acknowledge','remote.files'].includes(key)),agents:null,scopes:{library:{mode:'all',folders:{},items:{}},vault:{mode:'all',folders:{},items:{}}},expiresAt:null});
   const sections = profile.sections ? { ...profile.sections } : Object.fromEntries(SECTION_IDS.map(section => [section, profile.admin ? 'write' : 'deny']));
   return normalizePolicy({ version: 2, admin: profile.admin, sections, expiresAt: null, profile: id });
+}
+export function policyProfile(policy) {
+  if (!policy) return 'guest';
+  if (policy.admin) return 'admin';
+  if (policy.legacyGrants || policy.grants) return 'custom';
+  return PERMISSION_PROFILES.find(profile => profile.sections && SECTION_IDS.every(id => policy.sections?.[id] === profile.sections[id]))?.id || 'custom';
+}
+export function userRole(user) {
+  if (user?.role === 'admin') return 'Propriétaire';
+  const id = policyProfile(user?.permissions);
+  return PERMISSION_PROFILES.find(profile => profile.id === id)?.name || 'Personnalisé';
 }
 const own = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 const validId = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id);
@@ -113,7 +128,7 @@ export function can(user, key, now = Date.now()) {
   if (level === 'write') return true;
   if (level !== 'read') return false;
   const readKeys = LEVEL_ACTIONS.read[section] || [];
-  return key === section || readKeys.includes(key);
+  return key === section || key === section + '.read' || readKeys.includes(key);
 }
 export function canAgent(user, id, now = Date.now(), action = 'agents.read') {
   if (!can(user, 'agents.read', now)||!can(user,action,now)) return false;

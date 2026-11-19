@@ -2,9 +2,17 @@
 
 ## Sections et comptes
 
-La matrice propose Lecture, Écriture ou Invisible pour chaque section. Lecture permet les actions de consultation autorisées ; Écriture ajoute les modifications et opérations de la section ; Invisible masque la section et refuse l’accès direct sur l’API. La case Administrateur accorde l’écriture partout. Le propriétaire conserve ses protections particulières.
+La gestion repose sur cinq rôles :
 
-Dans Paramètres → Utilisateurs et droits, la liste des comptes et la fiche sélectionnée défilent séparément sur ordinateur. La fiche utilise des lignes compactes, une case Administrateur alignée avec son libellé et une barre d’enregistrement toujours visible dans la zone des droits. « Appliquer à toutes les sections » prépare le même niveau pour toutes les sections ; les exceptions par poste et les restrictions de dossiers restent conservées. Les réglages poste par poste sont repliés par défaut et accessibles directement par le bouton « Poste par poste ». Les modifications restent à confirmer avec « Enregistrer les droits », qui révoque les sessions concernées comme auparavant. Vérifications : `python tests/permissions_workspace_test.py` et `python tests/users_workspace_test.py`, sans fenêtre et avec des comptes synthétiques.
+- **Propriétaire** : le compte d’origine, protégé, avec tous les droits. Ce rôle ne s’attribue pas à un autre compte.
+- **Administrateur** : écriture partout, y compris les utilisateurs, les droits et les connexions.
+- **Éditeur** : écriture partout sauf dans Utilisateurs et droits, qui reste en lecture.
+- **Observateur** : lecture de toutes les sections, sans modification.
+- **Invité** : rôle initial des nouveaux comptes et invitations ; toutes les sections sont invisibles.
+
+Les coffres personnels et les postes réservés conservent leurs protections pour chaque rôle. Les anciens profils restent lisibles sans élargir leurs autorisations ; un compte qui ne correspond à aucun rôle est signalé comme « Personnalisé ».
+
+Dans Paramètres → Utilisateurs et droits, la liste indique le rôle de chaque compte. La fiche présente quatre cartes de rôles attribuables et une barre d’enregistrement. Les réglages par section et par poste sont repliés dans « Réglages avancés » ; le bouton « Poste par poste » les ouvre directement. Choisir un rôle conserve la date d’expiration et les restrictions par poste ; les restrictions héritées sur les dossiers sont remplacées par les droits du rôle choisi. « Appliquer à toutes les sections » conserve les restrictions de dossiers existantes. Enregistrer révoque les sessions concernées. En cas d’échec, les modifications restent disponibles pour réessayer. Vérifications : `python tests/permissions_workspace_test.py` et `python tests/users_workspace_test.py`, sans fenêtre et avec des comptes synthétiques.
 
 Les nouvelles invitations commencent sans droits. Un gestionnaire délégué ne peut pas dépasser son propre périmètre, prolonger un droit au-delà de sa date de fin ni prendre le contrôle du propriétaire.
 
@@ -12,7 +20,7 @@ Les nouvelles invitations commencent sans droits. Un gestionnaire délégué ne 
 
 Les niveaux de `agentLevels` sont réglables poste par poste : `read`, `write`, `deny`. Ils **restreignent** les permissions de section, sans jamais les augmenter. Ainsi, `write` sur un poste ne transforme pas une section globale Lecture en Écriture.
 
-Les anciennes listes de postes autorisés restent prises en compte. La case Restreint réserve un poste aux administrateurs dans les API concernées : inventaire, scans et historiques, EDR, bureau, terminal et fichiers. Connaître l’identifiant d’un poste ne contourne pas ces contrôles.
+Les anciennes listes de postes autorisés restent prises en compte. L’interrupteur « Réservé aux administrateurs et au propriétaire » se trouve dans la vue d’ensemble de chaque poste et dans ses détails sous « Gérer les agents ». Il s’enregistre immédiatement. Le poste devient invisible et inaccessible aux autres rôles dans l’inventaire, les scans et leurs historiques, l’EDR, le bureau, le terminal et les fichiers. Connaître son identifiant ne contourne pas ces contrôles.
 
 Le modèle commun est `server/lib/wolfguard/permissions.mjs`. Le build génère sa copie `browser/permissions.js`. L’API reste l’autorité ; masquer un bouton ne suffit pas à protéger une opération.
 

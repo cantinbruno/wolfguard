@@ -79,7 +79,7 @@ export async function handleAccountAPI(request,env,now,h){
     const name=normalizeUsername(data.username);
     if(!name)fail(400,'Vérifie ton adresse e-mail.');
     const id=random(16),salt=random(16),nameHash=await usernameHash(name,env),lookup=await availableCode(data.code,null,env,pinHash,fail);
-    const invitedPolicy=invitation.permissions_cipher?await open(invitation.permissions_cipher,'WolfGuard invitation permissions v1:'+invitation.id,env):profilePolicy('none');
+    const invitedPolicy=invitation.permissions_cipher?await open(invitation.permissions_cipher,'WolfGuard invitation permissions v1:'+invitation.id,env):profilePolicy('guest');
     // D1 batches are transactional: insertion and consumption succeed together.
     // A second redemption cannot insert after the first has removed the ticket.
     const result=await env.DB.batch([
@@ -169,7 +169,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(request.method!=='POST')fail(404,'Adresse utilisateur inconnue.');
   const data=await body();
-  let initialPolicy=profilePolicy('none');
+  let initialPolicy=profilePolicy('guest');
   if(['/api/users/create','/api/users/invite'].includes(path)&&data.profile!==undefined){
     try{initialPolicy=profilePolicy(data.profile);}catch(error){fail(400,error.message);}
     if(data.profile!=='none'){requirePermission(session.user,'users.permissions',fail,now);if(!canManagePolicy(session.user,initialPolicy,now))fail(403,'Ce profil dépasse tes propres droits.');}

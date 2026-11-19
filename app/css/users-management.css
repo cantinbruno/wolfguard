@@ -104,8 +104,6 @@
 @media(max-width:850px){.users-management-layout{grid-template-columns:minmax(0,1fr)}.users-directory{position:static}.users-account-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:220px}.users-manager .users-filter-label{justify-content:flex-start}.users-directory-heading{margin-bottom:12px}.users-account-row .user-avatar{display:none}}
 @media(max-width:480px){.users-manager-heading h3{font-size:20px}.users-account-list{grid-template-columns:minmax(0,1fr);max-height:210px}.users-manager .users-summary{gap:8px 12px}.users-detail-heading{gap:9px}.users-detail-heading>div{flex-basis:calc(100% - 42px)}.users-detail-heading>button{margin-left:auto}.users-account-facts{grid-template-columns:minmax(0,1fr);gap:10px}.users-account-facts div{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.users-account-facts dd{text-align:right;margin:0}.permission-profile-choices{grid-template-columns:minmax(0,1fr)}.users-manager .permission-rule{grid-template-columns:minmax(0,1fr) auto}.users-manager .permission-rule>span{grid-column:1/-1}.users-manager .permission-add-rule{flex-wrap:wrap}.users-manager .permission-add-rule select{flex-basis:100%}.permission-save-bar .actions>button{flex:1}.users-account-security{padding:16px}.users-invitation header{flex-wrap:wrap}.users-manager .users-pending-row{flex-wrap:wrap}}
 
-@media(min-width:481px){.users-manager .permission-profile-select,.users-manager [data-profile-description]{display:none!important}}
-@media(max-width:480px){.users-manager .permission-profile-choices{display:none}}
 @media(max-width:480px){.users-manager input:not([type=checkbox]),.users-manager select,.users-manager textarea{font-size:16px}}
 
 /* Keep the directory and account controls usable without scrolling the modal. */
@@ -183,4 +181,38 @@
   #settings-users .users-account-facts dd{margin:0;text-align:right}
   #settings-users .permission-save-bar .settings-btn{min-height:40px}
   #settings-users .permission-editor>header .settings-btn{min-height:34px}
+}
+
+/* Roles are the primary control; detailed exceptions stay out of the way. */
+#settings-users .permission-role-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px;font-size:14px;font-weight:600}
+#settings-users .permission-role-current{font-size:12px;font-weight:500;color:var(--users-accent);border:1px solid var(--ui-border);border-radius:20px;padding:3px 9px;background:var(--ui-surface)}
+#settings-users .permission-profile-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#settings-users .permission-profile-choices button{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:12px;text-align:left;border-radius:10px;transition:border-color .15s,background .15s}
+#settings-users .permission-profile-choices button:hover{border-color:var(--users-accent)}
+#settings-users .permission-profile-choices button:disabled{cursor:wait;opacity:.65}
+#settings-users .permission-profile-choices .permission-role-icon{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:8px;background:var(--ui-surface);color:var(--users-accent)}
+.permission-role-icon svg{width:17px;height:17px}
+#settings-users .permission-profile-choices .permission-role-copy{display:grid;gap:4px;min-width:0;flex:1}
+#settings-users .permission-role-copy strong{font-size:14px;line-height:1.4;color:var(--ui-text)}
+#settings-users .permission-role-copy>span{font-size:12px;line-height:1.5;color:var(--ui-muted)}
+#settings-users .permission-profile-choices .permission-role-check{display:grid;place-items:center;width:17px;height:17px;flex:none;margin-top:2px;border:1px solid var(--ui-border);border-radius:50%;font-size:11px;line-height:1}
+#settings-users .permission-profile-choices [aria-pressed=true] .permission-role-check{background:var(--users-accent);border-color:var(--users-accent);color:#0d1724}
+#settings-users .permission-role-help,.users-new-account-help{margin:10px 0 14px;font-size:12px;line-height:1.6;color:var(--ui-muted)}
+#settings-users .permission-customization{margin:10px 0;border:1px solid var(--ui-border);border-radius:8px;padding:0 10px}
+#settings-users .permission-customization>summary{display:flex;align-items:center;gap:8px;padding:10px 0;font-size:12px;list-style:none}
+#settings-users .permission-customization>summary::before{content:'+';font-size:17px;color:var(--users-accent)}
+#settings-users .permission-customization[open]>summary::before{content:'−'}
+#settings-users .permission-customization>summary span{margin-left:auto;font-size:11px;color:var(--ui-muted)}
+#settings-users .permission-customization[open]>summary{margin-bottom:10px;border-bottom:1px solid var(--ui-border)}
+#settings-users .permission-editor .permission-section-settings{border:0;padding:0;margin:0;min-width:0}
+#settings-users .permission-section-settings:disabled{opacity:.55}
+#settings-users .permission-save-bar [data-permission-draft]{font-size:12px}
+#settings-users .permission-save-bar p{font-size:11px}
+#settings-users .users-account-copy small{font-size:11px}
+#settings-users .permission-owner{font-size:14px}
+@media(max-width:640px){
+  #settings-users .permission-profile-choices{grid-template-columns:minmax(0,1fr)}
+  #settings-users .permission-profile-choices button{padding:11px}
+  #settings-users .permission-customization>summary{flex-wrap:wrap}
+  #settings-users .permission-customization>summary span{margin-left:0}
 }

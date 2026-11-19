@@ -193,6 +193,22 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
 .agent-record-sidebar-info .agents-eyebrow {font-size:9px;letter-spacing:.08em}
 .agent-record-sidebar-info p {margin:8px 0 0;font-size:12px;line-height:1.7;color:var(--ui-subtle)}
 .agent-record-content {min-width:0;min-height:0;padding:17px 18px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;background:var(--ui-page)}
+.agent-access-setting{display:flex;align-items:center;gap:12px;padding:14px;margin:0 0 14px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-sidebar);cursor:pointer;min-width:0;box-sizing:border-box}
+.agent-access-setting>span:nth-child(2){flex:1;min-width:0}
+.agent-access-setting strong{display:block;font-size:14px;font-weight:600;line-height:1.5;color:var(--ui-text)}
+.agent-access-setting small{display:block;font-size:12px;line-height:1.6;color:var(--ui-muted);margin-top:3px}
+.agent-access-icon{display:grid;place-items:center;width:32px;height:32px;flex:none;border-radius:8px;color:var(--ui-muted);background:var(--ui-surface)}
+.agent-access-icon svg{width:18px;height:18px}
+.agent-access-setting input[type=checkbox]{appearance:none;position:relative;width:38px;height:22px;flex:none;padding:0;margin:0;border:1px solid var(--ui-border);border-radius:20px;background:var(--ui-surface);cursor:pointer;transition:background .15s}
+.agent-access-setting input[type=checkbox]::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:var(--ui-muted);border-radius:50%;transition:transform .15s}
+.agent-access-setting input[type=checkbox]:checked{background:var(--agents-accent,#adc8e8);border-color:var(--agents-accent,#adc8e8)}
+.agent-access-setting input[type=checkbox]:checked::after{transform:translateX(16px);background:#0d1724}
+.agent-access-setting input:focus-visible{outline:2px solid var(--ui-text);outline-offset:3px}
+.agent-access-setting input:disabled{opacity:.5;cursor:wait}
+.agent-access-setting:has(input:checked){border-color:var(--agents-accent,#adc8e8)}
+.agent-access-feedback{font-size:12px;line-height:1.6;color:var(--ui-muted);margin:0 0 14px}
+.agent-access-feedback[data-error=true]{color:#f4b3b3}
+@media(max-width:480px){.agent-access-setting{gap:9px;padding:12px}.agent-access-icon{display:none}}
 .agent-record-page-heading {display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:13px}
 .agent-record-page-heading h3 {margin:0;font-size:18px;font-weight:600;letter-spacing:-.2px;line-height:1.5}
 .agent-record-report-time {display:flex;align-items:center;gap:7px;flex:none;color:var(--ui-subtle);font-size:12px}

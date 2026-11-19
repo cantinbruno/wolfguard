@@ -28,6 +28,7 @@ const agentsWorkspace = (() => {
     let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
+    let visibilitySaving = false, visibilityNotice = null;
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
     const columns = [['name','Poste'],['online','Connexion'],['health','Protection du poste'],['alerts','Alertes'],['version','Agent'],['lastSeen','Dernier contact']];
@@ -177,7 +178,7 @@ const agentsWorkspace = (() => {
       });
       else find('#agentsList').innerHTML = rows.map(agent => {
         const status = protection(agent), chosen = agent.id === selected?.id;
-        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes"><span class="agents-alerts" data-alert="' + (status.alerts > 0) + '" title="Alertes non acquittées dans les derniers relevés">' + (status.alerts ?? '—') + '</span></td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
+        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes"><span class="agents-alerts" data-alert="' + (status.alerts > 0) + '" title="Alertes non acquittées dans les derniers relevés">' + (status.alerts ?? '—') + '</span></td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
       }).join('') || '<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
@@ -205,7 +206,7 @@ const agentsWorkspace = (() => {
       const agent = agents.find(item => item.id === menuAgentId);
       if (!live() || !agent || !filteredAgents().some(item => item.id === agent.id)) { closeMenu(); return; }
       const focused = menu.contains(document.activeElement), focusedAction = document.activeElement?.dataset.fleetAction;
-      menu.innerHTML = '<header class="agents-menu-heading"><span>OPTIONS DU POSTE</span><h2>' + esc(agent.name) + '</h2><small>' + esc(workspaceAgents.platformName(agent.platform)) + '</small></header><button type="button" role="menuitem" data-fleet-action="details"><span class="agents-menu-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-menu-copy"><strong>Fiche du poste</strong><small>Identité, connexion, agent et protections.</small></span></button>' + actions.map(action => {
+      menu.innerHTML = '<header class="agents-menu-heading"><span>OPTIONS DU POSTE</span><h2>' + esc(agent.name) + '</h2><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></header><button type="button" role="menuitem" data-fleet-action="details"><span class="agents-menu-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-menu-copy"><strong>Fiche du poste</strong><small>Identité, connexion, agent et protections.</small></span></button>' + actions.map(action => {
         const unavailable = reason(action, agent), icon = ['terminal','files'].includes(action.mode) ? workspaceNavigationIcon(action.mode) : workspaceSectionIcon(action.section);
         return '<button type="button" role="menuitem" data-fleet-action="' + action.id + '" ' + (unavailable || selecting ? 'disabled aria-disabled="true"' : '') + '><span class="agents-menu-icon" aria-hidden="true">' + icon + '</span><span class="agents-menu-copy"><strong>' + action.label + '</strong><small>' + esc(unavailable || action.description) + '</small></span></button>';
       }).join('');
@@ -313,12 +314,14 @@ const agentsWorkspace = (() => {
           <nav class="agent-record-tabs" role="tablist" aria-label="Fiche du poste" aria-orientation="${mobileTable.matches?'horizontal':'vertical'}">
             ${tabs.map(([id,label,icon])=>'<button type="button" role="tab" id="agentRecordTab-'+id+'" data-record-tab="'+id+'" aria-controls="agentRecord-'+id+'" aria-selected="'+(detailTab===id)+'" tabindex="'+(detailTab===id?'0':'-1')+'"><span aria-hidden="true">'+settingsIcon(icon)+'</span>'+label+'</button>').join('')}
           </nav>
-          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${agent.restricted?'Réservé aux administrateurs':'Selon les droits de ton compte'}</p></div>
+          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${agent.restricted?'Administrateurs et propriétaire uniquement':'Selon le rôle du compte'}</p></div>
         </aside>
         <div class="agent-record-content">
           ${stale||!agent.online?'<p class="agent-record-notice">'+(stale?'Le service est indisponible. Les états restent à confirmer.':'Poste hors ligne. Les protections actuelles ne sont pas confirmées.')+'</p>':''}
           <section ${panel('overview')}>
             <div class="agent-record-page-heading"><h3>Vue d’ensemble</h3><span class="agent-record-report-time">${settingsIcon('clock')}<span>${esc(status.collectedAt?timestamp(status.collectedAt):'Aucun relevé de protection')}</span></span></div>
+            ${!agent.local&&Object.hasOwn(agent,'restricted')?'<label class="agent-access-setting"><span class="agent-access-icon" aria-hidden="true">'+settingsIcon('lock')+'</span><span><strong>Réservé aux administrateurs et au propriétaire</strong><small>Les éditeurs, observateurs et invités ne voient pas ce poste et ne peuvent pas y accéder.</small></span><input type="checkbox" role="switch" data-record-restricted="'+esc(agent.id)+'" aria-label="Réserver ce poste aux administrateurs et au propriétaire" '+(agent.restricted?'checked':'')+' '+(busy||stale||visibilitySaving?'disabled':'')+'></label>':''}
+            ${visibilityNotice?.id===agent.id?'<p class="agent-access-feedback" role="'+(visibilityNotice.error?'alert':'status')+'" data-error="'+visibilityNotice.error+'">'+esc(visibilityNotice.message)+'</p>':''}
             <div class="agent-record-summary">
               <div class="agent-record-health-strip" data-health="${status.health}">
                 <span class="agent-record-health-icon" aria-hidden="true">${settingsIcon(status.health==='protected'?'shield-check':status.health==='attention'?'shield-alert':'shield')}</span>
@@ -373,17 +376,18 @@ const agentsWorkspace = (() => {
       </div>`;
       if (html !== detailHTML) {
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
-        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), restriction = focused?.hasAttribute('data-record-restricted'), disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if (update || edr) (find(edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
+        else if(restriction)find('[data-record-restricted]:not(:disabled)')?.focus({preventScroll:true});
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
     }
     async function refresh() {
-      if (!live() || busy || selecting) return;
+      if (!live() || busy || selecting || visibilitySaving) return;
       busy = true; find('#agentsRefresh').disabled = true; find('#agentDetailsRefresh').disabled = true;
       root.dataset.refreshing = 'true';
       find('.agents-table-scroll').setAttribute('aria-busy', 'true');
@@ -539,6 +543,18 @@ const agentsWorkspace = (() => {
     find('#agentToolClose').onclick = closeTool;
     find('#agentDetailsClose').onclick = () => dismissDetails(true);
     find('#agentDetailsRefresh').onclick = refresh;
+    find('#agentDetailsBody').addEventListener('change',async event=>{
+      const input=event.target.closest('[data-record-restricted]');
+      if(!input||visibilitySaving||busy||stale||!live())return;
+      const agent=agents.find(row=>row.id===input.dataset.recordRestricted);if(!agent)return;
+      const restricted=input.checked;visibilitySaving=true;visibilityNotice=null;renderDetails();
+      try{
+        const result=await WolfGuardCloud.agentRequest('agents/restricted',{id:agent.id,restricted},{signal});
+        if(!live())return;agent.restricted=result.restricted;
+        visibilityNotice={id:agent.id,error:false,message:restricted?'Poste masqué pour les autres rôles. Accès réservé aux administrateurs et au propriétaire.':'Restriction retirée. Le poste est accessible selon le rôle de chaque compte.'};
+      }catch(error){if(live())visibilityNotice={id:agent.id,error:true,message:'Modification non enregistrée. '+error.message};}
+      finally{visibilitySaving=false;if(live()){draw();if(detailAgentId===agent.id)find('[data-record-restricted]')?.focus({preventScroll:true});clearTimeout(timer);timer=setTimeout(refresh,10000);}}
+    },{signal});
     find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); dismissDetails(true); }, {signal});
     find('#agentDetailsPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     find('#agentDetailsBody').onclick = event => {
