@@ -28,6 +28,7 @@ def run():
         expect(owner.locator('#wgPermissionSave')).to_be_disabled()
 
         owner.locator('[data-security-level=write]').click()
+        owner.locator('.permission-agent-scope > summary').click()
         owner.locator('[data-agent-scope=selected]').check()
         expect(owner.locator('.permission-agent-scope > small')).to_contain_text('0 poste')
         owner.locator('[data-agent-right-id="' + allowed + '"][data-agent-level=write]').click()
@@ -46,6 +47,12 @@ def run():
         assert set(saved['agents']) == {allowed, reserved, reader}
         assert saved['agentLevels'][reader] == 'read' and saved['agentLevels'][allowed] == 'write'
         assert saved['sections']['library'] == 'read' and saved['admin'] is False
+        owner.locator('[data-permission-bulk]').select_option('read')
+        expect(owner.locator('[data-agent-scope=selected]')).to_be_checked()
+        expect(owner.locator('[data-agent-right-id="' + reader + '"][data-agent-level=read]')).to_have_attribute('aria-pressed','true')
+        expect(owner.locator('[data-agent-right-id="' + allowed + '"][data-agent-level=write]')).to_have_attribute('aria-pressed','true')
+        owner.locator('[data-close-permissions]').click()
+        expect(owner.locator('[data-security-level=write]')).to_have_attribute('aria-pressed','true')
 
         def reconnect():
             guest.evaluate('async () => {try {await WolfGuardCloud.touch()} catch {}}')

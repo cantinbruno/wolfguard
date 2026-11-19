@@ -107,3 +107,80 @@
 @media(min-width:481px){.users-manager .permission-profile-select,.users-manager [data-profile-description]{display:none!important}}
 @media(max-width:480px){.users-manager .permission-profile-choices{display:none}}
 @media(max-width:480px){.users-manager input:not([type=checkbox]),.users-manager select,.users-manager textarea{font-size:16px}}
+
+/* Keep the directory and account controls usable without scrolling the modal. */
+#settings-users .users-directory>.users-search,#settings-users .users-directory>.users-filter-label{flex:none}
+#settings-users .users-directory>.users-search{min-height:38px;box-sizing:border-box}
+#settings-users .users-account-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:851px){
+  .settings-main:has(#settings-users:not(.hidden)){padding:16px 20px;overflow:hidden}
+  #settings-users:not(.hidden){height:100%;min-height:0;display:flex;flex-direction:column}
+  #settings-users .users-manager-heading{flex:none;margin-bottom:10px;padding-bottom:10px;gap:12px}
+  #settings-users .users-manager-heading h3{font-size:18px}
+  #settings-users .users-manager-heading p{display:none}
+  #settings-users .users-management-layout{flex:1;min-height:0;grid-template-columns:minmax(180px,24%) minmax(0,1fr);gap:14px;align-items:stretch}
+  #settings-users .users-directory{position:static;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  #settings-users .users-account-list{flex:1;min-height:0;max-height:none;align-content:start}
+  #settings-users .users-detail{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-gutter:stable}
+  #settings-users .users-form,#settings-users .users-invitation{flex:none;max-height:45%;overflow:auto}
+}
+#settings-users>.access-feedback,#settings-users>.access-error{flex:none;margin:0 0 8px;font-size:11px;line-height:1.4}
+#settings-users .users-detail-heading{padding:12px 16px 6px;align-items:center;gap:10px}
+#settings-users .users-detail-heading h4{font-size:13px;margin:2px 0 5px;line-height:1.4}
+#settings-users .users-account-facts{gap:8px;margin:0 16px;padding:4px 0 8px}
+#settings-users .users-account-facts div{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+#settings-users .users-account-facts dd{margin:0;font-size:11px}
+#settings-users .permission-editor{padding:12px 16px 0}
+#settings-users .permission-editor>header{align-items:center;margin-bottom:10px}
+#settings-users .permission-editor h4{font-size:13px;margin:0}
+#settings-users .permission-editor>header .settings-btn{min-height:24px;padding:3px 7px;font-size:10px}
+#settings-users .permission-editor>header .users-eyebrow{display:none}
+#settings-users .permission-save-notice:empty{display:none}
+#settings-users .permission-editor .permission-admin-switch{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:8px 10px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-surface);cursor:pointer}
+#settings-users .permission-admin-switch input{width:16px;height:16px;flex:none;margin:0;accent-color:var(--users-accent)}
+#settings-users .permission-admin-switch span{display:grid;gap:2px}
+#settings-users .permission-admin-switch strong{font-size:12px}
+#settings-users .permission-admin-switch small{font-size:10px;font-weight:400;color:var(--ui-muted)}
+#settings-users .permission-editor .permission-bulk{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px;font-size:11px;color:var(--ui-muted)}
+#settings-users .permission-bulk select{width:auto;max-width:180px;padding:6px 8px;font-size:11px}
+#settings-users .permission-matrix{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0}
+#settings-users .permission-row{grid-template-columns:minmax(110px,1fr) auto;gap:8px;padding:3px 0;border:0;border-bottom:1px solid var(--ui-border);border-radius:0;background:transparent;min-height:34px;box-sizing:border-box}
+#settings-users .permission-row-name{font-size:11px}
+#settings-users .permission-row-levels{display:grid;grid-template-columns:repeat(3,65px);gap:3px}
+#settings-users .permission-row-levels button{min-height:29px;padding:5px 7px;border-radius:5px;font-size:10px}
+#settings-users .permission-security{margin:0;padding:0;border:0;background:none}
+#settings-users .permission-security>header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0}
+#settings-users .permission-security h5{margin:0;font-size:12px}
+#settings-users .permission-security>header .users-eyebrow,#settings-users .permission-security>p{display:none}
+#settings-users .permission-security:not([data-level-state=custom])>header,#settings-users .permission-security:not([data-level-state=custom]) .permission-security-explanation{display:none}
+#settings-users .permission-security-explanation{font-size:10px;line-height:1.5;color:var(--ui-muted);margin:6px 0 8px}
+#settings-users .permission-agent-scope,#settings-users .permission-security-summary,#settings-users .permission-advanced{margin:8px 0;padding:8px 10px;border:1px solid var(--ui-border);border-radius:6px;background:transparent}
+#settings-users summary{cursor:pointer;font-size:11px;line-height:1.5}
+#settings-users .permission-agent-scope p{font-size:11px;line-height:1.6;color:var(--ui-muted)}
+#settings-users .permission-agent-modes{display:flex;flex-wrap:wrap;gap:8px 16px}
+#settings-users .permission-editor .permission-agent-modes label{display:flex;align-items:center;gap:7px;margin:8px 0;font-size:11px}
+#settings-users .permission-agent-modes input{width:14px;height:14px;flex:none;margin:0;accent-color:var(--users-accent)}
+#settings-users .permission-save-bar{position:sticky;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px -16px 0;padding:11px 16px;border-top:1px solid var(--ui-border);background:var(--ui-sidebar);box-shadow:0 -8px 16px #08121d33}
+#settings-users .permission-save-bar [data-permission-draft]{font-size:11px;color:var(--users-accent);font-weight:600}
+#settings-users .permission-save-bar p{margin:3px 0 0;font-size:9px;line-height:1.4;color:var(--ui-muted)}
+#settings-users .permission-save-bar .actions{margin:0;flex-wrap:nowrap;gap:6px}
+#settings-users .permission-save-bar .settings-btn{min-height:32px;padding:6px 9px;white-space:nowrap}
+@media(max-width:850px){
+  #settings-users .users-detail{max-height:75dvh;overflow:auto;overscroll-behavior:contain}
+  #settings-users .permission-save-bar{flex-wrap:wrap}
+  #settings-users .permission-save-bar>div:first-child{flex:1 1 100%}
+  #settings-users .permission-save-bar .actions{width:100%}
+  #settings-users .permission-save-bar .actions>button{flex:1}
+}
+@media(max-width:480px){
+  #settings-users .permission-row{grid-template-columns:minmax(0,1fr);gap:4px;padding:8px 0}
+  #settings-users .permission-row-levels{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+  #settings-users .permission-row-levels button{min-height:34px}
+  #settings-users .permission-editor .permission-bulk{align-items:stretch;flex-direction:column;gap:5px}
+  #settings-users .permission-bulk select{width:100%;max-width:none;font-size:16px}
+  #settings-users .users-account-facts{grid-template-columns:minmax(0,1fr);gap:5px}
+  #settings-users .users-account-facts div{display:flex;justify-content:space-between;gap:8px}
+  #settings-users .users-account-facts dd{margin:0;text-align:right}
+  #settings-users .permission-save-bar .settings-btn{min-height:40px}
+  #settings-users .permission-editor>header .settings-btn{min-height:34px}
+}

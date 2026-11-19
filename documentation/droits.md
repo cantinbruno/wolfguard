@@ -4,6 +4,8 @@
 
 La matrice propose Lecture, Écriture ou Invisible pour chaque section. Lecture permet les actions de consultation autorisées ; Écriture ajoute les modifications et opérations de la section ; Invisible masque la section et refuse l’accès direct sur l’API. La case Administrateur accorde l’écriture partout. Le propriétaire conserve ses protections particulières.
 
+Dans Paramètres → Utilisateurs et droits, la liste des comptes et la fiche sélectionnée défilent séparément sur ordinateur. La fiche utilise des lignes compactes, une case Administrateur alignée avec son libellé et une barre d’enregistrement toujours visible dans la zone des droits. « Appliquer à toutes les sections » prépare le même niveau pour toutes les sections ; les exceptions par poste et les restrictions de dossiers restent conservées. Les réglages poste par poste sont repliés par défaut et accessibles directement par le bouton « Poste par poste ». Les modifications restent à confirmer avec « Enregistrer les droits », qui révoque les sessions concernées comme auparavant. Vérifications : `python tests/permissions_workspace_test.py` et `python tests/users_workspace_test.py`, sans fenêtre et avec des comptes synthétiques.
+
 Les nouvelles invitations commencent sans droits. Un gestionnaire délégué ne peut pas dépasser son propre périmètre, prolonger un droit au-delà de sa date de fin ni prendre le contrôle du propriétaire.
 
 ## Chaque poste a ses limites
