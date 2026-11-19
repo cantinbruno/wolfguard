@@ -24,13 +24,9 @@ function settingsAuditHTML() {
       ['Prise en main autorisée', 'Sur un poste Windows associé, le démarrage sans confirmation locale est le fonctionnement prévu. L’accès dépend des droits du compte et de l’agent ; le partage peut être arrêté et l’agent révoqué.']
     ]]
   ];
-  const weaknesses = [
-    ['Signature Windows', 'La procédure Authenticode est préparée, mais l’agent ne dispose pas encore d’un certificat d’éditeur reconnu par Windows. Le contrôle SHA-256 ne remplace pas cette signature.']
-  ];
   const list = entries => `<ul>${entries.map(([title,description])=>`<li><strong>${esc(title)}</strong><p>${esc(description)}</p></li>`).join('')}</ul>`;
   return `<header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Protection de l’application</h3></div></header>
-    <p class="settings-protection-intro">Les protections de WolfGuard et les points à renforcer pour limiter les risques de piratage.</p>
+    <p class="settings-protection-intro">Les protections de WolfGuard pour limiter les risques de piratage.</p>
     ${groups.map(([title,entries])=>`<section class="settings-protection-group"><h4>${esc(title)}</h4>${list(entries)}</section>`).join('')}
-    <section class="settings-protection-weaknesses"><h4>Points à finaliser</h4>${list(weaknesses)}</section>
     <p class="settings-protection-note">Cette page décrit les protections prévues dans le code. Leur configuration effective sur le serveur reste à vérifier.</p>`;
 }
