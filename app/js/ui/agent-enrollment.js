@@ -23,8 +23,7 @@ const workspaceAgentEnrollment=(()=>{
       <p id="wgAgentSetupError" class="settings-agent-error" role="alert"></p><p id="wgAgentSetupStatus" class="enrollment-feedback" role="status" aria-live="polite"></p>
       <p id="wgAgentCapacity" class="settings-agent-notice" hidden>La limite de 200 postes est atteinte.</p>
       <p id="wgAgentConnectionNotice" class="settings-agent-notice" role="status" hidden></p>
-      <section id="wgAgentEnrollmentProgress" class="enrollment-progress" data-state="idle" role="status"><span class="enrollment-progress-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><strong id="wgAgentEnrollmentTitle">Prêt à ajouter un poste</strong><p id="wgAgentEnrollmentHelp">Télécharge l’installateur, puis ouvre-le sur le poste.</p><small id="wgAgentPairExpiry"></small></div><button type="button" class="settings-btn" id="wgAgentRefresh" aria-label="Vérifier l’arrivée du poste" title="Vérifier l’arrivée du poste">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgAgentViewPosts" hidden>Voir le poste</button></section>
-      <details class="enrollment-advanced"><summary>Agent déjà installé ou installation manuelle</summary><p id="wgAgentDownloadHelp"></p><a id="wgAgentDownload" class="settings-btn" download></a><div id="wgAgentPairCode" hidden><a class="settings-btn" id="wgAgentConnectPair">Associer l’agent installé sur ce poste</a><progress id="wgAgentPairProgress" max="3600" value="3600" aria-label="Durée de validité"></progress><p id="wgAgentPairFeedback"></p></div></details>`;
+      <section id="wgAgentEnrollmentProgress" class="enrollment-progress" data-state="idle" role="status"><span class="enrollment-progress-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><strong id="wgAgentEnrollmentTitle">Prêt à ajouter un poste</strong><p id="wgAgentEnrollmentHelp">Télécharge l’installateur, puis ouvre-le sur le poste.</p><small id="wgAgentPairExpiry"></small></div><button type="button" class="settings-btn" id="wgAgentRefresh" aria-label="Vérifier l’arrivée du poste" title="Vérifier l’arrivée du poste">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgAgentViewPosts" hidden>Voir le poste</button></section>`;
     const status=message=>{if(live())find('#wgAgentSetupStatus').textContent=message;};
     const error=message=>{if(live())find('#wgAgentSetupError').textContent=message;};
     function controls(){
@@ -33,23 +32,20 @@ const workspaceAgentEnrollment=(()=>{
       find('#wgAgentCapacity').hidden=count<200;
       for(const button of root.querySelectorAll('[data-agent-platform]'))button.disabled=busy;
     }
-    function clearTicket(){const restoreFocus=find('#wgAgentShareLink').contains(document.activeElement)||find('#wgAgentPairCode').contains(document.activeElement);ticket=null;find('#wgAgentShareLink').hidden=true;find('#wgAgentShareURL').value='';find('#wgAgentPairCode').hidden=true;find('#wgAgentConnectPair').removeAttribute('href');find('#wgAgentPairExpiry').textContent='';if(restoreFocus)find('#wgAgentPair').focus({preventScroll:true});}
+    function clearTicket(){const restoreFocus=find('#wgAgentShareLink').contains(document.activeElement);ticket=null;find('#wgAgentShareLink').hidden=true;find('#wgAgentShareURL').value='';find('#wgAgentPairExpiry').textContent='';if(restoreFocus)find('#wgAgentPair').focus({preventScroll:true});}
     function selectPlatform(value){
       platform=value;clearTicket();added=null;status('');error('');
       const item=workspaceAgents.downloads[platform];
       for(const button of root.querySelectorAll('[data-agent-platform]')){const selected=button.dataset.agentPlatform===platform;button.setAttribute('aria-pressed',String(selected));button.querySelector('.enrollment-platform-check').textContent=selected?'✓':'';}
       find('#wgAgentInstructions').textContent=platform==='win32'?'Ouvre Installer-WolfGuard.cmd sur le poste. L’installation et l’association se font automatiquement.':platform==='linux'?'Sur le poste, exécute sh Installer-WolfGuard.sh. L’agent s’installe et rejoint automatiquement ton espace.':'Sur le Mac, exécute sh Installer-WolfGuard.sh. L’agent s’installe et rejoint automatiquement ton espace.';
       find('#wgAgentPair span').textContent='Télécharger pour '+item.name;
-      find('#wgAgentDownload').href='downloads/'+item.file+'?v='+encodeURIComponent(revision);
-      find('#wgAgentDownload').textContent='Télécharger l’agent '+item.name;
-      find('#wgAgentDownloadHelp').textContent=item.instruction;
       find('#wgAgentViewPosts').hidden=true;find('#wgAgentEnrollmentProgress').dataset.state='idle';find('#wgAgentEnrollmentTitle').textContent='Prêt à ajouter un poste';find('#wgAgentEnrollmentHelp').textContent='Télécharge l’installateur, puis ouvre-le sur le poste.';
     }
     function updateExpiry(){
       if(!ticket||added)return;
       const remaining=Math.max(0,Math.ceil((ticket.expiresAt-Date.now())/1000));
       const label='Expire dans '+Math.floor(remaining/60)+' min '+String(remaining%60).padStart(2,'0')+' s';
-      find('#wgAgentPairExpiry').textContent=label;find('#wgAgentShareExpiry').textContent=label;find('#wgAgentPairProgress').value=Math.min(3600,remaining);
+      find('#wgAgentPairExpiry').textContent=label;find('#wgAgentShareExpiry').textContent=label;
       if(!remaining){clearTicket();find('#wgAgentEnrollmentProgress').dataset.state='expired';find('#wgAgentEnrollmentTitle').textContent='Lien d’association expiré';find('#wgAgentEnrollmentHelp').textContent='Crée un nouvel installateur ou un nouveau lien pour continuer.';status('Le lien a expiré. Tu peux en créer un nouveau.');}
     }
     async function refresh(){
@@ -81,7 +77,6 @@ const workspaceAgentEnrollment=(()=>{
           clearTicket();WolfGuardAgentInstaller.download(installer);status('Installateur téléchargé. Ouvre-le sur le poste à ajouter.');
         }
         ticket=pairing;added=null;find('#wgAgentViewPosts').hidden=true;
-        find('#wgAgentPairCode').hidden=target!=='win32';find('#wgAgentConnectPair').href='wolfguard-agent://pair?code='+pairing.code;find('#wgAgentPairFeedback').textContent='Utilise ce lien si l’agent est déjà installé sur ce poste.';
         find('#wgAgentEnrollmentProgress').dataset.state='pending';find('#wgAgentEnrollmentTitle').textContent='En attente du poste';find('#wgAgentEnrollmentHelp').textContent='Cette fenêtre confirmera automatiquement son association.';updateExpiry();
       }catch(problem){error(problem.message);status('');}
       finally{busy=false;if(live())controls();}

@@ -1,5 +1,4 @@
 """Add-only enrollment and confirmed revocation from the machine record."""
-import re
 from urllib.parse import urlsplit
 from playwright.sync_api import expect
 from account_ui_fixture import account_ui, ROOT
@@ -20,15 +19,14 @@ def run():
         page.locator('#agentsManage').click()
         expect(page.locator('#agentsTitle')).to_have_text('Ajouter un poste')
         expect(page.locator('.enrollment-ticket-note')).to_contain_text('Valable 1 heure')
-        expect(page.locator('#wgAgentManage,#wgAgentSelect,[data-agent-revoke],[data-record-revoke],#wgAgentUninstall,[data-agent-tab]')).to_have_count(0)
+        expect(page.locator('#wgAgentManage,#wgAgentSelect,[data-agent-revoke],[data-record-revoke],#wgAgentUninstall,[data-agent-tab],.enrollment-advanced,#wgAgentDownload,#wgAgentConnectPair')).to_have_count(0)
         page.locator('[data-agent-platform=win32]').click()
-        with page.expect_download() as download:
-            page.locator('#wgAgentPair').click()
+        with page.expect_response(lambda response:urlsplit(response.url).path=='/api/agents/pair' and response.request.method=='POST') as issued:
+            with page.expect_download() as download:
+                page.locator('#wgAgentPair').click()
         assert download.value.suggested_filename=='Installer-WolfGuard.cmd'
         expect(page.locator('#wgAgentEnrollmentTitle')).to_have_text('En attente du poste')
-        page.locator('.enrollment-advanced > summary').click()
-        expect(page.locator('#wgAgentConnectPair')).to_have_attribute('href',re.compile(r'^wolfguard-agent://pair\?code=[a-f0-9]{32}$'))
-        code=page.locator('#wgAgentConnectPair').get_attribute('href').split('code=')[1]
+        code=issued.value.json()['code']
         enrolled=enroll(code,'Nouveau poste')
         page.locator('#wgAgentRefresh').click()
         expect(page.locator('#wgAgentEnrollmentTitle')).to_have_text('Nouveau poste est associé',timeout=15000)

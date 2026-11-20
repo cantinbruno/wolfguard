@@ -49,12 +49,13 @@ def run():
             first.evaluate("""async()=>{const c=await import('./browser/crypto.js'),s=await import('./browser/storage.js');const result=await c.create({version:2,items:[],folders:[],settings:[],activity:[]},'07942685');await s.write(result.envelope,0)}""")
             first.goto('http://127.0.0.1:4178/?sync-test&agent-test#activate='+('b'*64));unlock(first)
             open_agent_manager(first)
-            with first.expect_download() as linked:first.locator('#wgAgentPair').click()
+            with first.expect_response(lambda response:urlsplit(response.url).path=='/api/agents/pair' and response.request.method=='POST') as issued:
+                with first.expect_download() as linked:first.locator('#wgAgentPair').click()
             assert linked.value.suggested_filename=='Installer-WolfGuard.cmd'
-            expect(first.locator('#wgAgentConnectPair')).to_have_attribute('href',__import__('re').compile(r'^wolfguard-agent://pair\?code=[a-f0-9]{32}$'))
+            expect(first.locator('.enrollment-advanced,#wgAgentDownload,#wgAgentConnectPair')).to_have_count(0)
             expect(first.locator('#wgAgentConnect')).to_be_visible()
             expect(first.locator('.agent-manager-empty')).to_have_count(0)
-            code=first.locator('#wgAgentConnectPair').get_attribute('href').split('code=')[1]
+            code=issued.value.json()['code']
             first.screenshot(path=str(ROOT/'.cache/agent-download-desktop.png'),full_page=True)
             first.set_viewport_size({'width':390,'height':844})
             assert first.evaluate('document.documentElement.scrollWidth<=innerWidth')
@@ -63,11 +64,12 @@ def run():
             first.set_viewport_size({'width':1280,'height':900})
             spare_pair_codes=[]
             for platform,filename in [('linux','WolfGuard-Agent-Linux.zip'),('darwin','WolfGuard-Agent-macOS.zip'),('win32','WolfGuard-Agent-Windows.exe')]:
-                first.locator('[data-agent-platform="'+platform+'"]').click();first.locator('#wgAgentDownload').evaluate('el=>el.closest("details").open=true')
+                first.locator('[data-agent-platform="'+platform+'"]').click()
                 expect(first.locator('[data-agent-platform="'+platform+'"]')).to_have_attribute('aria-pressed','true')
-                with first.expect_download() as download:first.locator('#wgAgentDownload').click()
-                assert download.value.suggested_filename==filename
-                assert Path(download.value.path()).read_bytes()==(ROOT/'app/downloads'/filename).read_bytes()
+                package=first.request.get('http://127.0.0.1:4178/downloads/'+filename)
+                assert package.status==200
+                installer=package.body()
+                assert installer==(ROOT/'app/downloads'/filename).read_bytes()
                 expect(first.locator('#wgAgentShareLink')).to_be_hidden()
                 first.locator('#wgAgentShare').click();expect(first.locator('#wgAgentShareLink')).to_be_visible()
                 shared_url=first.locator('#wgAgentShareURL').input_value();parts=urlsplit(shared_url);ticket=parse_qs(parts.fragment)
@@ -105,8 +107,7 @@ def run():
             rejected.goto(shared_url.split('#')[0]+'#'+urlencode({'code':code,'platform':'win32','expires':int(time.time()*1000)-1}))
             expect(rejected.locator('#agentDownloadButton')).to_be_disabled();expect(rejected.locator('#agentDownloadExpiry')).to_have_text('Lien expiré');rejected.close()
             print('PASS: shareable Windows/Linux/macOS installers without private application access, clipboard, pinned checksums, expiry, invalid links and 320px layout')
-            assert download.value.suggested_filename=='WolfGuard-Agent-Windows.exe'
-            installer=Path(download.value.path()).read_bytes()
+            assert filename=='WolfGuard-Agent-Windows.exe'
             assert installer==(ROOT/'app/downloads/WolfGuard-Agent-Windows.exe').read_bytes()
             assert installer[:2]==b'MZ'
             first.locator('#closeAgentsBtn').click()
@@ -234,12 +235,10 @@ def run():
                 first.screenshot(path=str(ROOT/f'.cache/agents-management-{width}.png'),animations='disabled')
             first.set_viewport_size({'width':1440,'height':1000})
             first.locator('[data-agent-platform="win32"]').click()
-            first.locator('.enrollment-advanced summary').click()
-            first.locator('#wgAgentPair').click();expect(first.locator('#wgAgentPairCode')).to_be_visible()
+            first.locator('#wgAgentPair').click();expect(first.locator('#wgAgentEnrollmentTitle')).to_have_text('En attente du poste')
             first.evaluate('window.__agentRealNow=Date.now;Date.now=()=>window.__agentRealNow()+3601000')
             try:
-                expect(first.locator('#wgAgentPairCode')).to_be_hidden(timeout=10000)
-                expect(first.locator('#wgAgentConnectPair')).not_to_have_attribute('href',__import__('re').compile('.+'))
+                expect(first.locator('#wgAgentEnrollmentProgress')).to_have_attribute('data-state','expired',timeout=10000)
                 expect(first.locator('#wgAgentSetupStatus')).to_contain_text('expiré')
             finally:first.evaluate('Date.now=window.__agentRealNow;delete window.__agentRealNow')
             first.route(API+'/api/agents',lambda route:route.fulfill(status=503,json={'error':'Service temporairement indisponible'}))
