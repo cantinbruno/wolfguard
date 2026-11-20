@@ -24,12 +24,10 @@ def run():
         owner.locator('#wgPermissionReason').fill('Intervention atelier')
         owner.locator('[data-section=library][data-level=read]').click()
         owner.locator('[data-user-pane=posts]').click()
-        expect(owner.locator('[data-agent-scope=selected]')).to_be_visible()
-        owner.locator('[data-agent-scope=selected]').check()
-        owner.locator(f'[data-agent-right-id="{agent_id}"][data-agent-level=read]').click()
+        owner.locator(f'[data-group-right-id="ungrouped"][data-group-level=read]').click()
         requests = []
         owner.on('request', lambda request: requests.append(request.url)
-                 if request.method == 'GET' and request.url in [API+'/api/agents', API+'/api/users/permissions'] else None)
+                 if request.method == 'GET' and request.url in [API+'/api/agents/groups', API+'/api/users/permissions'] else None)
         for _ in range(12):
             owner.locator('[data-user-pane=account]').click()
             expect(owner.locator('#wgPermissionHost')).not_to_be_visible()
@@ -38,7 +36,7 @@ def run():
             expect(owner.locator('#wgPermissionReason')).to_have_value('Intervention atelier')
             expect(owner.locator('[data-section=library][data-level=read]')).to_have_attribute('aria-pressed', 'true')
             owner.locator('[data-user-pane=posts]').click()
-            expect(owner.locator(f'[data-agent-right-id="{agent_id}"][data-agent-level=read]')).to_have_attribute('aria-pressed', 'true')
+            expect(owner.locator(f'[data-group-right-id="ungrouped"][data-group-level=read]')).to_have_attribute('aria-pressed', 'true')
         assert not requests, requests
         owner.locator('[data-user-pane=account]').click()
         owner.locator('#wgUsersRefresh').click()
@@ -54,7 +52,7 @@ def run():
         expect(owner.locator('#wgPermissionHost')).to_have_attribute('data-dirty', 'false')
         saved = owner.evaluate("async()=> (await WolfGuardCloud.agentRequest('users')).users.find(u=>u.username==='navigation@example.test').permissions")
         assert saved['sections']['library'] == 'read'
-        assert saved['agents'] == [agent_id] and saved['agentLevels'][agent_id] == 'read'
+        assert saved['agents'] is None and saved['groupLevels']['ungrouped'] == 'read' and 'agentLevels' not in saved
         owner.locator('[data-user-pane=rights]').click()
         owner.locator('[data-permission-profile=observer]').click()
         owner.locator('#wgPermissionReason').fill('Motif à annuler')

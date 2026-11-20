@@ -207,6 +207,9 @@ async function purgePersonalVault(id,env){
   fail(409,'L’espace est en cours de modification. Réessaie la suppression.');
 }
 export async function handleAPI(request,env,clock=Date.now) {
+  // Permission projections share reads only within this request. A later move
+  // or rights change is always read again by the next API/agent poll.
+  env=Object.create(env);
   const origin=request.headers.get('Origin'), own=new URL(request.url).origin;
   const allowed=new Set(['https://wolfguard.wavetools.fr','https://cantinbruno.github.io',own]);
   // Loopback is enabled only in a local test environment, never hosted config.

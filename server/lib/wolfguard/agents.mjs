@@ -1,3 +1,4 @@
+import {fleetGroupAPI,fleetState} from './fleet-groups.mjs';
 import {accessibleAgent,administrator} from './agent-access.mjs';
 import {handleEndpointAPI} from './endpoints.mjs';
 import {handleAI,claimAI,updateAI} from './ai.mjs';
@@ -67,7 +68,9 @@ export async function handleAgentAPI(request,env,now,h){
     }
     fail(404,'Adresse agent inconnue.');
   }
-  const session=await authorize(request,env,now);await expire();
+  const session=await authorize(request,env,now);
+  if(path==='/api/agents/groups'||path.startsWith('/api/agents/groups/')){const response=await fleetGroupAPI(request,env,now,session,{...h,body});await expire();await expireRemote(env,now,remoteHelpers);return response;}
+  await expire();
   const permitAgent=async (id,action='agents.read')=>{if(!await accessibleAgent(env,session.user,id,now,action))fail(403,'Ce poste ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});};
   const jobAllowed=async row=>{const spec=await open(row.spec_cipher,row.id+':spec'),workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy);return await accessibleAgent(env,session.user,row.agent_id,now,'scan.'+workspace+'.read');};
   const permitJob=async(id,action='read')=>{const row=await env.DB.prepare('SELECT * FROM scan_jobs WHERE id=? AND generation<=?').bind(id,session.generation).first();if(!row)fail(404,'Scan introuvable.');if(!await jobAllowed(row))fail(403,'Ce rapport ne fait pas partie de tes accès.',{code:'PERMISSION_DENIED'});const spec=await open(row.spec_cipher,row.id+':spec');requirePermission(session.user,'scan.'+(spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy))+'.'+action,fail,now);await permitAgent(row.agent_id,'scan.'+(spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy))+'.'+action);return row;};
@@ -84,6 +87,7 @@ export async function handleAgentAPI(request,env,now,h){
   }
   if(path==='/api/agents/restricted'&&request.method==='POST'){
     if(!administrator(session.user,now))fail(403,'Réservé à l’administrateur.');
+    if(await fleetState(env))fail(409,'Les droits sont désormais définis par groupe dans les paramètres.');
     const {id,restricted}=await body();if(!validId(id)||typeof restricted!=='boolean')fail(400,'Poste invalide.');
     const changed=await env.DB.prepare('UPDATE scan_agents SET restricted=? WHERE id=? AND generation=? AND revoked_at IS NULL RETURNING id').bind(restricted?1:0,id,session.generation).first();
     if(!changed)fail(404,'Poste introuvable.');

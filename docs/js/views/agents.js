@@ -29,7 +29,7 @@ const agentsWorkspace = (() => {
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
     const journal=WolfGuardAgentJournal.create({signal});
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
-    let visibilitySaving = false, visibilityNotice = null, revoking = false, revokeError = null;
+    let revoking = false, revokeError = null;
     const groups=WolfGuardFleetGroups.create();let groupsReady=false,groupsBusy=false,menuPage='main';
     const checked = new Set();
     let selectionAnchor = '', bulkBusy = false, bulkCancel = false, bulkResults = [], bulkMessage = '';
@@ -54,9 +54,9 @@ const agentsWorkspace = (() => {
           <div class="agents-filter-actions"><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}</button><button type="button" id="agentsClearFilters" title="Effacer les filtres" aria-label="Effacer les filtres">${settingsIcon('x')}</button></div>
         </div>
         <div id="agentsActiveFilters" class="agents-active-filters" aria-label="Filtres appliqués" hidden></div>
-        <div class="agents-group-toolbar"><label>Organisation<select id="agentsView"><option value="groups">Groupes personnalisés</option><option value="flat">Tableau simple</option></select></label><span id="agentsGroupCount"></span><button type="button" id="agentsGroupCreate">${settingsIcon('folder-plus')}Nouveau groupe</button></div>
+        <div class="agents-group-toolbar"><label>Organisation<select id="agentsView"><option value="groups">Groupes personnalisés</option><option value="flat">Tableau simple</option></select></label><span id="agentsGroupCount"></span><button type="button" id="agentsGroupCreate">${settingsIcon('folder-plus')}Nouveau groupe</button><button type="button" id="agentsGroupsExpand">Tout déplier</button><button type="button" id="agentsGroupsCollapse">Tout replier</button><button type="button" id="agentsGroupsRights">Droits des groupes</button></div>
         <div class="agents-mobile-sort"><label for="agentsMobileSort">Trier par</label><select id="agentsMobileSort">${columns.map(([field,label])=>'<option value="'+field+'">'+label+'</option>').join('')}</select><button type="button" id="agentsMobileDirection" aria-label="Inverser le sens du tri">↑</button></div>
-        <div class="agents-selection-bar"><label class="agents-select-all"><input type="checkbox" id="agentsSelectAll"><span id="agentsSelectionCount" role="status" aria-live="polite">Sélectionner les postes affichés</span></label><div class="agents-selection-actions" id="agentsSelectionActions" hidden><select id="agentsBulkCommand" aria-label="Commande pour les postes sélectionnés"><option value="">Action groupée…</option><option value="update">Mettre à jour les agents</option><option value="uninstall">Désinstaller les agents</option><option value="restrict">Réserver aux administrateurs</option><option value="unrestrict">Retirer la réservation administrateur</option><option value="export">Exporter la sélection en CSV</option></select><button type="button" id="agentsBulkRun" disabled>Appliquer</button><button type="button" id="agentsClearSelection">Effacer</button></div></div>
+        <div class="agents-selection-bar"><label class="agents-select-all"><input type="checkbox" id="agentsSelectAll"><span id="agentsSelectionCount" role="status" aria-live="polite">Sélectionner les postes affichés</span></label><div class="agents-selection-actions" id="agentsSelectionActions" hidden><select id="agentsBulkCommand" aria-label="Commande pour les postes sélectionnés"><option value="">Action groupée…</option><option value="update">Mettre à jour les agents</option><option value="uninstall">Désinstaller les agents</option><option value="export">Exporter la sélection en CSV</option></select><button type="button" id="agentsBulkRun" disabled>Appliquer</button><button type="button" id="agentsClearSelection">Effacer</button></div></div>
         <div class="agents-bulk-feedback" id="agentsBulkFeedback" hidden><div><p id="agentsBulkStatus" role="status" aria-live="polite"></p><button type="button" id="agentsBulkCancel" hidden>Arrêter la file</button></div><details id="agentsBulkResults" hidden><summary>Résultats par poste</summary><ul></ul></details></div>
         <div class="agents-table-scroll" tabindex="0" role="region" aria-label="Liste des postes, défilement vertical et horizontal">
           <table class="agents-table"><caption class="agents-visually-hidden">Agents associés et derniers états de protection. Sélectionne un poste pour utiliser ses outils.</caption><thead><tr>${columns.map(([field,label])=>'<th scope="col" data-agent-column="'+field+'" aria-sort="'+(field==='name'?'ascending':'none')+'"><button type="button" data-agent-sort="'+field+'">'+label+'<span class="agents-sort-indicator" aria-hidden="true">'+(field==='name'?'↑':'↕')+'</span></button></th>').join('')}</tr></thead><tbody id="agentsList"></tbody></table>
@@ -162,17 +162,18 @@ const agentsWorkspace = (() => {
     const displayedRows=()=>groups.view()==='flat'?filteredAgents():groups.buckets(filteredAgents()).flatMap(group=>groups.closed(group.id)?[]:group.rows);
     function groupHeading(group){
       const total=groups.buckets(agents).find(row=>row.id===group.id)?.rows.length||0;
-      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes du groupe '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+(group.id!=='ungrouped'?'<div class="agents-group-actions"><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer le groupe '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer le groupe '+esc(group.name)+'">'+settingsIcon('x')+'</button></div>':'')+'</div></td></tr>';
+      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes du groupe '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+(group.id!=='ungrouped'?'<div class="agents-group-actions"><button type="button" data-group-duplicate="'+esc(group.id)+'">Dupliquer</button><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer le groupe '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer le groupe '+esc(group.name)+'">'+settingsIcon('x')+'</button></div>':'')+'</div></td></tr>';
     }
     function syncGroups(){
       root.dataset.grouped=String(groups.view()==='groups');find('#agentsView').value=groups.view();find('#agentsView').disabled=!groupsReady||groupsBusy||bulkBusy;
-      find('#agentsGroupCreate').disabled=!groupsReady||groupsBusy||bulkBusy;
+      find('#agentsGroupCreate').disabled=!groupsReady||!groups.canManage()||groupsBusy||bulkBusy;
+      find('#agentsGroupsRights').hidden=!WolfGuardCloud.can('users.permissions');
       find('#agentsGroupCount').textContent=groups.list().length+' groupe(s)';
       for(const input of root.querySelectorAll('[data-group-check]')){
         const rows=(groups.buckets(filteredAgents()).find(group=>group.id===input.dataset.groupCheck)?.rows||[]).filter(agent=>!agent.local),count=rows.filter(agent=>checked.has(agent.id)).length;
         input.checked=!!rows.length&&count===rows.length;input.indeterminate=count>0&&count<rows.length;input.disabled=!groupsReady||groupsBusy||bulkBusy||!rows.length;
       }
-      for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove]'))button.disabled=!groupsReady||groupsBusy||bulkBusy;
+      for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove],[data-group-duplicate]'))button.disabled=!groupsReady||groupsBusy||bulkBusy||(button.hasAttribute('data-group-toggle')?false:!groups.canManage());
     }
     async function groupChange(action,message='Organisation enregistrée.'){
       if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
@@ -192,7 +193,7 @@ const agentsWorkspace = (() => {
       if(name!==null&&live())await groupChange(()=>groups.rename(id,name),'Groupe renommé.');
     }
     async function removeGroup(id){
-      if(!await appConfirm('Supprimer le groupe « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans groupe ». Aucun agent ne sera supprimé.',{title:'Supprimer ce groupe',confirmLabel:'Supprimer le groupe'})||!live())return;
+      if(!await appConfirm('Supprimer le groupe « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans groupe » et recevront les droits de ce groupe. Aucun agent ne sera supprimé.',{title:'Supprimer ce groupe',confirmLabel:'Supprimer le groupe'})||!live())return;
       await groupChange(()=>groups.remove(id),'Groupe supprimé ; ses postes restent dans le parc.');
     }
     const checkedAgents = () => agents.filter(agent => checked.has(agent.id));
@@ -205,9 +206,7 @@ const agentsWorkspace = (() => {
         return info.current?'Agent déjà à jour':info.reason||(!info.canUpdate?'Une mise à jour est déjà en cours':'');
       }
       if(command==='uninstall')return WolfGuardAgentRemoval.reason(agent);
-      if(!['restrict','unrestrict'].includes(command))return 'Choisis une commande';
-      if(!Object.hasOwn(agent,'restricted')||!can('agents.write',agent))return 'Réservé aux administrateurs et au propriétaire';
-      return agent.restricted===(command==='restrict')?'Visibilité déjà conforme':'';
+      return 'Choisis une commande';
     }
     function syncSelection() {
       const rows=filteredAgents().filter(agent=>!agent.local), targets=checkedAgents(), visible=new Set(rows.map(agent=>agent.id));
@@ -221,7 +220,6 @@ const agentsWorkspace = (() => {
         if(!option.value)continue;
         const eligible=targets.filter(agent=>!bulkReason(option.value,agent)).length;
         option.disabled=!eligible;
-        option.hidden=['restrict','unrestrict'].includes(option.value)&&!targets.some(agent=>Object.hasOwn(agent,'restricted'));
       }
       const command=find('#agentsBulkCommand').value;
       const eligible=targets.filter(agent=>!bulkReason(command,agent)).length;
@@ -255,14 +253,14 @@ const agentsWorkspace = (() => {
     }
     async function runBulk(commandOverride=null,targetsOverride=null) {
       const command=commandOverride||find('#agentsBulkCommand').value, targets=targetsOverride||checkedAgents();
-      if(!live()||bulkBusy||groupsBusy||busy||!targets.length||!['update','uninstall','restrict','unrestrict','export'].includes(command)||!targets.some(agent=>!bulkReason(command,agent)))return;
+      if(!live()||bulkBusy||groupsBusy||busy||!targets.length||!['update','uninstall','export'].includes(command)||!targets.some(agent=>!bulkReason(command,agent)))return;
       if(command==='export'){exportSelection(targets);bulkMessage=targets.length+' poste(s) exporté(s).';bulkResults=[];syncSelection();return;}
       bulkBusy=true;bulkCancel=false;syncSelection();
-      const titles={update:'Mettre à jour les agents',uninstall:'Désinstaller les agents',restrict:'Réserver les postes aux administrateurs',unrestrict:'Retirer la réservation administrateur'};
+      const titles={update:'Mettre à jour les agents',uninstall:'Désinstaller les agents'};
       const available=targets.filter(agent=>!bulkReason(command,agent)).length;
       const names=targets.slice(0,8).map(agent=>'• '+agent.name).join('\n')+(targets.length>8?'\n… et '+(targets.length-8)+' autre(s) poste(s).':'');
-      const warning=command==='uninstall'?' Les scans, la protection assurée par ces agents et la prise en main s’arrêteront.':command==='restrict'?' Ces postes deviendront invisibles pour les autres rôles.':command==='unrestrict'?' Les rôles et les droits individuels s’appliqueront de nouveau.':'';
-      const confirmed=await appConfirm(titles[command]+' sur '+targets.length+' poste(s) sélectionné(s) ?'+warning+'\n'+available+' poste(s) éligible(s) ; les autres seront ignorés.\n\n'+names,{title:titles[command],confirmLabel:'Confirmer pour '+available+' poste(s)',danger:command==='uninstall'||command==='restrict'});
+      const warning=command==='uninstall'?' Les scans, la protection assurée par ces agents et la prise en main s’arrêteront.':'';
+      const confirmed=await appConfirm(titles[command]+' sur '+targets.length+' poste(s) sélectionné(s) ?'+warning+'\n'+available+' poste(s) éligible(s) ; les autres seront ignorés.\n\n'+names,{title:titles[command],confirmLabel:'Confirmer pour '+available+' poste(s)',danger:command==='uninstall'});
       if(!live())return;
       if(!confirmed){bulkBusy=false;syncSelection();find('#agentsBulkRun').focus();return;}
       bulkResults=[];
@@ -283,10 +281,6 @@ const agentsWorkspace = (() => {
               const result=await WolfGuardAgentRemoval.start(agent,{onChange:value=>{if(live()){bulkMessage=agent.name+' · '+value.message;syncSelection();}}});
               if(result?.status!=='launched')throw new Error(result?.message||'Lancement non confirmé');
               bulkResults.push({name:agent.name,status:'success',message:'Désinstallation lancée sur le poste'});
-            }else{
-              const result=await WolfGuardCloud.agentRequest('agents/restricted',{id:agent.id,restricted:command==='restrict'},{signal});
-              agent.restricted=result.restricted;
-              bulkResults.push({name:agent.name,status:'success',message:agent.restricted?'Réservé aux administrateurs et au propriétaire':'Droits habituels rétablis'});
             }
           }catch(error){bulkResults.push({name:agent.name,status:'error',message:error.message});}
           if(live())syncSelection();
@@ -337,7 +331,7 @@ const agentsWorkspace = (() => {
       else {
         const renderRows=list=>list.map(agent => {
         const status = protection(agent), chosen = agent.id === selected?.id;
-        return '<tr class="agents-fleet-row" data-agent-group-id="'+esc(groups.groupOf(agent.id))+'" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><div class="agents-post-cell"><input type="checkbox" class="agents-row-check" title="Maj + clic : sélectionner une plage" data-fleet-check="' + esc(agent.id) + '" aria-label="' + esc('Sélectionner ' + agent.name) + '" ' + (checked.has(agent.id) ? 'checked ' : '') + (bulkBusy ? 'disabled' : '') + '><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></div></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
+        return '<tr draggable="'+(groupsReady&&groups.canManage()&&!bulkBusy)+'" class="agents-fleet-row" data-agent-group-id="'+esc(groups.groupOf(agent.id))+'" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><div class="agents-post-cell"><input type="checkbox" class="agents-row-check" title="Maj + clic : sélectionner une plage" data-fleet-check="' + esc(agent.id) + '" aria-label="' + esc('Sélectionner ' + agent.name) + '" ' + (checked.has(agent.id) ? 'checked ' : '') + (bulkBusy ? 'disabled' : '') + '><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (' · '+esc(groups.name(groups.groupOf(agent.id)))) + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></div></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
       }).join('');
         find('#agentsList').innerHTML=groups.view()==='groups'&&agents.length&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans ce groupe. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       }
@@ -378,8 +372,8 @@ const agentsWorkspace = (() => {
       const focused=menu.contains(document.activeElement),focusedAction=document.activeElement?.dataset.fleetAction,multiple=targets.length>1;
       const title=multiple?targets.length+' postes sélectionnés':agent.name;
       const section=label=>'<div class="agents-menu-section" role="presentation">'+label+'</div>';
-      let html='<header class="agents-menu-heading"><span>'+(multiple?'ACTIONS GROUPÉES':'OPTIONS DU POSTE')+'</span><h2>'+esc(title)+'</h2><small>'+(multiple?'Les actions portent sur les postes cochés.':esc(workspaceAgents.platformName(agent.platform))+(agent.restricted?' · Accès réservé':''))+'</small></header>';
-      const organizationDisabled=!groupsReady||groupsBusy||bulkBusy;
+      let html='<header class="agents-menu-heading"><span>'+(multiple?'ACTIONS GROUPÉES':'OPTIONS DU POSTE')+'</span><h2>'+esc(title)+'</h2><small>'+(multiple?'Les actions portent sur les postes cochés.':esc(workspaceAgents.platformName(agent.platform))+(' · '+esc(groups.name(groups.groupOf(agent.id)))))+'</small></header>';
+      const organizationDisabled=!groupsReady||!groups.canManage()||groupsBusy||bulkBusy;
       if(menuPage==='groups'){
         html+=menuButton('back','Retour aux actions','arrow-left')+section('DÉPLACER VERS');
         for(const group of groups.list())html+=menuButton('group:'+group.id,group.name,'folder',organizationDisabled);
@@ -396,9 +390,8 @@ const agentsWorkspace = (() => {
         html+=menuButton('select',checked.has(agent.id)?'Retirer ce poste de la sélection':'Ajouter ce poste à la sélection','check-square',bulkBusy||!!agent.local);
         if(checked.size)html+=menuButton('clear','Effacer la sélection','x',bulkBusy);
         html+=section(multiple?'GESTION DES POSTES SÉLECTIONNÉS':'GESTION DU POSTE');
-        for(const [command,label,icon] of [['update','Mettre à jour les agents','refresh-cw'],['restrict','Réserver aux administrateurs','lock'],['unrestrict','Retirer la réservation','unlock'],['export','Exporter en CSV','download'],['uninstall','Désinstaller les agents','trash-2']]){
+        for(const [command,label,icon] of [['update','Mettre à jour les agents','refresh-cw'],['export','Exporter en CSV','download'],['uninstall','Désinstaller les agents','trash-2']]){
           const eligible=targets.filter(row=>!bulkReason(command,row)).length;
-          if(['restrict','unrestrict'].includes(command)&&(!targets.some(row=>Object.hasOwn(row,'restricted'))||!multiple&&!eligible))continue;
           const help=multiple?eligible+' / '+targets.length+' poste(s) éligible(s)':eligible?'':bulkReason(command,agent);
           html+=menuButton('bulk:'+command,label,icon,!eligible||busy||bulkBusy||groupsBusy,help,command==='uninstall');
         }
@@ -519,14 +512,12 @@ const agentsWorkspace = (() => {
           <nav class="agent-record-tabs" role="tablist" aria-label="Fiche du poste" aria-orientation="${mobileTable.matches?'horizontal':'vertical'}">
             ${tabs.map(([id,label,icon])=>'<button type="button" role="tab" id="agentRecordTab-'+id+'" data-record-tab="'+id+'" aria-controls="agentRecord-'+id+'" aria-selected="'+(detailTab===id)+'" tabindex="'+(detailTab===id?'0':'-1')+'"><span aria-hidden="true">'+settingsIcon(icon)+'</span>'+label+'</button>').join('')}
           </nav>
-          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${agent.restricted?'Administrateurs et propriétaire uniquement':'Selon le rôle du compte'}</p></div>
+          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${esc(groups.name(groups.groupOf(agent.id)))} · droits hérités du groupe</p></div>
         </aside>
         <div class="agent-record-content">
           ${stale||!agent.online?'<p class="agent-record-notice">'+(stale?'Le service est indisponible. Les états restent à confirmer.':'Poste hors ligne. Les protections actuelles ne sont pas confirmées.')+'</p>':''}
           <section ${panel('overview')}>
             <div class="agent-record-page-heading"><h3>Vue d’ensemble</h3><span class="agent-record-report-time">${settingsIcon('clock')}<span>${esc(status.collectedAt?timestamp(status.collectedAt):'Aucun relevé de protection')}</span></span></div>
-            ${!agent.local&&Object.hasOwn(agent,'restricted')?'<label class="agent-access-setting"><span class="agent-access-icon" aria-hidden="true">'+settingsIcon('lock')+'</span><span><strong>Réservé aux administrateurs et au propriétaire</strong><small>Les éditeurs, observateurs et invités ne voient pas ce poste et ne peuvent pas y accéder.</small></span><input type="checkbox" role="switch" data-record-restricted="'+esc(agent.id)+'" aria-label="Réserver ce poste aux administrateurs et au propriétaire" '+(agent.restricted?'checked':'')+' '+(busy||stale||visibilitySaving?'disabled':'')+'></label>':''}
-            ${visibilityNotice?.id===agent.id?'<p class="agent-access-feedback" role="'+(visibilityNotice.error?'alert':'status')+'" data-error="'+visibilityNotice.error+'">'+esc(visibilityNotice.message)+'</p>':''}
             <div class="agent-record-summary">
               <div class="agent-record-health-strip" data-health="${status.health}">
                 <span class="agent-record-health-icon" aria-hidden="true">${settingsIcon(status.health==='protected'?'shield-check':status.health==='attention'?'shield-alert':'shield')}</span>
@@ -583,12 +574,11 @@ const agentsWorkspace = (() => {
       </div>`;
       if (html !== detailHTML) {
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
-        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), log = focused?.hasAttribute('data-record-journal'), restriction = focused?.hasAttribute('data-record-restricted'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), log = focused?.hasAttribute('data-record-journal'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if (update || edr || log) (find(log?'[data-record-journal]:not(:disabled)':edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
-        else if(restriction)find('[data-record-restricted]:not(:disabled)')?.focus({preventScroll:true});
         else if(revoke)find('[data-record-revoke="'+CSS.escape(revoke)+'"]:not(:disabled)')?.focus({preventScroll:true});
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
@@ -596,7 +586,7 @@ const agentsWorkspace = (() => {
       syncJournal();
     }
     async function refresh() {
-      if (!live() || busy || selecting || visibilitySaving || revoking || bulkBusy || groupsBusy) return;
+      if (!live() || busy || selecting || revoking || bulkBusy || groupsBusy || dragged.length) return;
       busy = true; find('#agentsRefresh').disabled = true; find('#agentDetailsRefresh').disabled = true;
       root.dataset.refreshing = 'true';
       find('.agents-table-scroll').setAttribute('aria-busy', 'true');
@@ -624,6 +614,7 @@ const agentsWorkspace = (() => {
         }
         const previous = selected?.id;
         agents = data.agents; selected = data.selected; stale = false;
+        if(groupsReady&&!groupsBusy)await groups.load();
         for(const id of checked)if(!agents.some(agent=>agent.id===id))checked.delete(id);
         if (previous !== selected?.id) await renderTool(true);
         find('#agentsStatus').textContent = selected?.local ? 'Les scans de ce PC sont disponibles localement.' : workspaceAgents.available() ? 'Liste actualisée à ' + new Date().toLocaleTimeString('fr-FR') : 'Connecte-toi au service pour retrouver tes agents associés.';
@@ -652,6 +643,35 @@ const agentsWorkspace = (() => {
       descending = sort === button.dataset.agentSort ? !descending : false;
       sort = button.dataset.agentSort; draw();
     };
+    find('#agentsGroupsExpand').onclick=()=>groupChange(()=>groups.expandAll(),'Groupes dépliés.');
+    find('#agentsGroupsCollapse').onclick=()=>groupChange(()=>groups.collapseAll(),'Groupes repliés.');
+    find('#agentsGroupsRights').onclick=()=>openSettings('users');
+    root.addEventListener('click',async event=>{
+      const button=event.target.closest('[data-group-duplicate]');if(!button||button.disabled)return;
+      const id=button.dataset.groupDuplicate,name=await appPrompt('Nom du groupe dupliqué',groups.name(id)+' (copie)',{title:'Dupliquer le groupe',confirmLabel:'Créer'});
+      if(name!==null)await groupChange(()=>groups.duplicate(id,name),'Groupe dupliqué sans postes ni droits. Configure ses autorisations dans les paramètres.');
+    },{signal});
+    let dragged=[];
+    function clearDrag(){dragged=[];root.querySelectorAll('[data-drop-target]').forEach(row=>row.removeAttribute('data-drop-target'));}
+    root.addEventListener('dragstart',event=>{
+      const row=event.target.closest('[data-agent-row]');
+      if(!row||!groups.canManage()||groupsBusy||bulkBusy){event.preventDefault();return;}
+      const id=row.dataset.agentRow;dragged=(checked.has(id)?checkedAgents():agents.filter(agent=>agent.id===id)).filter(agent=>!agent.local).map(agent=>agent.id);
+      if(!dragged.length){event.preventDefault();return;}
+      closeMenu();event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('application/x-wolfguard-posts',JSON.stringify(dragged));
+    },{signal});
+    root.addEventListener('dragover',event=>{
+      const target=event.target.closest('[data-agent-group]');if(!dragged.length||!target||groupsBusy||bulkBusy)return;
+      event.preventDefault();event.dataTransfer.dropEffect='move';
+      root.querySelectorAll('[data-drop-target]').forEach(row=>row.removeAttribute('data-drop-target'));target.dataset.dropTarget='true';
+    },{signal});
+    root.addEventListener('drop',async event=>{
+      const target=event.target.closest('[data-agent-group]'),ids=[...dragged];clearDrag();
+      if(!ids.length||!target||!groups.canManage())return;event.preventDefault();
+      const id=target.dataset.agentGroup;
+      await groupChange(()=>groups.assign(ids,id),ids.length+' poste(s) déplacé(s) vers '+groups.name(id)+'. Droits du groupe appliqués.');
+    },{signal});
+    root.addEventListener('dragend',clearDrag,{signal});
     find('#agentsRefresh').onclick = refresh;
     find('#agentsMobileSort').onchange=event=>{sort=event.target.value;draw();};
     find('#agentsMobileDirection').onclick=()=>{descending=!descending;draw();};
@@ -776,18 +796,6 @@ const agentsWorkspace = (() => {
     find('#agentDetailsJournal').onclick=()=>openJournal(detailAgentId);
     find('#agentDetailsClose').onclick = () => dismissDetails(true);
     find('#agentDetailsRefresh').onclick = refresh;
-    find('#agentDetailsBody').addEventListener('change',async event=>{
-      const input=event.target.closest('[data-record-restricted]');
-      if(!input||visibilitySaving||busy||stale||!live())return;
-      const agent=agents.find(row=>row.id===input.dataset.recordRestricted);if(!agent)return;
-      const restricted=input.checked;visibilitySaving=true;visibilityNotice=null;renderDetails();
-      try{
-        const result=await WolfGuardCloud.agentRequest('agents/restricted',{id:agent.id,restricted},{signal});
-        if(!live())return;agent.restricted=result.restricted;
-        visibilityNotice={id:agent.id,error:false,message:restricted?'Poste masqué pour les autres rôles. Accès réservé aux administrateurs et au propriétaire.':'Restriction retirée. Le poste est accessible selon le rôle de chaque compte.'};
-      }catch(error){if(live())visibilityNotice={id:agent.id,error:true,message:'Modification non enregistrée. '+error.message};}
-      finally{visibilitySaving=false;if(live()){draw();if(detailAgentId===agent.id)find('[data-record-restricted]')?.focus({preventScroll:true});clearTimeout(timer);timer=setTimeout(refresh,10000);}}
-    },{signal});
     find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); dismissDetails(true); }, {signal});
     find('#agentDetailsPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     find('#agentDetailsBody').onclick = event => {

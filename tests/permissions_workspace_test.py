@@ -60,14 +60,11 @@ def run():
         response = owner.request.post(context.backend+'/api/agent/enroll', data={'code':pair['code'],'name':'Poste confidentiel','platform':'win32'})
         assert response.status == 200
         agent_id = response.json()['id']
+        owner.evaluate("async id=>{const s=await WolfGuardCloud.agentRequest('agents/groups');await WolfGuardCloud.agentRequest('agents/groups/create',{name:'Confidentiel',ids:[id],revision:s.revision});}",agent_id)
         owner.locator('.settings-close').click()
         open_security(owner)
         owner.locator('[data-fleet-agent="'+agent_id+'"]').click()
-        switch = owner.locator('[data-record-restricted]')
-        expect(switch).not_to_be_checked()
-        switch.check()
-        expect(switch).to_be_checked()
-        expect(owner.locator('.agent-access-feedback')).to_contain_text('Poste masqué')
+        expect(owner.locator('[data-record-restricted]')).to_have_count(0)
         assert guest.evaluate("async()=>!(await WolfGuardCloud.agentRequest('agents')).agents.length")
         for width in [1440, 850, 390, 320]:
             owner.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
@@ -95,7 +92,7 @@ def run():
         expect(owner.locator('[data-permission-profile]')).to_have_count(0)
         expect(owner.locator('.permission-owner')).to_be_visible()
         assert not errors, errors
-    print('PASS: four assignable roles, protected owner, safe guest default, retryable saves, private machine switch, API filtering and 320px layout')
+    print('PASS: four assignable roles, protected owner, safe guest default, retryable saves, group visibility, API filtering and 320px layout')
 
 
 if __name__ == '__main__':

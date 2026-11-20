@@ -112,3 +112,7 @@ export const endpointEvents=sqliteTable('endpoint_events',{
 export const endpointCommands=sqliteTable('endpoint_commands',{
  id:text('id').primaryKey(),agentId:text('agent_id').notNull().references(()=>scanAgents.id,{onDelete:'cascade'}),generation:integer('generation').notNull(),requestedBy:text('requested_by').notNull(),userVersion:integer('user_version').notNull(),action:text('action').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),updatedAt:integer('updated_at').notNull(),expiresAt:integer('expires_at').notNull(),leaseHash:text('lease_hash'),resultCipher:text('result_cipher')
 },table=>[index('endpoint_commands_agent_status').on(table.agentId,table.status)]);
+
+export const fleetGroups=sqliteTable('fleet_groups',{
+  id:integer('id').primaryKey(),generation:integer('generation').notNull(),revision:integer('revision').notNull(),configCipher:text('config_cipher').notNull(),updatedAt:integer('updated_at').notNull()
+});

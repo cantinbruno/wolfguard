@@ -519,3 +519,11 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
   .agents-fleet-filters{padding-block:6px;gap:5px}
   .agents-bulk-feedback{padding-block:5px}
 }
+
+.agents-group-toolbar{flex-wrap:wrap}
+.agents-group-heading[data-drop-target] td{background:var(--selection-bg, #23445a);outline:2px solid var(--accent, #9fc7e5);outline-offset:-2px}
+.agents-fleet-row[draggable="true"] .agents-device-icon{cursor:grab}
+.agents-group-actions{flex-wrap:wrap}
+
+.agents-group-toolbar button{margin-left:0}
+#agentsGroupCreate{margin-left:auto}

@@ -120,7 +120,7 @@ export async function touch({activityAge}={}){
 }
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke|restricted))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke|restricted|groups(?:\/(?:bootstrap|create|duplicate|rename|remove|move))?))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   const credential=token,replacement=path==='users/otp/replace/confirm'?{credential}:null;
   if(replacement)changingFactor=replacement;
   try{

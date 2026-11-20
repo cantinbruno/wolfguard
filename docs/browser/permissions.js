@@ -91,6 +91,11 @@ export function normalizePolicy(input) {
     if(!levels||typeof levels!=='object'||Array.isArray(levels)||Object.keys(levels).length>200||Object.entries(levels).some(([id,level])=>!/^[a-f0-9]{32}$/.test(id)||!['read','write','deny'].includes(level)))throw new Error('Droits par poste invalides.');
     individual={agentLevels:Object.fromEntries(Object.entries(levels))};
   }
+  if(input.groupLevels!==undefined){
+    const levels=input.groupLevels;
+    if(!levels||typeof levels!=='object'||Array.isArray(levels)||Object.keys(levels).length>250||Object.entries(levels).some(([id,level])=>!validId(id)||id.length>100||['__proto__','constructor','prototype'].includes(id)||!['read','write','deny'].includes(level)))throw new Error('Droits par groupe invalides.');
+    individual={groupLevels:Object.fromEntries(Object.entries(levels))};
+  }
   let compatibility={};
   if(input.legacyGrants){
     if(!Array.isArray(input.legacyGrants)||input.legacyGrants.some(key=>!PERMISSION_KEYS.includes(key)))throw new Error('Droits hérités invalides.');
@@ -134,8 +139,8 @@ export function canAgent(user, id, now = Date.now(), action = 'agents.read') {
   if (!can(user, 'agents.read', now)||!can(user,action,now)) return false;
   const policy = user?.permissions;
   if(user?.role==='admin'||policy?.admin)return true;
-  if(policy?.agents!=null&&!policy.agents.includes(id))return false;
-  const level=policy?.agentLevels?.[id]??'write';
+  if(policy?.groupLevels===undefined&&policy?.agents!=null&&!policy.agents.includes(id))return false;
+  const level=policy?.groupLevels!==undefined?(policy.groupLevels[policy.agentGroups?.[id]]??'deny'):(policy?.agentLevels?.[id]??'write');
   if(level==='deny')return false;
   // Per-machine levels only restrict existing section permissions.
   return level==='write'||AGENT_SECTIONS.includes(action)||AGENT_SECTIONS.some(section=>[section+'.read',section+'.export'].includes(action));
@@ -173,6 +178,10 @@ export function canManagePolicy(actor, target, now = Date.now()) {
   if (ownPolicy.admin) return true;
   if (target.admin) return false;
   if(grantsOf(target).some(key=>!can(actor,key,now)))return false;
+  if(ownPolicy.groupLevels!==undefined){
+    if(target.groupLevels===undefined)return false;
+    for(const [id,level]of Object.entries(target.groupLevels))if(LEVEL_ORDER[level]>LEVEL_ORDER[ownPolicy.groupLevels[id]??'deny'])return false;
+  }
   if(ownPolicy.agents!=null&&(target.agents==null||target.agents.some(id=>!ownPolicy.agents.includes(id))))return false;
   const affected=new Set([...Object.keys(ownPolicy.agentLevels||{}),...Object.keys(target.agentLevels||{})]);
   const targetUser={role:'member',permissions:target};

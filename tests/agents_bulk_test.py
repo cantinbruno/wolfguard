@@ -58,15 +58,7 @@ def run():
         csv=event.value.path().read_text(encoding='utf-8-sig')
         assert '"\'=SUM(1;2)"' in csv and 'Poste 02' in csv,csv
         page.locator('#agentsSearch').fill('')
-        page.locator('#agentsBulkCommand').select_option('restrict')
-        page.locator('#agentsBulkRun').click()
-        expect(page.locator('#appDialogMessage')).to_contain_text('2 poste(s) sélectionné(s)')
-        page.locator('.app-dialog-cancel').click();assert not commands
-        page.locator('#agentsBulkRun').click();page.locator('.app-dialog-submit').click()
-        expect(page.locator('#agentsBulkStatus')).to_contain_text('1 réussi(s) · 1 erreur(s)')
-        assert len(commands)==2,commands
-        page.locator('#agentsBulkResults summary').click()
-        expect(page.locator('#agentsBulkResults [data-result=error]')).to_contain_text('Refus de test')
+        assert page.locator('#agentsBulkCommand option[value=restrict]').count()==0
         page.evaluate("""()=>{
           window.__bulkStarts=[];window.__bulkStates={};
           const original=WolfGuardAgentUpdates;
@@ -145,6 +137,6 @@ def run():
         expect(page.locator('#app')).to_be_hidden()
         assert page.evaluate('window.__bulkStarts.length')==1
         assert not errors,errors
-        print('PASS: fixed viewport table, wheel/sticky header, ranges, filters, CSV safety, bulk confirmations, partial failures, per-post rights, cancellation, uninstall and mobile layouts')
+        print('PASS: fixed viewport table, wheel/sticky header, ranges, filters, CSV safety, bulk confirmations, group-based access caps, cancellation, uninstall and mobile layouts')
 
 if __name__=='__main__':run()

@@ -8,7 +8,7 @@ window.WolfGuardPermissionEditor=(()=>{
   function setView(root,view){
     const host=hostFor(root);if(!host)return;host.dataset.view=view;
     host.querySelectorAll('[data-permission-pane]').forEach(pane=>{pane.hidden=pane.dataset.permissionPane!==view;});
-    const heading=host.querySelector('.permission-role-heading h4');if(heading)heading.textContent=view==='posts'?'Accès aux postes':'Rôle et accès';
+    const heading=host.querySelector('.permission-role-heading h4');if(heading)heading.textContent=view==='posts'?'Accès par groupe':'Rôle et accès';
   }
   async function open(root,user,{signal,onSaved,embedded=false}){
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;
@@ -16,8 +16,12 @@ window.WolfGuardPermissionEditor=(()=>{
     const live=()=>!signal.aborted&&host.isConnected&&generation===editorGeneration;
     if(user.role==='admin'){host.innerHTML='<section class="permission-editor permission-embedded"><header><div><span class="users-eyebrow">ACCÈS AU COMPTE</span><h4>Droits d’accès</h4></div></header><div class="permission-owner"><strong>Propriétaire · accès complet</strong><p>Ce compte conserve tous les droits. Son accès ne peut pas être réduit.</p></div><p class="permission-preview">Toutes les sections sont en écriture.</p></section>';return;}
     try{
-      const [catalog,fleet]=await Promise.all([request('',undefined,signal),WolfGuardCloud.agentRequest('agents',undefined,{signal}).catch(()=>null)]);
+      await WolfGuardFleetGroups.create().load();
+      const refreshed=await WolfGuardCloud.agentRequest('users',undefined,{signal});
+      user=refreshed.users.find(row=>row.id===user.id)||user;
+      const [catalog,fleet]=await Promise.all([request('',undefined,signal),WolfGuardCloud.agentRequest('agents/groups',undefined,{signal})]);
       if(!live())return;
+      if(!fleet.initialized)throw new Error('Ouvre la section Sécurité avec le compte propriétaire pour initialiser les groupes.');
       let policy=structuredClone(user.permissions),saving=false,reasonDraft='',savedMessage='';
       const roleIcons={admin:'shield-check',editor:'pencil',observer:'eye',guest:'user'};
       const roleNotes={admin:'Tous les droits',editor:'Écriture du contenu',observer:'Lecture seule',guest:'Aucun accès'};
@@ -48,25 +52,22 @@ window.WolfGuardPermissionEditor=(()=>{
           return JSON.stringify(actual)!==JSON.stringify(expected);
         });
         const current=uniform&&!legacyMixed?levels[0]:'custom';
-        const agents=new Map((fleet?.agents||[]).map(agent=>[agent.id,agent]));
-        for(const id of new Set([...(policy.agents||[]),...Object.keys(policy.agentLevels||{})]))if(!agents.has(id))agents.set(id,{id,name:'Poste indisponible · '+id.slice(0,8)});
-        const perPost=!!catalog.agentLevels;
-        const assigned=id=>policy.agents!==null&&!policy.agents.includes(id)?'deny':policy.agentLevels?.[id]||'write';
+        const assigned=id=>policy.groupLevels?.[id]??'deny';
         return `<section class="permission-security" data-level-state="${current}" aria-labelledby="wgSecurityRightsTitle">
           <header><div><span class="users-eyebrow">AGENTS ET OUTILS</span><h5 id="wgSecurityRightsTitle">Sécurité des postes</h5></div><span class="permission-security-badge">${policy.admin?'Administrateur':current==='custom'?'Personnalisé':current==='write'?'Écriture':current==='read'?'Lecture':'Invisible'}</span></header>
-          <p>Définis les autorisations des outils, puis règle les droits de chaque poste séparément.</p>
+          <p>Définis les autorisations des outils, puis attribue les accès aux groupes. Tous les postes du groupe héritent de ces droits.</p>
           <fieldset ${policy.admin?'disabled':''}>
             <div class="permission-row permission-security-level" data-permission-section="security"><span class="permission-row-name">Sécurité des postes</span><div class="permission-row-levels" role="group" aria-label="Niveau de sécurité des postes">${catalog.levels.map(([value,label])=>'<button type="button" data-security-level="'+value+'" aria-pressed="'+(current===value)+'">'+esc(label)+'</button>').join('')}</div></div>
             <p class="permission-security-explanation">${policy.admin?'Le mode administrateur donne tous les droits sur tous les postes.':current==='custom'?'Les droits actuels diffèrent selon les outils et sont conservés. Choisir un niveau les harmonise.':current==='write'?'Permet d’associer et de révoquer les agents, lancer les scans, administrer la protection et prendre la main sur les postes autorisés.':current==='read'?'Permet de consulter les postes et leurs résultats. Aucun lancement de scan, contrôle à distance ou changement sur un agent.':'Les agents et leurs outils sont masqués pour ce compte.'}</p>
-            <${embedded?'section':'details'} class="permission-agent-scope" id="wgPermissionAgentScope">${embedded?'<h5>Droits poste par poste</h5>':'<summary>Droits poste par poste</summary>'}<p>${policy.admin?'Le mode administrateur donne accès à tous les postes, y compris ceux réservés aux administrateurs.':'Chaque niveau limite les autorisations des outils ci-dessus. Un poste en lecture reste consultable, sans exécution ni prise en main. Les postes réservés aux administrateurs restent protégés.'}</p><fieldset ${fleet&&perPost?'':'disabled'}><div class="permission-agent-modes"><label><input type="radio" name="securityAgentScope" data-agent-scope="all" ${policy.admin||policy.agents===null?'checked':''}>Tous les postes par défaut</label><label><input type="radio" name="securityAgentScope" data-agent-scope="selected" ${!policy.admin&&policy.agents!==null?'checked':''}>Uniquement ces postes</label></div>
-            ${!policy.admin?'<div class="permission-agent-list permission-agent-rights">'+[...agents.values()].map(agent=>'<div class="permission-agent-right" data-agent-right="'+esc(agent.id)+'"><strong>'+esc(agent.name)+'</strong><div class="permission-row-levels" role="group" aria-label="Droits pour '+esc(agent.name)+'">'+catalog.levels.map(([value,label])=>'<button type="button" data-agent-right-id="'+esc(agent.id)+'" data-agent-level="'+value+'" aria-pressed="'+(assigned(agent.id)===value)+'">'+esc(label)+'</button>').join('')+'</div></div>').join('')+(!agents.size?'<p>Aucun poste disponible.</p>':'')+'</div>':''}</fieldset>${policy.admin?'':!perPost?'<p role="status">Le serveur doit être mis à jour pour régler les droits par poste.</p>':!fleet?'<p role="status">Liste des postes indisponible. Le périmètre actuel est conservé.</p>':policy.agents!==null?'<small>'+policy.agents.filter(id=>policy.agentLevels?.[id]!=='deny').length+' poste(s) autorisé(s). Les nouveaux postes restent exclus.</small>':'<small>Les nouveaux postes hériteront des autorisations des outils. Les exceptions ci-dessus restent appliquées.</small>'}
+            <${embedded?'section':'details'} class="permission-agent-scope" id="wgPermissionAgentScope">${embedded?'<h5>Droits des groupes</h5>':'<summary>Droits des groupes</summary>'}<p>${policy.admin?'Le mode administrateur donne accès à tous les groupes.':'Les droits du groupe limitent les autorisations des outils ci-dessus. Un poste déplacé reçoit immédiatement les droits du groupe d’arrivée.'}</p>
+            <div class="permission-agent-list permission-agent-rights">${fleet.groups.map(group=>'<div class="permission-agent-right" data-group-right="'+esc(group.id)+'"><strong>'+esc(group.name)+'<small> · '+Object.values(fleet.assignments).filter(id=>id===group.id).length+' poste(s)</small></strong><div class="permission-row-levels" role="group" aria-label="Droits du groupe '+esc(group.name)+'">'+catalog.levels.map(([value,label])=>'<button type="button" data-group-right-id="'+esc(group.id)+'" data-group-level="'+value+'" aria-pressed="'+(assigned(group.id)===value)+'">'+esc(label)+'</button>').join('')+'</div></div>').join('')}</div><small>Les nouveaux groupes sont invisibles par défaut. Aucune autorisation individuelle par poste.</small>
             <details class="permission-security-summary"><summary>Droits actuels par outil</summary><dl>${catalog.sections.filter(([section])=>securitySections.includes(section)).map(([section,name])=>'<div><dt>'+esc(name)+'</dt><dd>'+esc(levelBadge(section))+'</dd></div>').join('')}</dl></details></${embedded?'section':'details'}>
           </fieldset></section>`;
       }
       function render(focusSelector){
         const opened=new Set([...host.querySelectorAll('details[open]')].map(row=>row.querySelector('summary')?.textContent));
         const role=model.policyProfile(policy),activeRole=catalog.profiles.find(row=>row.id===role);
-        const exceptions=policy.agents!==null||Object.values(policy.agentLevels||{}).some(level=>level!=='write')||!!policy.scopes;
+        const exceptions=Object.keys(policy.groupLevels||{}).length>0||!!policy.scopes;
         reasonDraft=host.querySelector('#wgPermissionReason')?.value??reasonDraft;
         host.innerHTML=`<form class="permission-editor${embedded?' permission-embedded':''}" id="wgPermissionForm">
           <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded?'':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
@@ -74,9 +75,9 @@ window.WolfGuardPermissionEditor=(()=>{
           <fieldset ${saving?'disabled':''}>
             <div ${embedded?'data-permission-pane="rights"':''}>
             <div class="permission-profile-choices" role="group" aria-label="Rôle du compte" aria-describedby="wgPermissionRoleHelp">${catalog.profiles.filter(row=>!row.legacy).map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(role===row.id)+'" title="'+esc(row.description)+'"><span class="permission-role-icon" aria-hidden="true">'+settingsIcon(roleIcons[row.id]||'user')+'</span><span class="permission-role-copy"><strong>'+esc(row.name)+'</strong><span>'+esc(roleNotes[row.id]||row.description)+'</span></span><span class="permission-role-check" aria-hidden="true">'+(role===row.id?'✓':'')+'</span></button>').join('')}</div>
-            <p class="permission-role-help" id="wgPermissionRoleHelp">${esc(activeRole?.description||'Droits personnalisés. Choisis un rôle pour les simplifier.')}${exceptions&&!policy.admin?' Des exceptions par poste sont conservées.':''}</p>
+            <p class="permission-role-help" id="wgPermissionRoleHelp">${esc(activeRole?.description||'Droits personnalisés. Choisis un rôle pour les simplifier.')}${exceptions&&!policy.admin?' Les droits des groupes sont conservés.':''}</p>
             <details class="permission-customization" id="wgPermissionCustomization"><summary>Personnaliser les droits <span>Sections et durée</span></summary>
-            <p class="permission-scope-help">${embedded?'Les accès aux postes se règlent dans « Postes ». ':''}Le niveau ci-dessous s’applique à toutes les sections, sécurité comprise.</p>
+            <p class="permission-scope-help">${embedded?'Les accès aux postes se règlent dans « Groupes ». ':''}Le niveau ci-dessous s’applique à toutes les sections, sécurité comprise.</p>
             <label class="permission-bulk"><span>Appliquer à toutes les sections</span><select data-permission-bulk aria-label="Appliquer un niveau à toutes les sections"><option value="">Choisir un niveau…</option>${catalog.levels.map(([value,label])=>'<option value="'+value+'">'+esc(label)+'</option>').join('')}</select></label>
             <fieldset class="permission-section-settings" ${policy.admin?'disabled':''}>
             <div class="permission-matrix">${catalog.sections.filter(([section])=>!securitySections.includes(section)).map(([section,name])=>{
@@ -100,11 +101,10 @@ window.WolfGuardPermissionEditor=(()=>{
         host.querySelector('#wgPermissionReason').value=reasonDraft;
         host.querySelector('#wgPermissionReason').oninput=dirty;
         host.querySelector('[data-permission-bulk]').onchange=event=>{if(event.target.value){setLevel(catalog.sections.map(([section])=>section),event.target.value);render();}};
-        host.querySelectorAll('[data-permission-profile]').forEach(button=>button.onclick=()=>{const {agents,agentLevels,expiresAt}=policy;policy={...model.profilePolicy(button.dataset.permissionProfile),agents,expiresAt,...(agentLevels?{agentLevels}: {})};savedMessage='';render('[data-permission-profile="'+button.dataset.permissionProfile+'"]');});
+        host.querySelectorAll('[data-permission-profile]').forEach(button=>button.onclick=()=>{const {groupLevels,expiresAt}=policy;policy={...model.profilePolicy(button.dataset.permissionProfile),groupLevels:groupLevels||{},expiresAt};savedMessage='';render('[data-permission-profile="'+button.dataset.permissionProfile+'"]');});
         host.querySelectorAll('[data-section]').forEach(button=>button.onclick=()=>{setLevel([button.dataset.section],button.dataset.level);render('[data-section="'+button.dataset.section+'"][data-level="'+button.dataset.level+'"]');});
         host.querySelectorAll('[data-security-level]').forEach(button=>button.onclick=()=>{setLevel(securitySections,button.dataset.securityLevel);render('[data-security-level="'+button.dataset.securityLevel+'"]');});
-        host.querySelectorAll('[data-agent-scope]').forEach(input=>input.onchange=()=>{policy.agents=input.dataset.agentScope==='all'?null:policy.agents||[];savedMessage='';render('[data-agent-scope="'+input.dataset.agentScope+'"]');});
-        host.querySelectorAll('[data-agent-right-id]').forEach(button=>button.onclick=()=>{const id=button.dataset.agentRightId,level=button.dataset.agentLevel;policy.agentLevels={...policy.agentLevels,[id]:level};if(policy.agents!==null){const selected=new Set(policy.agents);if(level==='deny')selected.delete(id);else selected.add(id);policy.agents=[...selected];}savedMessage='';render('[data-agent-right-id="'+id+'"][data-agent-level="'+level+'"]');});
+        host.querySelectorAll('[data-group-right-id]').forEach(button=>button.onclick=()=>{const id=button.dataset.groupRightId,level=button.dataset.groupLevel;policy.groupLevels={...policy.groupLevels,[id]:level};savedMessage='';render('[data-group-right-id="'+id+'"][data-group-level="'+level+'"]');});
         host.querySelector('#wgPermissionExpiry').onchange=event=>{policy.expiresAt=event.target.value?new Date(event.target.value).getTime():null;dirty();};
         host.querySelector('#wgPermissionForm').onsubmit=async event=>{
           event.preventDefault();if(saving)return;const error=host.querySelector('[data-permission-error]');
@@ -124,11 +124,13 @@ window.WolfGuardPermissionEditor=(()=>{
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;host.innerHTML='<p role="status">Chargement du journal…</p>';
     try{const result=await request('/audit',undefined,signal);if(signal.aborted||generation!==editorGeneration||!host.isConnected)return;
       host.innerHTML='<section class="permission-editor"><header><h4>Journal des droits</h4><button type="button" class="settings-btn" data-close-audit>Fermer</button></header><p class="access-help">Les 100 changements les plus récents.</p>'+result.events.map(event=>{
+        if(event.kind==='fleet-group')return '<article class="permission-audit"><strong>Groupes des postes</strong><small>'+esc(date(event.createdAt))+' · '+esc(event.actor)+'</small><p>'+esc(({create:'Groupe créé',duplicate:'Groupe dupliqué',rename:'Groupe renommé',remove:'Groupe supprimé',move:'Postes déplacés'})[event.operation]||event.operation)+(event.name?' : '+esc(event.name):'')+(event.count?' · '+event.count+' poste(s)':'')+'</p></article>';
         const summary=Object.entries(event.after.sections).filter(([section])=>event.before.sections[section]!==event.after.sections[section]).map(([section,level])=>section+' → '+level).join(', ');
         const scopeChanged=JSON.stringify(event.before.agents===null?null:[...(event.before.agents||[])].sort())!==JSON.stringify(event.after.agents===null?null:[...(event.after.agents||[])].sort());
         const scope=scopeChanged?' Postes autorisés : '+(event.after.agents===null?'tous les postes':(event.after.agents||[]).length+' poste(s) sélectionné(s)')+'.':'';
         const changedPosts=[...new Set([...Object.keys(event.before.agentLevels||{}),...Object.keys(event.after.agentLevels||{})])].filter(id=>(event.before.agentLevels?.[id]||'write')!==(event.after.agentLevels?.[id]||'write'));
-        const individual=changedPosts.length?' Droits individuels modifiés pour '+changedPosts.length+' poste(s).':'';
+        const changedGroups=[...new Set([...Object.keys(event.before.groupLevels||{}),...Object.keys(event.after.groupLevels||{})])].filter(id=>(event.before.groupLevels?.[id]??'deny')!==(event.after.groupLevels?.[id]??'deny'));
+        const individual=changedGroups.length?' Droits modifiés pour '+changedGroups.length+' groupe(s).':changedPosts.length?' Ancien changement individuel : '+changedPosts.length+' poste(s).':'';
         return '<article class="permission-audit"><strong>'+esc(event.user)+'</strong><small>'+esc(date(event.createdAt))+' · '+esc(event.actor)+' · révision '+event.revision+'</small>'+(event.reason?'<p>'+esc(event.reason)+'</p>':'')+'<p>'+(event.after.admin?'Administrateur activé. ':event.before.admin?'Administrateur retiré. ':'')+(summary?'Niveaux modifiés : '+esc(summary)+'.':'Aucun changement de niveau commun.')+esc(scope+individual)+'</p></article>';
       }).join('')+(!result.events.length?'<p>Aucun changement de droits enregistré.</p>':'')+'</section>';
       host.querySelector('[data-close-audit]').onclick=()=>{reset(root);onClose?.();};host.scrollIntoView({block:'start'});
