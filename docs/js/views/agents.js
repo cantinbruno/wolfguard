@@ -30,6 +30,9 @@ const agentsWorkspace = (() => {
     const journal=WolfGuardAgentJournal.create({signal});
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
     let visibilitySaving = false, visibilityNotice = null, revoking = false, revokeError = null;
+    const groups=WolfGuardFleetGroups.create();let groupsReady=false,groupsBusy=false,menuPage='main';
+    const checked = new Set();
+    let selectionAnchor = '', bulkBusy = false, bulkCancel = false, bulkResults = [], bulkMessage = '';
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
     const columns = [['name','Poste'],['online','Connexion'],['health','Protection du poste'],['alerts','Alertes'],['version','Agent'],['lastSeen','Dernier contact']];
@@ -51,11 +54,14 @@ const agentsWorkspace = (() => {
           <div class="agents-filter-actions"><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}</button><button type="button" id="agentsClearFilters" title="Effacer les filtres" aria-label="Effacer les filtres">${settingsIcon('x')}</button></div>
         </div>
         <div id="agentsActiveFilters" class="agents-active-filters" aria-label="Filtres appliqués" hidden></div>
+        <div class="agents-group-toolbar"><label>Organisation<select id="agentsView"><option value="groups">Groupes personnalisés</option><option value="flat">Tableau simple</option></select></label><span id="agentsGroupCount"></span><button type="button" id="agentsGroupCreate">${settingsIcon('folder-plus')}Nouveau groupe</button></div>
         <div class="agents-mobile-sort"><label for="agentsMobileSort">Trier par</label><select id="agentsMobileSort">${columns.map(([field,label])=>'<option value="'+field+'">'+label+'</option>').join('')}</select><button type="button" id="agentsMobileDirection" aria-label="Inverser le sens du tri">↑</button></div>
-        <div class="agents-table-scroll" tabindex="0" role="region" aria-label="Tableau des postes, défilement horizontal si nécessaire">
+        <div class="agents-selection-bar"><label class="agents-select-all"><input type="checkbox" id="agentsSelectAll"><span id="agentsSelectionCount" role="status" aria-live="polite">Sélectionner les postes affichés</span></label><div class="agents-selection-actions" id="agentsSelectionActions" hidden><select id="agentsBulkCommand" aria-label="Commande pour les postes sélectionnés"><option value="">Action groupée…</option><option value="update">Mettre à jour les agents</option><option value="uninstall">Désinstaller les agents</option><option value="restrict">Réserver aux administrateurs</option><option value="unrestrict">Retirer la réservation administrateur</option><option value="export">Exporter la sélection en CSV</option></select><button type="button" id="agentsBulkRun" disabled>Appliquer</button><button type="button" id="agentsClearSelection">Effacer</button></div></div>
+        <div class="agents-bulk-feedback" id="agentsBulkFeedback" hidden><div><p id="agentsBulkStatus" role="status" aria-live="polite"></p><button type="button" id="agentsBulkCancel" hidden>Arrêter la file</button></div><details id="agentsBulkResults" hidden><summary>Résultats par poste</summary><ul></ul></details></div>
+        <div class="agents-table-scroll" tabindex="0" role="region" aria-label="Liste des postes, défilement vertical et horizontal">
           <table class="agents-table"><caption class="agents-visually-hidden">Agents associés et derniers états de protection. Sélectionne un poste pour utiliser ses outils.</caption><thead><tr>${columns.map(([field,label])=>'<th scope="col" data-agent-column="'+field+'" aria-sort="'+(field==='name'?'ascending':'none')+'"><button type="button" data-agent-sort="'+field+'">'+label+'<span class="agents-sort-indicator" aria-hidden="true">'+(field==='name'?'↑':'↕')+'</span></button></th>').join('')}</tr></thead><tbody id="agentsList"></tbody></table>
         </div>
-        <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span class="agents-check-legend" aria-label="Légende des protections"><span data-check="enabled">✓ Activé</span><span data-check="disabled">! À traiter</span><span data-check="unknown">? À confirmer</span></span><span>Clic pour ouvrir la fiche · Clic droit ou appui long pour les options.</span></footer>
+        <footer class="agents-table-footer"><span id="agentsCount">0 poste</span><span class="agents-check-legend" aria-label="Légende des protections"><span data-check="enabled">✓ Activé</span><span data-check="disabled">! À traiter</span><span data-check="unknown">? À confirmer</span></span><span>Clic : fiche · Clic droit : options · Ctrl/⌘ + clic : sélectionner · Maj : plage.</span></footer>
       </section>
       <div class="agents-main">
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
@@ -152,6 +158,148 @@ const agentsWorkspace = (() => {
       find('#agentsPlatform').value = platform; find('#agentsProtection').value = protectionFilter;
       draw();
     }
+    const hasFilters=()=>!!query||filter!=='all'||platform!=='all'||protectionFilter!=='all';
+    const displayedRows=()=>groups.view()==='flat'?filteredAgents():groups.buckets(filteredAgents()).flatMap(group=>groups.closed(group.id)?[]:group.rows);
+    function groupHeading(group){
+      const total=groups.buckets(agents).find(row=>row.id===group.id)?.rows.length||0;
+      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes du groupe '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+(group.id!=='ungrouped'?'<div class="agents-group-actions"><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer le groupe '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer le groupe '+esc(group.name)+'">'+settingsIcon('x')+'</button></div>':'')+'</div></td></tr>';
+    }
+    function syncGroups(){
+      root.dataset.grouped=String(groups.view()==='groups');find('#agentsView').value=groups.view();find('#agentsView').disabled=!groupsReady||groupsBusy||bulkBusy;
+      find('#agentsGroupCreate').disabled=!groupsReady||groupsBusy||bulkBusy;
+      find('#agentsGroupCount').textContent=groups.list().length+' groupe(s)';
+      for(const input of root.querySelectorAll('[data-group-check]')){
+        const rows=(groups.buckets(filteredAgents()).find(group=>group.id===input.dataset.groupCheck)?.rows||[]).filter(agent=>!agent.local),count=rows.filter(agent=>checked.has(agent.id)).length;
+        input.checked=!!rows.length&&count===rows.length;input.indeterminate=count>0&&count<rows.length;input.disabled=!groupsReady||groupsBusy||bulkBusy||!rows.length;
+      }
+      for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove]'))button.disabled=!groupsReady||groupsBusy||bulkBusy;
+    }
+    async function groupChange(action,message='Organisation enregistrée.'){
+      if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
+      groupsBusy=true;closeMenu();syncGroups();
+      try{await action();if(live())find('#agentsStatus').textContent=message;}
+      catch(error){if(live())find('#agentsStatus').textContent='Modification non enregistrée : '+error.message;}
+      finally{groupsBusy=false;if(live())draw();}
+    }
+    async function newGroup(ids=[]){
+      if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
+      const name=await appPrompt('Nom du nouveau groupe', '',{title:'Créer un groupe de postes',confirmLabel:'Créer',placeholder:'Ex. Atelier, Bureau, Serveurs'});
+      if(name===null||!live())return;
+      await groupChange(()=>groups.add(name,ids),'Groupe créé'+(ids.length?' avec '+ids.length+' poste(s)':'')+'.');
+    }
+    async function renameGroup(id){
+      const name=await appPrompt('Nouveau nom du groupe',groups.name(id),{title:'Renommer le groupe',confirmLabel:'Renommer'});
+      if(name!==null&&live())await groupChange(()=>groups.rename(id,name),'Groupe renommé.');
+    }
+    async function removeGroup(id){
+      if(!await appConfirm('Supprimer le groupe « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans groupe ». Aucun agent ne sera supprimé.',{title:'Supprimer ce groupe',confirmLabel:'Supprimer le groupe'})||!live())return;
+      await groupChange(()=>groups.remove(id),'Groupe supprimé ; ses postes restent dans le parc.');
+    }
+    const checkedAgents = () => agents.filter(agent => checked.has(agent.id));
+    function bulkReason(command, agent) {
+      if(agent.local)return 'Poste local non associé';
+      if(command==='export')return '';
+      if(stale)return 'Connexion au service à vérifier';
+      if(command==='update'){
+        const info=updateInfo(agent);
+        return info.current?'Agent déjà à jour':info.reason||(!info.canUpdate?'Une mise à jour est déjà en cours':'');
+      }
+      if(command==='uninstall')return WolfGuardAgentRemoval.reason(agent);
+      if(!['restrict','unrestrict'].includes(command))return 'Choisis une commande';
+      if(!Object.hasOwn(agent,'restricted')||!can('agents.write',agent))return 'Réservé aux administrateurs et au propriétaire';
+      return agent.restricted===(command==='restrict')?'Visibilité déjà conforme':'';
+    }
+    function syncSelection() {
+      const rows=filteredAgents().filter(agent=>!agent.local), targets=checkedAgents(), visible=new Set(rows.map(agent=>agent.id));
+      const count=rows.filter(agent=>checked.has(agent.id)).length, hidden=targets.filter(agent=>!visible.has(agent.id)).length;
+      const all=find('#agentsSelectAll');all.checked=!!rows.length&&count===rows.length;all.indeterminate=count>0&&count<rows.length;all.disabled=bulkBusy||groupsBusy||!rows.length;
+      find('#agentsSelectionCount').textContent=targets.length?targets.length+' sélectionné'+(targets.length>1?'s':'')+(hidden?' · '+hidden+' hors filtre':''):'Sélectionner les postes affichés';
+      find('#agentsSelectionActions').hidden=!targets.length;
+      find('#agentsClearSelection').disabled=bulkBusy;find('#agentsBulkCommand').disabled=bulkBusy;
+      root.dataset.bulkSelection=String(!!targets.length);
+      for(const option of find('#agentsBulkCommand').options){
+        if(!option.value)continue;
+        const eligible=targets.filter(agent=>!bulkReason(option.value,agent)).length;
+        option.disabled=!eligible;
+        option.hidden=['restrict','unrestrict'].includes(option.value)&&!targets.some(agent=>Object.hasOwn(agent,'restricted'));
+      }
+      const command=find('#agentsBulkCommand').value;
+      const eligible=targets.filter(agent=>!bulkReason(command,agent)).length;
+      find('#agentsBulkRun').disabled=bulkBusy||groupsBusy||busy||!command||!eligible;
+      find('#agentsBulkRun').title=command?eligible+' poste(s) éligible(s) sur '+targets.length:'';
+      root.querySelectorAll('[data-agent-row]').forEach(row=>{
+        const chosen=checked.has(row.dataset.agentRow),input=row.querySelector('[data-fleet-check]');
+        row.dataset.checked=String(chosen);input.checked=chosen;input.disabled=bulkBusy||!!agents.find(agent=>agent.id===row.dataset.agentRow)?.local;
+      });
+      find('#agentsBulkFeedback').hidden=!bulkMessage;
+      find('#agentsBulkStatus').textContent=bulkMessage;
+      find('#agentsBulkCancel').hidden=!bulkBusy;find('#agentsBulkCancel').disabled=bulkCancel;
+      find('#agentsBulkCancel').textContent=bulkCancel?'Arrêt après ce poste…':'Arrêter la file';
+      find('#agentsBulkResults').hidden=!bulkResults.length;
+      find('#agentsBulkResults ul').innerHTML=bulkResults.map(result=>'<li data-result="'+result.status+'"><strong>'+esc(result.name)+'</strong><span>'+esc(result.message)+'</span></li>').join('');
+      syncGroups();
+    }
+    function selectRange(id, value, range=false) {
+      if(bulkBusy)return;
+      const rows=displayedRows().filter(agent=>!agent.local), start=rows.findIndex(agent=>agent.id===selectionAnchor), end=rows.findIndex(agent=>agent.id===id);
+      if(end<0)return;
+      const targets=range&&start>=0?rows.slice(Math.min(start,end),Math.max(start,end)+1):[rows[end]];
+      for(const agent of targets)if(value)checked.add(agent.id);else checked.delete(agent.id);
+      selectionAnchor=id;syncSelection();
+    }
+    function exportSelection(targets) {
+      const cell=value=>'"'+String(value??'').replace(/^(\s*[=+@-]|[\t\r\n])/,"'$1").replaceAll('"','""')+'"';
+      const lines=[['Poste','Système','Connexion','Version de l’agent','Dernier contact'],...targets.map(agent=>[agent.name,workspaceAgents.platformName(agent.platform),agent.online?'Connecté':'Hors ligne',agent.version||'',agent.lastSeen&&Number.isFinite(new Date(agent.lastSeen).getTime())?new Date(agent.lastSeen).toISOString():''])];
+      const url=URL.createObjectURL(new Blob(['\ufeff'+lines.map(row=>row.map(cell).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));
+      const link=document.createElement('a');link.href=url;link.download='WolfGuard-postes-'+new Date().toISOString().slice(0,10)+'.csv';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }
+    async function runBulk(commandOverride=null,targetsOverride=null) {
+      const command=commandOverride||find('#agentsBulkCommand').value, targets=targetsOverride||checkedAgents();
+      if(!live()||bulkBusy||groupsBusy||busy||!targets.length||!['update','uninstall','restrict','unrestrict','export'].includes(command)||!targets.some(agent=>!bulkReason(command,agent)))return;
+      if(command==='export'){exportSelection(targets);bulkMessage=targets.length+' poste(s) exporté(s).';bulkResults=[];syncSelection();return;}
+      bulkBusy=true;bulkCancel=false;syncSelection();
+      const titles={update:'Mettre à jour les agents',uninstall:'Désinstaller les agents',restrict:'Réserver les postes aux administrateurs',unrestrict:'Retirer la réservation administrateur'};
+      const available=targets.filter(agent=>!bulkReason(command,agent)).length;
+      const names=targets.slice(0,8).map(agent=>'• '+agent.name).join('\n')+(targets.length>8?'\n… et '+(targets.length-8)+' autre(s) poste(s).':'');
+      const warning=command==='uninstall'?' Les scans, la protection assurée par ces agents et la prise en main s’arrêteront.':command==='restrict'?' Ces postes deviendront invisibles pour les autres rôles.':command==='unrestrict'?' Les rôles et les droits individuels s’appliqueront de nouveau.':'';
+      const confirmed=await appConfirm(titles[command]+' sur '+targets.length+' poste(s) sélectionné(s) ?'+warning+'\n'+available+' poste(s) éligible(s) ; les autres seront ignorés.\n\n'+names,{title:titles[command],confirmLabel:'Confirmer pour '+available+' poste(s)',danger:command==='uninstall'||command==='restrict'});
+      if(!live())return;
+      if(!confirmed){bulkBusy=false;syncSelection();find('#agentsBulkRun').focus();return;}
+      bulkResults=[];
+      try{
+        for(const target of targets){
+          if(!live())return;
+          if(bulkCancel)break;
+          const agent=agents.find(item=>item.id===target.id), unavailable=agent?bulkReason(command,agent):'Poste devenu inaccessible';
+          if(unavailable){bulkResults.push({name:target.name,status:'skip',message:'Ignoré · '+unavailable});syncSelection();continue;}
+          bulkMessage='Traitement '+(bulkResults.length+1)+' / '+targets.length+' · '+agent.name;syncSelection();
+          try{
+            if(command==='update'){
+              await WolfGuardAgentUpdates.start(agent,{onChange:value=>{if(live()){bulkMessage=agent.name+' · '+value.message;syncSelection();}}});
+              const result=WolfGuardAgentUpdates.state(agent.id);
+              if(result?.status!=='completed')throw new Error(result?.message||'Mise à jour non confirmée');
+              bulkResults.push({name:agent.name,status:'success',message:'Agent mis à jour'});
+            }else if(command==='uninstall'){
+              const result=await WolfGuardAgentRemoval.start(agent,{onChange:value=>{if(live()){bulkMessage=agent.name+' · '+value.message;syncSelection();}}});
+              if(result?.status!=='launched')throw new Error(result?.message||'Lancement non confirmé');
+              bulkResults.push({name:agent.name,status:'success',message:'Désinstallation lancée sur le poste'});
+            }else{
+              const result=await WolfGuardCloud.agentRequest('agents/restricted',{id:agent.id,restricted:command==='restrict'},{signal});
+              agent.restricted=result.restricted;
+              bulkResults.push({name:agent.name,status:'success',message:agent.restricted?'Réservé aux administrateurs et au propriétaire':'Droits habituels rétablis'});
+            }
+          }catch(error){bulkResults.push({name:agent.name,status:'error',message:error.message});}
+          if(live())syncSelection();
+        }
+      }finally{
+        bulkBusy=false;
+        if(live()){
+          const successes=bulkResults.filter(result=>result.status==='success').length, errors=bulkResults.filter(result=>result.status==='error').length, skipped=bulkResults.filter(result=>result.status==='skip').length;
+          bulkMessage=(bulkCancel?'File arrêtée. ':'Traitement terminé. ')+successes+' réussi(s) · '+errors+' erreur(s) · '+skipped+' ignoré(s)'+(bulkCancel?' · '+(targets.length-bulkResults.length)+' non traité(s)':'');
+          draw();await refresh();
+        }
+      }
+    }
     function alertsHTML(agent,status){
       const attributes='class="agents-alerts" data-alert="'+(status.alerts>0)+'"',count=status.alerts??'—';
       return !agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr')?'<button type="button" '+attributes+' data-open-agent-journal="'+esc(agent.id)+'" aria-label="Voir le journal de '+esc(agent.name)+'" title="Voir les logs de ce poste">'+count+'</button>':'<span '+attributes+'>'+count+'</span>';
@@ -170,9 +318,8 @@ const agentsWorkspace = (() => {
       find('#agentsFleetSummary').textContent = stale ? 'Disponibilité des postes à confirmer' : online + ' connecté' + (online === 1 ? '' : 's') + ' · ' + (agents.length - online) + ' hors ligne · ' + unknown + ' protection' + (unknown === 1 ? '' : 's') + ' à confirmer';
       const rows = filteredAgents();
       root.dataset.empty = String(!rows.length);
-      const focusId = document.activeElement?.dataset.fleetAgent, focusedUpdate = document.activeElement?.dataset.agentInstallUpdate;
-      const selectedHidden = selected && !rows.some(agent => agent.id === selected.id);
-      find('#agentsCount').textContent = rows.length + ' poste' + (rows.length === 1 ? '' : 's') + (rows.length !== agents.length ? ' sur ' + agents.length : '') + (selected ? ' · 1 sélectionné' + (selectedHidden ? ' (hors filtre)' : '') : '');
+      const focusId = document.activeElement?.dataset.fleetAgent, focusedUpdate = document.activeElement?.dataset.agentInstallUpdate, focusedCheck=document.activeElement?.dataset.fleetCheck;
+      find('#agentsCount').textContent = rows.length + ' poste' + (rows.length === 1 ? '' : 's') + (rows.length !== agents.length ? ' sur ' + agents.length : '') + (selected&&!rows.some(agent=>agent.id===selected.id)?' · Poste actif (hors filtre)':'');
       const applied = Object.entries({query,filter,platform,protection:protectionFilter}).filter(([field,value]) => field === 'query' ? value : value !== 'all');
       find('#agentsActiveFilters').hidden = !applied.length;
       find('#agentsActiveFilters').innerHTML = applied.map(([field,value]) => {
@@ -187,10 +334,13 @@ const agentsWorkspace = (() => {
         row.querySelector('[data-fleet-agent]').setAttribute('aria-pressed', String(chosen));
         row.querySelector('.agents-row-selector').textContent = chosen ? '✓' : '';
       });
-      else find('#agentsList').innerHTML = rows.map(agent => {
+      else {
+        const renderRows=list=>list.map(agent => {
         const status = protection(agent), chosen = agent.id === selected?.id;
-        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
-      }).join('') || '<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
+        return '<tr class="agents-fleet-row" data-agent-group-id="'+esc(groups.groupOf(agent.id))+'" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><div class="agents-post-cell"><input type="checkbox" class="agents-row-check" title="Maj + clic : sélectionner une plage" data-fleet-check="' + esc(agent.id) + '" aria-label="' + esc('Sélectionner ' + agent.name) + '" ' + (checked.has(agent.id) ? 'checked ' : '') + (bulkBusy ? 'disabled' : '') + '><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></div></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
+      }).join('');
+        find('#agentsList').innerHTML=groups.view()==='groups'&&agents.length&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans ce groupe. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
+      }
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
         heading.setAttribute('aria-sort', active ? descending ? 'descending' : 'ascending' : 'none');
@@ -198,8 +348,10 @@ const agentsWorkspace = (() => {
       });
       find('#agentsMobileSort').value=sort;find('#agentsMobileDirection').textContent=descending?'↓':'↑';find('#agentsMobileDirection').setAttribute('aria-label',descending?'Passer au tri croissant':'Passer au tri décroissant');
       tableKeyboard();
+      syncSelection();
       if (focusId) find('[data-fleet-agent="' + CSS.escape(focusId) + '"]')?.focus({preventScroll:true});
       if (focusedUpdate) find('[data-agent-install-update="' + CSS.escape(focusedUpdate) + '"]:not(:disabled)')?.focus({preventScroll:true});
+      if (focusedCheck) find('[data-fleet-check="' + CSS.escape(focusedCheck) + '"]:not(:disabled)')?.focus({preventScroll:true});
       const agent = selected;
       find('#agentToolTarget').textContent = agent?.name || 'Aucun agent sélectionné';
       renderMenu();
@@ -212,39 +364,73 @@ const agentsWorkspace = (() => {
       root.querySelectorAll('[data-context]').forEach(row => row.removeAttribute('data-context'));
       if (restore) find('[data-fleet-agent="' + CSS.escape(id || '') + '"]')?.focus({preventScroll:true});
     }
-    function renderMenu() {
-      if (!menu) return;
-      const agent = agents.find(item => item.id === menuAgentId);
-      if (!live() || !agent || !filteredAgents().some(item => item.id === agent.id)) { closeMenu(); return; }
-      const focused = menu.contains(document.activeElement), focusedAction = document.activeElement?.dataset.fleetAction;
-      menu.innerHTML = '<header class="agents-menu-heading"><span>OPTIONS DU POSTE</span><h2>' + esc(agent.name) + '</h2><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></header><button type="button" role="menuitem" data-fleet-action="details"><span class="agents-menu-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-menu-copy"><strong>Fiche du poste</strong><small>Identité, connexion, agent et protections.</small></span></button>' + actions.map(action => {
-        const unavailable = reason(action, agent), icon = ['terminal','files'].includes(action.mode) ? workspaceNavigationIcon(action.mode) : workspaceSectionIcon(action.section);
-        return '<button type="button" role="menuitem" data-fleet-action="' + action.id + '" ' + (unavailable || selecting ? 'disabled aria-disabled="true"' : '') + '><span class="agents-menu-icon" aria-hidden="true">' + icon + '</span><span class="agents-menu-copy"><strong>' + action.label + '</strong><small>' + esc(unavailable || action.description) + '</small></span></button>';
-      }).join('');
-      const box = menu.getBoundingClientRect();
-      menu.style.left = Math.max(8, Math.min(menuPoint.x, innerWidth - box.width - 8)) + 'px';
-      menu.style.top = Math.max(8, Math.min(menuPoint.y, innerHeight - box.height - 8)) + 'px';
-      root.querySelectorAll('[data-agent-row]').forEach(row => row.toggleAttribute('data-context', row.dataset.agentRow === menuAgentId));
-      if (focused) (menu.querySelector('[data-fleet-action="' + CSS.escape(focusedAction || '') + '"]:not(:disabled)') || menu.querySelector('button:not(:disabled)') || menu).focus({preventScroll:true});
+    function menuTargets(){
+      const agent=agents.find(row=>row.id===menuAgentId);
+      return agent?(checked.has(agent.id)&&checked.size>1?checkedAgents():[agent]):[];
     }
-    function openMenu(id, point) {
-      if (!live() || selecting || !agents.some(agent => agent.id === id)) return;
-      closeMenu(); closeContextMenu();
-      menuAgentId = id; menuPoint = point;
-      menu = document.createElement('div'); menu.id = 'agentActions';
-      menu.className = 'context-menu agents-context-menu'; menu.tabIndex = -1;
-      menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Options pour ' + agents.find(agent => agent.id === id).name);
-      menu.onclick = event => {
-        const button = event.target.closest('[data-fleet-action]');
-        if (button && !button.disabled) runAction(button.dataset.fleetAction, id);
+    function menuButton(id,label,icon,disabled=false,help='',danger=false){
+      return '<button type="button" role="menuitem" data-fleet-action="'+esc(id)+'" '+(disabled?'disabled aria-disabled="true"':'')+' '+(danger?'class="agents-menu-danger"':'')+'><span class="agents-menu-icon" aria-hidden="true">'+(['terminal','files'].includes(icon)?workspaceNavigationIcon(icon):settingsIcon(icon))+'</span><span class="agents-menu-copy"><strong>'+esc(label)+'</strong>'+(help?'<small>'+esc(help)+'</small>':'')+'</span></button>';
+    }
+    function renderMenu() {
+      if(!menu)return;
+      const agent=agents.find(item=>item.id===menuAgentId),targets=menuTargets();
+      if(!live()||!agent||!filteredAgents().some(item=>item.id===agent.id)){closeMenu();return;}
+      const focused=menu.contains(document.activeElement),focusedAction=document.activeElement?.dataset.fleetAction,multiple=targets.length>1;
+      const title=multiple?targets.length+' postes sélectionnés':agent.name;
+      const section=label=>'<div class="agents-menu-section" role="presentation">'+label+'</div>';
+      let html='<header class="agents-menu-heading"><span>'+(multiple?'ACTIONS GROUPÉES':'OPTIONS DU POSTE')+'</span><h2>'+esc(title)+'</h2><small>'+(multiple?'Les actions portent sur les postes cochés.':esc(workspaceAgents.platformName(agent.platform))+(agent.restricted?' · Accès réservé':''))+'</small></header>';
+      const organizationDisabled=!groupsReady||groupsBusy||bulkBusy;
+      if(menuPage==='groups'){
+        html+=menuButton('back','Retour aux actions','arrow-left')+section('DÉPLACER VERS');
+        for(const group of groups.list())html+=menuButton('group:'+group.id,group.name,'folder',organizationDisabled);
+        html+=menuButton('group:ungrouped','Sans groupe','folder-open',organizationDisabled)+menuButton('new-group','Nouveau groupe…','folder-plus',organizationDisabled);
+      }else if(menuPage==='tools'){
+        html+=menuButton('back','Retour aux actions','arrow-left')+section('OUTILS DU POSTE');
+        html+=actions.map(action=>{const unavailable=reason(action,agent);return menuButton(action.id,action.label,['terminal','files'].includes(action.mode)?action.mode:action.id==='desktop'?'monitor':action.id==='edr'?'shield-check':'search',!!unavailable||selecting||bulkBusy,unavailable||'');}).join('');
+      }else{
+        if(!multiple){
+          html+=menuButton('details','Fiche du poste','monitor')+menuButton('journal','Journal et alertes','list',agent.local||!can('edr.read',agent)||!workspaceModules.allows('edr'));
+          html+=menuButton('tools','Outils et diagnostics','wrench');
+        }
+        html+=section('ORGANISATION')+menuButton('groups','Déplacer '+(multiple?'la sélection':'ce poste')+' vers…','folder',organizationDisabled);
+        html+=menuButton('select',checked.has(agent.id)?'Retirer ce poste de la sélection':'Ajouter ce poste à la sélection','check-square',bulkBusy||!!agent.local);
+        if(checked.size)html+=menuButton('clear','Effacer la sélection','x',bulkBusy);
+        html+=section(multiple?'GESTION DES POSTES SÉLECTIONNÉS':'GESTION DU POSTE');
+        for(const [command,label,icon] of [['update','Mettre à jour les agents','refresh-cw'],['restrict','Réserver aux administrateurs','lock'],['unrestrict','Retirer la réservation','unlock'],['export','Exporter en CSV','download'],['uninstall','Désinstaller les agents','trash-2']]){
+          const eligible=targets.filter(row=>!bulkReason(command,row)).length;
+          if(['restrict','unrestrict'].includes(command)&&(!targets.some(row=>Object.hasOwn(row,'restricted'))||!multiple&&!eligible))continue;
+          const help=multiple?eligible+' / '+targets.length+' poste(s) éligible(s)':eligible?'':bulkReason(command,agent);
+          html+=menuButton('bulk:'+command,label,icon,!eligible||busy||bulkBusy||groupsBusy,help,command==='uninstall');
+        }
+      }
+      menu.innerHTML=html;menu.setAttribute('aria-label','Options pour '+title);
+      const box=menu.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(menuPoint.x,innerWidth-box.width-8))+'px';menu.style.top=Math.max(8,Math.min(menuPoint.y,innerHeight-box.height-8))+'px';
+      root.querySelectorAll('[data-agent-row]').forEach(row=>row.toggleAttribute('data-context',row.dataset.agentRow===menuAgentId));
+      if(focused)(menu.querySelector('[data-fleet-action="'+CSS.escape(focusedAction||'')+'"]:not(:disabled)')||menu.querySelector('button:not(:disabled)')||menu).focus({preventScroll:true});
+    }
+    function openMenu(id,point){
+      if(!live()||selecting||!agents.some(agent=>agent.id===id))return;
+      closeMenu();closeContextMenu();menuAgentId=id;menuPoint=point;menuPage='main';
+      menu=document.createElement('div');menu.id='agentActions';menu.className='context-menu agents-context-menu';menu.tabIndex=-1;menu.setAttribute('role','menu');
+      menu.onclick=async event=>{
+        const button=event.target.closest('[data-fleet-action]');if(!button||button.disabled)return;
+        const action=button.dataset.fleetAction,targets=menuTargets(),ids=targets.map(row=>row.id),target=menuAgentId;
+        if(['groups','tools','back'].includes(action)){menuPage=action==='back'?'main':action;renderMenu();menu?.querySelector('button:not(:disabled)')?.focus({preventScroll:true});return;}
+        if(action==='select'){if(checked.has(target))checked.delete(target);else checked.add(target);syncSelection();renderMenu();return;}
+        closeMenu();
+        if(action==='clear'){checked.clear();syncSelection();return;}
+        if(action==='new-group'){await newGroup(ids);return;}
+        if(action.startsWith('group:')){const group=action.slice(6);await groupChange(()=>groups.assign(ids,group),ids.length+' poste(s) déplacé(s) vers '+groups.name(group)+'.');return;}
+        if(action.startsWith('bulk:')){await runBulk(action.slice(5),targets);return;}
+        if(action==='journal'){openJournal(target);return;}
+        runAction(action,target);
       };
-      document.body.appendChild(menu); renderMenu();
-      (menu?.querySelector('button:not(:disabled)') || menu)?.focus({preventScroll:true});
+      document.body.appendChild(menu);renderMenu();(menu?.querySelector('button:not(:disabled)')||menu)?.focus({preventScroll:true});
     }
     async function runAction(actionId, id) {
       if (actionId === 'details') { openDetails(id); return; }
       const action = actions.find(item => item.id === actionId), agent = agents.find(item => item.id === id);
-      if (!live() || !action || !agent || selecting || reason(action, agent)) return;
+      if (!live() || !action || !agent || selecting || bulkBusy || reason(action, agent)) return;
       dismissDetails();
       closeMenu(); selecting = true; draw();
       try {
@@ -410,7 +596,7 @@ const agentsWorkspace = (() => {
       syncJournal();
     }
     async function refresh() {
-      if (!live() || busy || selecting || visibilitySaving || revoking) return;
+      if (!live() || busy || selecting || visibilitySaving || revoking || bulkBusy || groupsBusy) return;
       busy = true; find('#agentsRefresh').disabled = true; find('#agentDetailsRefresh').disabled = true;
       root.dataset.refreshing = 'true';
       find('.agents-table-scroll').setAttribute('aria-busy', 'true');
@@ -438,6 +624,7 @@ const agentsWorkspace = (() => {
         }
         const previous = selected?.id;
         agents = data.agents; selected = data.selected; stale = false;
+        for(const id of checked)if(!agents.some(agent=>agent.id===id))checked.delete(id);
         if (previous !== selected?.id) await renderTool(true);
         find('#agentsStatus').textContent = selected?.local ? 'Les scans de ce PC sont disponibles localement.' : workspaceAgents.available() ? 'Liste actualisée à ' + new Date().toLocaleTimeString('fr-FR') : 'Connecte-toi au service pour retrouver tes agents associés.';
         if (protectionStale) find('#agentsStatus').textContent += ' · Les relevés de protection ne sont pas disponibles.';
@@ -446,7 +633,7 @@ const agentsWorkspace = (() => {
         stale = true; find('#agentsStatus').textContent = error.message + ' La disponibilité des postes n’est plus confirmée.';
       } finally {
         busy = false;
-        if (live()) { root.dataset.refreshing = 'false'; find('.agents-table-scroll').setAttribute('aria-busy', 'false'); find('#agentsRefresh').disabled = false; find('#agentDetailsRefresh').disabled = false; draw(); if(!stale&&!releaseStale)WolfGuardAgentUpdates.automatic(agents,{onChange:()=>{if(live())draw();}}); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
+        if (live()) { root.dataset.refreshing = 'false'; find('.agents-table-scroll').setAttribute('aria-busy', 'false'); find('#agentsRefresh').disabled = false; find('#agentDetailsRefresh').disabled = false; draw(); if(!bulkBusy&&!stale&&!releaseStale)WolfGuardAgentUpdates.automatic(agents,{onChange:()=>{if(live())draw();}}); clearTimeout(timer); timer = setTimeout(refresh, 10000); }
       }
     }
     find('#agentsSearch').oninput = event => { query = event.target.value.trim(); draw(); };
@@ -468,14 +655,35 @@ const agentsWorkspace = (() => {
     find('#agentsRefresh').onclick = refresh;
     find('#agentsMobileSort').onchange=event=>{sort=event.target.value;draw();};
     find('#agentsMobileDirection').onclick=()=>{descending=!descending;draw();};
+    find('#agentsSelectAll').onchange=event=>{if(bulkBusy)return;for(const agent of filteredAgents().filter(agent=>!agent.local))if(event.target.checked)checked.add(agent.id);else checked.delete(agent.id);syncSelection();};
+    find('#agentsClearSelection').onclick=()=>{if(bulkBusy)return;checked.clear();selectionAnchor='';syncSelection();find('#agentsSelectAll').focus();};
+    find('#agentsBulkCommand').onchange=syncSelection;
+    find('#agentsBulkRun').onclick=()=>runBulk();
+    find('#agentsBulkCancel').onclick=()=>{bulkCancel=true;syncSelection();};
+    find('.agents-fleet').addEventListener('keydown',event=>{
+      if(bulkBusy||event.target.closest('input:not([type="checkbox"]),select,textarea'))return;
+      if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){
+        event.preventDefault();event.stopPropagation();for(const agent of filteredAgents().filter(agent=>!agent.local))checked.add(agent.id);syncSelection();
+      }else if(event.key==='Escape'&&checked.size){event.preventDefault();event.stopPropagation();checked.clear();syncSelection();}
+    },{signal});
+    find('#agentsGroupCreate').onclick=()=>newGroup();
+    find('#agentsView').onchange=event=>{const view=event.target.value;groupChange(()=>groups.setView(view));};
     find('#agentsList').onclick = event => {
+      const groupToggle=event.target.closest('[data-group-toggle]');if(groupToggle){groupChange(()=>groups.toggle(groupToggle.dataset.groupToggle));return;}
+      const rename=event.target.closest('[data-group-rename]');if(rename){renameGroup(rename.dataset.groupRename);return;}
+      const remove=event.target.closest('[data-group-remove]');if(remove){removeGroup(remove.dataset.groupRemove);return;}
+      const groupCheck=event.target.closest('[data-group-check]');if(groupCheck){if(!bulkBusy&&!groupsBusy){for(const agent of groups.buckets(filteredAgents()).find(group=>group.id===groupCheck.dataset.groupCheck)?.rows||[])if(!agent.local){if(groupCheck.checked)checked.add(agent.id);else checked.delete(agent.id);}syncSelection();}return;}
+      const checkbox=event.target.closest('[data-fleet-check]');if(checkbox){selectRange(checkbox.dataset.fleetCheck,checkbox.checked,event.shiftKey);return;}
       const log=event.target.closest('[data-open-agent-journal]');if(log){openJournal(log.dataset.openAgentJournal);return;}
       const update = event.target.closest('[data-agent-install-update]'); if(update){ if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate); return; }
       if(event.target.closest('a[download]'))return;
       const security = event.target.closest('[data-agent-security]'); if(security){ if(!security.disabled)runAction('edr',security.dataset.agentSecurity); return; }
       if (event.target.closest('a,select,input')) return;
       const row = event.target.closest('[data-agent-row]');
-      if (row) { choose(row.dataset.agentRow); openDetails(row.dataset.agentRow); }
+      if (row) {
+        if(event.ctrlKey||event.metaKey||event.shiftKey){selectRange(row.dataset.agentRow,event.shiftKey||!checked.has(row.dataset.agentRow),event.shiftKey);return;}
+        choose(row.dataset.agentRow); openDetails(row.dataset.agentRow);
+      }
     };
     find('#agentsList').oncontextmenu = event => {
       const row = event.target.closest('[data-agent-row]');
@@ -614,6 +822,7 @@ const agentsWorkspace = (() => {
     },{signal});
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
+    groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Groupes indisponibles : '+error.message;});
     current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails};
     // The fleet shell is usable immediately. Its server refresh must not hold
     // the shared navigation queue or prevent leaving the Security section.

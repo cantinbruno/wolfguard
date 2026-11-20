@@ -56,6 +56,13 @@ function changeWorkspaceFromSettings() {
 /* SETTINGS */
 const WOLFGUARD_APP_VERSION = '4.3.2';
 const SETTINGS_ICON_PATHS = {
+  "chevron-right": '<path d="m9 6 6 6-6 6"/>',
+  "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "folder": '<path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  "folder-plus": '<path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM12 10v6M9 13h6"/>',
+  "check-square": '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m7 12 3 3 7-7"/>',
+  "arrow-left": '<path d="M20 12H4m6-6-6 6 6 6"/>',
+  "unlock": '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/>',
   "info": '<circle cx="12" cy="12" r="10"/><path d="M12 11v6m0-10h.01"/>',
   "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>',
   "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71m2.25 5.82a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',

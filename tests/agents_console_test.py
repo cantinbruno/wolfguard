@@ -65,6 +65,11 @@ def run():
                 page.locator('[data-fleet-agent="' + agents[index]['id'] + '"]').click(button='right')
                 expect(page.locator('#agentActions')).to_be_visible()
                 expect(page.locator('#agentActions h2')).to_have_text(agents[index]['name'])
+            def fleet_action(action):
+                target=page.locator('[data-fleet-action="'+action+'"]')
+                if target.count()==0:
+                    page.locator('[data-fleet-action="tools"]' if action in ['passive','active','map','vulnerability','edr','desktop','terminal','files'] else '[data-fleet-action="back"]').click()
+                return target
             def select_agent(index):
                 page.locator('[data-fleet-agent="' + agents[index]['id'] + '"]').click()
                 expect(page.locator('#agentDetailsPanel')).to_be_visible()
@@ -109,7 +114,7 @@ def run():
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '1', '3', '4'])
             page.screenshot(path=str(ROOT/'.cache/fleet-desktop.png'))
             fleet_bounds=page.locator('.agents-table-scroll').bounding_box()
-            assert fleet_bounds['y']<400,fleet_bounds
+            assert fleet_bounds['y']<500 and fleet_bounds['height']>400,fleet_bounds
             assert all(row['height'] <= 80 for row in page.locator('[data-agent-row]').evaluate_all('rows => rows.map(row => ({height: row.getBoundingClientRect().height}))'))
             for width in [390,320]:
                 page.set_viewport_size({'width':width,'height':1000})
@@ -151,7 +156,7 @@ def run():
             page.keyboard.press('Escape')
             # Context details target the clicked machine without changing the tool selection.
             options(0)
-            page.locator('[data-fleet-action="details"]').click()
+            fleet_action('details').click()
             expect(page.locator('#agentDetailsTarget')).to_have_text(agents[0]['name'])
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
             expect(page.locator('#agentDetailsBody')).to_contain_text('Microsoft Defender')
@@ -237,13 +242,13 @@ def run():
             assert page.evaluate('setting("scanAgentId", "")') == agents[0]['id']
             expect(page.locator('#agentToolPanel')).to_be_hidden()
             page.keyboard.press('End')
-            expect(page.locator('[data-fleet-action="files"]')).to_be_focused()
+            expect(fleet_action('bulk:uninstall')).to_be_focused()
             page.keyboard.press('Home')
-            expect(page.locator('[data-fleet-action="details"]')).to_be_focused()
+            expect(fleet_action('details')).to_be_focused()
             page.keyboard.press('ArrowDown')
-            expect(page.locator('[data-fleet-action="passive"]')).to_be_focused()
+            expect(fleet_action('journal')).to_be_focused()
             page.keyboard.press('ArrowDown')
-            expect(page.locator('[data-fleet-action="active"]')).to_be_focused()
+            expect(fleet_action('tools')).to_be_focused()
             page.keyboard.press('Escape')
             expect(page.locator('#agentActions')).to_have_count(0)
             expect(page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]')).to_be_focused()
@@ -265,7 +270,7 @@ def run():
             page.wait_for_timeout(650)
             expect(page.locator('#agentActions')).to_have_count(0)
             options(1)
-            page.locator('[data-fleet-action="active"]').click()
+            fleet_action('active').click()
             page.wait_for_function('() => !sectionTransition.active')
             expect(page.locator('#wgAgentName')).to_contain_text(agents[1]['name'])
             assert page.evaluate('setting("scanAgentId", "")') == agents[1]['id']
@@ -351,7 +356,7 @@ def run():
             expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(0)
             expect(page.locator('.agents-alerts')).to_have_text(['—'] * 4)
             options(0)
-            expect(page.locator('[data-fleet-action="active"]')).to_be_enabled()
+            expect(fleet_action('active')).to_be_enabled()
             state['protection_fail'] = False
             page.locator('#agentsRefresh').click()
             expect(page.locator('.agents-health[data-health="protected"]')).to_have_count(1)
@@ -362,7 +367,7 @@ def run():
             expect(page.locator('.agents-health')).to_have_text(['Accès non accordé'] * 4)
             assert len(summary_calls) == previous_calls
             options(0)
-            page.locator('[data-fleet-action="details"]').click()
+            fleet_action('details').click()
             expect(page.locator('#agentDetailsBody')).to_contain_text('Accès non accordé')
             expect(page.locator('#agentDetailsBody')).not_to_contain_text('Microsoft Defender')
             page.keyboard.press('Escape')
@@ -384,9 +389,9 @@ def run():
                 options(1)
                 if action == 'edr':
                     with page.expect_response(lambda response: '/api/edr/events?' in response.url and agents[1]['id'] in response.url):
-                        page.locator(f'[data-fleet-action="{action}"]').click()
+                        fleet_action(action).click()
                 else:
-                    page.locator(f'[data-fleet-action="{action}"]').click()
+                    fleet_action(action).click()
                 page.wait_for_function('() => !sectionTransition.active')
                 assert page.evaluate('state.section') == section
                 assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
@@ -407,7 +412,7 @@ def run():
                         expect(page.locator('#agentToolPanel')).to_be_hidden()
                         options(index)
                         with page.expect_response(lambda response: '/api/edr/events?' in response.url and agents[index]['id'] in response.url):
-                            page.locator('[data-fleet-action="edr"]').click()
+                            fleet_action('edr').click()
                         expect(page.locator('#edrDetailName')).to_have_text(agents[index]['name'])
                         assert event_agents[-1] == agents[index]['id']
                     page.locator('#edrPolicyMode').select_option('protect')
@@ -436,10 +441,10 @@ def run():
                 expect(page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]')).to_be_focused()
             assert not started
             options(1)
-            page.locator('[data-fleet-action="active"]').focus()
+            fleet_action('active').focus()
             page.evaluate('document.querySelector("#agentsRefresh").click()')
             expect(page.locator('#agentsRefresh')).to_be_enabled()
-            expect(page.locator('[data-fleet-action="active"]')).to_be_focused()
+            expect(fleet_action('active')).to_be_focused()
             page.keyboard.press('Escape')
             expect(page.locator('[data-fleet-agent="' + agents[1]['id'] + '"]')).to_be_focused()
 
@@ -453,18 +458,18 @@ def run():
             page.locator('#agentDetailsClose').click()
             expect(page.locator('#agentActions')).to_have_count(0)
             options(2)
-            expect(page.locator('[data-fleet-action="terminal"]')).to_be_disabled()
-            expect(page.locator('[data-fleet-action="edr"]')).to_be_enabled()
+            expect(fleet_action('terminal')).to_be_disabled()
+            expect(fleet_action('edr')).to_be_enabled()
             page.keyboard.press('Escape')
             page.locator('#agentsFilter').select_option('all')
             select_agent(3)
             expect(page.locator('#agentActions')).to_have_count(0)
             options(3)
-            expect(page.locator('[data-fleet-action="active"]')).to_be_enabled()
-            expect(page.locator('[data-fleet-action="terminal"]')).to_be_disabled()
-            expect(page.locator('[data-fleet-action="terminal"]')).to_contain_text('Mise à jour')
+            expect(fleet_action('active')).to_be_enabled()
+            expect(fleet_action('terminal')).to_be_disabled()
+            expect(fleet_action('terminal')).to_contain_text('Mise à jour')
             expect(page.locator('#agentsList img')).to_have_count(0)
-            page.locator('[data-fleet-action="details"]').click()
+            fleet_action('details').click()
             expect(page.locator('#agentDetailsTarget')).to_have_text(agents[3]['name'])
             expect(page.locator('#agentDetailsBody img')).to_have_count(0)
             expect(page.locator('#agentDetailsBody')).to_contain_text('Non renseigné')
@@ -486,15 +491,15 @@ def run():
             select_agent(1)
             options(1)
             page.evaluate("""async () => {const access=WolfGuardAccess;window.WolfGuardAccess={...access,can:right=>right==='remote.write'?false:access.can(right)};await agentsWorkspace.render()}""")
-            expect(page.locator('[data-fleet-action="terminal"]')).to_be_disabled()
-            expect(page.locator('[data-fleet-action="terminal"]')).to_contain_text('Droit d’accès')
+            expect(fleet_action('terminal')).to_be_disabled()
+            expect(fleet_action('terminal')).to_contain_text('Droit d’accès')
             state['fail'] = True
             page.locator('#agentsRefresh').click()
             expect(page.locator('#agentsStatus')).to_contain_text('plus confirmée')
             options(1)
-            expect(page.locator('[data-fleet-action="active"]')).to_be_disabled()
+            expect(fleet_action('active')).to_be_disabled()
             expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '—', '—', '—'])
-            page.locator('[data-fleet-action="details"]').click()
+            fleet_action('details').click()
             expect(page.locator('#agentDetailsBody')).to_contain_text('Le service est indisponible')
             expect(page.locator('#agentDetailsBody')).not_to_contain_text('Microsoft Defender')
             expect(page.locator('[data-detail-action="active"]')).to_be_disabled()
