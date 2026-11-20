@@ -144,7 +144,7 @@ async function openSettings(initialTab = 'security') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'audit', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -153,7 +153,6 @@ async function openSettings(initialTab = 'security') {
         <div class="settings-identity"><img class="wolf-logo" src="images/logo-loup.svg" alt="Logo loup" width="64" height="64"></div>
         <nav class="settings-tabs" role="tablist" aria-label="Catégories des paramètres" aria-orientation="${matchMedia('(max-width:640px)').matches?'horizontal':'vertical'}">
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-audit" data-settings-tab="audit" role="tab" aria-controls="settings-audit" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Protection de l’application</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
@@ -168,7 +167,6 @@ async function openSettings(initialTab = 'security') {
         </div>
       </aside>
       <div class="settings-main">
-        <section class="settings-panel hidden" id="settings-audit" data-settings-panel="audit" role="tabpanel" aria-labelledby="settings-tab-audit">${settingsAuditHTML()}</section>
         <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>
           <div class="settings-about-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="72" height="72"><div><h4>WolfGuard</h4><p>Documentation IT, coffre chiffré et sécurité des postes dans un même espace de travail.</p></div></div>

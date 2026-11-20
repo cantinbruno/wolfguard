@@ -1,9 +1,0 @@
-.settings-protection-intro{margin:16px 0 24px;color:var(--ui-muted);font-size:13px;line-height:1.7}
-.settings-protection-group{margin:0 0 24px;padding-bottom:8px;border-bottom:1px solid var(--ui-border)}
-.settings-protection-group h4{margin:0 0 16px;font-size:14px;font-weight:600;color:var(--ui-text)}
-#settings-audit ul{list-style:none;padding:0;margin:0}
-#settings-audit li{position:relative;padding:0 0 16px 18px;overflow-wrap:anywhere}
-#settings-audit li:before{content:'';position:absolute;left:0;top:7px;width:5px;height:5px;border-radius:50%;background:#8de0bb}
-#settings-audit li strong{font-size:12px;font-weight:600;line-height:1.6;color:var(--ui-text)}
-#settings-audit li p{margin:4px 0 0;color:var(--ui-muted);font-size:12px;line-height:1.75}
-.settings-protection-note{margin:18px 0 0;font-size:11px;line-height:1.7;color:var(--ui-subtle)}

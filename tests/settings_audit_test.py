@@ -1,4 +1,4 @@
-"""Check the plain security information page without opening a browser window."""
+"""Check settings navigation after removing the information page, headlessly."""
 from functools import partial
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -36,28 +36,18 @@ def run():
             expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function("() => !document.querySelector('#app').inert")
             page.locator('#settingsBtn').click()
-            page.locator('#settings-tab-audit').click()
-            panel = page.locator('#settings-audit')
+            expect(page.locator('#settings-tab-audit,#settings-audit')).to_have_count(0)
+            panel = page.locator('#settings-security')
             expect(panel).to_be_visible()
-            expect(panel.locator('h3')).to_have_text('Protection de l’application')
-            expect(panel.locator('input,select,button,details')).to_have_count(0)
-            expect(panel).to_contain_text('600 000 itérations')
-            expect(panel).to_contain_text('100 000 itérations')
-            expect(panel).to_contain_text('Après 4 heures d’inactivité')
-            expect(panel).to_contain_text('secret serveur dédié')
-            expect(panel).not_to_contain_text('sauvegarde')
-            expect(panel.locator('.settings-protection-group').filter(has_text='Prise en main autorisée')).to_have_count(1)
-            expect(panel.locator('.settings-protection-group').filter(has_text='Partage et permissions conservés')).to_have_count(1)
-            expect(panel.locator('.settings-protection-group')).to_have_count(3)
-            expect(panel.locator('.settings-protection-weaknesses')).to_have_count(0)
+            expect(panel.locator('h3')).to_have_text('Sécurité')
             for width in [1440,900,390]:
                 page.set_viewport_size({'width':width,'height':950})
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
                 assert page.locator('.settings-main').evaluate('el=>el.scrollWidth <= el.clientWidth'), width
                 assert panel.evaluate('el=>el.scrollWidth <= el.clientWidth'), width
-            page.locator('#settings-tab-security').click()
-            page.locator('#settings-tab-audit').click()
-            expect(panel).to_be_visible()
+            page.locator('#settings-tab-security').focus()
+            page.keyboard.press('ArrowDown')
+            expect(page.locator('#settings-data')).to_be_visible()
             page.keyboard.press('Escape')
             expect(page.locator('.settings-modal')).to_have_count(0)
             page.evaluate("openSettings('audit')")
@@ -66,7 +56,7 @@ def run():
             expect(page.locator('.settings-modal')).to_have_count(0)
             assert not errors, errors
             browser.close()
-            print('PASS: page de protections et limites, lecture directe sans controles, navigation, bureau/mobile et verrouillage.')
+            print('PASS: protection section removed, settings keyboard navigation, legacy fallback, desktop/mobile and locking.')
     finally:
         server.shutdown()
         server.server_close()
