@@ -20,7 +20,7 @@ Les nouvelles invitations commencent sans droits. Un gestionnaire délégué ne 
 
 Les niveaux de `agentLevels` sont réglables poste par poste : `read`, `write`, `deny`. Ils **restreignent** les permissions de section, sans jamais les augmenter. Ainsi, `write` sur un poste ne transforme pas une section globale Lecture en Écriture.
 
-Les anciennes listes de postes autorisés restent prises en compte. L’interrupteur « Réservé aux administrateurs et au propriétaire » se trouve dans la vue d’ensemble de chaque poste et dans ses détails sous « Gérer les agents ». Il s’enregistre immédiatement. Le poste devient invisible et inaccessible aux autres rôles dans l’inventaire, les scans et leurs historiques, l’EDR, le bureau, le terminal et les fichiers. Connaître son identifiant ne contourne pas ces contrôles.
+Les anciennes listes de postes autorisés restent prises en compte. L’interrupteur « Réservé aux administrateurs et au propriétaire » se trouve dans la vue d’ensemble de la fiche du poste. Il s’enregistre immédiatement. Le poste devient invisible et inaccessible aux autres rôles dans l’inventaire, les scans et leurs historiques, l’EDR, le bureau, le terminal et les fichiers. Connaître son identifiant ne contourne pas ces contrôles. L’ajout est réservé aux comptes qui ont le droit `agents.pair` ; la révocation se trouve dans la fiche et demande `agents.revoke` ainsi que l’écriture sur le poste concerné.
 
 Le modèle commun est `server/lib/wolfguard/permissions.mjs`. Le build génère sa copie `browser/permissions.js`. L’API reste l’autorité ; masquer un bouton ne suffit pas à protéger une opération.
 

@@ -1,0 +1,67 @@
+.agents-modal.agent-enrollment-modal{display:flex;flex-direction:column;width:min(720px,calc(100vw - 32px));max-width:720px;height:auto;max-height:calc(100dvh - 40px);padding:24px;background:var(--ui-sidebar);border:1px solid var(--ui-border);border-radius:12px;overflow:hidden;box-sizing:border-box}
+.agents-modal.agent-enrollment-modal>h2{flex:none;margin:0 44px 0 0;padding:0;border:0;font-size:21px;line-height:1.5;letter-spacing:-.3px;grid-area:auto}
+.agent-enrollment-modal #closeAgentsBtn{position:absolute;right:20px;top:20px}
+.agent-enrollment-modal .agents-dialog-content{padding:0;margin-top:8px;overflow:auto;min-height:0;scrollbar-width:thin;grid-area:auto}
+#settings-agents.agent-enrollment{padding:0;min-width:0}
+.agent-enrollment .enrollment-intro{margin:0 0 22px;color:var(--ui-muted);font-size:14px;line-height:1.7;max-width:60ch}
+.enrollment-platforms{border:0;padding:0;margin:0 0 20px;min-width:0}
+.enrollment-platforms legend{font-size:14px;font-weight:600;margin-bottom:10px;padding:0}
+.enrollment-platforms>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.enrollment-platforms button{display:flex;align-items:center;gap:9px;padding:12px 10px;min-width:0;border:1px solid var(--ui-border);border-radius:8px;background:transparent;color:var(--ui-text);cursor:pointer;text-align:left;min-height:68px;font-family:inherit}
+.enrollment-platforms button>svg{width:22px;height:22px;flex:none;color:var(--ui-muted)}
+.enrollment-platforms button>span[aria-hidden=true]:first-child{font-size:26px;color:var(--ui-muted)}
+.enrollment-platforms button>span:not([aria-hidden]){min-width:0;flex:1}
+.enrollment-platforms strong{display:block;font-size:14px;font-weight:600;line-height:1.5}
+.enrollment-platforms small{display:block;font-size:11px;color:var(--ui-muted);line-height:1.5;overflow-wrap:anywhere}
+.enrollment-platform-check{flex:none;align-self:flex-start;font-size:12px;color:var(--agent-accent)}
+.enrollment-platforms button[aria-pressed=true]{border-color:var(--agent-accent);background:color-mix(in srgb,var(--agent-accent) 9%,var(--ui-sidebar))}
+.enrollment-platforms button:hover{border-color:var(--agent-accent)}
+.enrollment-platforms button:focus-visible,.enrollment-advanced summary:focus-visible{outline:2px solid var(--agent-accent);outline-offset:3px}
+.enrollment-install{padding:20px;border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-page)}
+.enrollment-install-heading{display:flex;align-items:center;gap:12px}
+.enrollment-install-heading>span{display:grid;place-items:center;width:38px;height:38px;flex:none;border-radius:9px;background:var(--ui-surface);color:var(--agent-accent)}
+.enrollment-install-heading svg{width:19px;height:19px}
+.enrollment-install h3{margin:0;font-size:16px;font-weight:600;line-height:1.5}
+.enrollment-install-heading p{margin:2px 0 0;font-size:12px;color:var(--ui-muted)}
+#wgAgentInstructions{font-size:13px;line-height:1.7;color:var(--ui-muted);margin:14px 0 16px}
+.enrollment-install-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
+#settings-agents.agent-enrollment .settings-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;min-height:38px;padding:9px 12px;white-space:normal;text-decoration:none}
+#settings-agents.agent-enrollment .settings-btn svg{width:15px;height:15px;flex:none}
+.enrollment-ticket-note{font-size:11px;line-height:1.6;color:var(--ui-muted);margin:12px 0 0}
+.enrollment-share{border-top:1px solid var(--ui-border);margin-top:18px;padding-top:16px}
+.enrollment-share label{display:block;font-size:13px;line-height:1.6;margin-bottom:8px}
+.enrollment-share>div{display:flex;gap:7px}
+.enrollment-share input{min-width:0;width:100%;flex:1;border:1px solid var(--ui-border);border-radius:7px;padding:9px;font:12px/1.6 Consolas,monospace;background:var(--ui-sidebar);color:var(--ui-text)}
+.enrollment-share p{font-size:12px;color:var(--ui-muted);margin:8px 0 0}
+.enrollment-progress{display:flex;align-items:center;gap:12px;margin:16px 0;padding:14px 0;min-width:0}
+.enrollment-progress-icon{display:inline-flex;color:var(--ui-muted)}
+.enrollment-progress-icon svg{width:21px;height:21px}
+.enrollment-progress>div{flex:1;min-width:0}
+.enrollment-progress strong{display:block;font-size:13px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.enrollment-progress p,.enrollment-progress small{display:block;font-size:12px;line-height:1.6;color:var(--ui-muted);margin:3px 0 0}
+.enrollment-progress small:empty{display:none}
+.enrollment-progress[data-state=success]{color:#9de3c4}
+.enrollment-progress[data-state=success] .enrollment-progress-icon{color:inherit}
+.enrollment-progress[data-state=expired] strong{color:#efcd9a}
+.enrollment-advanced{border-top:1px solid var(--ui-border);padding:13px 0 0;margin-top:0}
+.enrollment-advanced summary{font-size:12px;line-height:1.6;cursor:pointer;color:var(--ui-muted)}
+.enrollment-advanced p{font-size:12px;line-height:1.7;color:var(--ui-muted)}
+.enrollment-advanced a{margin-top:10px}
+.enrollment-advanced progress{display:block;width:100%;height:3px;margin-top:13px;accent-color:var(--agent-accent)}
+.agent-enrollment>p:empty{display:none}
+.enrollment-feedback{font-size:12px;line-height:1.6;color:var(--agent-accent);margin:12px 0}
+@media(max-width:580px){
+  .agents-modal.agent-enrollment-modal{width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:18px}
+  .agent-enrollment-modal #closeAgentsBtn{right:14px;top:14px}
+  .agents-modal.agent-enrollment-modal>h2{font-size:19px}
+  .enrollment-platforms button{flex-direction:column;align-items:flex-start;gap:5px;position:relative;padding:10px 8px}
+  .enrollment-platforms strong{font-size:13px}
+  .enrollment-platforms small{font-size:10px}
+  .enrollment-platform-check{position:absolute;right:7px;top:8px}
+  .enrollment-platforms button>span[aria-hidden=true]:first-child{height:22px;line-height:22px}
+  .enrollment-install{padding:15px}
+  .enrollment-install-actions{display:grid}
+  .enrollment-share input{font-size:16px}
+  .enrollment-progress{flex-wrap:wrap}
+  .enrollment-progress #wgAgentViewPosts{margin-left:33px}
+}

@@ -14,7 +14,7 @@ const workspaceAgents = (() => {
   const cloud=()=>typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud;
   const available=()=>!!(cloud()?.enabled&&cloud().hasSession());
   const platformName=value=>platformNames[value]||'Système non renseigné';
-  function unmount(){clearTimeout(timer);timer=0;generation++;}
+  function unmount(){clearTimeout(timer);timer=0;generation++;if(typeof workspaceAgentEnrollment!=='undefined')workspaceAgentEnrollment.unmount();}
   async function snapshot(){
     if(!available())return {agents:[],selected:null};
     const key=state.vaultKey,response=await cloud().agentRequest('agents'),saved=await setting('scanAgentId','');
@@ -193,15 +193,15 @@ const workspaceAgents = (() => {
     async function poll(){if(live())updatePairing();await refresh();if(live())timer=setTimeout(poll,3000);}
     if(available())poll();else{renderAgents();find('#wgAgentCurrentDetail').textContent='L’association est disponible sur le site après saisie de ton code.';}
   }
-  return {mount,unmount,snapshot,platformName,available};
+  return {mount,unmount,snapshot,platformName,platformIcon,downloads,downloadRevision,available};
 })();
 
 async function openAgentsInterface(options={}){
   if($('#app').classList.contains('hidden'))return;
   const returnFocus=document.activeElement;
-  modal('Agents','<button type="button" class="settings-btn settings-btn-icon settings-close" id="closeAgentsBtn" aria-label="Fermer les agents">'+settingsIcon('x')+'</button><div class="agents-dialog-content"><section id="settings-agents"></section></div>');
-  const dialog=$('#modalRoot .modal');dialog.classList.add('settings-modal','agents-modal');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.querySelector('h2').id='agentsTitle';dialog.setAttribute('aria-labelledby','agentsTitle');dialog.parentElement.classList.add('settings-wrap');
+  modal('Ajouter un poste','<button type="button" class="settings-btn settings-btn-icon settings-close" id="closeAgentsBtn" aria-label="Fermer l’ajout du poste">'+settingsIcon('x')+'</button><div class="agents-dialog-content"><section id="settings-agents"></section></div>');
+  const dialog=$('#modalRoot .modal');dialog.classList.add('settings-modal','agents-modal','agent-enrollment-modal');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.querySelector('h2').id='agentsTitle';dialog.setAttribute('aria-labelledby','agentsTitle');dialog.parentElement.classList.add('settings-wrap');
   const close=()=>{closeModal();if(typeof options.onClose==='function')options.onClose();else(returnFocus?.isConnected&&returnFocus!==document.body?returnFocus:$('#agentsManage') || $('#securityBtn'))?.focus();};$('#closeAgentsBtn').onclick=close;dialog.parentElement.onclick=event=>{if(event.target===dialog.parentElement)close();};
   dialog.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}if(event.key!=='Tab')return;const controls=[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href]')].filter(node=>node.getClientRects().length&&node.tabIndex!==-1),first=controls[0],last=controls.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}};
-  workspaceAgents.mount($('#settings-agents'),options);$('#closeAgentsBtn').focus();
+  workspaceAgentEnrollment.mount($('#settings-agents'),{onAdded:agent=>{close();options.onAdded?.(agent);}});$('#closeAgentsBtn').focus();
 }

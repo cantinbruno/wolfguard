@@ -28,7 +28,7 @@ const agentsWorkspace = (() => {
     let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
-    let visibilitySaving = false, visibilityNotice = null;
+    let visibilitySaving = false, visibilityNotice = null, revoking = false, revokeError = null;
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
     const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
     const columns = [['name','Poste'],['online','Connexion'],['health','Protection du poste'],['alerts','Alertes'],['version','Agent'],['lastSeen','Dernier contact']];
@@ -37,7 +37,7 @@ const agentsWorkspace = (() => {
     mobileTable.addEventListener('change',tableKeyboard,{signal});
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE</span><h1>Sécurité des postes</h1></div></div>
-      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('sliders-horizontal')}Gérer les agents</button></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button></div>
     </header>
     <div id="agentsMetrics" class="agents-metrics"></div><div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
     <div class="agents-console">
@@ -60,8 +60,8 @@ const agentsWorkspace = (() => {
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
       </div>
     </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
-    find('#agentsManage').hidden = !can('agents.read') && !can('agents.pair');
-    find('#agentsManage').onclick = () => openAgentsInterface({tab:can('agents.read')?'fleet':'connect'});
+    find('#agentsManage').hidden = !can('agents.pair');
+    find('#agentsManage').onclick = () => openAgentsInterface({onAdded:agent=>{if(!live())return;if(!agents.some(row=>row.id===agent.id))agents.push(agent);draw();openDetails(agent.id);}});
 
     function protection(agent) {
       const endpoint = protections.get(agent.id);
@@ -371,23 +371,25 @@ const agentsWorkspace = (() => {
               ${fields([['Identifiant du poste',agent.id],['Version installée',agent.version||'Non remontée'],['Version publiée',!releaseStale?publishedRelease?.version||'Indisponible':'Indisponible'],['Version des signatures',snapshot?.signatureVersion||'Non confirmée'],['Réception du relevé',timestamp(endpoint?.receivedAt)],['Actions sur les protections',snapshot?snapshot.canEnforce?'Prises en charge par le composant système':'Privilèges système nécessaires':'Non confirmées']])}
               <p class="agent-record-caption">Les informations matérielles et les adresses réseau ne sont pas remontées par cet inventaire.</p>
             </details>
+            ${!agent.local&&can('agents.revoke',agent)?'<section class="agent-record-removal"><div><h3>Retirer ce poste</h3><p>Révoquer son accès arrête ses scans et ses partages en cours. Une nouvelle association sera nécessaire pour le reconnecter.</p></div><div class="agent-record-removal-actions">'+(agent.platform==='win32'?'<a class="settings-btn" id="wgAgentUninstall" href="downloads/WolfGuard-Agent-Uninstall.cmd" download>Télécharger le désinstalleur Windows</a>':'')+'<button type="button" data-record-revoke="'+esc(agent.id)+'" '+(busy||stale||revoking?'disabled':'')+'>'+esc(revoking?'Révocation…':'Révoquer l’accès')+'</button></div>'+(revokeError?.id===agent.id?'<p class="access-error" role="alert">'+esc(revokeError.message)+'</p>':'')+'</section>':''}
           </section>
         </div>
       </div>`;
       if (html !== detailHTML) {
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
-        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), restriction = focused?.hasAttribute('data-record-restricted'), disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), restriction = focused?.hasAttribute('data-record-restricted'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if (update || edr) (find(edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if(restriction)find('[data-record-restricted]:not(:disabled)')?.focus({preventScroll:true});
+        else if(revoke)find('[data-record-revoke="'+CSS.escape(revoke)+'"]:not(:disabled)')?.focus({preventScroll:true});
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
     }
     async function refresh() {
-      if (!live() || busy || selecting || visibilitySaving) return;
+      if (!live() || busy || selecting || visibilitySaving || revoking) return;
       busy = true; find('#agentsRefresh').disabled = true; find('#agentDetailsRefresh').disabled = true;
       root.dataset.refreshing = 'true';
       find('.agents-table-scroll').setAttribute('aria-busy', 'true');
@@ -562,9 +564,24 @@ const agentsWorkspace = (() => {
       const edr=event.target.closest('[data-record-edr]');if(edr){if(!edr.disabled)runAction('edr',detailAgentId);return;}
       const update = event.target.closest('[data-agent-install-update]');
       if(update){if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate);return;}
+      const revoke=event.target.closest('[data-record-revoke]');if(revoke){if(!revoke.disabled)revokeAgent(revoke.dataset.recordRevoke);return;}
       const button = event.target.closest('[data-detail-action]');
       if (button && !button.disabled) runAction(button.dataset.detailAction,detailAgentId);
     };
+    async function revokeAgent(id){
+      const agent=agents.find(row=>row.id===id);
+      if(!agent||!live()||busy||stale||revoking||!can('agents.revoke',agent))return;
+      const confirmed=await appConfirm('Révoquer l’accès de « '+agent.name+' » ? Ses scans et partages en cours seront arrêtés.',{title:'Révoquer ce poste',confirmLabel:'Révoquer l’accès',danger:true});
+      if(!confirmed||!live()||revoking||stale||!can('agents.revoke',agent))return;
+      revoking=true;revokeError=null;renderDetails();
+      try{
+        await WolfGuardCloud.agentRequest('agents/revoke',{id},{signal});if(!live())return;
+        agents=agents.filter(row=>row.id!==id);protections.delete(id);
+        if(selected?.id===id){selected=null;try{await setSetting('scanAgentId','');}catch{}dismissTool();}
+        dismissDetails(true);draw();find('#agentsStatus').textContent='Accès de « '+agent.name+' » révoqué.';
+      }catch(error){if(live())revokeError={id,message:error.message};}
+      finally{revoking=false;if(live()){renderDetails();if(detailAgentId===id)find('[data-record-revoke]')?.focus({preventScroll:true});clearTimeout(timer);timer=setTimeout(refresh,10000);}}
+    }
     find('#agentDetailsBody').addEventListener('keydown',event=>{
       const tab=event.target.closest('[data-record-tab]');if(!tab||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
       event.preventDefault();const tabs=['overview','tools','details'],index=tabs.indexOf(tab.dataset.recordTab);

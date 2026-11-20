@@ -53,9 +53,10 @@ def run():
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),kind
                 page.set_viewport_size({'width':1440,'height':1000})
             open_agent_manager(page)
-            expect(page.locator('#wgAgentSelect')).to_be_visible()
+            expect(page.locator('#wgAgentConnect')).to_be_visible()
+            expect(page.locator('#wgAgentSelect')).to_have_count(0)
             page.locator('#closeAgentsBtn').click()
-            print('PASS: four distinct forms and empty states, common agent managed only in settings')
+            print('PASS: four distinct forms and empty states; dedicated enrollment without a machine selector')
 
             navigate(page,'passive');page.locator('#scanTarget').fill('192.0.2.1');feed_report(page,json.dumps(PASSIVE),'Réseau passif')
             expect(page.locator('.passive-network-device')).to_have_count(1)

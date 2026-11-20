@@ -18,7 +18,9 @@ L’association d’un poste est indépendante de la connexion du compte navigat
 
 Les permissions sont réglables poste par poste et restent limitées par les droits de section. Les opérations déjà en cours doivent être révoquées lorsque les accès nécessaires disparaissent. Voir [Droits](../droits.md).
 
-Dans le parc, l’unique bouton « Gérer les agents » ouvre la liste avec les commandes de choix et de révocation. L’ajout est accessible dans cette fenêtre et ne doit pas revenir sur la liste après le chargement asynchrone. La fiche se répartit entre « Vue d’ensemble », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La gestion reste centralisée dans son unique fenêtre. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
+Dans le parc, l’unique bouton « Ajouter un poste » ouvre une fenêtre consacrée à l’association : choix Windows / Linux / macOS, installateur personnel ou lien à ouvrir sur un autre poste, puis confirmation automatique de son arrivée. Le lien est valable dix minutes pour un seul poste. Les commandes manuelles restent repliées. Cette fenêtre ne présente ni liste de postes, ni sélecteur du poste utilisé, ni commande de révocation ou de désinstallation.
+
+Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le désinstalleur Windows est proposé dans cette même zone. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
 
 La mise à jour télécharge uniquement les fichiers autorisés, contrôle le manifeste et les empreintes, puis attend le retour du poste avec la version attendue. Préserver son association. Un SHA-256 vérifié n’est pas une signature d’éditeur Windows.
 
@@ -33,5 +35,7 @@ La reconstruction normale passe par `npm run build`. Le packaging utilise des li
 ## Tests
 
 Les tests Node des agents et contrats peuvent s’exécuter sur des données temporaires. Ne pas lancer les tests de capture, saisie, clics, fenêtres natives ou modification des protections sur le poste utilisateur sans demande explicite.
+
+Le parcours ajout → installation → fiche → révocation est vérifié sans fenêtre avec `python tests/enrollment_workspace_test.py`. Les tests `tests/agent_workspace_test.py` et `tests/agents_console_test.py` couvrent aussi les installateurs Windows/Linux/macOS, le poste sélectionné, les outils et les écrans mobiles.
 
 La procédure [Signature Windows](signature-windows.md) reste facultative et exige un certificat reconnu réellement disponible. L’utilisateur a abandonné l’achat du certificat ; ne pas le relancer automatiquement.

@@ -346,6 +346,15 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
   .agent-details-actions button{gap:9px;padding:11px 12px}
   .agent-record-tool-state{width:64px;font-size:11px}
 }
+.agent-record-removal{margin-top:22px;padding-top:18px;border-top:1px solid var(--ui-border)}
+.agent-record-removal h3{font-size:14px;line-height:1.5;font-weight:600;margin:0 0 6px}
+.agent-record-removal p{font-size:12px;line-height:1.7;color:var(--ui-muted);margin:0 0 14px;max-width:68ch}
+.agent-record-removal-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.agent-record-removal-actions button,.agent-record-removal-actions a{font-family:inherit;font-size:12px;line-height:1.6;padding:8px 12px;min-height:36px;box-sizing:border-box;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-sidebar);color:var(--ui-text);text-decoration:none;cursor:pointer}
+.agent-record-removal-actions [data-record-revoke]{border-color:#b67c794d;color:#efb1ac}
+.agent-record-removal-actions [data-record-revoke]:hover{background:#b67c7914}
+.agent-record-removal-actions button:disabled{opacity:.5;cursor:wait}
+.agent-record-removal-actions button:focus-visible,.agent-record-removal-actions a:focus-visible{outline:2px solid var(--agents-accent);outline-offset:3px}
 .agents-modal .agent-manager-heading .settings-heading h3 {font-size:18px}
 .agents-modal .agent-manager-machine-row {grid-template-columns:32px minmax(0,1fr) auto}
 .agents-modal .agent-manager-machine-row>.agent-manager-presence {grid-column:2; grid-row:2; justify-self:start}
