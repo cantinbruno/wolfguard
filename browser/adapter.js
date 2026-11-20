@@ -804,10 +804,10 @@ const webWorkspace = (() => {
     try{const info=await request('');enabled=info.enabled;required=info.required;canReplace=!!info.canReplace;render();}
     catch(error){if(live())root.textContent=error.message;}
   }
-  openSettings=async (initialTab,options={}) => {
+  openSettings=async initialTab => {
     assertFreshSession();
     if (!session) return;
-    await originalSettings(initialTab === 'modules' ? 'security' : initialTab,options);
+    await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
     if (!session) { closeModal(); return; }
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';

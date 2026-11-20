@@ -51,8 +51,12 @@ def run():
             page.set_viewport_size({'width':width,'height':900})
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
             assert page.locator('.agents-console').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
-        page.set_viewport_size({'width':1440,'height':1000});page.locator('#agentsGroupsRights').click()
+        page.set_viewport_size({'width':1440,'height':1000})
+        expect(page.locator('#agentsGroupsRights')).to_have_count(0)
+        expect(page.locator('[data-section-rights]')).to_have_count(0)
+        page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
         expect(page.locator('#settings-groups')).to_be_visible()
+        expect(page.locator('#settings-groups .settings-panel-head')).to_contain_text('préparés automatiquement')
         url=invite(page,'group-ui@example.test');guest=context().new_page();activate(guest,url,'group-ui@example.test')
         page.locator('#wgUserInvitationClose').click();page.locator('#wgUsersRefresh').click()
         page.locator('#settings-tab-groups').click();page.locator('#wgGroupCreate').click();page.locator('.app-dialog-input').fill('Équipe postes');page.locator('.app-dialog-submit').click()
@@ -70,24 +74,22 @@ def run():
         page.locator('.settings-close').click()
         expect(page.locator('#agentsGroupCreate')).to_have_text('Nouvelle section')
         expect(page.locator('[data-agent-group=ungrouped]')).to_contain_text('Sans section')
-        page.locator(f'[data-section-rights="{servers}"]').click()
-        expect(page.locator('#wgGroupsSectionContext')).to_contain_text('Serveurs')
-        expect(page.locator('#wgGroupsSectionContext')).to_contain_text('autres sections')
+        expect(page.locator('#agentsGroupsRights')).to_have_count(0)
+        expect(page.locator('[data-section-rights]')).to_have_count(0)
+        page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
         page.locator(f'[data-access-group="{permission_group}"]').click()
-        expect(page.locator(f'[data-group-right="{servers}"]')).to_have_attribute('data-section-focus','true')
         expect(page.locator('[data-section=library][data-level=read]')).to_have_attribute('aria-pressed','true')
         page.locator(f'[data-group-right-id="{servers}"][data-group-level=write]').click();page.locator('#wgPermissionSave').click()
         expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
         saved=page.evaluate("async id=>(await WolfGuardCloud.agentRequest('users/groups')).groups.find(group=>group.id===id)",permission_group)
         assert saved['policy']['sections']['library']=='read' and saved['policy']['groupLevels'][servers]=='write'
-        expect(page.locator(f'[data-access-group="{permission_group}"]')).to_contain_text('Lecture')
         assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==2
         for width in [1440,850,390,320]:
             page.set_viewport_size({'width':width,'height':900})
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
-        page.screenshot(path=str(ROOT/'.cache/sections-rights.png'),animations='disabled')
+        page.screenshot(path=str(ROOT/'.cache/settings-groups.png'),animations='disabled')
         assert not errors,errors
-    print('PASS: shared groups, multiple drag/drop, context move, duplicate, collapse, persistence, failed saves, responsive layout and group permissions')
+    print('PASS: shared groups prepared from existing access, Settings-only rights, drag/drop, persistence and responsive layout')
 
 
 if __name__=='__main__':run()

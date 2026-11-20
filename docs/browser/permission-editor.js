@@ -10,7 +10,7 @@ window.WolfGuardPermissionEditor=(()=>{
     host.querySelectorAll('[data-permission-pane]').forEach(pane=>{pane.hidden=pane.dataset.permissionPane!==view;});
     const heading=host.querySelector('.permission-role-heading h4');if(heading)heading.textContent=view==='posts'?'Accès par groupe':'Rôle et accès';
   }
-  async function open(root,user,{signal,onSaved,embedded=false,group=false,fleetSection=null}){
+  async function open(root,user,{signal,onSaved,embedded=false,group=false}){
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;
     host.dataset.dirty='false';host.dataset.saving='false';host.innerHTML='<p role="status">Chargement des droits…</p>';
     const live=()=>!signal.aborted&&host.isConnected&&generation===editorGeneration;
@@ -60,7 +60,7 @@ window.WolfGuardPermissionEditor=(()=>{
             <div class="permission-row permission-security-level" data-permission-section="security"><span class="permission-row-name">Sécurité des postes</span><div class="permission-row-levels" role="group" aria-label="Niveau de sécurité des postes">${catalog.levels.map(([value,label])=>'<button type="button" data-security-level="'+value+'" aria-pressed="'+(current===value)+'">'+esc(label)+'</button>').join('')}</div></div>
             <p class="permission-security-explanation">${policy.admin?'Le mode administrateur donne tous les droits sur tous les postes.':current==='custom'?'Les droits actuels diffèrent selon les outils et sont conservés. Choisir un niveau les harmonise.':current==='write'?'Permet d’associer et de révoquer les agents, lancer les scans, administrer la protection et prendre la main sur les postes autorisés.':current==='read'?'Permet de consulter les postes et leurs résultats. Aucun lancement de scan, contrôle à distance ou changement sur un agent.':'Les agents et leurs outils sont masqués pour ce compte.'}</p>
             <${embedded?'section':'details'} class="permission-agent-scope" id="wgPermissionAgentScope">${embedded?'<h5>Sections de postes</h5>':'<summary>Sections de postes</summary>'}<p>${policy.admin?'Le groupe administrateur accède à toutes les sections de postes.':'Définis les droits du groupe d’utilisateurs sélectionné sur chaque section de postes. Ces accès restent limités par ses droits sur les outils ci-dessus. Déplacer un poste applique les droits de sa section d’arrivée.'}</p>
-            <div class="permission-agent-list permission-agent-rights">${fleet.groups.map(group=>'<div class="permission-agent-right" data-section-focus="'+(group.id===fleetSection)+'" data-group-right="'+esc(group.id)+'"><strong>'+esc(group.name)+'<small> · '+Object.values(fleet.assignments).filter(id=>id===group.id).length+' poste(s)</small></strong><div class="permission-row-levels" role="group" aria-label="Droits sur la section '+esc(group.name)+'">'+catalog.levels.map(([value,label])=>'<button type="button" data-group-right-id="'+esc(group.id)+'" data-group-level="'+value+'" aria-pressed="'+(assigned(group.id)===value)+'">'+esc(label)+'</button>').join('')+'</div></div>').join('')}</div><small>Les nouvelles sections de postes sont invisibles pour ce groupe par défaut. Aucun droit individuel par poste.</small>
+            <div class="permission-agent-list permission-agent-rights">${fleet.groups.map(group=>'<div class="permission-agent-right" data-group-right="'+esc(group.id)+'"><strong>'+esc(group.name)+'<small> · '+Object.values(fleet.assignments).filter(id=>id===group.id).length+' poste(s)</small></strong><div class="permission-row-levels" role="group" aria-label="Droits sur la section '+esc(group.name)+'">'+catalog.levels.map(([value,label])=>'<button type="button" data-group-right-id="'+esc(group.id)+'" data-group-level="'+value+'" aria-pressed="'+(assigned(group.id)===value)+'">'+esc(label)+'</button>').join('')+'</div></div>').join('')}</div><small>Les nouvelles sections de postes sont invisibles pour ce groupe par défaut. Aucun droit individuel par poste.</small>
             <details class="permission-security-summary"><summary>Droits actuels par outil</summary><dl>${catalog.sections.filter(([section])=>securitySections.includes(section)).map(([section,name])=>'<div><dt>'+esc(name)+'</dt><dd>'+esc(levelBadge(section))+'</dd></div>').join('')}</dl></details></${embedded?'section':'details'}>
           </fieldset></section>`;
       }
@@ -116,7 +116,6 @@ window.WolfGuardPermissionEditor=(()=>{
         };
         dirty();
         if(focusSelector)host.querySelector(focusSelector)?.focus({preventScroll:true});
-        else if(fleetSection)host.querySelector('[data-section-focus="true"]')?.scrollIntoView({block:'center'});
       }
       render();if(!embedded)host.scrollIntoView({block:'start'});
     }catch(error){if(live())host.innerHTML='<p class="access-error" role="alert">'+esc(error.message)+'</p>';}

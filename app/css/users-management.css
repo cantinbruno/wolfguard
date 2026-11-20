@@ -267,6 +267,3 @@
 }
 
 #wgGroupPermissionHost>p{padding:16px;margin:0;line-height:1.7}
-
-.access-group-section-context{padding:12px 14px;border:1px solid var(--ui-border);border-radius:6px;color:var(--ui-text);line-height:1.7}
-.permission-agent-right[data-section-focus="true"]{outline:2px solid var(--users-accent);outline-offset:3px;border-radius:4px}

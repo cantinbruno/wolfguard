@@ -10,7 +10,7 @@ test('shared authorization groups replace individual policies, revoke all member
     for(const member of [first,second])assert.equal((await s.api('users/permissions',{id:member.user.id,revision:1,policy:profilePolicy('observer')},s.owner.token)).status,200);
     assert.equal((await s.api('agents/groups/bootstrap',{legacy:{}},s.owner.token)).status,200);
     let response=await s.api('users/groups/bootstrap',{},s.owner.token);assert.equal(response.status,200,await response.clone().text());let state=await response.json();
-    const old=state.groups.find(group=>group.memberIds.includes(first.user.id));assert.ok(old.memberIds.includes(second.user.id),'identical old rights form one shared group');
+    const old=state.groups.find(group=>group.memberIds.includes(first.user.id));assert.ok(old.memberIds.includes(second.user.id),'identical old rights form one shared group');assert.equal(old.name,'Observateurs','prepared groups use the existing access profile name');
     s.env.DB.db.prepare('UPDATE users SET permissions_cipher=? WHERE id=?').run('obsolete-individual-policy-is-ignored',first.user.id);
     let firstAuth=await s.login('first-group@example.test','12345678'),secondAuth=await s.login('second-group@example.test','12345679');
     assert.equal(firstAuth.user.permissions.sections.library,'read');assert.equal(firstAuth.user.permissions.accessGroup.id,old.id);
