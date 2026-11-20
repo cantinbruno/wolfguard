@@ -116,3 +116,7 @@ export const endpointCommands=sqliteTable('endpoint_commands',{
 export const fleetGroups=sqliteTable('fleet_groups',{
   id:integer('id').primaryKey(),generation:integer('generation').notNull(),revision:integer('revision').notNull(),configCipher:text('config_cipher').notNull(),updatedAt:integer('updated_at').notNull()
 });
+
+export const accessGroups=sqliteTable('access_groups',{
+  id:integer('id').primaryKey(),generation:integer('generation').notNull(),revision:integer('revision').notNull(),configCipher:text('config_cipher').notNull(),updatedAt:integer('updated_at').notNull()
+});

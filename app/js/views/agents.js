@@ -645,7 +645,7 @@ const agentsWorkspace = (() => {
     };
     find('#agentsGroupsExpand').onclick=()=>groupChange(()=>groups.expandAll(),'Groupes dépliés.');
     find('#agentsGroupsCollapse').onclick=()=>groupChange(()=>groups.collapseAll(),'Groupes repliés.');
-    find('#agentsGroupsRights').onclick=()=>openSettings('users');
+    find('#agentsGroupsRights').onclick=()=>openSettings('groups');
     root.addEventListener('click',async event=>{
       const button=event.target.closest('[data-group-duplicate]');if(!button||button.disabled)return;
       const id=button.dataset.groupDuplicate,name=await appPrompt('Nom du groupe dupliqué',groups.name(id)+' (copie)',{title:'Dupliquer le groupe',confirmLabel:'Créer'});

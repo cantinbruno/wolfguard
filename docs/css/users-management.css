@@ -246,3 +246,24 @@
   #settings-users .users-detail-tabs{padding:0 8px}
   #settings-users .users-account-security .access-actions{grid-template-columns:minmax(0,1fr)}
 }
+
+.access-group-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid var(--ui-border);flex-wrap:wrap}
+.access-group-heading h4{margin:0}.access-group-heading .actions{flex-wrap:wrap}
+.access-group-members{padding:16px;border-bottom:1px solid var(--ui-border)}
+.access-group-members summary{cursor:pointer;font-weight:600}.access-group-members p{line-height:1.7;color:var(--ui-muted)}
+.access-group-member{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;overflow-wrap:anywhere}
+.access-group-members select,.user-access-group select{min-width:0;max-width:100%;padding:9px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
+.user-access-group{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.access-groups-workspace .users-directory>label{display:flex;flex-direction:column;gap:8px}
+.access-groups-workspace .users-directory input{min-width:0;padding:10px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
+
+@media(min-width:851px){
+  #settings-groups{height:100%;min-height:0;display:flex;flex-direction:column}
+  #settings-groups.hidden{display:none}
+  #settings-groups>.settings-panel-head,#settings-groups>p{flex:none}
+  .access-groups-workspace{flex:1;min-height:0;align-items:stretch}
+  .access-groups-workspace .users-directory{overflow:auto;min-height:0}
+  .access-groups-workspace .users-detail{overflow:auto;min-height:0;overscroll-behavior:contain}
+}
+
+#wgGroupPermissionHost>p{padding:16px;margin:0;line-height:1.7}

@@ -2,7 +2,7 @@
 window.WolfGuardPermissionEditor=(()=>{
   const securitySections=['agents','scan.passive','scan.active','scan.map','scan.vulnerability','edr','remote'];
   let editorGeneration=0;
-  const hostFor=root=>root.querySelector('#wgPermissionHost');
+  const hostFor=root=>root.querySelector('[data-permission-host],#wgPermissionHost');
   const request=(path,value,signal)=>WolfGuardCloud.agentRequest('users/permissions'+path,value,{signal});
   const date=value=>new Date(value).toLocaleString('fr-FR');
   function setView(root,view){
@@ -10,15 +10,14 @@ window.WolfGuardPermissionEditor=(()=>{
     host.querySelectorAll('[data-permission-pane]').forEach(pane=>{pane.hidden=pane.dataset.permissionPane!==view;});
     const heading=host.querySelector('.permission-role-heading h4');if(heading)heading.textContent=view==='posts'?'Accès par groupe':'Rôle et accès';
   }
-  async function open(root,user,{signal,onSaved,embedded=false}){
+  async function open(root,user,{signal,onSaved,embedded=false,group=false}){
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;
     host.dataset.dirty='false';host.dataset.saving='false';host.innerHTML='<p role="status">Chargement des droits…</p>';
     const live=()=>!signal.aborted&&host.isConnected&&generation===editorGeneration;
+    if(!group&&user.role!=='admin'){host.innerHTML='<p>Les droits sont hérités du groupe. Modifie-les dans Paramètres → Groupes.</p>';return;}
     if(user.role==='admin'){host.innerHTML='<section class="permission-editor permission-embedded"><header><div><span class="users-eyebrow">ACCÈS AU COMPTE</span><h4>Droits d’accès</h4></div></header><div class="permission-owner"><strong>Propriétaire · accès complet</strong><p>Ce compte conserve tous les droits. Son accès ne peut pas être réduit.</p></div><p class="permission-preview">Toutes les sections sont en écriture.</p></section>';return;}
     try{
       await WolfGuardFleetGroups.create().load();
-      const refreshed=await WolfGuardCloud.agentRequest('users',undefined,{signal});
-      user=refreshed.users.find(row=>row.id===user.id)||user;
       const [catalog,fleet]=await Promise.all([request('',undefined,signal),WolfGuardCloud.agentRequest('agents/groups',undefined,{signal})]);
       if(!live())return;
       if(!fleet.initialized)throw new Error('Ouvre la section Sécurité avec le compte propriétaire pour initialiser les groupes.');
@@ -70,7 +69,7 @@ window.WolfGuardPermissionEditor=(()=>{
         const exceptions=Object.keys(policy.groupLevels||{}).length>0||!!policy.scopes;
         reasonDraft=host.querySelector('#wgPermissionReason')?.value??reasonDraft;
         host.innerHTML=`<form class="permission-editor${embedded?' permission-embedded':''}" id="wgPermissionForm">
-          <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded?'':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
+          <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded||group?'':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
           <p class="access-feedback permission-save-notice" data-permission-save-notice role="status">${esc(savedMessage)}</p>
           <fieldset ${saving?'disabled':''}>
             <div ${embedded?'data-permission-pane="rights"':''}>
@@ -92,11 +91,11 @@ window.WolfGuardPermissionEditor=(()=>{
             </details>
             </div>
             ${embedded?'<div data-permission-pane="posts" hidden>'+securityHTML()+'</div>':''}
-            <div class="permission-save-bar" hidden><div><span data-permission-draft role="status"></span><p>Ce compte devra se reconnecter.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer'}</button></div></div>
+            <div class="permission-save-bar" hidden><div><span data-permission-draft role="status"></span><p>Les membres du groupe devront se reconnecter.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer'}</button></div></div>
           </fieldset><p data-permission-error class="access-error" role="alert"></p></form>`;
         host.querySelectorAll('details').forEach(row=>{row.open=opened.has(row.querySelector('summary')?.textContent);});
-        if(embedded)setView(root,host.dataset.view||'rights');
-        host.querySelectorAll('[data-close-permissions]').forEach(button=>button.onclick=()=>{if(saving)return;if(embedded){policy=structuredClone(user.permissions);reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='';render();}else reset(root);});
+        if(embedded)setView(root,host.dataset.view||'rights');else if(group){host.querySelector('#wgPermissionCustomization').open=true;const scope=host.querySelector('#wgPermissionAgentScope');if(scope)scope.open=true;}
+        host.querySelectorAll('[data-close-permissions]').forEach(button=>button.onclick=()=>{if(saving)return;if(embedded||group){policy=structuredClone(user.permissions);reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='';render();}else reset(root);});
         if(user.role==='admin')return;
         host.querySelector('#wgPermissionReason').value=reasonDraft;
         host.querySelector('#wgPermissionReason').oninput=dirty;
@@ -110,7 +109,7 @@ window.WolfGuardPermissionEditor=(()=>{
           event.preventDefault();if(saving)return;const error=host.querySelector('[data-permission-error]');
           if(policy.expiresAt!==null&&policy.expiresAt<=Date.now()){error.textContent='Choisis une date de fin future ou laisse ce champ vide.';return;}
           saving=true;host.dataset.saving='true';host.querySelector('fieldset').disabled=true;
-          try{const saved=await request('',{id:user.id,revision:user.permission_revision,policy:model.normalizePolicy(policy),reason:host.querySelector('#wgPermissionReason').value},signal);if(saved.reconnect){await lockApplication();return;}if(!live())return;user={...user,permissions:model.normalizePolicy(policy),permission_revision:saved.revision};policy=structuredClone(user.permissions);initial=JSON.stringify(model.normalizePolicy(policy));reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='Droits enregistrés. Les sessions de ce compte ont été déconnectées.';saving=false;host.dataset.saving='false';host.dataset.dirty='false';render();await onSaved(saved);}
+          try{const saved=await WolfGuardCloud.agentRequest('users/groups/policy',{id:user.id,revision:user.permission_revision,policy:model.normalizePolicy(policy),reason:host.querySelector('#wgPermissionReason').value},{signal});if(saved.reconnect){await lockApplication();return;}if(!live())return;user={...user,permissions:model.normalizePolicy(policy),permission_revision:saved.revision};policy=structuredClone(user.permissions);initial=JSON.stringify(model.normalizePolicy(policy));reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='Droits enregistrés. Les sessions des membres ont été déconnectées.';saving=false;host.dataset.saving='false';host.dataset.dirty='false';render();await onSaved(saved);}
           catch(problem){if(live()){error.textContent=problem.message;host.querySelector('fieldset').disabled=false;}}
           finally{saving=false;if(live()){host.dataset.saving='false';dirty();}}
         };
@@ -124,6 +123,7 @@ window.WolfGuardPermissionEditor=(()=>{
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;host.innerHTML='<p role="status">Chargement du journal…</p>';
     try{const result=await request('/audit',undefined,signal);if(signal.aborted||generation!==editorGeneration||!host.isConnected)return;
       host.innerHTML='<section class="permission-editor"><header><h4>Journal des droits</h4><button type="button" class="settings-btn" data-close-audit>Fermer</button></header><p class="access-help">Les 100 changements les plus récents.</p>'+result.events.map(event=>{
+        if(event.kind==='access-group')return '<article class="permission-audit"><strong>'+esc(event.user)+'</strong><small>'+esc(date(event.createdAt))+' · '+esc(event.actor)+'</small><p>Groupe d’autorisations · '+esc(({create:'Création',duplicate:'Duplication',rename:'Renommage',remove:'Suppression',assign:'Changement de membres',policy:'Modification des droits'})[event.operation]||event.operation)+' · '+event.count+' membre(s)</p>'+(event.reason?'<p>'+esc(event.reason)+'</p>':'')+'</article>';
         if(event.kind==='fleet-group')return '<article class="permission-audit"><strong>Groupes des postes</strong><small>'+esc(date(event.createdAt))+' · '+esc(event.actor)+'</small><p>'+esc(({create:'Groupe créé',duplicate:'Groupe dupliqué',rename:'Groupe renommé',remove:'Groupe supprimé',move:'Postes déplacés'})[event.operation]||event.operation)+(event.name?' : '+esc(event.name):'')+(event.count?' · '+event.count+' poste(s)':'')+'</p></article>';
         const summary=Object.entries(event.after.sections).filter(([section])=>event.before.sections[section]!==event.after.sections[section]).map(([section,level])=>section+' → '+level).join(', ');
         const scopeChanged=JSON.stringify(event.before.agents===null?null:[...(event.before.agents||[])].sort())!==JSON.stringify(event.after.agents===null?null:[...(event.after.agents||[])].sort());

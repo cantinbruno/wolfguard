@@ -1,3 +1,4 @@
+import {accessGroupAPI} from './access-groups.mjs';
 import {seal,open,stopRemoteOwners} from './access.mjs';
 import {handleOTP,requiresMFA} from './otp.mjs';
 import {handlePushSettings,requiresPhone,pushDevice} from './push.mjs';
@@ -157,6 +158,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/verify-code'&&request.method==='POST'){
     const data=await body(),row=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();await verifyPIN(data.code,env,now,row);return json({ok:true});
   }
+  if(path==='/api/users/groups'||path.startsWith('/api/users/groups/'))return accessGroupAPI(request,env,now,session,{...h,revokeUserSessions});
   if(path==='/api/users/permissions'||path.startsWith('/api/users/permissions/'))return permissionAPI(path,request,env,now,session,vault,{...h,revokeUserSessions});
   requirePermission(session.user,request.method==='GET'?'users.read':'users.manage',fail,now);
   if(path==='/api/users'&&request.method==='GET'){

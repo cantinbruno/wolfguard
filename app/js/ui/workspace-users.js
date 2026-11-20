@@ -12,16 +12,16 @@ const workspaceUsers=(()=>{
     const request=(path,value)=>cloud().agentRequest('users'+path,value,{signal});
     const find=selector=>root.querySelector(selector),permissionEditor=()=>window.WolfGuardPermissionEditor;
     const date=value=>value?new Date(value).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Jamais';
-    const profile=user=>WolfGuardPermissions.userRole(user);
+    const profile=user=>user.permissions?.accessGroup?.name||WolfGuardPermissions.userRole(user);
     const accountState=user=>user.disabled?'Désactivé':user.credentialPending?'À activer':'Actif';
     let users=[],invitations=[],selected=null,filter='all',search='',busy=false,stale=true,editing=null,refreshing=null,detailController=null,detailRevision=null,confirming=false;
     root.classList.add('users-manager');
-    root.innerHTML=`<header class="settings-panel-head users-manager-heading"><div><div class="settings-heading">${settingsIcon('users')}<h3>Utilisateurs et droits</h3></div><p>Un compte, un rôle. Les nouveaux utilisateurs sont invités sans accès.</p></div><div class="actions"><button type="button" class="settings-btn settings-btn-icon" id="wgUsersRefresh" aria-label="Actualiser les utilisateurs">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgUserAdd">${settingsIcon('plus')}Nouvel utilisateur</button></div></header>
+    root.innerHTML=`<header class="settings-panel-head users-manager-heading"><div><div class="settings-heading">${settingsIcon('users')}<h3>Utilisateurs et droits</h3></div><p>Chaque compte hérite des droits de son groupe. Les nouveaux utilisateurs sont invités sans accès.</p></div><div class="actions"><button type="button" class="settings-btn settings-btn-icon" id="wgUsersRefresh" aria-label="Actualiser les utilisateurs">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgUserAdd">${settingsIcon('plus')}Nouvel utilisateur</button></div></header>
       <p id="wgUsersError" class="access-error" role="alert"></p><p id="wgUsersStatus" class="access-feedback" role="status"></p>
       <section id="wgUserInvitation" class="users-invitation" aria-labelledby="wgUserInvitationTitle" hidden><header><div><span class="users-eyebrow">INVITATION · 24 H · USAGE UNIQUE</span><h4 id="wgUserInvitationTitle">Lien prêt à partager</h4></div><button type="button" class="settings-btn" id="wgUserInvitationClose">Fermer</button></header><p id="wgUserInvitationHelp"></p><textarea id="wgUserInvitationLink" rows="2" readonly aria-label="Lien personnel de connexion"></textarea><div class="actions"><button type="button" class="settings-btn primary" id="wgUserInvitationCopy">Copier le lien</button><a class="settings-btn" id="wgUserInvitationEmail">Préparer l’e-mail</a></div></section>
       <form id="wgUserForm" class="users-form" hidden><h4 id="wgUserFormTitle"></h4><p class="users-new-account-help" id="wgUserGuestHelp">Rôle initial : <strong>Invité</strong> · Tout reste invisible jusqu’à l’attribution d’un rôle.</p><label>E-mail<input id="wgUserName" type="email" inputmode="email" maxlength="254" autocomplete="off" required></label><p id="wgUserFormError" class="access-error" role="alert"></p><div class="actions"><button type="submit" class="settings-btn primary" id="wgUserSave">Créer</button><button type="button" class="settings-btn" id="wgUserCancel">Annuler</button></div></form>
       <div class="users-management-layout"><aside class="users-directory" aria-label="Choisir un utilisateur"><label class="users-search">${settingsIcon('search')}<input id="wgUsersSearch" type="search" placeholder="Rechercher" aria-label="Rechercher un utilisateur"></label><label class="users-filter-label">Afficher<select id="wgUsersFilter"><option value="all">Tous</option><option value="active">Actifs</option><option value="pending">À activer</option><option value="disabled">Désactivés</option></select></label><div id="wgUsersList" class="users-account-list"><p>Chargement…</p></div></aside>
-      <section id="wgUserDetail" class="users-detail" aria-label="Compte sélectionné"><div id="wgUserOverview"></div><div class="users-detail-tabs" role="tablist" aria-label="Réglages du compte"><button type="button" role="tab" id="wgUserTabRights" data-user-pane="rights" aria-controls="wgPermissionHost">Droits</button><button type="button" role="tab" id="wgUserTabPosts" data-user-pane="posts" aria-controls="wgPermissionHost">Groupes</button><button type="button" role="tab" id="wgUserTabAccount" data-user-pane="account" aria-controls="wgUserAccountActions">Compte</button></div><p id="wgUserStale" class="users-stale" role="status" hidden>Ce compte a changé. <button type="button" class="settings-btn" id="wgUserReloadRights">Recharger</button></p><div id="wgPermissionHost" role="tabpanel" tabindex="0"></div><div id="wgUserAccountActions" role="tabpanel" tabindex="0" aria-labelledby="wgUserTabAccount" hidden></div></section></div>`;
+      <section id="wgUserDetail" class="users-detail" aria-label="Compte sélectionné"><div id="wgUserOverview"></div><div class="users-detail-tabs" role="tablist" aria-label="Réglages du compte"><button type="button" role="tab" id="wgUserTabRights" data-user-pane="rights" aria-controls="wgPermissionHost">Groupe</button><button type="button" role="tab" id="wgUserTabAccount" data-user-pane="account" aria-controls="wgUserAccountActions">Compte</button></div><p id="wgUserStale" class="users-stale" role="status" hidden>Ce compte a changé. <button type="button" class="settings-btn" id="wgUserReloadRights">Recharger</button></p><div id="wgPermissionHost" role="tabpanel" tabindex="0"></div><div id="wgUserAccountActions" role="tabpanel" tabindex="0" aria-labelledby="wgUserTabAccount" hidden></div></section></div>`;
     const feedback=(message,error=false)=>{if(live())find(error?'#wgUsersError':'#wgUsersStatus').textContent=message;};
     const protectedAdmin=user=>user?.role==='admin';
     const draft=()=>find('#wgUserForm').dataset.dirty==='true'||permissionEditor()?.isDirty(root);
@@ -38,10 +38,11 @@ const workspaceUsers=(()=>{
       find('#wgUserInvitation').dataset.invitationId=invitation.id||'';find('#wgUserInvitation').hidden=false;find('#wgUserInvitation').scrollIntoView({block:'nearest'});find('#wgUserInvitationCopy').focus();
     }
     function setPane(pane,scroll=true){
+      if(pane==='posts')pane='rights';
       if(!rights())pane='account';
       const detail=find('#wgUserDetail'),hasUser=users.some(user=>user.id===selected);
       detail.dataset.pane=pane;find('.users-detail-tabs').hidden=!hasUser;
-      findAllTabs().forEach(tab=>{const active=tab.dataset.userPane===pane;tab.hidden=!rights()&&tab.dataset.userPane!=='account';tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;});
+      findAllTabs().forEach(tab=>{const active=tab.dataset.userPane===pane;tab.hidden=tab.dataset.userPane==='posts'||!rights()&&tab.dataset.userPane!=='account';tab.setAttribute('aria-selected',String(active));tab.tabIndex=active?0:-1;});
       const host=find('#wgPermissionHost');host.hidden=pane==='account';host.setAttribute('aria-labelledby','wgUserTab'+(pane==='posts'?'Posts':'Rights'));
       find('#wgUserAccountActions').hidden=pane!=='account';permissionEditor()?.setView(root,pane==='posts'?'posts':'rights');
       if(scroll){detail.scrollTop=0;if(matchMedia('(max-width:850px)').matches)detail.scrollIntoView({block:'start'});}
@@ -64,9 +65,15 @@ const workspaceUsers=(()=>{
       find('#wgUserStale').hidden=true;detailRevision=user.permission_revision;
       if(!rights()){find('#wgPermissionHost').innerHTML='';return;}
       detailController=new AbortController();const current=detailController;
-      const abort=()=>current.abort();signal.addEventListener('abort',abort,{once:true});
-      try{await permissionEditor().open(root,user,{signal:current.signal,embedded:true,onSaved:async saved=>{detailRevision=saved.revision;feedback('Droits enregistrés pour '+user.username+'.');await refresh();}});}
-      finally{signal.removeEventListener('abort',abort);}
+      try{
+        const groups=await workspaceGroups.ensure(current.signal);if(current.signal.aborted||!live()||selected!==user.id)return;
+        const membership=groups.groups.find(group=>group.memberIds.includes(user.id))?.id||'default';
+        find('#wgPermissionHost').innerHTML=user.role==='admin'?'<p>Le propriétaire conserve tous les droits.</p>':'<label class="user-access-group">Groupe d’autorisations<select id="wgUserAccessGroup">'+groups.groups.map(group=>'<option value="'+esc(group.id)+'" '+(group.id===membership?'selected':'')+'>'+esc(group.name)+'</option>').join('')+'</select></label><p>Toutes les autorisations proviennent du groupe, y compris les sections et les groupes de postes.</p><button type="button" class="settings-btn primary" id="wgUserApplyGroup">Appliquer le groupe</button><button type="button" class="settings-btn" id="wgUserManageGroups">Gérer les groupes</button>';
+        const apply=find('#wgUserApplyGroup');if(!apply)return;
+        find('#wgUserManageGroups').onclick=()=>setSettingsTab('groups',true);
+        apply.disabled=true;find('#wgUserAccessGroup').onchange=event=>{const dirty=event.target.value!==membership;find('#wgPermissionHost').dataset.dirty=String(dirty);apply.disabled=!dirty;};
+        apply.onclick=async()=>{if(busy)return;busy=true;apply.disabled=true;try{const result=await WolfGuardCloud.agentRequest('users/groups/assign',{id:find('#wgUserAccessGroup').value,userIds:[user.id],revision:groups.revision},{signal:current.signal});if(result.reconnect){await lockApplication();return;}feedback('Groupe attribué. Les sessions du compte ont été déconnectées.');find('#wgPermissionHost').dataset.dirty='false';busy=false;await refresh();await loadPermissions();}catch(error){feedback(error.message,true);}finally{busy=false;if(live())apply.disabled=false;}};
+      }catch(error){if(!current.signal.aborted&&live())find('#wgPermissionHost').textContent=error.message;}
     }
     function visibleUsers(){return users.filter(user=>(!search||user.username.toLowerCase().includes(search))&&(filter==='all'||filter==='disabled'&&user.disabled||filter==='pending'&&!user.disabled&&user.credentialPending||filter==='active'&&!user.disabled&&!user.credentialPending));}
     function render(){
@@ -78,7 +85,7 @@ const workspaceUsers=(()=>{
       if(focused)find('[data-select-user="'+focused+'"]')?.focus({preventScroll:true});
       renderOverview();setPane(find('#wgUserDetail').dataset.pane||'rights',false);const fieldset=find('#wgPermissionHost fieldset');if(fieldset)fieldset.disabled=busy||stale||permissionEditor().isSaving(root);
     }
-    async function refresh(){
+    async function refresh({reloadGroups=false}={}){
       if(!live()||busy)return;if(refreshing)return refreshing;
       if(!available()){find('#wgUsersList').textContent='Gestion réservée aux comptes autorisés.';return;}
       find('#wgUsersRefresh').disabled=true;
@@ -87,7 +94,7 @@ const workspaceUsers=(()=>{
         const user=users.find(row=>row.id===selected);let replace=false;
         if(!user){selected=users[0]?.id||null;replace=true;}
         render();
-        if(replace)await loadPermissions();
+        if(replace||reloadGroups&&!draft())await loadPermissions();
         else if(user&&user.permission_revision!==detailRevision&&!find('#wgPermissionHost [data-close-audit]'))find('#wgUserStale').hidden=false;
         if(recovered)feedback('',true);
       }catch(error){stale=true;feedback(error.message,true);render();}finally{if(live())find('#wgUsersRefresh').disabled=false;}})();
@@ -115,7 +122,7 @@ const workspaceUsers=(()=>{
       finally{busy=false;if(live()){find('#wgUserSave').disabled=false;await refresh();if(selected!==target?.id)await loadPermissions();}}
     };
     find('#wgUserCancel').onclick=()=>{find('#wgUserForm').reset();find('#wgUserForm').hidden=true;find('#wgUserForm').dataset.dirty='false';editing=null;};
-    find('#wgUserAdd').onclick=async()=>{if(await canLeave()&&live())editor();};find('#wgUsersRefresh').onclick=refresh;
+    find('#wgUserAdd').onclick=async()=>{if(await canLeave()&&live())editor();};find('#wgUsersRefresh').onclick=()=>refresh({reloadGroups:true});
     root.addEventListener('click',async event=>{
       const row=event.target.closest('[data-select-user]');if(row&&!row.disabled){await selectUser(row.dataset.selectUser);return;}
       const button=event.target.closest('[data-user-action]');if(!button||button.disabled||busy||stale)return;const user=users.find(row=>row.id===button.dataset.userId);if(!user)return;

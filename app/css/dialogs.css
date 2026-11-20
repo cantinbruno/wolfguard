@@ -160,11 +160,11 @@
   .app-notices { right: 16px; bottom: 16px; }
 }
 
-/* Keep account and machine workspaces large while preserving their headers. */
+/* Keep account and machine dialogs centered with room around the workspace. */
 @media(min-width:701px){
-  .settings-wrap{padding:16px}
-  .settings-modal{box-sizing:border-box;width:min(1920px,calc(100vw - 32px));height:calc(100dvh - 32px)}
-  .agent-details-panel{width:min(1920px,calc(100vw - 32px));height:calc(100dvh - 32px);max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px)}
+  .settings-wrap{padding:48px}
+  .settings-modal{box-sizing:border-box;width:min(1280px,calc(100vw - 96px));height:min(820px,calc(100dvh - 96px))}
+  .agent-details-panel{width:min(1280px,calc(100vw - 96px));height:min(820px,calc(100dvh - 96px));max-width:calc(100vw - 96px);max-height:calc(100dvh - 96px)}
 }
 @media(max-width:700px){
   .settings-wrap{padding:0}

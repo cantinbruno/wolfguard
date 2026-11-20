@@ -117,7 +117,7 @@ async function setSettingsTab(name, focus = false) {
   const button = dialog.querySelector(`[data-settings-tab="${name}"]`);
   if (!button || button.disabled) return;
   if(button.getAttribute('aria-selected')==='true'){if(focus)button.focus();return;}
-  if(dialog.querySelector('[data-settings-tab="users"]')?.getAttribute('aria-selected')==='true'&&!await workspaceUsers.beforeLeave())return;
+  if(!await workspaceUsers.beforeLeave()||!await workspaceGroups.beforeLeave())return;
   if(!dialog.isConnected)return;
   dialog.querySelectorAll('[data-settings-tab]').forEach(tab => {
     const selected = tab === button;
@@ -129,7 +129,9 @@ async function setSettingsTab(name, focus = false) {
   dialog.querySelector('.settings-main').scrollTop = 0;
   workspaceAccess.unmount();
   workspaceUsers.unmount();
+  workspaceGroups.unmount();
   if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
+  if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
   if (focus) button.focus();
   settingsTabsLayout();
@@ -151,7 +153,7 @@ async function openSettings(initialTab = 'security') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:true) ? initialTab : 'security';
+  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -163,6 +165,7 @@ async function openSettings(initialTab = 'security') {
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-groups" data-settings-tab="groups" role="tab" aria-controls="settings-groups" aria-selected="false" tabindex="-1" ${(typeof WolfGuardCloud!=='undefined'&&WolfGuardCloud.can('users.permissions'))?'':'disabled'}>${settingsIcon('users')}<span>Groupes</span></button>
           <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
           
           <button type="button" class="settings-tab" id="settings-tab-about" data-settings-tab="about" role="tab" aria-controls="settings-about" aria-selected="false" tabindex="-1">${settingsIcon('info')}<span>À propos</span></button>
@@ -188,6 +191,7 @@ async function openSettings(initialTab = 'security') {
           <div class="settings-row">${settingsIcon('lock')}<div class="settings-row-copy"><div class="settings-row-title">Coffre et espace de travail</div><div class="settings-row-desc">Informations sensibles dans le coffre chiffré, accès par code personnel et gestion des droits.</div></div></div>
           <div class="settings-row">${settingsIcon('shield-check')}<div class="settings-row-copy"><div class="settings-row-title">Sécurité et gestion des postes</div><div class="settings-row-desc">Inventaire des agents, scans réseau, cartographie, audits, protection EDR et prise en main à distance.</div></div></div>
         </section>
+        <section class="settings-panel hidden" id="settings-groups" data-settings-panel="groups" role="tabpanel" aria-labelledby="settings-tab-groups"></section>
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
         
@@ -269,7 +273,8 @@ async function openSettings(initialTab = 'security') {
   const wrap = dialog.parentElement;
   wrap.classList.add('settings-wrap');
   const closeSettings = async () => {
-    if(!await workspaceUsers.beforeLeave()||!dialog.isConnected)return;
+    if(!await workspaceUsers.beforeLeave()||!await workspaceGroups.beforeLeave()||!dialog.isConnected)return;
+    workspaceGroups.unmount();
     closeModal();
     $('#settingsBtn')?.focus()
   };

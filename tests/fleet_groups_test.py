@@ -52,18 +52,18 @@ def run():
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
             assert page.locator('.agents-console').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
         page.set_viewport_size({'width':1440,'height':1000});page.locator('#agentsGroupsRights').click()
-        expect(page.locator('#settings-users')).to_be_visible()
+        expect(page.locator('#settings-groups')).to_be_visible()
         url=invite(page,'group-ui@example.test');guest=context().new_page();activate(guest,url,'group-ui@example.test')
         page.locator('#wgUserInvitationClose').click();page.locator('#wgUsersRefresh').click()
-        page.locator('[data-select-user]').filter(has_text='group-ui@example.test').click()
+        page.locator('#settings-tab-groups').click();page.locator('#wgGroupCreate').click();page.locator('.app-dialog-input').fill('Équipe postes');page.locator('.app-dialog-submit').click()
+        expect(page.locator('#wgGroupName')).to_have_text('Équipe postes')
         expect(page.locator('[data-permission-profile]')).to_have_count(4)
-        page.locator('[data-permission-profile=editor]').click();page.locator('#wgUserTabPosts').click()
-        expect(page.locator('#wgUserTabPosts')).to_have_text('Groupes')
+        page.locator('[data-permission-profile=editor]').click()
         expect(page.locator('[data-agent-right-id],[data-agent-scope]')).to_have_count(0)
         expect(page.locator('[data-group-right]')).to_have_count(3)
         page.locator(f'[data-group-right-id="{servers}"][data-group-level="read"]').click();page.locator('#wgPermissionSave').click()
         expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
-        page.locator('#wgUserTabRights').click();page.locator('[data-permission-profile=observer]').click();page.locator('#wgUserTabPosts').click()
+        page.locator('[data-permission-profile=observer]').click()
         expect(page.locator(f'[data-group-right-id="{servers}"][data-group-level="read"]')).to_have_attribute('aria-pressed','true')
         page.screenshot(path=str(ROOT/'.cache/group-rights-settings.png'),animations='disabled')
         assert not errors,errors

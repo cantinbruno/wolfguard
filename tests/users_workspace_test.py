@@ -8,7 +8,7 @@ def run():
         guest_context=context();guest=guest_context.new_page();guest.goto(url);expect(guest.locator('#webAccountSetupForm')).to_be_visible();guest.locator('#webAccountCode').fill('abcdefgh');assert not guest.locator('#webAccountCode').evaluate('el=>el.checkValidity()')
         activate(guest,url,'alice@example.test')
         owner.locator('#wgUserInvitationClose').click();owner.locator('#wgUsersRefresh').click();owner.locator('#wgUsersSearch').fill('alice');expect(owner.locator('[data-select-user]')).to_have_count(1)
-        owner.locator('[data-select-user]').click();expect(owner.locator('#wgUserOverview')).to_contain_text('alice@example.test');expect(owner.locator('#wgPermissionForm')).to_be_visible()
+        owner.locator('[data-select-user]').click();expect(owner.locator('#wgUserOverview')).to_contain_text('alice@example.test');expect(owner.locator('#wgUserAccessGroup')).to_be_visible()
         owner.locator('[data-user-pane=account]').click()
         owner.locator('[data-user-action=edit]').click();owner.locator('#wgUserName').fill('alice.renamed@example.test');owner.locator('#wgUserSave').click();expect(owner.locator('#wgUserOverview')).to_contain_text('alice.renamed@example.test')
         expect(owner.locator('.users-account-security summary')).to_have_count(0)

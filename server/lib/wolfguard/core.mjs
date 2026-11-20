@@ -293,7 +293,7 @@ export async function handleAPI(request,env,clock=Date.now) {
       }else{
         const session=await authorize(request,env,now);
         if(path==='/api/users/duo')fail(410,'La configuration Duo a été retirée. Utilise les paramètres Authenticator.');
-        else if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest,purgeVault:id=>purgePersonalVault(id,env)});
+        else if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'||path.startsWith('/api/users/groups')?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest,purgeVault:id=>purgePersonalVault(id,env)});
         else if(path==='/api/chat/history'||path.startsWith('/api/chat/history/'))response=await handleChatHistory(request,env,now,session,{fail,json,body:()=>smallJSON(request,160*1024)});
         else if(path==='/api/chat/settings'||path==='/api/chat/completions')response=await handleChatAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,80*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});

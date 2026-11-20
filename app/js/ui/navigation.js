@@ -32,7 +32,7 @@ async function openSection(section, itemId = null, options = {}) {
     if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
-    state.folder = options.resume?.folder || null;
+    state.folder = options.resume?.folder || (section==='vault'?window.WolfGuardAccess?.personalVaultHome()?.id:null) || null;
     state.item = options.resume?.item || itemId || null;
     state.mode = 'view';
     $('#sidebar').classList.add('hidden');
@@ -195,7 +195,7 @@ async function dropOnRoot(e) {
 async function selectFolder(id) {
   if (!await confirmDiscardChanges()) return;
   saveExplorerScroll();
-  state.folder = id;
+  state.folder = id || (state.section==='vault'?window.WolfGuardAccess?.personalVaultHome()?.id:null) || null;
   state.item = null;
   state.mode = 'view';
   await renderWorkspace()

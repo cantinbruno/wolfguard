@@ -65,3 +65,7 @@ Une modification de schéma demande une migration additionnelle dans la chaîne 
 6. Attendre le statut de déploiement réussi et vérifier un endpoint public sans secret. Ne pas changer l’audience ni les secrets pour résoudre un problème de code.
 
 Un agent local sans accès aux outils Sites peut préparer et pousser le code, mais doit annoncer explicitement que le déploiement API reste à faire. Un `git push` n’est pas un déploiement Sites.
+
+## Groupes d’autorisations
+
+`access-groups.mjs` gère les groupes d’utilisateurs et leurs politiques partagées dans la table chiffrée `access_groups` (migration `0020_stiff_purifiers.sql`). `users/groups` expose lecture, reprise, création, duplication, renommage, politique, affectation et suppression. Les écritures utilisent une révision commune et refusent les clients obsolètes. La reprise des droits individuels est une opération d’exécution, hors migration SQL. Les anciens champs sont ignorés après activation. Les versions des membres, la configuration et l’audit changent atomiquement ; les sessions révoquées sont ensuite nettoyées. `fleet_groups` reste distinct : il décrit l’organisation des postes et leurs droits hérités depuis les groupes d’utilisateurs.

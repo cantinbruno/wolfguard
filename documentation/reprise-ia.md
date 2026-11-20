@@ -16,7 +16,7 @@ Un dépôt sale n’est pas un motif pour abandonner. Utiliser si nécessaire un
 
 - Session : expiration après **4 heures d’inactivité**, sans maximum absolu de durée. Le polling ne compte pas comme activité.
 - MFA : Authenticator TOTP ; remplacement du téléphone sans désactiver le facteur actuel avant validation du nouveau.
-- Partage et permissions conservés. Les postes héritent désormais des droits de leur groupe partagé. Paramètres → Utilisateurs et droits → Groupes remplace la gestion individuelle. L’import initial par le propriétaire conserve les anciens accès sans les élargir ; voir [Droits](droits.md).
+- Partage et permissions conservés. Tous les droits sont hérités d’un groupe d’utilisateurs dans Paramètres → Groupes, y compris les sections et les groupes de postes. Un seul groupe par utilisateur, sans réglage individuel. Reprise sans élargissement des anciens accès ; coffres personnels isolés et ouverts directement dans le dossier de l’adresse mail. Voir [Droits](droits.md).
 - Aucune fonction de sauvegarde utilisateur à réintroduire. Préserver les données et copies techniques déjà présentes.
 - L’agent Windows ne doit pas être annoncé comme signé par Windows sans vérification Authenticode.
 - Le domaine, le lien privé et les clés ne sont pas à recréer ou à déplacer pour une tâche ordinaire.
