@@ -131,12 +131,12 @@ async function setSettingsTab(name, focus = false) {
   workspaceUsers.unmount();
   workspaceGroups.unmount();
   if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
-  if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'));
+  if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'),{fleetSection:dialog.dataset.fleetSection||null});
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
   if (focus) button.focus();
   settingsTabsLayout();
 }
-async function openSettings(initialTab = 'security') {
+async function openSettings(initialTab = 'security',options={}) {
   sectionTransition.cancel();
   const n = (await activeItems()).length;
   const autoLock = 240;
@@ -262,6 +262,7 @@ async function openSettings(initialTab = 'security') {
   `);
 
   const dialog = $('#modalRoot .modal');
+  if(typeof options.fleetSection==='string')dialog.dataset.fleetSection=options.fleetSection;
   fetch('build-info.json',{cache:'no-cache'}).then(response=>response.ok?response.json():null).then(info=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent=Number.isSafeInteger(info?.repositoryBytes)?(info.repositoryBytes/1048576).toLocaleString('fr-FR',{maximumFractionDigits:1})+' Mo':'Indisponible';}).catch(()=>{const target=dialog.querySelector('#wgRepositorySize');if(target)target.textContent='Indisponible';});
   dialog.classList.add('settings-modal');
   dialog.setAttribute('role', 'dialog');

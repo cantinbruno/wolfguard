@@ -527,3 +527,8 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
 
 .agents-group-toolbar button{margin-left:0}
 #agentsGroupCreate{margin-left:auto}
+
+@media(max-width:700px){
+  .agents-group-heading>td>div{flex-wrap:wrap}
+  .agents-group-actions{flex-basis:100%;max-width:calc(100% - 26px);margin-left:26px;justify-content:flex-end;padding-bottom:6px}
+}

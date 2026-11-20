@@ -24,7 +24,7 @@ def run():
         for agent_id in selected_ids:page.locator(f'[data-fleet-check="{agent_id}"]').check()
         page.locator(f'[data-agent-row="{selected_ids[0]}"] .agents-endpoint').drag_to(atelier)
         expect(page.locator(f'[data-agent-group-id="{group_id}"]')).to_have_count(2)
-        expect(page.locator('#agentsStatus')).to_contain_text('Droits du groupe appliqués')
+        expect(page.locator('#agentsStatus')).to_contain_text('Droits de la section appliqués')
         expect(page.locator('[data-fleet-check]:checked')).to_have_count(2)
         page.locator('#agentsGroupsCollapse').click();expect(page.locator('[data-agent-row]')).to_have_count(0)
         page.locator('#agentsGroupsExpand').click();expect(page.locator('[data-agent-row]')).to_have_count(6)
@@ -65,7 +65,27 @@ def run():
         expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
         page.locator('[data-permission-profile=observer]').click()
         expect(page.locator(f'[data-group-right-id="{servers}"][data-group-level="read"]')).to_have_attribute('aria-pressed','true')
-        page.screenshot(path=str(ROOT/'.cache/group-rights-settings.png'),animations='disabled')
+        page.locator('#wgPermissionSave').click();expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
+        permission_group=page.locator('[data-access-group]').filter(has_text='Équipe postes').get_attribute('data-access-group')
+        page.locator('.settings-close').click()
+        expect(page.locator('#agentsGroupCreate')).to_have_text('Nouvelle section')
+        expect(page.locator('[data-agent-group=ungrouped]')).to_contain_text('Sans section')
+        page.locator(f'[data-section-rights="{servers}"]').click()
+        expect(page.locator('#wgGroupsSectionContext')).to_contain_text('Serveurs')
+        expect(page.locator('#wgGroupsSectionContext')).to_contain_text('autres sections')
+        page.locator(f'[data-access-group="{permission_group}"]').click()
+        expect(page.locator(f'[data-group-right="{servers}"]')).to_have_attribute('data-section-focus','true')
+        expect(page.locator('[data-section=library][data-level=read]')).to_have_attribute('aria-pressed','true')
+        page.locator(f'[data-group-right-id="{servers}"][data-group-level=write]').click();page.locator('#wgPermissionSave').click()
+        expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
+        saved=page.evaluate("async id=>(await WolfGuardCloud.agentRequest('users/groups')).groups.find(group=>group.id===id)",permission_group)
+        assert saved['policy']['sections']['library']=='read' and saved['policy']['groupLevels'][servers]=='write'
+        expect(page.locator(f'[data-access-group="{permission_group}"]')).to_contain_text('Lecture')
+        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==2
+        for width in [1440,850,390,320]:
+            page.set_viewport_size({'width':width,'height':900})
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
+        page.screenshot(path=str(ROOT/'.cache/sections-rights.png'),animations='disabled')
         assert not errors,errors
     print('PASS: shared groups, multiple drag/drop, context move, duplicate, collapse, persistence, failed saves, responsive layout and group permissions')
 

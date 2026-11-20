@@ -54,7 +54,7 @@ const agentsWorkspace = (() => {
           <div class="agents-filter-actions"><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}</button><button type="button" id="agentsClearFilters" title="Effacer les filtres" aria-label="Effacer les filtres">${settingsIcon('x')}</button></div>
         </div>
         <div id="agentsActiveFilters" class="agents-active-filters" aria-label="Filtres appliqués" hidden></div>
-        <div class="agents-group-toolbar"><label>Organisation<select id="agentsView"><option value="groups">Groupes personnalisés</option><option value="flat">Tableau simple</option></select></label><span id="agentsGroupCount"></span><button type="button" id="agentsGroupCreate">${settingsIcon('folder-plus')}Nouveau groupe</button><button type="button" id="agentsGroupsExpand">Tout déplier</button><button type="button" id="agentsGroupsCollapse">Tout replier</button><button type="button" id="agentsGroupsRights">Droits des groupes</button></div>
+        <div class="agents-group-toolbar"><label>Organisation<select id="agentsView"><option value="groups">Sections de postes</option><option value="flat">Tableau simple</option></select></label><span id="agentsGroupCount"></span><button type="button" id="agentsGroupCreate">${settingsIcon('folder-plus')}Nouvelle section</button><button type="button" id="agentsGroupsExpand">Tout déplier</button><button type="button" id="agentsGroupsCollapse">Tout replier</button><button type="button" id="agentsGroupsRights">Gérer les droits</button></div>
         <div class="agents-mobile-sort"><label for="agentsMobileSort">Trier par</label><select id="agentsMobileSort">${columns.map(([field,label])=>'<option value="'+field+'">'+label+'</option>').join('')}</select><button type="button" id="agentsMobileDirection" aria-label="Inverser le sens du tri">↑</button></div>
         <div class="agents-selection-bar"><label class="agents-select-all"><input type="checkbox" id="agentsSelectAll"><span id="agentsSelectionCount" role="status" aria-live="polite">Sélectionner les postes affichés</span></label><div class="agents-selection-actions" id="agentsSelectionActions" hidden><select id="agentsBulkCommand" aria-label="Commande pour les postes sélectionnés"><option value="">Action groupée…</option><option value="update">Mettre à jour les agents</option><option value="uninstall">Désinstaller les agents</option><option value="export">Exporter la sélection en CSV</option></select><button type="button" id="agentsBulkRun" disabled>Appliquer</button><button type="button" id="agentsClearSelection">Effacer</button></div></div>
         <div class="agents-bulk-feedback" id="agentsBulkFeedback" hidden><div><p id="agentsBulkStatus" role="status" aria-live="polite"></p><button type="button" id="agentsBulkCancel" hidden>Arrêter la file</button></div><details id="agentsBulkResults" hidden><summary>Résultats par poste</summary><ul></ul></details></div>
@@ -162,20 +162,21 @@ const agentsWorkspace = (() => {
     const displayedRows=()=>groups.view()==='flat'?filteredAgents():groups.buckets(filteredAgents()).flatMap(group=>groups.closed(group.id)?[]:group.rows);
     function groupHeading(group){
       const total=groups.buckets(agents).find(row=>row.id===group.id)?.rows.length||0;
-      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes du groupe '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+(group.id!=='ungrouped'?'<div class="agents-group-actions"><button type="button" data-group-duplicate="'+esc(group.id)+'">Dupliquer</button><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer le groupe '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer le groupe '+esc(group.name)+'">'+settingsIcon('x')+'</button></div>':'')+'</div></td></tr>';
+      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes de la section '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+'<div class="agents-group-actions"><button type="button" data-section-rights="'+esc(group.id)+'" aria-label="Droits de la section '+esc(group.name)+'">Droits</button>'+(group.id!=='ungrouped'?'<button type="button" data-group-duplicate="'+esc(group.id)+'">Dupliquer</button><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer la section '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer la section '+esc(group.name)+'">'+settingsIcon('x')+'</button>':'')+'</div></div></td></tr>';
     }
     function syncGroups(){
       root.dataset.grouped=String(groups.view()==='groups');find('#agentsView').value=groups.view();find('#agentsView').disabled=!groupsReady||groupsBusy||bulkBusy;
       find('#agentsGroupCreate').disabled=!groupsReady||!groups.canManage()||groupsBusy||bulkBusy;
       find('#agentsGroupsRights').hidden=!WolfGuardCloud.can('users.permissions');
-      find('#agentsGroupCount').textContent=groups.list().length+' groupe(s)';
+      root.querySelectorAll('[data-section-rights]').forEach(button=>{button.hidden=!WolfGuardCloud.can('users.permissions');});
+      find('#agentsGroupCount').textContent=groups.list().length+' section(s)';
       for(const input of root.querySelectorAll('[data-group-check]')){
         const rows=(groups.buckets(filteredAgents()).find(group=>group.id===input.dataset.groupCheck)?.rows||[]).filter(agent=>!agent.local),count=rows.filter(agent=>checked.has(agent.id)).length;
         input.checked=!!rows.length&&count===rows.length;input.indeterminate=count>0&&count<rows.length;input.disabled=!groupsReady||groupsBusy||bulkBusy||!rows.length;
       }
       for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove],[data-group-duplicate]'))button.disabled=!groupsReady||groupsBusy||bulkBusy||(button.hasAttribute('data-group-toggle')?false:!groups.canManage());
     }
-    async function groupChange(action,message='Organisation enregistrée.'){
+    async function groupChange(action,message='Sections enregistrées.'){
       if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
       groupsBusy=true;closeMenu();syncGroups();
       try{await action();if(live())find('#agentsStatus').textContent=message;}
@@ -184,17 +185,17 @@ const agentsWorkspace = (() => {
     }
     async function newGroup(ids=[]){
       if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
-      const name=await appPrompt('Nom du nouveau groupe', '',{title:'Créer un groupe de postes',confirmLabel:'Créer',placeholder:'Ex. Atelier, Bureau, Serveurs'});
+      const name=await appPrompt('Nom de la nouvelle section', '',{title:'Créer une section de postes',confirmLabel:'Créer',placeholder:'Ex. Atelier, Bureau, Serveurs'});
       if(name===null||!live())return;
-      await groupChange(()=>groups.add(name,ids),'Groupe créé'+(ids.length?' avec '+ids.length+' poste(s)':'')+'.');
+      await groupChange(()=>groups.add(name,ids),'Section créée'+(ids.length?' avec '+ids.length+' poste(s)':'')+'.');
     }
     async function renameGroup(id){
-      const name=await appPrompt('Nouveau nom du groupe',groups.name(id),{title:'Renommer le groupe',confirmLabel:'Renommer'});
-      if(name!==null&&live())await groupChange(()=>groups.rename(id,name),'Groupe renommé.');
+      const name=await appPrompt('Nouveau nom de la section',groups.name(id),{title:'Renommer la section',confirmLabel:'Renommer'});
+      if(name!==null&&live())await groupChange(()=>groups.rename(id,name),'Section renommée.');
     }
     async function removeGroup(id){
-      if(!await appConfirm('Supprimer le groupe « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans groupe » et recevront les droits de ce groupe. Aucun agent ne sera supprimé.',{title:'Supprimer ce groupe',confirmLabel:'Supprimer le groupe'})||!live())return;
-      await groupChange(()=>groups.remove(id),'Groupe supprimé ; ses postes restent dans le parc.');
+      if(!await appConfirm('Supprimer la section « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans section » et recevront les droits définis par les groupes d’utilisateurs sur cette section. Aucun agent ne sera supprimé.',{title:'Supprimer cette section',confirmLabel:'Supprimer la section'})||!live())return;
+      await groupChange(()=>groups.remove(id),'Section supprimée ; ses postes restent dans le parc.');
     }
     const checkedAgents = () => agents.filter(agent => checked.has(agent.id));
     function bulkReason(command, agent) {
@@ -333,7 +334,7 @@ const agentsWorkspace = (() => {
         const status = protection(agent), chosen = agent.id === selected?.id;
         return '<tr draggable="'+(groupsReady&&groups.canManage()&&!bulkBusy)+'" class="agents-fleet-row" data-agent-group-id="'+esc(groups.groupOf(agent.id))+'" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><div class="agents-post-cell"><input type="checkbox" class="agents-row-check" title="Maj + clic : sélectionner une plage" data-fleet-check="' + esc(agent.id) + '" aria-label="' + esc('Sélectionner ' + agent.name) + '" ' + (checked.has(agent.id) ? 'checked ' : '') + (bulkBusy ? 'disabled' : '') + '><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (' · '+esc(groups.name(groups.groupOf(agent.id)))) + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></div></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
       }).join('');
-        find('#agentsList').innerHTML=groups.view()==='groups'&&agents.length&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans ce groupe. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
+        find('#agentsList').innerHTML=groups.view()==='groups'&&agents.length&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans cette section. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       }
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
@@ -377,7 +378,7 @@ const agentsWorkspace = (() => {
       if(menuPage==='groups'){
         html+=menuButton('back','Retour aux actions','arrow-left')+section('DÉPLACER VERS');
         for(const group of groups.list())html+=menuButton('group:'+group.id,group.name,'folder',organizationDisabled);
-        html+=menuButton('group:ungrouped','Sans groupe','folder-open',organizationDisabled)+menuButton('new-group','Nouveau groupe…','folder-plus',organizationDisabled);
+        html+=menuButton('group:ungrouped','Sans section','folder-open',organizationDisabled)+menuButton('new-group','Nouvelle section…','folder-plus',organizationDisabled);
       }else if(menuPage==='tools'){
         html+=menuButton('back','Retour aux actions','arrow-left')+section('OUTILS DU POSTE');
         html+=actions.map(action=>{const unavailable=reason(action,agent);return menuButton(action.id,action.label,['terminal','files'].includes(action.mode)?action.mode:action.id==='desktop'?'monitor':action.id==='edr'?'shield-check':'search',!!unavailable||selecting||bulkBusy,unavailable||'');}).join('');
@@ -512,7 +513,7 @@ const agentsWorkspace = (() => {
           <nav class="agent-record-tabs" role="tablist" aria-label="Fiche du poste" aria-orientation="${mobileTable.matches?'horizontal':'vertical'}">
             ${tabs.map(([id,label,icon])=>'<button type="button" role="tab" id="agentRecordTab-'+id+'" data-record-tab="'+id+'" aria-controls="agentRecord-'+id+'" aria-selected="'+(detailTab===id)+'" tabindex="'+(detailTab===id?'0':'-1')+'"><span aria-hidden="true">'+settingsIcon(icon)+'</span>'+label+'</button>').join('')}
           </nav>
-          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${esc(groups.name(groups.groupOf(agent.id)))} · droits hérités du groupe</p></div>
+          <div class="agent-record-sidebar-info"><span class="agents-eyebrow">ACCÈS AU POSTE</span><p>${esc(groups.name(groups.groupOf(agent.id)))} · accès défini par les groupes d’utilisateurs</p></div>
         </aside>
         <div class="agent-record-content">
           ${stale||!agent.online?'<p class="agent-record-notice">'+(stale?'Le service est indisponible. Les états restent à confirmer.':'Poste hors ligne. Les protections actuelles ne sont pas confirmées.')+'</p>':''}
@@ -643,13 +644,14 @@ const agentsWorkspace = (() => {
       descending = sort === button.dataset.agentSort ? !descending : false;
       sort = button.dataset.agentSort; draw();
     };
-    find('#agentsGroupsExpand').onclick=()=>groupChange(()=>groups.expandAll(),'Groupes dépliés.');
-    find('#agentsGroupsCollapse').onclick=()=>groupChange(()=>groups.collapseAll(),'Groupes repliés.');
+    find('#agentsGroupsExpand').onclick=()=>groupChange(()=>groups.expandAll(),'Sections dépliées.');
+    find('#agentsGroupsCollapse').onclick=()=>groupChange(()=>groups.collapseAll(),'Sections repliées.');
     find('#agentsGroupsRights').onclick=()=>openSettings('groups');
     root.addEventListener('click',async event=>{
+      const rights=event.target.closest('[data-section-rights]');if(rights){await openSettings('groups',{fleetSection:rights.dataset.sectionRights});return;}
       const button=event.target.closest('[data-group-duplicate]');if(!button||button.disabled)return;
-      const id=button.dataset.groupDuplicate,name=await appPrompt('Nom du groupe dupliqué',groups.name(id)+' (copie)',{title:'Dupliquer le groupe',confirmLabel:'Créer'});
-      if(name!==null)await groupChange(()=>groups.duplicate(id,name),'Groupe dupliqué sans postes ni droits. Configure ses autorisations dans les paramètres.');
+      const id=button.dataset.groupDuplicate,name=await appPrompt('Nom de la section dupliquée',groups.name(id)+' (copie)',{title:'Dupliquer la section',confirmLabel:'Créer'});
+      if(name!==null)await groupChange(()=>groups.duplicate(id,name),'Section dupliquée sans postes ni accès attribués. Configure ses droits dans les groupes d’utilisateurs.');
     },{signal});
     let dragged=[];
     function clearDrag(){dragged=[];root.querySelectorAll('[data-drop-target]').forEach(row=>row.removeAttribute('data-drop-target'));}
@@ -669,7 +671,7 @@ const agentsWorkspace = (() => {
       const target=event.target.closest('[data-agent-group]'),ids=[...dragged];clearDrag();
       if(!ids.length||!target||!groups.canManage())return;event.preventDefault();
       const id=target.dataset.agentGroup;
-      await groupChange(()=>groups.assign(ids,id),ids.length+' poste(s) déplacé(s) vers '+groups.name(id)+'. Droits du groupe appliqués.');
+      await groupChange(()=>groups.assign(ids,id),ids.length+' poste(s) déplacé(s) vers '+groups.name(id)+'. Droits de la section appliqués.');
     },{signal});
     root.addEventListener('dragend',clearDrag,{signal});
     find('#agentsRefresh').onclick = refresh;
@@ -830,7 +832,7 @@ const agentsWorkspace = (() => {
     },{signal});
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
-    groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Groupes indisponibles : '+error.message;});
+    groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Sections indisponibles : '+error.message;});
     current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails};
     // The fleet shell is usable immediately. Its server refresh must not hold
     // the shared navigation queue or prevent leaving the Security section.

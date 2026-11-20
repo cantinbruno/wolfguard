@@ -22,8 +22,8 @@ window.WolfGuardFleetGroups=(()=>{
     let data=normalize(null),busy=false,revision=0,manage=false,initialized=false;
     function accept(snapshot){revision=snapshot.revision;manage=snapshot.canManage;initialized=snapshot.initialized;data=normalize({...data,groups:snapshot.groups,assignments:snapshot.assignments});}
     async function remote(action,payload={}){
-      if(busy)throw new Error('Enregistrement des groupes en cours.');
-      if(!manage||!initialized)throw new Error('La gestion des groupes est réservée aux administrateurs.');
+      if(busy)throw new Error('Enregistrement des sections en cours.');
+      if(!manage||!initialized)throw new Error('La gestion des sections est réservée aux administrateurs.');
       busy=true;try{accept(await request('/'+action,{...payload,revision}));}finally{busy=false;}
     }
     async function preference(fn){const next=structuredClone(data);fn(next);await write(next);data=next;}
@@ -31,11 +31,11 @@ window.WolfGuardFleetGroups=(()=>{
       async load(){const legacy=await read();data=normalize(legacy);let snapshot=await request('');if(!snapshot.initialized&&WolfGuardCloud.isAdmin())snapshot=await request('/bootstrap',{legacy});accept(snapshot);},
       canManage:()=>manage&&initialized,
       list:()=>structuredClone(data.groups),
-      name:id=>data.groups.find(row=>row.id===id)?.name||'Sans groupe',
+      name:id=>data.groups.find(row=>row.id===id)?.name||'Sans section',
       groupOf:id=>data.assignments[id]||'ungrouped',
       closed:id=>data.collapsed.includes(id),view:()=>data.view,
       setView:view=>preference(next=>{next.view=view==='flat'?'flat':'groups';}),
-      buckets:rows=>[...data.groups,{id:'ungrouped',name:'Sans groupe'}].map(group=>({...group,rows:rows.filter(row=>(data.assignments[row.id]||'ungrouped')===group.id)})),
+      buckets:rows=>[...data.groups,{id:'ungrouped',name:'Sans section'}].map(group=>({...group,rows:rows.filter(row=>(data.assignments[row.id]||'ungrouped')===group.id)})),
       add:(name,ids=[])=>remote('create',{name,ids}),
       duplicate:(id,name)=>remote('duplicate',{id,name}),
       rename:(id,name)=>remote('rename',{id,name}),remove:id=>remote('remove',{id}),
