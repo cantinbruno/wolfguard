@@ -33,8 +33,34 @@ export function boundedEndpointReport(snapshot,events,appliedRevision){
   if(Buffer.byteLength(JSON.stringify(report))>240000)throw new Error('Le relevé de protection dépasse la limite autorisée.');
   return report;
 }
+// Keep observations queued until the relay confirms receipt. Unknown states
+// cannot resolve an incident: only a confirmed enabled state does so.
+export function protectionAlertQueue(){
+  const active=new Map(),pending=new Map();let sequence=0;
+  const labels={antivirus:'Antivirus',realtime:'Protection en temps réel',firewall:'Pare-feu',signatures:'Signatures antivirus',wolfguard:'Moteur WolfGuard Antivirus'};
+  function observe(snapshot){
+    if(!snapshot.supported)return [...pending.values()];
+    const states={...Object.fromEntries(['antivirus','realtime','firewall','signatures'].map(key=>[key,snapshot[key]])),wolfguard:snapshot.wolfguardAntivirus?.installed&&snapshot.wolfguardAntivirus.enabled?(snapshot.wolfguardAntivirus.state==='error'?'disabled':snapshot.wolfguardAntivirus.state==='ready'?'enabled':'unknown'):'unknown'};
+    for(const [key,state] of Object.entries(states)){
+      const incident=active.get(key),at=snapshot.collectedAt;
+      if(state==='disabled'&&!incident){
+        const event={id:createHash('sha256').update('protection:'+key+':'+at+':'+(++sequence)).digest('hex'),occurredAt:at,provider:'WolfGuard · état du poste',title:labels[key]+(key==='signatures'?' à actualiser':key==='wolfguard'?' en erreur':' désactivé'+(key==='realtime'?'e':'')),detail:'État signalé par le relevé de protection du poste. Fournisseur : '+snapshot.provider,resource:'',status:'alert',severity:key==='signatures'?'medium':'high'};
+        active.set(key,event);pending.set(event.id,event);
+      }else if(state==='enabled'&&incident){
+        const restored={...incident,status:'info',severity:'info',detail:incident.detail+' · Rétablissement confirmé le '+new Date(at).toISOString()+'.'};
+        pending.set(incident.id,restored);
+        const event={...restored,id:createHash('sha256').update(incident.id+':restored').digest('hex'),occurredAt:at,title:labels[key]+(key==='signatures'?' à jour':' rétabli'+(key==='realtime'?'e':''))};
+        pending.set(event.id,event);active.delete(key);
+      }
+    }
+    while(pending.size>100)pending.delete(pending.keys().next().value);
+    return [...pending.values()];
+  }
+  return {observe,acknowledge(events){for(const event of events)if(JSON.stringify(pending.get(event.id))===JSON.stringify(event))pending.delete(event.id);}};
+}
 export async function runEndpointProtection(client,{signal,onStatus=()=>{},collect=collectEndpoint,execute=executeEndpointAction,intervalMs=30000,onReport=()=>{},antivirus=process.platform==='win32'&&collect===collectEndpoint&&execute===executeEndpointAction?getAntivirusManager():null}={}){
   let policy={...DEFAULT_ENDPOINT_POLICY},revision=0,appliedRevision=0,lastAttempt=0;const sent=new Map();
+  const alerts=protectionAlertQueue();
   let pending=null;antivirus?.start({signal});
   try{
   while(!signal?.aborted){
@@ -45,8 +71,10 @@ export async function runEndpointProtection(client,{signal,onStatus=()=>{},colle
       }
       let snapshot=await collect({signal,antivirus});
       if(snapshot.wolfguardAntivirus)snapshot={...snapshot,wolfguardAntivirus:{...snapshot.wolfguardAntivirus,commandId:pending?.id||''}};
-      const report=boundedEndpointReport(snapshot,snapshot.events.filter(row=>sent.get(row.id)!==JSON.stringify(row)),appliedRevision);
+      const events=[...alerts.observe(snapshot),...snapshot.events.filter(row=>sent.get(row.id)!==JSON.stringify(row))].slice(0,100);
+      const report=boundedEndpointReport(snapshot,events,appliedRevision);
       const response=await client.post('edr/report',report,{signal});
+      alerts.acknowledge(report.events);
       for(const row of report.events)sent.set(row.id,JSON.stringify(row));while(sent.size>5000)sent.delete(sent.keys().next().value);
       await onReport();
       policy=endpointPolicy(response.policy);revision=response.revision;

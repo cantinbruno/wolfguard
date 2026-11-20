@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {setup} from './endpoint-fixture.mjs';
 import {profilePolicy,can} from '../server/lib/wolfguard/permissions.mjs';
 import {endpointSnapshot,endpointHealth} from '../server/lib/wolfguard/endpoint-spec.mjs';
-import {collectEndpoint,executeEndpointAction,runEndpointProtection} from '../agent/endpoint.mjs';
+import {collectEndpoint,executeEndpointAction,runEndpointProtection,protectionAlertQueue} from '../agent/endpoint.mjs';
 import {collectPosixEndpoint} from '../agent/endpoint-posix.mjs';
 
 const snapshot=(now,extra={})=>({collectedAt:now,platform:'win32',provider:'Microsoft Defender',supported:true,canEnforce:true,antivirus:'enabled',realtime:'enabled',firewall:'enabled',signatures:'enabled',activeThreats:0,events:[],...extra});
@@ -37,6 +37,21 @@ test('endpoint reports are encrypted, deduplicated, timestamped, scoped and inde
     assert.equal((await(await s.api('edr',undefined,login.token)).json()).endpoints.length,0);assert.equal((await s.api('edr/events?agentId='+agent.id,undefined,login.token)).status,403);
   }finally{s.env.DB.db.close();}
 });
+test('confirmed recovery retains the observation in the journal and closes its open alert',async()=>{
+  const s=await fixture();try{
+    const agent=await s.pair(),queue=protectionAlertQueue();
+    let report=snapshot(s.clock(),{firewall:'disabled'});report.events=queue.observe(report);
+    assert.equal((await s.agentAPI('edr/report',report,agent)).status,200);queue.acknowledge(report.events);
+    let summary=await(await s.api('edr',undefined,s.owner.token)).json();assert.equal(summary.endpoints[0].alerts,1);
+    s.advance(30000);report=snapshot(s.clock());report.events=queue.observe(report);
+    assert.equal((await s.agentAPI('edr/report',report,agent)).status,200);queue.acknowledge(report.events);
+    summary=await(await s.api('edr',undefined,s.owner.token)).json();assert.equal(summary.endpoints[0].alerts,0);
+    const journal=await(await s.api('edr/events?agentId='+agent.id,undefined,s.owner.token)).json();
+    assert.equal(journal.events.length,2);assert.ok(journal.events.every(event=>event.status==='info'));
+    assert.ok(journal.events[0].occurredAt>journal.events[1].occurredAt);
+  }finally{s.env.DB.db.close();}
+});
+
 test('endpoint policies use revisions; commands require current rights and a single leased result',async()=>{
   const s=await fixture();try{
     const agent=await s.pair(),policy={mode:'observe',realtime:true,firewall:true};

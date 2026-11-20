@@ -27,6 +27,7 @@ const agentsWorkspace = (() => {
     const can = (right,agent=null) => !window.WolfGuardAccess || WolfGuardAccess.can(right)&&(!agent||!WolfGuardAccess.canAgent||WolfGuardAccess.canAgent(agent.id,right));
     let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
+    const journal=WolfGuardAgentJournal.create({signal});
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
     let visibilitySaving = false, visibilityNotice = null, revoking = false, revokeError = null;
     const timestamp = value => value ? new Date(value).toLocaleString('fr-FR') : 'Aucun contact';
@@ -260,7 +261,7 @@ const agentsWorkspace = (() => {
     }
     function dismissDetails(restore = false) {
       const id = detailAgentId, panel = find('#agentDetailsPanel');
-      detailAgentId = null; detailHTML = '';
+      journal.close();detailAgentId = null; detailHTML = '';
       if (panel.open) panel.close();
       panel.hidden = true; find('#agentDetailsBody').replaceChildren();
       if (restore && live()) (find('[data-fleet-agent="' + CSS.escape(id || '') + '"]') || find('#agentsSearch')).focus({preventScroll:true});
@@ -275,17 +276,22 @@ const agentsWorkspace = (() => {
       find('#agentDetailsClose').focus({preventScroll:true});
     }
     function selectRecordTab(id,focus=false){
-      if(!['overview','tools','details'].includes(id))return;
+      if(!find('[data-record-tab="'+id+'"]'))return;
       detailTab=id;
       for(const button of find('#agentDetailsBody').querySelectorAll('[data-record-tab]')){const active=button.dataset.recordTab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus({preventScroll:true});}
       for(const panel of find('#agentDetailsBody').querySelectorAll('[role="tabpanel"]'))panel.hidden=panel.id!=='agentRecord-'+id;
+      syncJournal();
+    }
+    function syncJournal(){
+      const agent=agents.find(item=>item.id===detailAgentId);
+      if(detailTab==='journal'&&agent&&!agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr'))journal.show(find('[data-agent-journal]'),agent);else journal.hide();
     }
     function renderDetails() {
       if (!detailAgentId || !live()) return;
       const agent = agents.find(item => item.id === detailAgentId);
       if (!agent) { dismissDetails(true); return; }
       const status = protection(agent);
-      const edrAllowed = can('edr.read') && workspaceModules.allows('edr');
+      const edrAllowed = can('edr.read',agent) && workspaceModules.allows('edr');
       const endpoint = edrAllowed && !protectionStale && !stale ? protections.get(agent.id) : null;
       const snapshot = status.snapshot, policy = endpoint?.policy;
       const checks = {enabled:'Activé',disabled:'Désactivé',passive:'Antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
@@ -305,6 +311,8 @@ const agentsWorkspace = (() => {
       find('#agentDetailsTarget').textContent = agent.name;
       find('#agentDetailsTitle').textContent = agent.name;
       const tabs=[['overview','Vue d’ensemble','layout-dashboard'],['tools','Outils','wrench'],['details','Détails','sliders-horizontal']];
+      if(edrAllowed&&!agent.local)tabs.splice(1,0,['journal','Journal','list']);
+      if(!tabs.some(([id])=>id===detailTab)){detailTab='overview';journal.close();}
       const panel=name=>'id="agentRecord-'+name+'" role="tabpanel" aria-labelledby="agentRecordTab-'+name+'" '+(detailTab===name?'':'hidden');
       const sectionHeading=(icon,title,extra='')=>'<header><h3><span aria-hidden="true">'+settingsIcon(icon)+'</span>'+title+'</h3>'+extra+'</header>';
       const html = `<div class="agent-record-layout">
@@ -356,6 +364,7 @@ const agentsWorkspace = (() => {
             </div>
             ${(snapshot?.warnings||[]).map(message=>'<p class="agent-record-notice">'+esc(message)+'</p>').join('')}
           </section>
+          ${edrAllowed&&!agent.local?'<section '+panel('journal')+'><div class="agent-record-page-heading"><h3>Journal de l’agent</h3><button type="button" class="agent-record-events" data-record-edr>Gérer dans EDR</button></div><div data-agent-journal></div></section>':''}
           <section ${panel('tools')} class="agent-record-tools">
             <div class="agent-record-page-heading"><h3>Outils et diagnostics</h3></div>
             <section class="agent-record-card">${sectionHeading('monitor','Accès à distance')}<div class="agent-details-actions">${actions.filter(a=>a.mode).map(tool).join('')}</div></section>
@@ -389,6 +398,7 @@ const agentsWorkspace = (() => {
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
+      syncJournal();
     }
     async function refresh() {
       if (!live() || busy || selecting || visibilitySaving || revoking) return;
@@ -587,8 +597,8 @@ const agentsWorkspace = (() => {
     }
     find('#agentDetailsBody').addEventListener('keydown',event=>{
       const tab=event.target.closest('[data-record-tab]');if(!tab||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
-      event.preventDefault();const tabs=['overview','tools','details'],index=tabs.indexOf(tab.dataset.recordTab);
-      selectRecordTab(tabs[event.key==='Home'?0:event.key==='End'?2:(index+(['ArrowRight','ArrowDown'].includes(event.key)?1:2))%3],true);
+      event.preventDefault();const tabs=[...find('#agentDetailsBody').querySelectorAll('[data-record-tab]')].map(button=>button.dataset.recordTab),index=tabs.indexOf(tab.dataset.recordTab);
+      selectRecordTab(tabs[event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(['ArrowRight','ArrowDown'].includes(event.key)?1:tabs.length-1))%tabs.length],true);
     },{signal});
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});

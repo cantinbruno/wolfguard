@@ -1,5 +1,7 @@
 # Agents associés aux postes
 
+Le [journal des alertes](journal.md) décrit le tableau à hauteur fixe, les événements horodatés dans la fiche et la remontée des changements de protection par l’agent.
+
 Les sources sont dans `agent/`. Les notices `LIRE-MOI.txt` et `LIRE-MOI-POSIX.txt` restent dans ce dossier car elles sont intégrées aux archives d’installation.
 
 ## Exécution
