@@ -16,6 +16,8 @@ Dans Paramètres → Utilisateurs et droits, la liste indique le rôle de chaque
 
 Les nouvelles invitations commencent sans droits. Un gestionnaire délégué ne peut pas dépasser son propre périmètre, prolonger un droit au-delà de sa date de fin ni prendre le contrôle du propriétaire.
 
+Les « Actions du compte » sont toujours dépliées : leurs boutons sont directement accessibles, y compris après un changement de compte ou une actualisation. Les confirmations et protections du propriétaire restent appliquées.
+
 ## Chaque poste a ses limites
 
 Les niveaux de `agentLevels` sont réglables poste par poste : `read`, `write`, `deny`. Ils **restreignent** les permissions de section, sans jamais les augmenter. Ainsi, `write` sur un poste ne transforme pas une section globale Lecture en Écriture.

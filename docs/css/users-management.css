@@ -58,7 +58,7 @@
 .permission-profile-choices button[aria-pressed=true] strong{color:var(--users-accent)}
 .users-manager .permission-preview{padding:10px 12px;margin:14px 0;color:var(--ui-muted);font-size:11px;border:1px solid var(--ui-border);background:var(--ui-page)}
 .permission-advanced{border-top:1px solid var(--ui-border);padding:14px 0;font-size:11px}
-.permission-advanced>summary,.users-account-security>summary{cursor:pointer;font-size:12px;font-weight:600;line-height:1.7;list-style-position:outside;margin-left:14px;color:var(--ui-text)}
+.permission-advanced>summary{cursor:pointer;font-size:12px;font-weight:600;line-height:1.7;list-style-position:outside;margin-left:14px;color:var(--ui-text)}
 .users-manager .permission-matrix{grid-template-columns:minmax(0,1fr);margin:14px 0 0;gap:8px}
 .users-manager details.permission-group{padding:0;background:var(--ui-page)}
 .permission-group>summary{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;cursor:pointer;font-size:11px;list-style:none}
@@ -221,7 +221,7 @@
 #settings-users .users-account-copy small{font-size:11px}
 #settings-users .permission-owner{font-size:14px}
 #settings-users .users-account-security{padding:12px 16px}
-#settings-users .users-account-security>summary{font-size:12px;color:var(--ui-muted);font-weight:500}
+#settings-users .users-account-security>h5{margin:0;font-size:14px;line-height:1.5;color:var(--ui-text);font-weight:600}
 @media(max-width:440px){
   #settings-users .permission-profile-choices{grid-template-columns:minmax(0,1fr)}
   #settings-users .permission-profile-choices button{min-height:58px;padding:9px 12px}
