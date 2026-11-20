@@ -159,3 +159,14 @@
   .app-dialog-actions button { flex: 1; }
   .app-notices { right: 16px; bottom: 16px; }
 }
+
+/* Keep account and machine workspaces large while preserving their headers. */
+@media(min-width:701px){
+  .settings-wrap{padding:16px}
+  .settings-modal{box-sizing:border-box;width:min(1920px,calc(100vw - 32px));height:calc(100dvh - 32px)}
+  .agent-details-panel{width:min(1920px,calc(100vw - 32px));height:calc(100dvh - 32px);max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px)}
+}
+@media(max-width:700px){
+  .settings-wrap{padding:0}
+  .settings-modal{box-sizing:border-box;width:100vw;height:100dvh;max-height:100dvh;border:0;border-radius:0}
+}

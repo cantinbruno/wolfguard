@@ -60,7 +60,7 @@ const agentsWorkspace = (() => {
       <div class="agents-main">
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
       </div>
-    </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
+    </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsJournal" aria-controls="agentRecord-journal">${settingsIcon('list')}<span>Journal</span></button><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
     find('#agentsManage').hidden = !can('agents.pair');
     find('#agentsUninstall').hidden = !can('agents.revoke');
     find('#agentsUninstall').onclick = () => openAgentRemovalInterface();
@@ -152,6 +152,14 @@ const agentsWorkspace = (() => {
       find('#agentsPlatform').value = platform; find('#agentsProtection').value = protectionFilter;
       draw();
     }
+    function alertsHTML(agent,status){
+      const attributes='class="agents-alerts" data-alert="'+(status.alerts>0)+'"',count=status.alerts??'—';
+      return !agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr')?'<button type="button" '+attributes+' data-open-agent-journal="'+esc(agent.id)+'" aria-label="Voir le journal de '+esc(agent.name)+'" title="Voir les logs de ce poste">'+count+'</button>':'<span '+attributes+'>'+count+'</span>';
+    }
+    function openJournal(id){
+      const agent=agents.find(row=>row.id===id);if(!agent||agent.local||!can('edr.read',agent)||!workspaceModules.allows('edr'))return;
+      openDetails(id);selectRecordTab('journal',true);
+    }
     function draw(preserveRows = false) {
       if (!live()) return;
       const online = agents.filter(agent => agent.online).length;
@@ -181,7 +189,7 @@ const agentsWorkspace = (() => {
       });
       else find('#agentsList').innerHTML = rows.map(agent => {
         const status = protection(agent), chosen = agent.id === selected?.id;
-        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes"><span class="agents-alerts" data-alert="' + (status.alerts > 0) + '" title="Alertes non acquittées dans les derniers relevés">' + (status.alerts ?? '—') + '</span></td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
+        return '<tr class="agents-fleet-row" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (agent.restricted?' · Accès réservé':'') + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
       }).join('') || '<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
@@ -292,6 +300,7 @@ const agentsWorkspace = (() => {
       if (!agent) { dismissDetails(true); return; }
       const status = protection(agent);
       const edrAllowed = can('edr.read',agent) && workspaceModules.allows('edr');
+      find('#agentDetailsJournal').hidden=!edrAllowed||!!agent.local;
       const endpoint = edrAllowed && !protectionStale && !stale ? protections.get(agent.id) : null;
       const snapshot = status.snapshot, policy = endpoint?.policy;
       const checks = {enabled:'Activé',disabled:'Désactivé',passive:'Antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
@@ -345,7 +354,7 @@ const agentsWorkspace = (() => {
             </div>
             <div class="agent-record-overview">
               <section class="agent-record-card agent-record-protection">
-                ${sectionHeading('shield-check','Protection du poste','<button type="button" class="agent-record-events" data-record-edr '+(reason(actions.find(a=>a.id==='edr'),agent)||selecting?'disabled':'')+'>'+settingsIcon('list')+'Événements</button>')}
+                ${sectionHeading('shield-check','Protection du poste','<button type="button" class="agent-record-events" data-record-journal '+(reason(actions.find(a=>a.id==='edr'),agent)||selecting?'disabled':'')+'>'+settingsIcon('list')+'Voir le journal</button>')}
                 <div class="agent-record-section-label"><h4>Protection du système</h4><span>${esc(snapshot?.provider||'Fournisseur non confirmé')}</span></div>
                 <div class="agent-record-checks">
                   ${[['Antivirus','antivirus'],['Temps réel','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><span>'+label+'</span><strong><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i>'+esc(field==='signatures'&&value==='disabled'?'À actualiser':checks[value])+'</strong></div>';}).join('')}
@@ -388,11 +397,11 @@ const agentsWorkspace = (() => {
       </div>`;
       if (html !== detailHTML) {
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
-        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), restriction = focused?.hasAttribute('data-record-restricted'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), log = focused?.hasAttribute('data-record-journal'), restriction = focused?.hasAttribute('data-record-restricted'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
-        else if (update || edr) (find(edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
+        else if (update || edr || log) (find(log?'[data-record-journal]:not(:disabled)':edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if(restriction)find('[data-record-restricted]:not(:disabled)')?.focus({preventScroll:true});
         else if(revoke)find('[data-record-revoke="'+CSS.escape(revoke)+'"]:not(:disabled)')?.focus({preventScroll:true});
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
@@ -460,6 +469,7 @@ const agentsWorkspace = (() => {
     find('#agentsMobileSort').onchange=event=>{sort=event.target.value;draw();};
     find('#agentsMobileDirection').onclick=()=>{descending=!descending;draw();};
     find('#agentsList').onclick = event => {
+      const log=event.target.closest('[data-open-agent-journal]');if(log){openJournal(log.dataset.openAgentJournal);return;}
       const update = event.target.closest('[data-agent-install-update]'); if(update){ if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate); return; }
       if(event.target.closest('a[download]'))return;
       const security = event.target.closest('[data-agent-security]'); if(security){ if(!security.disabled)runAction('edr',security.dataset.agentSecurity); return; }
@@ -555,6 +565,7 @@ const agentsWorkspace = (() => {
       else if (state.section === 'remote') { remoteDesktopWorkspace.preferMode(remoteMode); await remoteDesktopWorkspace.render(host); }
     }
     find('#agentToolClose').onclick = closeTool;
+    find('#agentDetailsJournal').onclick=()=>openJournal(detailAgentId);
     find('#agentDetailsClose').onclick = () => dismissDetails(true);
     find('#agentDetailsRefresh').onclick = refresh;
     find('#agentDetailsBody').addEventListener('change',async event=>{
@@ -573,6 +584,7 @@ const agentsWorkspace = (() => {
     find('#agentDetailsPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     find('#agentDetailsBody').onclick = event => {
       const tab=event.target.closest('[data-record-tab]');if(tab){selectRecordTab(tab.dataset.recordTab);return;}
+      const log=event.target.closest('[data-record-journal]');if(log){if(!log.disabled)openJournal(detailAgentId);return;}
       const edr=event.target.closest('[data-record-edr]');if(edr){if(!edr.disabled)runAction('edr',detailAgentId);return;}
       const update = event.target.closest('[data-agent-install-update]');
       if(update){if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate);return;}

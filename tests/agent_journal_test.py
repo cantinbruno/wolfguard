@@ -58,9 +58,20 @@ def run():
         page.locator('#agentsRefresh').click()
         expect(page.locator('[data-agent-row]')).to_have_count(1)
         assert abs(page.locator('.agents-console').bounding_box()['height']-box['height'])<2
-        page.locator('[data-fleet-agent]').click()
-        page.locator('[data-record-tab=journal]').click()
+        page.locator('[data-open-agent-journal]').click()
+        expect(page.locator('[data-record-tab=journal]')).to_have_attribute('aria-selected', 'true')
         expect(page.locator('.agent-log-row')).to_have_count(50)
+        page.locator('#agentDetailsClose').click()
+        page.locator('[data-fleet-agent]').click()
+        page.locator('#agentDetailsJournal').click()
+        expect(page.locator('.agent-log-row')).to_have_count(50)
+        page.locator('[data-record-tab=overview]').click()
+        page.locator('[data-record-journal]').click()
+        expect(page.locator('[data-record-tab=journal]')).to_have_attribute('aria-selected', 'true')
+        page.locator('.agent-journal-help > summary').click()
+        expect(page.locator('.agent-journal-help')).to_contain_text('quarantaines')
+        expect(page.locator('.agent-journal-help')).to_contain_text('vérification des signatures')
+        page.locator('.agent-journal-help > summary').click()
         expect(page.locator('.agent-log-row img')).to_have_count(0)
         page.locator('[data-journal-more]').click()
         expect(page.locator('.agent-log-row')).to_have_count(55)
@@ -85,8 +96,10 @@ def run():
         state['fail'] = False
         page.locator('[data-journal-refresh]').click()
         expect(page.locator('.agent-log-row')).to_have_count(50)
-        for width in [1440, 850, 390, 320]:
+        for width in [1920, 1440, 850, 700, 640, 390, 320]:
             page.set_viewport_size({'width': width, 'height': 900})
+            bounds=page.locator('#agentDetailsPanel').bounding_box()
+            assert bounds['width']>=width*.9 and bounds['height']>=810, (width,bounds)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'), width
             assert page.locator('#agentDetailsPanel').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
             assert page.locator('.agent-journal-list').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
@@ -101,6 +114,17 @@ def run():
         expect(page.locator('.agent-log-row')).to_have_count(1)
         expect(page.locator('.agent-log-row')).to_contain_text('Journal du deuxième poste')
         assert set(state['calls']) == {agents[0]['id'], agents[1]['id']}
+        page.locator('#agentDetailsClose').click()
+        page.locator('#settingsBtn').click()
+        for width in [1920, 1440, 850, 700, 640, 390, 320]:
+            page.set_viewport_size({'width':width,'height':900})
+            bounds=page.locator('.settings-modal').bounding_box()
+            assert bounds['width']>=width*.9 and bounds['height']>=810, (width,bounds)
+            assert page.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
+            assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'), width
+            if width in [1440,390]:
+                page.screenshot(path=str(ROOT/f'.cache/settings-large-{width}.png'), animations='disabled')
+        page.locator('.settings-close').click()
         assert not errors, errors
     print('PASS: fixed fleet height and internal wheel scrolling, scoped logs, paging/deduplication, filters, pause, outage, machine switch, escaped evidence and 320px layout')
 

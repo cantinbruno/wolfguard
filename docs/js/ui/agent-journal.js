@@ -4,7 +4,7 @@ window.WolfGuardAgentJournal=(()=>{
   const statuses={alert:'Alerte',failed:'Échec',blocked:'Bloqué',quarantined:'Quarantaine',removed:'Supprimé',cleaned:'Nettoyé',info:'Information'};
   const severities={critical:'Critique',high:'Élevée',medium:'Moyenne',low:'Faible',info:'Info'};
   function create({signal}){
-    let host=null,agent=null,events=[],next=null,error='',last=0,loading=false,paused=false,history=false,query='',filter='all',controller=null,revision=0;
+    let host=null,agent=null,events=[],next=null,error='',last=0,loading=false,paused=false,history=false,query='',filter='all',controller=null,revision=0,helpOpen=false;
     const live=()=>!signal.aborted&&host?.isConnected;
     const find=selector=>host?.querySelector(selector);
     function draw(){
@@ -34,14 +34,15 @@ window.WolfGuardAgentJournal=(()=>{
       finally{if(run===revision){loading=false;draw();}}
     }
     function hide(){revision++;controller?.abort();controller=null;loading=false;host=null;}
-    function close(){hide();agent=null;events=[];next=null;last=0;history=false;error='';query='';filter='all';paused=false;}
+    function close(){hide();agent=null;events=[];next=null;last=0;history=false;error='';query='';filter='all';paused=false;helpOpen=false;}
     function show(target,post){
       if(!target||signal.aborted)return;
       if(agent?.id!==post.id)close();
       agent=post;
       if(target!==host){
         host=target;
-        host.innerHTML='<div class="agent-journal-controls"><label>Rechercher<input type="search" data-journal-search placeholder="Événement, fichier, fournisseur…"></label><label>Afficher<select data-journal-filter><option value="all">Tous les événements</option><option value="alerts">Alertes et échecs</option><option value="info">Informations</option></select></label><button type="button" data-journal-pause aria-pressed="false">Pause</button><button type="button" data-journal-refresh>Actualiser</button></div><p data-journal-status role="status"></p><div class="agent-journal-list" role="log" aria-live="off" tabindex="0" aria-label="Journal horodaté remonté par l’agent"></div><button type="button" data-journal-more hidden>Événements plus anciens</button>';
+        host.innerHTML='<details class="agent-journal-help" '+(helpOpen?'open':'')+'><summary>Quels logs sont remontés ?</summary><ul><li>Détections, blocages, quarantaines et restaurations signalés par les antivirus.</li><li>Protections désactivées, signatures à actualiser et rétablissements confirmés.</li><li>Installation de WolfGuard Antivirus et vérification des signatures : résultats et échecs.</li></ul><p>Chaque ligne indique la date, la gravité, le fournisseur et les détails reçus, avec le chemin concerné lorsqu’il est fourni.</p></details><div class="agent-journal-controls"><label>Rechercher<input type="search" data-journal-search placeholder="Événement, fichier, fournisseur…"></label><label>Afficher<select data-journal-filter><option value="all">Tous les événements</option><option value="alerts">Alertes et échecs</option><option value="info">Informations</option></select></label><button type="button" data-journal-pause aria-pressed="false">Pause</button><button type="button" data-journal-refresh>Actualiser</button></div><p data-journal-status role="status"></p><div class="agent-journal-list" role="log" aria-live="off" tabindex="0" aria-label="Journal horodaté remonté par l’agent"></div><button type="button" data-journal-more hidden>Événements plus anciens</button>';
+        find('.agent-journal-help').ontoggle=event=>{helpOpen=event.target.open;};
         find('[data-journal-search]').value=query;find('[data-journal-search]').oninput=event=>{query=event.target.value.trim().toLocaleLowerCase();draw();};
         find('[data-journal-filter]').value=filter;find('[data-journal-filter]').onchange=event=>{filter=event.target.value;draw();};
         find('[data-journal-refresh]').onclick=()=>refresh({force:true});
