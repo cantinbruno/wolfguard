@@ -47,6 +47,9 @@ def run():
             report['wolfguardAntivirus']=own
             agent_api('edr/report', report, token); page.locator('#edrRefresh').click()
             install=panel.locator('[data-av-action="av-install"]'); expect(install).to_be_enabled()
+            expect(panel.locator('.edr-antivirus-maintenance')).to_contain_text('installation est automatique')
+            expect(panel.locator('.edr-antivirus-maintenance')).to_contain_text('chaque heure')
+            expect(install).to_have_text('Réessayer l’installation maintenant')
             install.click(); page.get_by_role('button', name='Confirmer', exact=True).click()
             expect(page.locator('#edrCommandHistory')).to_contain_text('Installer WolfGuard Antivirus')
             expect(install).to_be_disabled()

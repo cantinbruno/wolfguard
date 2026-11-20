@@ -6,22 +6,26 @@ L’utilisateur a choisi un **moteur libre intégré**. L’agent Windows x64 in
 
 ## Activation sur un poste
 
-1. Installer ou mettre à jour l’agent Windows depuis les fichiers publiés.
-2. Ouvrir Sécurité, sélectionner le poste, puis EDR.
-3. Dans « WolfGuard Antivirus », choisir « Installer et activer WolfGuard Antivirus » et confirmer.
-4. Attendre la confirmation du poste et vérifier la version du moteur, les signatures, les dossiers couverts et les éventuelles erreurs.
+1. Installer ou mettre à jour l’agent Windows x64 depuis les fichiers publiés.
+2. Dès que l’agent associé reçoit sa politique « Protéger », il installe le moteur officiel et télécharge ses signatures, sans commande d’installation ni navigateur ouvert.
+3. La surveillance est activée seulement après confirmation de l’installation et des signatures. Les agents déjà associés bénéficient du même amorçage après leur mise à jour.
+4. Dans Sécurité → fiche du poste → EDR, vérifier les versions, les signatures, les dossiers couverts et les éventuelles erreurs. Le bouton « Réessayer l’installation maintenant » reste un recours immédiat après un échec.
 
-L’installation n’est pas déclenchée sur toute la flotte automatiquement. Un agent ancien affiche une demande de mise à jour. Une commande en attente ne vaut pas installation réussie. La politique « Protéger » est nécessaire à la surveillance automatique ; « Observer » la suspend. Les analyses manuelles restent possibles. Suspendre WolfGuard ne désactive jamais Defender ni le pare-feu.
+L’installation automatique concerne Windows x64 en mode « Protéger ». Elle attend une politique reçue du relais authentifié ; un état ancien ou une absence de connexion ne suffit pas à démarrer une nouvelle installation. « Observer » empêche cet amorçage et suspend la surveillance. Une pause explicite est conservée après redémarrage, y compris les anciens états sauvegardés désactivés ; elle n’est pas annulée par l’automatisation. Les signatures d’un moteur installé restent entretenues pendant une pause, sans réactiver la surveillance. Les analyses manuelles restent possibles. Suspendre WolfGuard ne désactive jamais Defender ni le pare-feu.
+
+Un téléchargement ou une première mise à jour interrompus sont retentés automatiquement après une heure, avec un délai mémorisé entre les redémarrages. Le mode « Observer », une pause ou l’arrêt de l’agent annulent l’installation automatique en cours. Une commande en attente ou un téléchargement terminé ne valent pas installation opérationnelle. Les installations et les actualisations confirmées ou en échec apparaissent dans le [journal du poste](agents/journal.md).
 
 ## Moteur et signatures
 
-Le manifeste `agent/antivirus-dependencies.json` fixe ClamAV 1.5.4 Windows x64 : archive officielle de 225 774 978 octets, SHA-256 imposé, téléchargement HTTPS limité aux domaines de distribution GitHub autorisés. L’archive complète est extraite dans un dossier protégé ; chemins sortants, doublons, liens et extractions excessives sont refusés. Une installation interrompue ne devient pas le moteur actif et peut être relancée. Les exécutables sont contrôlés à la reprise de l’agent.
+Le manifeste `agent/antivirus-dependencies.json` fixe ClamAV 1.5.5 Windows x64 : archive officielle de 225 800 047 octets, SHA-256 imposé, téléchargement HTTPS limité aux domaines de distribution GitHub autorisés. Version vérifiée sur la publication officielle le 20 novembre 2026 ; taille, SHA-256 et chemins du scanner et de FreshClam contrôlés sur l’archive téléchargée, sans exécution du moteur sur le poste de développement. L’archive complète est extraite dans un dossier protégé ; chemins sortants, doublons, liens et extractions excessives sont refusés. Une installation interrompue ne devient pas le moteur actif et peut être relancée. Les exécutables sont contrôlés à la reprise de l’agent.
 
 Le moteur extrait représente environ 940 Mo ; prévoir plusieurs Go libres pour l’archive, les bases, les copies temporaires et la quarantaine. Il n’est pas inclus dans le petit installateur WolfGuard : le poste le télécharge lors de l’activation.
 
-FreshClam télécharge et vérifie les bases officielles. Une tentative automatique intervient lorsque leur date de création dépasse un jour, avec au moins une heure entre les essais après échec. « Actualiser les signatures » permet une demande immédiate. L’état affiche la date réelle du contenu CVD/CLD, pas la date du fichier. Des bases absentes ou âgées de plus de deux jours empêchent de conclure qu’un fichier est sain. La version du moteur reste épinglée : son évolution demande une nouvelle version de l’agent et une validation du manifeste.
+FreshClam télécharge et vérifie les bases officielles. L’agent vérifie les signatures toutes les heures, même si les bases présentes sont récentes et si le site est fermé. Les vérifications DNS officielles et les mises à jour différentielles restent activées. Le délai entre les essais est mémorisé après un échec et un redémarrage. « Actualiser les signatures maintenant » permet une demande immédiate. L’état affiche la date réelle du contenu CVD/CLD, pas la date du fichier. Des bases absentes ou âgées de plus de deux jours empêchent de confirmer une mise à jour et de conclure qu’un fichier est sain.
 
-ClamAV est exécuté comme programme séparé avec ses notices et sa licence GNU GPL v2, conservées dans l’archive officielle. L’intégration ne modifie pas la licence du reste du projet et ne lie pas directement libclamav. Sources et notices de cette version : [publication officielle](https://github.com/Cisco-Talos/clamav/releases/tag/clamav-1.5.4), [libclamav et licence](https://docs.clamav.net/manual/Development/libclamav.html).
+Le moteur reste épinglé à une version validée : les mises à jour autonomes de l’agent diffusent le manifeste suivant et déclenchent l’installation de sa version du moteur. Une ancienne version installée n’empêche donc pas la montée de version automatique. L’agent ne télécharge pas une version arbitraire de ClamAV sans son empreinte approuvée.
+
+ClamAV est exécuté comme programme séparé avec ses notices et sa licence GNU GPL v2, conservées dans l’archive officielle. L’intégration ne modifie pas la licence du reste du projet et ne lie pas directement libclamav. Sources et notices de cette version : [publication officielle](https://github.com/Cisco-Talos/clamav/releases/tag/clamav-1.5.5), [libclamav et licence](https://docs.clamav.net/manual/Development/libclamav.html).
 
 ## Analyse et limites
 
@@ -46,7 +50,7 @@ Toutes les commandes passent par les droits `edr.manage` et les restrictions **p
 Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/views/edr.js`.
 
 ```powershell
-node --test tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs
+node --test tests/antivirus-auto.test.mjs tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs
 python tests/antivirus_workspace_test.py
 python scripts/package-agent.py --check
 ```

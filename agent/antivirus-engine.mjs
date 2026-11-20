@@ -80,9 +80,9 @@ export class ClamEngine{
     const database=path.join(this.directory,'database');await privateDirectory(database);
     if(/[\r\n"]/.test(database))throw new Error('Chemin des signatures invalide.');
     const config=path.join(this.directory,'freshclam.conf');
-    await writeFile(config,'DatabaseDirectory "'+database+'"\nDatabaseMirror database.clamav.net\nScriptedUpdates yes\nMaxAttempts 3\nConnectTimeout 20\nReceiveTimeout 120\n',{mode:0o600});
+    await writeFile(config,'DatabaseDirectory "'+database+'"\nDNSDatabaseInfo current.cvd.clamav.net\nDatabaseMirror database.clamav.net\nScriptedUpdates yes\nMaxAttempts 3\nConnectTimeout 20\nReceiveTimeout 120\n',{mode:0o600});
     await this.run(engine.updater,['--config-file='+config,'--stdout','--quiet'],{signal,timeout:600000,maxBytes:128000});
-    const signatures=await this.signatures();if(!signatures.at)throw new Error('Les signatures téléchargées ne sont pas exploitables.');return signatures;
+    const signatures=await this.signatures();if(!signatures.at||Date.now()-signatures.at>2*86400000)throw new Error('Les signatures téléchargées sont absentes ou trop anciennes.');return signatures;
   }
   async signatures(){
     for(const name of ['daily.cld','daily.cvd']){
