@@ -5,6 +5,11 @@ window.WolfGuardPermissionEditor=(()=>{
   const hostFor=root=>root.querySelector('#wgPermissionHost');
   const request=(path,value,signal)=>WolfGuardCloud.agentRequest('users/permissions'+path,value,{signal});
   const date=value=>new Date(value).toLocaleString('fr-FR');
+  function setView(root,view){
+    const host=hostFor(root);if(!host)return;host.dataset.view=view;
+    host.querySelectorAll('[data-permission-pane]').forEach(pane=>{pane.hidden=pane.dataset.permissionPane!==view;});
+    const heading=host.querySelector('.permission-role-heading h4');if(heading)heading.textContent=view==='posts'?'Accès aux postes':'Rôle et accès';
+  }
   async function open(root,user,{signal,onSaved,embedded=false}){
     const host=hostFor(root),generation=++editorGeneration;if(!host)return;
     host.dataset.dirty='false';host.dataset.saving='false';host.innerHTML='<p role="status">Chargement des droits…</p>';
@@ -53,9 +58,9 @@ window.WolfGuardPermissionEditor=(()=>{
           <fieldset ${policy.admin?'disabled':''}>
             <div class="permission-row permission-security-level" data-permission-section="security"><span class="permission-row-name">Sécurité des postes</span><div class="permission-row-levels" role="group" aria-label="Niveau de sécurité des postes">${catalog.levels.map(([value,label])=>'<button type="button" data-security-level="'+value+'" aria-pressed="'+(current===value)+'">'+esc(label)+'</button>').join('')}</div></div>
             <p class="permission-security-explanation">${policy.admin?'Le mode administrateur donne tous les droits sur tous les postes.':current==='custom'?'Les droits actuels diffèrent selon les outils et sont conservés. Choisir un niveau les harmonise.':current==='write'?'Permet d’associer et de révoquer les agents, lancer les scans, administrer la protection et prendre la main sur les postes autorisés.':current==='read'?'Permet de consulter les postes et leurs résultats. Aucun lancement de scan, contrôle à distance ou changement sur un agent.':'Les agents et leurs outils sont masqués pour ce compte.'}</p>
-            <details class="permission-agent-scope" id="wgPermissionAgentScope"><summary>Droits poste par poste</summary><p>${policy.admin?'Le mode administrateur donne accès à tous les postes, y compris ceux réservés aux administrateurs.':'Chaque niveau limite les autorisations des outils ci-dessus. Un poste en lecture reste consultable, sans exécution ni prise en main. Les postes réservés aux administrateurs restent protégés.'}</p><fieldset ${fleet&&perPost?'':'disabled'}><div class="permission-agent-modes"><label><input type="radio" name="securityAgentScope" data-agent-scope="all" ${policy.admin||policy.agents===null?'checked':''}>Tous les postes par défaut</label><label><input type="radio" name="securityAgentScope" data-agent-scope="selected" ${!policy.admin&&policy.agents!==null?'checked':''}>Uniquement ces postes</label></div>
+            <${embedded?'section':'details'} class="permission-agent-scope" id="wgPermissionAgentScope">${embedded?'<h5>Droits poste par poste</h5>':'<summary>Droits poste par poste</summary>'}<p>${policy.admin?'Le mode administrateur donne accès à tous les postes, y compris ceux réservés aux administrateurs.':'Chaque niveau limite les autorisations des outils ci-dessus. Un poste en lecture reste consultable, sans exécution ni prise en main. Les postes réservés aux administrateurs restent protégés.'}</p><fieldset ${fleet&&perPost?'':'disabled'}><div class="permission-agent-modes"><label><input type="radio" name="securityAgentScope" data-agent-scope="all" ${policy.admin||policy.agents===null?'checked':''}>Tous les postes par défaut</label><label><input type="radio" name="securityAgentScope" data-agent-scope="selected" ${!policy.admin&&policy.agents!==null?'checked':''}>Uniquement ces postes</label></div>
             ${!policy.admin?'<div class="permission-agent-list permission-agent-rights">'+[...agents.values()].map(agent=>'<div class="permission-agent-right" data-agent-right="'+esc(agent.id)+'"><strong>'+esc(agent.name)+'</strong><div class="permission-row-levels" role="group" aria-label="Droits pour '+esc(agent.name)+'">'+catalog.levels.map(([value,label])=>'<button type="button" data-agent-right-id="'+esc(agent.id)+'" data-agent-level="'+value+'" aria-pressed="'+(assigned(agent.id)===value)+'">'+esc(label)+'</button>').join('')+'</div></div>').join('')+(!agents.size?'<p>Aucun poste disponible.</p>':'')+'</div>':''}</fieldset>${policy.admin?'':!perPost?'<p role="status">Le serveur doit être mis à jour pour régler les droits par poste.</p>':!fleet?'<p role="status">Liste des postes indisponible. Le périmètre actuel est conservé.</p>':policy.agents!==null?'<small>'+policy.agents.filter(id=>policy.agentLevels?.[id]!=='deny').length+' poste(s) autorisé(s). Les nouveaux postes restent exclus.</small>':'<small>Les nouveaux postes hériteront des autorisations des outils. Les exceptions ci-dessus restent appliquées.</small>'}
-            <details class="permission-security-summary"><summary>Droits actuels par outil</summary><dl>${catalog.sections.filter(([section])=>securitySections.includes(section)).map(([section,name])=>'<div><dt>'+esc(name)+'</dt><dd>'+esc(levelBadge(section))+'</dd></div>').join('')}</dl></details></details>
+            <details class="permission-security-summary"><summary>Droits actuels par outil</summary><dl>${catalog.sections.filter(([section])=>securitySections.includes(section)).map(([section,name])=>'<div><dt>'+esc(name)+'</dt><dd>'+esc(levelBadge(section))+'</dd></div>').join('')}</dl></details></${embedded?'section':'details'}>
           </fieldset></section>`;
       }
       function render(focusSelector){
@@ -64,13 +69,14 @@ window.WolfGuardPermissionEditor=(()=>{
         const exceptions=policy.agents!==null||Object.values(policy.agentLevels||{}).some(level=>level!=='write')||!!policy.scopes;
         reasonDraft=host.querySelector('#wgPermissionReason')?.value??reasonDraft;
         host.innerHTML=`<form class="permission-editor${embedded?' permission-embedded':''}" id="wgPermissionForm">
-          <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded?'<button type="button" class="settings-btn permission-post-shortcut" data-open-agent-rights aria-controls="wgPermissionAgentScope" aria-expanded="false">'+settingsIcon('monitor')+'Accès aux postes</button>':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
+          <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded?'':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
           <p class="access-feedback permission-save-notice" data-permission-save-notice role="status">${esc(savedMessage)}</p>
           <fieldset ${saving?'disabled':''}>
+            <div ${embedded?'data-permission-pane="rights"':''}>
             <div class="permission-profile-choices" role="group" aria-label="Rôle du compte" aria-describedby="wgPermissionRoleHelp">${catalog.profiles.filter(row=>!row.legacy).map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(role===row.id)+'" title="'+esc(row.description)+'"><span class="permission-role-icon" aria-hidden="true">'+settingsIcon(roleIcons[row.id]||'user')+'</span><span class="permission-role-copy"><strong>'+esc(row.name)+'</strong><span>'+esc(roleNotes[row.id]||row.description)+'</span></span><span class="permission-role-check" aria-hidden="true">'+(role===row.id?'✓':'')+'</span></button>').join('')}</div>
             <p class="permission-role-help" id="wgPermissionRoleHelp">${esc(activeRole?.description||'Droits personnalisés. Choisis un rôle pour les simplifier.')}${exceptions&&!policy.admin?' Des exceptions par poste sont conservées.':''}</p>
-            <details class="permission-customization" id="wgPermissionCustomization"><summary>Options avancées <span>Sections, postes et durée</span></summary>
-            <p class="permission-scope-help">Les postes réservés restent accessibles uniquement aux administrateurs et au propriétaire.</p>
+            <details class="permission-customization" id="wgPermissionCustomization"><summary>Personnaliser les droits <span>Sections et durée</span></summary>
+            <p class="permission-scope-help">${embedded?'Les accès aux postes se règlent dans « Postes ». ':''}Le niveau ci-dessous s’applique à toutes les sections, sécurité comprise.</p>
             <label class="permission-bulk"><span>Appliquer à toutes les sections</span><select data-permission-bulk aria-label="Appliquer un niveau à toutes les sections"><option value="">Choisir un niveau…</option>${catalog.levels.map(([value,label])=>'<option value="'+value+'">'+esc(label)+'</option>').join('')}</select></label>
             <fieldset class="permission-section-settings" ${policy.admin?'disabled':''}>
             <div class="permission-matrix">${catalog.sections.filter(([section])=>!securitySections.includes(section)).map(([section,name])=>{
@@ -79,16 +85,17 @@ window.WolfGuardPermissionEditor=(()=>{
                 catalog.levels.map(([value,label])=>'<button type="button" data-section="'+esc(section)+'" data-level="'+value+'" aria-pressed="'+(current===value)+'">'+esc(label)+'</button>').join('')+
                 '</div></div>';
             }).join('')}</div>
-            ${securityHTML()}
+            ${embedded?'':securityHTML()}
             </fieldset>
             <details class="permission-advanced"><summary>Durée et motif du changement</summary><label>Fin des autorisations (facultatif)<input id="wgPermissionExpiry" type="datetime-local" value="${policy.expiresAt?new Date(policy.expiresAt-new Date(policy.expiresAt).getTimezoneOffset()*60000).toISOString().slice(0,16):''}"></label><label>Motif du changement<input id="wgPermissionReason" maxlength="500" placeholder="Ex. Accès temporaire pour une intervention"></label></details>
             </details>
+            </div>
+            ${embedded?'<div data-permission-pane="posts" hidden>'+securityHTML()+'</div>':''}
             <div class="permission-save-bar" hidden><div><span data-permission-draft role="status"></span><p>Ce compte devra se reconnecter.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer'}</button></div></div>
           </fieldset><p data-permission-error class="access-error" role="alert"></p></form>`;
         host.querySelectorAll('details').forEach(row=>{row.open=opened.has(row.querySelector('summary')?.textContent);});
-        const scope=host.querySelector('#wgPermissionAgentScope'),shortcut=host.querySelector('[data-open-agent-rights]');
-        if(shortcut){const advanced=host.querySelector('#wgPermissionCustomization');const sync=()=>shortcut.setAttribute('aria-expanded',String(scope.open&&advanced.open));sync();scope.addEventListener('toggle',sync);advanced.addEventListener('toggle',sync);shortcut.onclick=()=>{advanced.open=true;scope.open=true;sync();const detail=root.querySelector('#wgUserDetail');if(detail)detail.scrollTop+=scope.getBoundingClientRect().top-detail.getBoundingClientRect().top-12;scope.querySelector('summary').focus({preventScroll:true});};}
-        host.querySelectorAll('[data-close-permissions]').forEach(button=>button.onclick=()=>{if(saving)return;if(embedded){policy=structuredClone(user.permissions);reasonDraft='';savedMessage='';render();}else reset(root);});
+        if(embedded)setView(root,host.dataset.view||'rights');
+        host.querySelectorAll('[data-close-permissions]').forEach(button=>button.onclick=()=>{if(saving)return;if(embedded){policy=structuredClone(user.permissions);reasonDraft='';host.querySelector('#wgPermissionReason').value='';savedMessage='';render();}else reset(root);});
         if(user.role==='admin')return;
         host.querySelector('#wgPermissionReason').value=reasonDraft;
         host.querySelector('#wgPermissionReason').oninput=dirty;
@@ -128,5 +135,5 @@ window.WolfGuardPermissionEditor=(()=>{
     }catch(error){if(!signal.aborted&&generation===editorGeneration)host.textContent=error.message;}
   }
   function reset(root){editorGeneration++;const host=hostFor(root);if(host){host.dataset.dirty='false';host.dataset.saving='false';host.replaceChildren();}}
-  return {open,audit,reset,isDirty:root=>hostFor(root)?.dataset.dirty==='true',isSaving:root=>hostFor(root)?.dataset.saving==='true'};
+  return {open,audit,reset,setView,isDirty:root=>hostFor(root)?.dataset.dirty==='true',isSaving:root=>hostFor(root)?.dataset.saving==='true'};
 })();
