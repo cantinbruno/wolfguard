@@ -161,6 +161,22 @@ test('CERT-FR analysis is authenticated, cached and encrypted separately from im
     assert.equal((await s.api('scans/delete',{id:job.id},s.user)).status,200);assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) AS n FROM scan_intelligence').get().n,0);
   }finally{s.env.DB.db.close();}
 });
+test('download pairing links last one hour and expire exactly at the boundary',async()=>{
+  const s=await setup();try{
+    const tickets=[];
+    for(let i=0;i<3;i++)tickets.push(await(await s.api('agents/pair',{},s.user)).json());
+    for(const ticket of tickets)assert.equal(ticket.expiresAt,1800000000000+60*60*1000);
+    s.advance(45*60*1000);
+    const enroll=code=>s.api('agent/enroll',{code,name:'One-hour link',platform:'linux'});
+    assert.equal((await enroll(tickets[0].code)).status,200,'a link still works after forty-five minutes');
+    assert.equal((await enroll(tickets[0].code)).status,403,'links remain single use');
+    s.advance(15*60*1000-1);
+    assert.equal((await enroll(tickets[1].code)).status,200,'valid until the last millisecond');
+    s.advance(1);
+    assert.equal((await enroll(tickets[2].code)).status,403,'expired at exactly one hour');
+  }finally{s.env.DB.db.close();}
+});
+
 test('agent pairing is one-use, scoped, encrypted, revocable and separate from vault sessions',async()=>{
   const s=await setup();assert.equal((await s.api('agents')).status,401);
   const a=await s.pair('Poste confidentiel');assert.equal((await s.api('agent/enroll',{code:a.code,name:'Replay',platform:'win32'})).status,403);

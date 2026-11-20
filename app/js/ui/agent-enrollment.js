@@ -17,14 +17,14 @@ const workspaceAgentEnrollment=(()=>{
       <section id="wgAgentConnect" class="enrollment-install" aria-label="Installation du poste">
         <div class="enrollment-install-heading"><span aria-hidden="true">${settingsIcon('download')}</span><div><h3>Installer et associer</h3><p>Aucun code à saisir.</p></div></div>
         <p id="wgAgentInstructions"></p><div class="enrollment-install-actions"><button type="button" class="settings-btn primary" id="wgAgentPair" disabled>${settingsIcon('download')}<span>Télécharger l’installateur</span></button><button type="button" class="settings-btn" id="wgAgentShare" disabled>${settingsIcon('link')}Créer un lien pour un autre poste</button></div>
-        <p class="enrollment-ticket-note">Installateur personnel · Valable 10 minutes · Un seul poste</p>
+        <p class="enrollment-ticket-note">Installateur personnel · Valable 1 heure · Un seul poste</p>
         <section id="wgAgentShareLink" class="enrollment-share" hidden><label for="wgAgentShareURL">Ouvre ce lien sur le poste à ajouter</label><div><input id="wgAgentShareURL" type="url" readonly spellcheck="false"><button type="button" class="settings-btn" id="wgAgentShareCopy">Copier</button></div><p id="wgAgentShareExpiry"></p></section>
       </section>
       <p id="wgAgentSetupError" class="settings-agent-error" role="alert"></p><p id="wgAgentSetupStatus" class="enrollment-feedback" role="status" aria-live="polite"></p>
       <p id="wgAgentCapacity" class="settings-agent-notice" hidden>La limite de 200 postes est atteinte.</p>
       <p id="wgAgentConnectionNotice" class="settings-agent-notice" role="status" hidden></p>
       <section id="wgAgentEnrollmentProgress" class="enrollment-progress" data-state="idle" role="status"><span class="enrollment-progress-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><strong id="wgAgentEnrollmentTitle">Prêt à ajouter un poste</strong><p id="wgAgentEnrollmentHelp">Télécharge l’installateur, puis ouvre-le sur le poste.</p><small id="wgAgentPairExpiry"></small></div><button type="button" class="settings-btn" id="wgAgentRefresh" aria-label="Vérifier l’arrivée du poste" title="Vérifier l’arrivée du poste">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgAgentViewPosts" hidden>Voir le poste</button></section>
-      <details class="enrollment-advanced"><summary>Agent déjà installé ou installation manuelle</summary><p id="wgAgentDownloadHelp"></p><a id="wgAgentDownload" class="settings-btn" download></a><div id="wgAgentPairCode" hidden><a class="settings-btn" id="wgAgentConnectPair">Associer l’agent installé sur ce poste</a><progress id="wgAgentPairProgress" max="600" value="600" aria-label="Durée de validité"></progress><p id="wgAgentPairFeedback"></p></div></details>`;
+      <details class="enrollment-advanced"><summary>Agent déjà installé ou installation manuelle</summary><p id="wgAgentDownloadHelp"></p><a id="wgAgentDownload" class="settings-btn" download></a><div id="wgAgentPairCode" hidden><a class="settings-btn" id="wgAgentConnectPair">Associer l’agent installé sur ce poste</a><progress id="wgAgentPairProgress" max="3600" value="3600" aria-label="Durée de validité"></progress><p id="wgAgentPairFeedback"></p></div></details>`;
     const status=message=>{if(live())find('#wgAgentSetupStatus').textContent=message;};
     const error=message=>{if(live())find('#wgAgentSetupError').textContent=message;};
     function controls(){
@@ -49,7 +49,7 @@ const workspaceAgentEnrollment=(()=>{
       if(!ticket||added)return;
       const remaining=Math.max(0,Math.ceil((ticket.expiresAt-Date.now())/1000));
       const label='Expire dans '+Math.floor(remaining/60)+' min '+String(remaining%60).padStart(2,'0')+' s';
-      find('#wgAgentPairExpiry').textContent=label;find('#wgAgentShareExpiry').textContent=label;find('#wgAgentPairProgress').value=Math.min(600,remaining);
+      find('#wgAgentPairExpiry').textContent=label;find('#wgAgentShareExpiry').textContent=label;find('#wgAgentPairProgress').value=Math.min(3600,remaining);
       if(!remaining){clearTicket();find('#wgAgentEnrollmentProgress').dataset.state='expired';find('#wgAgentEnrollmentTitle').textContent='Lien d’association expiré';find('#wgAgentEnrollmentHelp').textContent='Crée un nouvel installateur ou un nouveau lien pour continuer.';status('Le lien a expiré. Tu peux en créer un nouveau.');}
     }
     async function refresh(){

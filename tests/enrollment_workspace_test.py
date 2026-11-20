@@ -19,6 +19,7 @@ def run():
         expect(page.locator('[data-fleet-agent]')).to_have_count(1)
         page.locator('#agentsManage').click()
         expect(page.locator('#agentsTitle')).to_have_text('Ajouter un poste')
+        expect(page.locator('.enrollment-ticket-note')).to_contain_text('Valable 1 heure')
         expect(page.locator('#wgAgentManage,#wgAgentSelect,[data-agent-revoke],[data-record-revoke],#wgAgentUninstall,[data-agent-tab]')).to_have_count(0)
         page.locator('[data-agent-platform=win32]').click()
         with page.expect_download() as download:
@@ -68,11 +69,12 @@ def run():
         expect(page.locator('#wgAgentShareLink')).to_be_visible()
         url=page.locator('#wgAgentShareURL').input_value()
         assert urlsplit(url).path=='/agent-download.html' and 'platform=linux' in urlsplit(url).fragment
+        assert page.evaluate("url=>{const expires=Number(new URLSearchParams(new URL(url).hash.slice(1)).get('expires'));return expires-Date.now()>59*60*1000&&expires-Date.now()<=60*60*1000}",url)
         page.evaluate('copyText=async value=>{window.__copiedEnrollment=value;return true}')
         page.locator('#wgAgentShareCopy').click()
         expect(page.locator('#wgAgentSetupStatus')).to_contain_text('copié')
         assert page.evaluate('window.__copiedEnrollment')==url
-        page.evaluate('window.__enrollmentNow=Date.now;Date.now=()=>window.__enrollmentNow()+601000')
+        page.evaluate('window.__enrollmentNow=Date.now;Date.now=()=>window.__enrollmentNow()+3601000')
         try:
             expect(page.locator('#wgAgentShareLink')).to_be_hidden(timeout=10000)
             expect(page.locator('#wgAgentEnrollmentTitle')).to_contain_text('expiré')

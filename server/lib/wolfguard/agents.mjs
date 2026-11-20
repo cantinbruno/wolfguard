@@ -7,7 +7,7 @@ import {can,canAgent,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {objectJSON} from './request.mjs';
 const encode=new TextEncoder();
-const MAX_RESULT=1024*1024,LEASE_MS=30000,ONLINE_MS=20000;
+const MAX_RESULT=1024*1024,LEASE_MS=30000,ONLINE_MS=20000,PAIRING_TTL_MS=60*60*1000;
 export async function handleAgentAPI(request,env,now,h){
   const {fail,json,random,digest,authorize,storageKey}=h,path=new URL(request.url).pathname;
   const body=(limit=16000)=>objectJSON(request,limit,fail);
@@ -78,9 +78,9 @@ export async function handleAgentAPI(request,env,now,h){
   }
   if(path==='/api/agents/pair'&&request.method==='POST'){
     requirePermission(session.user,'agents.write',fail,now);
-    const code=random(16);await env.DB.prepare('DELETE FROM scan_pairings WHERE expires_at<=? OR generation<>?').bind(now,session.generation).run();
+    const code=random(16),expiresAt=now+PAIRING_TTL_MS;await env.DB.prepare('DELETE FROM scan_pairings WHERE expires_at<=? OR generation<>?').bind(now,session.generation).run();
     const pending=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_pairings WHERE generation=?').bind(session.generation).first();if(pending.count>=3)fail(429,'Trois codes sont déjà valides. Attends leur expiration.');
-    await env.DB.prepare('INSERT INTO scan_pairings (token_hash,generation,expires_at) VALUES (?,?,?)').bind(await digest(code),session.generation,now+10*60000).run();return json({code,expiresAt:now+10*60000});
+    await env.DB.prepare('INSERT INTO scan_pairings (token_hash,generation,expires_at) VALUES (?,?,?)').bind(await digest(code),session.generation,expiresAt).run();return json({code,expiresAt});
   }
   if(path==='/api/agents/restricted'&&request.method==='POST'){
     if(!administrator(session.user,now))fail(403,'Réservé à l’administrateur.');

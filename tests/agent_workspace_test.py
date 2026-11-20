@@ -236,7 +236,7 @@ def run():
             first.locator('[data-agent-platform="win32"]').click()
             first.locator('.enrollment-advanced summary').click()
             first.locator('#wgAgentPair').click();expect(first.locator('#wgAgentPairCode')).to_be_visible()
-            first.evaluate('window.__agentRealNow=Date.now;Date.now=()=>window.__agentRealNow()+601000')
+            first.evaluate('window.__agentRealNow=Date.now;Date.now=()=>window.__agentRealNow()+3601000')
             try:
                 expect(first.locator('#wgAgentPairCode')).to_be_hidden(timeout=10000)
                 expect(first.locator('#wgAgentConnectPair')).not_to_have_attribute('href',__import__('re').compile('.+'))
