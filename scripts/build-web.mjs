@@ -34,8 +34,19 @@ function verify(directory) {
   }
 }
 execFileSync('python',[path.join(root,'scripts/package-agent.py')],{cwd:root,stdio:'inherit'});
-const uninstall=readFileSync(path.join(root,'agent/Uninstaller.ps1'),'utf8');
+const uninstall=readFileSync(path.join(root,'agent/Uninstaller.ps1'),'utf8').replace(/\r\n/g,'\n');
 writeFileSync(path.join(source,'downloads','WolfGuard-Agent-Uninstall.cmd'),'@echo off\r\npowershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+Buffer.from(uninstall,'utf16le').toString('base64')+'\r\nif errorlevel 1 pause\r\n');
+const uninstallFiles={
+  'WolfGuard-Uninstaller.ps1.txt':Buffer.from('\ufeff'+uninstall.replace(/\r\n/g,'\n'),'utf8'),
+  'WolfGuard-Uninstaller.sh.txt':Buffer.from(readFileSync(path.join(root,'agent/Uninstaller.sh'),'utf8').replace(/\r\n/g,'\n'),'utf8')
+};
+const uninstallHashes={};
+for(const [name,bytes] of Object.entries(uninstallFiles)){
+  writeFileSync(path.join(source,'downloads',name),bytes);
+  uninstallHashes[name]=createHash('sha256').update(bytes).digest('hex');
+}
+const uninstallModule=readFileSync(path.join(root,'agent/uninstall-command.mjs'),'utf8');
+writeFileSync(path.join(source,'js/agent-uninstall-command.js'),'// Generated from agent/uninstall-command.mjs and the published uninstallers.\nconst WolfGuardUninstallCommand = (() => {\n'+uninstallModule.replace(/^export /gm,'')+'\nconst hashes='+JSON.stringify(uninstallHashes)+';\nreturn Object.freeze({command:(platform,baseURL)=>uninstallCommand(platform,hashes,baseURL)});\n})();\n');
 verify(source);
 verify(path.join(root,'browser'));
 digest.update(readFileSync(fileURLToPath(import.meta.url)));

@@ -2,6 +2,7 @@
 
 /* MODAL */
 function modal(title, body) {
+  if (typeof workspaceAgentRemoval !== 'undefined') workspaceAgentRemoval.unmount();
   if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();
@@ -12,6 +13,7 @@ function modal(title, body) {
 }
 
 function closeModal() {
+  if (typeof workspaceAgentRemoval !== 'undefined') workspaceAgentRemoval.unmount();
   if (typeof workspaceAgents !== 'undefined') workspaceAgents.unmount();
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();

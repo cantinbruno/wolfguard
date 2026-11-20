@@ -37,7 +37,7 @@ const agentsWorkspace = (() => {
     mobileTable.addEventListener('change',tableKeyboard,{signal});
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE</span><h1>Sécurité des postes</h1></div></div>
-      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
     </header>
     <div id="agentsMetrics" class="agents-metrics"></div><div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
     <div class="agents-console">
@@ -61,6 +61,8 @@ const agentsWorkspace = (() => {
       </div>
     </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
     find('#agentsManage').hidden = !can('agents.pair');
+    find('#agentsUninstall').hidden = !can('agents.revoke');
+    find('#agentsUninstall').onclick = () => openAgentRemovalInterface();
     find('#agentsManage').onclick = () => openAgentsInterface({onAdded:agent=>{if(!live())return;if(!agents.some(row=>row.id===agent.id))agents.push(agent);draw();openDetails(agent.id);}});
 
     function protection(agent) {
@@ -371,7 +373,7 @@ const agentsWorkspace = (() => {
               ${fields([['Identifiant du poste',agent.id],['Version installée',agent.version||'Non remontée'],['Version publiée',!releaseStale?publishedRelease?.version||'Indisponible':'Indisponible'],['Version des signatures',snapshot?.signatureVersion||'Non confirmée'],['Réception du relevé',timestamp(endpoint?.receivedAt)],['Actions sur les protections',snapshot?snapshot.canEnforce?'Prises en charge par le composant système':'Privilèges système nécessaires':'Non confirmées']])}
               <p class="agent-record-caption">Les informations matérielles et les adresses réseau ne sont pas remontées par cet inventaire.</p>
             </details>
-            ${!agent.local&&can('agents.revoke',agent)?'<section class="agent-record-removal"><div><h3>Retirer ce poste</h3><p>Révoquer son accès arrête ses scans et ses partages en cours. Une nouvelle association sera nécessaire pour le reconnecter.</p></div><div class="agent-record-removal-actions">'+(agent.platform==='win32'?'<a class="settings-btn" id="wgAgentUninstall" href="downloads/WolfGuard-Agent-Uninstall.cmd" download>Télécharger le désinstalleur Windows</a>':'')+'<button type="button" data-record-revoke="'+esc(agent.id)+'" '+(busy||stale||revoking?'disabled':'')+'>'+esc(revoking?'Révocation…':'Révoquer l’accès')+'</button></div>'+(revokeError?.id===agent.id?'<p class="access-error" role="alert">'+esc(revokeError.message)+'</p>':'')+'</section>':''}
+            ${!agent.local&&can('agents.revoke',agent)?'<section class="agent-record-removal"><div><h3>Retirer ce poste</h3><p>Révoquer son accès arrête ses scans et ses partages en cours. Une nouvelle association sera nécessaire pour le reconnecter.</p></div><div class="agent-record-removal-actions"><button type="button" class="settings-btn" data-record-uninstall="'+esc(agent.id)+'">Désinstaller l’agent</button><button type="button" data-record-revoke="'+esc(agent.id)+'" '+(busy||stale||revoking?'disabled':'')+'>'+esc(revoking?'Révocation…':'Révoquer l’accès')+'</button></div>'+(revokeError?.id===agent.id?'<p class="access-error" role="alert">'+esc(revokeError.message)+'</p>':'')+'</section>':''}
           </section>
         </div>
       </div>`;
@@ -564,6 +566,7 @@ const agentsWorkspace = (() => {
       const edr=event.target.closest('[data-record-edr]');if(edr){if(!edr.disabled)runAction('edr',detailAgentId);return;}
       const update = event.target.closest('[data-agent-install-update]');
       if(update){if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate);return;}
+      const uninstall=event.target.closest('[data-record-uninstall]');if(uninstall){const id=uninstall.dataset.recordUninstall;dismissDetails();openAgentRemovalInterface({agentId:id,onClose:()=>{if(live())openDetails(id);}});return;}
       const revoke=event.target.closest('[data-record-revoke]');if(revoke){if(!revoke.disabled)revokeAgent(revoke.dataset.recordRevoke);return;}
       const button = event.target.closest('[data-detail-action]');
       if (button && !button.disabled) runAction(button.dataset.detailAction,detailAgentId);

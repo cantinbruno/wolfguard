@@ -105,6 +105,14 @@ test('manual and automatic updates refuse a read-only agent even with global wri
   assert.equal(fixture.WolfGuardAgentUpdates.state(agent.id),null);
 });
 
+test('updates never reinstall a machine while uninstall is pending or remains unconfirmed',async()=>{
+  for(const status of ['preparing','launched','unknown']){
+    const {fixture,calls,agent}=updateFixture();fixture.WolfGuardAgentRemoval={state:()=>({status})};
+    await assert.rejects(fixture.WolfGuardAgentUpdates.start(agent),/désinstallation/);
+    await fixture.WolfGuardAgentUpdates.automatic([agent]);assert.equal(calls.length,0);
+  }
+});
+
 test('installed agents check releases periodically without a browser and never reinstall the current version',async()=>{
   let clock=1000,checks=0,installs=0;
   const check=createAutoUpdater({version:release.version,now:()=>clock,release:async()=>{checks++;return release;},install:async()=>{installs++;}});

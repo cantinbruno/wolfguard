@@ -18,13 +18,23 @@ L’association d’un poste est indépendante de la connexion du compte navigat
 
 Les permissions sont réglables poste par poste et restent limitées par les droits de section. Les opérations déjà en cours doivent être révoquées lorsque les accès nécessaires disparaissent. Voir [Droits](../droits.md).
 
-Dans le parc, l’unique bouton « Ajouter un poste » ouvre une fenêtre consacrée à l’association : choix Windows / Linux / macOS, installateur personnel ou lien à ouvrir sur un autre poste, puis confirmation automatique de son arrivée. Le lien est valable une heure pour un seul poste. Cette fenêtre ne présente ni liste de postes, ni sélecteur du poste utilisé, ni commande de révocation ou de désinstallation.
+Dans le parc, le bouton « Ajouter un poste » ouvre une fenêtre consacrée à l’association : choix Windows / Linux / macOS, installateur personnel ou lien à ouvrir sur un autre poste, puis confirmation automatique de son arrivée. Le lien est valable une heure pour un seul poste. Cette fenêtre ne présente ni liste de postes, ni sélecteur du poste utilisé, ni commande de révocation ou de désinstallation.
 
-Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le désinstalleur Windows est proposé dans cette même zone. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
+Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le raccourci « Désinstaller l’agent » ouvre la fenêtre de désinstallation en sélectionnant ce poste. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
 
 Le suivi d’association apparaît après la création de l’installateur ou du lien, pour confirmer l’arrivée du poste ou signaler l’expiration. Aucun encart d’attente n’est affiché à l’ouverture de la fenêtre ni après un changement de système.
 
 La mise à jour télécharge uniquement les fichiers autorisés, contrôle le manifeste et les empreintes, puis attend le retour du poste avec la version attendue. Préserver son association. Un SHA-256 vérifié n’est pas une signature d’éditeur Windows.
+
+## Désinstallation
+
+Le bouton « Désinstaller », à côté d’« Ajouter un poste », regroupe la désinstallation à distance et les fichiers de désinstallation locale Windows/Linux/macOS. La révocation reste dans la fiche du poste et ne supprime pas les fichiers de l’agent.
+
+La commande distante demande une confirmation nominative, un poste connecté avec `remote-terminal-v1`, les droits d’écriture Agents et Prise en main, et les droits correspondants sur ce poste. Elle utilise le transport du terminal existant, contrôlé par l’API, sans exposer les jetons d’agent. Le désinstalleur téléchargé est vérifié par son empreinte SHA-256, contrôle les chemins et les privilèges, puis démarre hors du service de l’agent. Aucune élévation interactive n’est demandée à distance. Sur Linux/macOS, un composant de protection système encore installé exige son retrait local par un administrateur avant la suppression de l’agent utilisateur. Windows refuse également de retirer un composant privilégié sans les droits requis.
+
+Le statut « Désinstallation lancée » confirme le démarrage du désinstalleur, pas la suppression de tous les fichiers : la déconnexion seule ne prouve pas cette suppression. Une réponse perdue après envoi affiche un résultat non confirmé et invite à vérifier sur le poste avant de réessayer. Aucun accès n’est révoqué automatiquement.
+
+Validation sans action sur le poste utilisateur : `node --test tests/agent-removal.test.mjs` (commandes et parcours simulés, analyse syntaxique PowerShell/shell uniquement) et `python tests/agent_removal_ui_test.py` (navigateur headless et agents factices).
 
 ## Packaging
 

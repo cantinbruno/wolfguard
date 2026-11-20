@@ -1,4 +1,4 @@
-param([switch]$Quiet)
+param([switch]$Quiet, [switch]$CheckOnly, [ValidateRange(0,10)][int]$DelaySeconds = 0)
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin = (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -27,6 +27,12 @@ foreach ($target in $targets) {
     }
   }
 }
+if ($CheckOnly) { return }
+if ($DelaySeconds) {
+  Start-Sleep -Seconds $DelaySeconds
+  # Revalidate immediately before removal, after the remote terminal has closed.
+  & $PSCommandPath -CheckOnly
+}
 if ($endpoint) {
   Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
@@ -43,4 +49,4 @@ if ($legacy -and $legacy.Principal.UserId -in @($identity.Name, $identity.User.V
 Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name WolfGuardAgent -ErrorAction SilentlyContinue
 if (Test-Path -LiteralPath 'HKCU:\Software\Classes\wolfguard-agent') { Remove-Item -LiteralPath 'HKCU:\Software\Classes\wolfguard-agent' -Recurse -Force }
 foreach ($target in $targets) { if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force } }
-Write-Host 'WolfGuard Agent désinstallé pour cet utilisateur. Révoque aussi le poste dans Agents.'
+Write-Host 'WolfGuard Agent désinstallé pour cet utilisateur. Révoque aussi son accès depuis la fiche du poste.'

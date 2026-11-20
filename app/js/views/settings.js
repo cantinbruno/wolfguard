@@ -69,6 +69,7 @@ const SETTINGS_ICON_PATHS = {
   "layout-dashboard": '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   "wrench": '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-7.1 7.1a2.1 2.1 0 0 1-3-3l7.1-7.1a6 6 0 0 1 7.9-7.9z"/>',
   "package": '<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8M12 13v9M7.5 5.5l9 5"/>',
+  "trash-2": '<path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6"/>',
   "shield": '<path d="M12 3 4 6v7c0 4 4 7 8 9 4-2 8-5 8-9V6z"/>',
   "shield-alert": '<path d="M12 3 4 6v7c0 4 4 7 8 9 4-2 8-5 8-9V6zM12 8v5m0 3h.01"/>',
   "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',

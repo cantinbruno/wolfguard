@@ -19,6 +19,7 @@ globalThis.WolfGuardAgentUpdates=(()=>{
   async function start(agent,{onChange=()=>{}}={}){
     const cloud=WolfGuardCloud,old=states.get(agent.id);
     if(old?.running)return;
+    if(globalThis.WolfGuardAgentRemoval?.state(agent.id)&&['preparing','launched','unknown'].includes(WolfGuardAgentRemoval.state(agent.id).status))throw new Error('Une désinstallation est en cours ou reste à vérifier sur ce poste.');
     const key=state.vaultKey,userId=cloud.currentUser()?.id;
     const sameSession=()=>!!key&&state.vaultKey===key&&cloud.hasSession()&&cloud.currentUser()?.id===userId;
     if(!sameSession())throw new Error('Connecte-toi pour mettre à jour ce poste.');
@@ -78,6 +79,7 @@ globalThis.WolfGuardAgentUpdates=(()=>{
     try{
       const target=await release();
       for(const agent of agents){
+        if(globalThis.WolfGuardAgentRemoval?.state(agent.id)&&['preparing','launched','unknown'].includes(WolfGuardAgentRemoval.state(agent.id).status))continue;
         if(!sameSession()||!allowed())return;
         if(globalThis.WolfGuardAccess?.canAgent&&!['agents.write','remote.write'].every(right=>WolfGuardAccess.canAgent(agent.id,right)))continue;
         const last=attempts.get(agent.id);
