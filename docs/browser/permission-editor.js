@@ -15,12 +15,14 @@ window.WolfGuardPermissionEditor=(()=>{
       if(!live())return;
       let policy=structuredClone(user.permissions),saving=false,reasonDraft='',savedMessage='';
       const roleIcons={admin:'shield-check',editor:'pencil',observer:'eye',guest:'user'};
+      const roleNotes={admin:'Tous les droits',editor:'Écriture du contenu',observer:'Lecture seule',guest:'Aucun accès'};
       const model=WolfGuardPermissions;
       let initial=JSON.stringify(model.normalizePolicy(policy));
       function dirty(){
         host.dataset.dirty=String(JSON.stringify(model.normalizePolicy(policy))!==initial||!!host.querySelector('#wgPermissionReason')?.value.trim());
         const save=host.querySelector('#wgPermissionSave');if(save)save.disabled=saving||host.dataset.dirty!=='true';
-        const notice=host.querySelector('[data-permission-draft]');if(notice)notice.textContent=host.dataset.dirty==='true'?'Modifications non enregistrées':'Droits à jour';
+        const bar=host.querySelector('.permission-save-bar');if(bar)bar.hidden=host.dataset.dirty!=='true';
+        const notice=host.querySelector('[data-permission-draft]');if(notice)notice.textContent=host.dataset.dirty==='true'?'Modifications en attente':'';
       }
       function levelBadge(section){
         const level=policy.sections[section];
@@ -62,13 +64,13 @@ window.WolfGuardPermissionEditor=(()=>{
         const exceptions=policy.agents!==null||Object.values(policy.agentLevels||{}).some(level=>level!=='write')||!!policy.scopes;
         reasonDraft=host.querySelector('#wgPermissionReason')?.value??reasonDraft;
         host.innerHTML=`<form class="permission-editor${embedded?' permission-embedded':''}" id="wgPermissionForm">
-          <header><div><span class="users-eyebrow">ACCÈS AU COMPTE</span><h4>Droits d’accès</h4></div>${embedded?'<button type="button" class="settings-btn" data-open-agent-rights aria-controls="wgPermissionAgentScope" aria-expanded="false">Poste par poste</button>':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
+          <header class="permission-role-heading"><h4>Rôle et accès</h4>${embedded?'<button type="button" class="settings-btn permission-post-shortcut" data-open-agent-rights aria-controls="wgPermissionAgentScope" aria-expanded="false">'+settingsIcon('monitor')+'Accès aux postes</button>':'<button type="button" class="settings-btn" data-close-permissions>Fermer</button>'}</header>
           <p class="access-feedback permission-save-notice" data-permission-save-notice role="status">${esc(savedMessage)}</p>
           <fieldset ${saving?'disabled':''}>
-            <div class="permission-role-heading"><span>Rôle du compte</span><span class="permission-role-current">${esc(activeRole?.name||'Personnalisé')}</span></div>
-            <div class="permission-profile-choices" role="group" aria-label="Rôle du compte">${catalog.profiles.filter(row=>!row.legacy).map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(role===row.id)+'"><span class="permission-role-icon" aria-hidden="true">'+settingsIcon(roleIcons[row.id]||'user')+'</span><span class="permission-role-copy"><strong>'+esc(row.name)+'</strong><span>'+esc(row.description)+'</span></span><span class="permission-role-check" aria-hidden="true">'+(role===row.id?'✓':'')+'</span></button>').join('')}</div>
-            <p class="permission-role-help">${role==='custom'?'Ce compte conserve des droits personnalisés. Choisis un rôle pour les simplifier.':role==='guest'?'Ce compte peut se connecter, mais aucune section n’est visible.':role==='admin'?'Accès à tous les postes, y compris ceux réservés aux administrateurs.':'Les postes réservés aux administrateurs restent invisibles et inaccessibles.'}${exceptions&&!policy.admin?' Des exceptions sont conservées dans les réglages avancés.':''}</p>
-            <details class="permission-customization" id="wgPermissionCustomization"><summary>Réglages avancés <span>Sections et postes</span></summary>
+            <div class="permission-profile-choices" role="group" aria-label="Rôle du compte" aria-describedby="wgPermissionRoleHelp">${catalog.profiles.filter(row=>!row.legacy).map(row=>'<button type="button" data-permission-profile="'+esc(row.id)+'" aria-pressed="'+(role===row.id)+'" title="'+esc(row.description)+'"><span class="permission-role-icon" aria-hidden="true">'+settingsIcon(roleIcons[row.id]||'user')+'</span><span class="permission-role-copy"><strong>'+esc(row.name)+'</strong><span>'+esc(roleNotes[row.id]||row.description)+'</span></span><span class="permission-role-check" aria-hidden="true">'+(role===row.id?'✓':'')+'</span></button>').join('')}</div>
+            <p class="permission-role-help" id="wgPermissionRoleHelp">${esc(activeRole?.description||'Droits personnalisés. Choisis un rôle pour les simplifier.')}${exceptions&&!policy.admin?' Des exceptions par poste sont conservées.':''}</p>
+            <details class="permission-customization" id="wgPermissionCustomization"><summary>Options avancées <span>Sections, postes et durée</span></summary>
+            <p class="permission-scope-help">Les postes réservés restent accessibles uniquement aux administrateurs et au propriétaire.</p>
             <label class="permission-bulk"><span>Appliquer à toutes les sections</span><select data-permission-bulk aria-label="Appliquer un niveau à toutes les sections"><option value="">Choisir un niveau…</option>${catalog.levels.map(([value,label])=>'<option value="'+value+'">'+esc(label)+'</option>').join('')}</select></label>
             <fieldset class="permission-section-settings" ${policy.admin?'disabled':''}>
             <div class="permission-matrix">${catalog.sections.filter(([section])=>!securitySections.includes(section)).map(([section,name])=>{
@@ -78,9 +80,10 @@ window.WolfGuardPermissionEditor=(()=>{
                 '</div></div>';
             }).join('')}</div>
             ${securityHTML()}
-            </fieldset></details>
+            </fieldset>
             <details class="permission-advanced"><summary>Durée et motif du changement</summary><label>Fin des autorisations (facultatif)<input id="wgPermissionExpiry" type="datetime-local" value="${policy.expiresAt?new Date(policy.expiresAt-new Date(policy.expiresAt).getTimezoneOffset()*60000).toISOString().slice(0,16):''}"></label><label>Motif du changement<input id="wgPermissionReason" maxlength="500" placeholder="Ex. Accès temporaire pour une intervention"></label></details>
-            <div class="permission-save-bar"><div><span data-permission-draft role="status"></span><p>Enregistrer déconnecte les sessions de ce compte.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer les droits'}</button></div></div>
+            </details>
+            <div class="permission-save-bar" hidden><div><span data-permission-draft role="status"></span><p>Ce compte devra se reconnecter.</p></div><div class="actions"><button type="button" class="settings-btn" data-close-permissions>Annuler</button><button type="submit" class="settings-btn primary" id="wgPermissionSave" disabled>${saving?'Enregistrement…':'Enregistrer'}</button></div></div>
           </fieldset><p data-permission-error class="access-error" role="alert"></p></form>`;
         host.querySelectorAll('details').forEach(row=>{row.open=opened.has(row.querySelector('summary')?.textContent);});
         const scope=host.querySelector('#wgPermissionAgentScope'),shortcut=host.querySelector('[data-open-agent-rights]');

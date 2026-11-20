@@ -158,13 +158,15 @@
 #settings-users .permission-agent-modes{display:flex;flex-wrap:wrap;gap:8px 16px}
 #settings-users .permission-editor .permission-agent-modes label{display:flex;align-items:center;gap:7px;margin:8px 0;font-size:11px}
 #settings-users .permission-agent-modes input{width:14px;height:14px;flex:none;margin:0;accent-color:var(--users-accent)}
-#settings-users .permission-save-bar{position:sticky;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px -16px 0;padding:11px 16px;border-top:1px solid var(--ui-border);background:var(--ui-sidebar);box-shadow:0 -8px 16px #08121d33}
+#settings-users .permission-save-bar{position:sticky;bottom:0;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:12px;margin:14px -16px 0;padding:12px 16px;border-top:1px solid var(--ui-border);background:var(--ui-sidebar);box-shadow:none}
 #settings-users .permission-save-bar [data-permission-draft]{font-size:11px;color:var(--users-accent);font-weight:600}
 #settings-users .permission-save-bar p{margin:3px 0 0;font-size:9px;line-height:1.4;color:var(--ui-muted)}
 #settings-users .permission-save-bar .actions{margin:0;flex-wrap:nowrap;gap:6px}
 #settings-users .permission-save-bar .settings-btn{min-height:32px;padding:6px 9px;white-space:nowrap}
 @media(max-width:850px){
   #settings-users .users-detail{max-height:75dvh;overflow:auto;overscroll-behavior:contain}
+}
+@media(max-width:480px){
   #settings-users .permission-save-bar{flex-wrap:wrap}
   #settings-users .permission-save-bar>div:first-child{flex:1 1 100%}
   #settings-users .permission-save-bar .actions{width:100%}
@@ -183,36 +185,45 @@
   #settings-users .permission-editor>header .settings-btn{min-height:34px}
 }
 
-/* Roles are the primary control; detailed exceptions stay out of the way. */
-#settings-users .permission-role-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px;font-size:14px;font-weight:600}
-#settings-users .permission-role-current{font-size:12px;font-weight:500;color:var(--users-accent);border:1px solid var(--ui-border);border-radius:20px;padding:3px 9px;background:var(--ui-surface)}
+/* One heading, concise choices and one disclosure for secondary options. */
+#settings-users .permission-editor>.permission-role-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px}
+#settings-users .permission-role-heading h4{font-size:14px;font-weight:600;line-height:1.5}
+#settings-users .permission-role-heading .permission-post-shortcut{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--ui-muted);padding:4px 0;min-height:32px;font-size:12px}
+#settings-users .permission-post-shortcut:hover{color:var(--users-accent)}
+.permission-post-shortcut svg{width:14px;height:14px;flex:none}
 #settings-users .permission-profile-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-#settings-users .permission-profile-choices button{display:flex;align-items:flex-start;gap:10px;min-width:0;padding:12px;text-align:left;border-radius:10px;transition:border-color .15s,background .15s}
+#settings-users .permission-profile-choices button{display:flex;align-items:center;gap:10px;min-width:0;min-height:66px;padding:11px 12px;text-align:left;border-radius:8px;background:transparent;transition:border-color .15s,background .15s}
 #settings-users .permission-profile-choices button:hover{border-color:var(--users-accent)}
 #settings-users .permission-profile-choices button:disabled{cursor:wait;opacity:.65}
-#settings-users .permission-profile-choices .permission-role-icon{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:8px;background:var(--ui-surface);color:var(--users-accent)}
+#settings-users .permission-profile-choices button[aria-pressed=true]{background:color-mix(in srgb,var(--users-accent) 10%,var(--ui-sidebar));border-color:var(--users-accent)}
+#settings-users .permission-profile-choices .permission-role-icon{display:grid;place-items:center;width:20px;flex:none;background:none;color:var(--ui-muted)}
+#settings-users .permission-profile-choices button[aria-pressed=true] .permission-role-icon{color:var(--users-accent)}
 .permission-role-icon svg{width:17px;height:17px}
-#settings-users .permission-profile-choices .permission-role-copy{display:grid;gap:4px;min-width:0;flex:1}
+#settings-users .permission-profile-choices .permission-role-copy{display:grid;gap:2px;min-width:0;flex:1}
 #settings-users .permission-role-copy strong{font-size:14px;line-height:1.4;color:var(--ui-text)}
 #settings-users .permission-role-copy>span{font-size:12px;line-height:1.5;color:var(--ui-muted)}
-#settings-users .permission-profile-choices .permission-role-check{display:grid;place-items:center;width:17px;height:17px;flex:none;margin-top:2px;border:1px solid var(--ui-border);border-radius:50%;font-size:11px;line-height:1}
+#settings-users .permission-profile-choices .permission-role-check{display:grid;place-items:center;width:17px;height:17px;flex:none;border:1px solid var(--ui-border);border-radius:50%;font-size:11px;line-height:1}
 #settings-users .permission-profile-choices [aria-pressed=true] .permission-role-check{background:var(--users-accent);border-color:var(--users-accent);color:#0d1724}
-#settings-users .permission-role-help,.users-new-account-help{margin:10px 0 14px;font-size:12px;line-height:1.6;color:var(--ui-muted)}
-#settings-users .permission-customization{margin:10px 0;border:1px solid var(--ui-border);border-radius:8px;padding:0 10px}
-#settings-users .permission-customization>summary{display:flex;align-items:center;gap:8px;padding:10px 0;font-size:12px;list-style:none}
-#settings-users .permission-customization>summary::before{content:'+';font-size:17px;color:var(--users-accent)}
-#settings-users .permission-customization[open]>summary::before{content:'−'}
+#settings-users .permission-role-help,.users-new-account-help{margin:12px 0 16px;font-size:12px;line-height:1.6;color:var(--ui-muted)}
+#settings-users .permission-customization{margin:0;border:0;border-top:1px solid var(--ui-border);border-radius:0;padding:0}
+#settings-users .permission-customization>summary{display:flex;align-items:center;gap:8px;padding:13px 0;font-size:12px;list-style:none}
+#settings-users .permission-customization>summary::-webkit-details-marker{display:none}
+#settings-users .permission-customization>summary::before{content:'';width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);margin:0 3px 0 1px;color:var(--ui-muted)}
+#settings-users .permission-customization[open]>summary::before{transform:rotate(45deg)}
 #settings-users .permission-customization>summary span{margin-left:auto;font-size:11px;color:var(--ui-muted)}
-#settings-users .permission-customization[open]>summary{margin-bottom:10px;border-bottom:1px solid var(--ui-border)}
+#settings-users .permission-customization[open]>summary{margin-bottom:4px}
+#settings-users .permission-scope-help{margin:0 0 14px;color:var(--ui-muted);font-size:12px;line-height:1.6}
+#settings-users .permission-customization .permission-advanced{border:0;border-top:1px solid var(--ui-border);border-radius:0;margin:12px 0 0;padding:12px 0}
 #settings-users .permission-editor .permission-section-settings{border:0;padding:0;margin:0;min-width:0}
 #settings-users .permission-section-settings:disabled{opacity:.55}
 #settings-users .permission-save-bar [data-permission-draft]{font-size:12px}
 #settings-users .permission-save-bar p{font-size:11px}
 #settings-users .users-account-copy small{font-size:11px}
 #settings-users .permission-owner{font-size:14px}
-@media(max-width:640px){
+#settings-users .users-account-security{padding:12px 16px}
+#settings-users .users-account-security>summary{font-size:12px;color:var(--ui-muted);font-weight:500}
+@media(max-width:440px){
   #settings-users .permission-profile-choices{grid-template-columns:minmax(0,1fr)}
-  #settings-users .permission-profile-choices button{padding:11px}
-  #settings-users .permission-customization>summary{flex-wrap:wrap}
-  #settings-users .permission-customization>summary span{margin-left:0}
+  #settings-users .permission-profile-choices button{min-height:58px;padding:9px 12px}
+  #settings-users .permission-customization>summary span{display:none}
 }
