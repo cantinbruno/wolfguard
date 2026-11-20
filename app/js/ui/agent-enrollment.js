@@ -23,7 +23,7 @@ const workspaceAgentEnrollment=(()=>{
       <p id="wgAgentSetupError" class="settings-agent-error" role="alert"></p><p id="wgAgentSetupStatus" class="enrollment-feedback" role="status" aria-live="polite"></p>
       <p id="wgAgentCapacity" class="settings-agent-notice" hidden>La limite de 200 postes est atteinte.</p>
       <p id="wgAgentConnectionNotice" class="settings-agent-notice" role="status" hidden></p>
-      <section id="wgAgentEnrollmentProgress" class="enrollment-progress" data-state="idle" role="status"><span class="enrollment-progress-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><strong id="wgAgentEnrollmentTitle">Prêt à ajouter un poste</strong><p id="wgAgentEnrollmentHelp">Télécharge l’installateur, puis ouvre-le sur le poste.</p><small id="wgAgentPairExpiry"></small></div><button type="button" class="settings-btn" id="wgAgentRefresh" aria-label="Vérifier l’arrivée du poste" title="Vérifier l’arrivée du poste">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgAgentViewPosts" hidden>Voir le poste</button></section>`;
+      <section id="wgAgentEnrollmentProgress" class="enrollment-progress" data-state="idle" role="status" hidden><span class="enrollment-progress-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><strong id="wgAgentEnrollmentTitle"></strong><p id="wgAgentEnrollmentHelp"></p><small id="wgAgentPairExpiry"></small></div><button type="button" class="settings-btn" id="wgAgentRefresh" aria-label="Vérifier l’arrivée du poste" title="Vérifier l’arrivée du poste">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgAgentViewPosts" hidden>Voir le poste</button></section>`;
     const status=message=>{if(live())find('#wgAgentSetupStatus').textContent=message;};
     const error=message=>{if(live())find('#wgAgentSetupError').textContent=message;};
     function controls(){
@@ -39,7 +39,7 @@ const workspaceAgentEnrollment=(()=>{
       for(const button of root.querySelectorAll('[data-agent-platform]')){const selected=button.dataset.agentPlatform===platform;button.setAttribute('aria-pressed',String(selected));button.querySelector('.enrollment-platform-check').textContent=selected?'✓':'';}
       find('#wgAgentInstructions').textContent=platform==='win32'?'Ouvre Installer-WolfGuard.cmd sur le poste. L’installation et l’association se font automatiquement.':platform==='linux'?'Sur le poste, exécute sh Installer-WolfGuard.sh. L’agent s’installe et rejoint automatiquement ton espace.':'Sur le Mac, exécute sh Installer-WolfGuard.sh. L’agent s’installe et rejoint automatiquement ton espace.';
       find('#wgAgentPair span').textContent='Télécharger pour '+item.name;
-      find('#wgAgentViewPosts').hidden=true;find('#wgAgentEnrollmentProgress').dataset.state='idle';find('#wgAgentEnrollmentTitle').textContent='Prêt à ajouter un poste';find('#wgAgentEnrollmentHelp').textContent='Télécharge l’installateur, puis ouvre-le sur le poste.';
+      find('#wgAgentViewPosts').hidden=true;find('#wgAgentEnrollmentProgress').hidden=true;find('#wgAgentEnrollmentProgress').dataset.state='idle';find('#wgAgentEnrollmentTitle').textContent='';find('#wgAgentEnrollmentHelp').textContent='';
     }
     function updateExpiry(){
       if(!ticket||added)return;
@@ -77,7 +77,7 @@ const workspaceAgentEnrollment=(()=>{
           clearTicket();WolfGuardAgentInstaller.download(installer);status('Installateur téléchargé. Ouvre-le sur le poste à ajouter.');
         }
         ticket=pairing;added=null;find('#wgAgentViewPosts').hidden=true;
-        find('#wgAgentEnrollmentProgress').dataset.state='pending';find('#wgAgentEnrollmentTitle').textContent='En attente du poste';find('#wgAgentEnrollmentHelp').textContent='Cette fenêtre confirmera automatiquement son association.';updateExpiry();
+        find('#wgAgentEnrollmentProgress').hidden=false;find('#wgAgentEnrollmentProgress').dataset.state='pending';find('#wgAgentEnrollmentTitle').textContent='En attente du poste';find('#wgAgentEnrollmentHelp').textContent='Cette fenêtre confirmera automatiquement son association.';updateExpiry();
       }catch(problem){error(problem.message);status('');}
       finally{busy=false;if(live())controls();}
     }

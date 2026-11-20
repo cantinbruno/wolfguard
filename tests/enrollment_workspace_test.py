@@ -18,6 +18,7 @@ def run():
         expect(page.locator('[data-fleet-agent]')).to_have_count(1)
         page.locator('#agentsManage').click()
         expect(page.locator('#agentsTitle')).to_have_text('Ajouter un poste')
+        expect(page.locator('#wgAgentEnrollmentProgress')).to_be_hidden()
         expect(page.locator('.enrollment-ticket-note')).to_contain_text('Valable 1 heure')
         expect(page.locator('#wgAgentManage,#wgAgentSelect,[data-agent-revoke],[data-record-revoke],#wgAgentUninstall,[data-agent-tab],.enrollment-advanced,#wgAgentDownload,#wgAgentConnectPair')).to_have_count(0)
         page.locator('[data-agent-platform=win32]').click()
@@ -25,6 +26,7 @@ def run():
             with page.expect_download() as download:
                 page.locator('#wgAgentPair').click()
         assert download.value.suggested_filename=='Installer-WolfGuard.cmd'
+        expect(page.locator('#wgAgentEnrollmentProgress')).to_be_visible()
         expect(page.locator('#wgAgentEnrollmentTitle')).to_have_text('En attente du poste')
         code=issued.value.json()['code']
         enrolled=enroll(code,'Nouveau poste')
@@ -63,6 +65,7 @@ def run():
             if width in [1440,390]:page.screenshot(path=str(ROOT/f'.cache/add-post-{width}.png'),animations='disabled')
         page.set_viewport_size({'width':1440,'height':900})
         page.locator('[data-agent-platform=linux]').click()
+        expect(page.locator('#wgAgentEnrollmentProgress')).to_be_hidden()
         page.locator('#wgAgentShare').click()
         expect(page.locator('#wgAgentShareLink')).to_be_visible()
         url=page.locator('#wgAgentShareURL').input_value()

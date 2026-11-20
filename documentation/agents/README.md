@@ -22,6 +22,8 @@ Dans le parc, l’unique bouton « Ajouter un poste » ouvre une fenêtre consac
 
 Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le désinstalleur Windows est proposé dans cette même zone. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
 
+Le suivi d’association apparaît après la création de l’installateur ou du lien, pour confirmer l’arrivée du poste ou signaler l’expiration. Aucun encart d’attente n’est affiché à l’ouverture de la fenêtre ni après un changement de système.
+
 La mise à jour télécharge uniquement les fichiers autorisés, contrôle le manifeste et les empreintes, puis attend le retour du poste avec la version attendue. Préserver son association. Un SHA-256 vérifié n’est pas une signature d’éditeur Windows.
 
 ## Packaging
