@@ -484,17 +484,18 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
 .agents-group-toolbar button svg{width:15px;height:15px}
 .agents-group-toolbar :disabled{opacity:.5;cursor:default}
 #agentsGroupCount{color:var(--ui-muted)}
-.agents-table .agents-group-heading>td{padding:0;height:42px;border-bottom:1px solid var(--agents-line);position:sticky;top:35px;z-index:2;background:var(--ui-surface)}
-.agents-group-heading>td>div{display:flex;align-items:center;gap:8px;padding:0 10px;min-height:42px}
+.agents-table .agents-group-heading>td{padding:0;height:32px;border-bottom:1px solid var(--agents-line);position:sticky;top:35px;z-index:2;background:var(--ui-surface)}
+.agents-workspace .agents-table .agents-group-heading>td{padding:0}
+.agents-group-heading>td>div{display:flex;align-items:center;gap:8px;padding:0 10px;min-height:32px}
 .agents-group-heading input{width:15px;height:15px;flex:none;margin:0;accent-color:var(--agents-accent)}
 .agents-group-heading button{border:0;background:transparent;color:var(--ui-text);cursor:pointer;font:inherit}
 .agents-group-heading button:disabled{opacity:.5;cursor:default}
-.agents-group-heading [data-group-toggle]{display:flex;align-items:center;gap:8px;text-align:left;flex:1;min-width:0;padding:8px 0;min-height:40px}
+.agents-group-heading [data-group-toggle]{display:flex;align-items:center;gap:8px;text-align:left;flex:1;min-width:0;padding:4px 0;min-height:32px}
 .agents-group-heading [data-group-toggle] strong{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .agents-group-heading [data-group-toggle] span{font-size:10px;font-weight:400;color:var(--ui-muted);white-space:nowrap}
 .agents-group-heading svg{width:15px;height:15px;flex:none}
 .agents-group-actions{display:flex;align-items:center;gap:8px;flex:none}
-.agents-group-actions button{padding:7px 3px;font-size:10px;color:var(--ui-muted)}
+.agents-group-actions button{padding:4px 3px;font-size:10px;color:var(--ui-muted)}
 .agents-group-empty td{padding:16px;color:var(--ui-muted);font-size:11px;line-height:1.7}
 .agents-context-menu{width:min(340px,calc(100vw - 16px));max-height:calc(100dvh - 16px);overflow:auto}
 .agents-menu-section{padding:10px 8px 4px;color:var(--ui-subtle);font-size:9px;font-weight:600;letter-spacing:.08em;border-top:1px solid var(--agents-line);margin-top:4px}
@@ -507,7 +508,7 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
   .agents-group-toolbar select{width:100%;font-size:11px}
   #agentsGroupCount{display:none}
   .agents-group-heading{position:sticky;top:0;z-index:3}
-  .agents-table .agents-group-heading>td{display:block;position:static;border:1px solid var(--agents-line);border-radius:6px}
+  .agents-table .agents-group-heading>td{display:block;position:static;height:auto;border:1px solid var(--agents-line);border-radius:6px}
   .agents-group-heading>td>div{padding:0 8px;gap:6px}
   .agents-group-heading input{width:18px;height:18px}
   .agents-group-actions{gap:4px}

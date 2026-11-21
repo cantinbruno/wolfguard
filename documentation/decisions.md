@@ -6,6 +6,8 @@ Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvell
 
 La [mise à jour point par point](integration-rapport.md) précise les nouveaux comportements et remplace les descriptions antérieures incompatibles : statut antivirus Windows indépendant de Defender, parcours progressif des disques locaux, surveillance système, rapports centralisés, rétention de 30 jours, couleurs des sections et paramètres personnels. Les protections natives ne sont pas désactivées. La surveillance reste réactive et ne doit pas être présentée comme un filtrage avant exécution.
 
+Les bandeaux des sections de postes sont compacts : 32 px de contenu sur ordinateur, sans padding ajouté par les réglages de densité. Sur mobile, la hauteur suit les commandes pour éviter leur chevauchement avec les postes.
+
 | Sujet | Décision |
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |
