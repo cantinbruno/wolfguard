@@ -6,7 +6,7 @@ import {endpointSnapshot,endpointHealth} from '../server/lib/wolfguard/endpoint-
 import {collectEndpoint,executeEndpointAction,runEndpointProtection,protectionAlertQueue} from '../agent/endpoint.mjs';
 import {collectPosixEndpoint} from '../agent/endpoint-posix.mjs';
 
-const snapshot=(now,extra={})=>({collectedAt:now,platform:'win32',provider:'Microsoft Defender',supported:true,canEnforce:true,antivirus:'enabled',realtime:'enabled',firewall:'enabled',signatures:'enabled',activeThreats:0,events:[],...extra});
+const snapshot=(now,extra={})=>({collectedAt:now,platform:'win32',provider:'Microsoft Defender',supported:true,canEnforce:true,antivirus:'enabled',realtime:'enabled',firewall:'enabled',signatures:'enabled',activeThreats:0,events:[],wolfguardAntivirus:{version:1,capable:true,installed:true,enabled:true,state:'ready',signatureAt:now,signatureVersion:'fixture',quarantine:[]},...extra});
 async function fixture(){
   const s=await setup();await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');
   s.agentAPI=(path,data,agent)=>s.api('agent/'+path,data,null,{Authorization:'Agent '+agent.token});
@@ -76,7 +76,7 @@ test('endpoint policies use revisions; commands require current rights and a sin
 });
 test('health never reports a missing, stale or partially observable protection as protected',()=>{
   const now=Date.now();assert.equal(endpointHealth(endpointSnapshot(snapshot(now))),'protected');
-  assert.equal(endpointHealth(endpointSnapshot(snapshot(now)),false),'unknown');assert.equal(endpointHealth(endpointSnapshot(snapshot(now,{signatures:'unknown'}))),'unknown');
+  assert.equal(endpointHealth(endpointSnapshot(snapshot(now)),false),'unknown');assert.equal(endpointHealth(endpointSnapshot(snapshot(now,{wolfguardAntivirus:undefined}))),'unknown');
   assert.equal(endpointHealth(endpointSnapshot(snapshot(now,{activeThreats:1}))),'attention');assert.throws(()=>endpointSnapshot(snapshot(now+600000)));assert.throws(()=>endpointSnapshot(snapshot(now,{events:[{status:'allowed'}]})));
 });
 test('native collection uses fixed commands and preserves confirmed dispositions without running host actions',async()=>{

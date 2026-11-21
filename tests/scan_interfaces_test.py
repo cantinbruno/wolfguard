@@ -138,7 +138,8 @@ def run():
             page.locator('#wgMapSearch').fill('192.0.2.51');expect(page.locator('[data-map-select]')).to_have_count(0)
             expect(page.locator('[data-map-address]')).to_have_count(0)
             page.locator('#wgMapSearch').fill('192.0.2.50');expect(page.locator('[data-map-select]')).to_have_count(1)
-            page.locator('[data-map-observations]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
+            page.locator('[data-map-observations]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(3)
+            expect(page.locator('#wgScanRows')).to_contain_text('Sans réponse')
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgMapSearch').fill('')
             expect(page.locator('.wgscan-map-explorer img,.wgscan-map-explorer script')).to_have_count(0)
             topology={'strategy':'active','workspace':'map','target':'auto','network':{'origin':{'address':'192.0.2.10'},'networks':[{'cidr':'192.0.2.0/24'}],'paths':[{'target':'1.1.1.1','hops':[{'ttl':1,'address':'192.0.2.1'},{'ttl':3,'address':'203.0.113.1'},{'ttl':4,'address':'1.1.1.1'}]}]},'results':[

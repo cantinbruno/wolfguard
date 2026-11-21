@@ -1,12 +1,14 @@
 import {inheritedPolicy,accessGroupState} from './access-groups.mjs';
 import {applyFleetPolicy,fleetState} from './fleet-groups.mjs';
 import {seal,open} from './access.mjs';
+import {retainRecentLogs} from './retention.mjs';
 import {PERMISSION_SECTIONS,PERMISSION_PROFILES,PERMISSION_ACTIONS,SECTION_LEVELS,normalizePolicy,profilePolicy,can,canManagePolicy} from './permissions.mjs';
 export async function userPolicy(row,env){const grouped=await inheritedPolicy(row,env,null);const policy=grouped??(row.permissions_cipher?normalizePolicy(await open(row.permissions_cipher,'WolfGuard permissions v1:'+row.id,env)):profilePolicy('legacy'));return applyFleetPolicy(policy,row,env);}
 export async function policyCipher(policy,id,env){return seal(normalizePolicy(policy),'WolfGuard permissions v1:'+id,env);}
 export async function permissionAPI(path,request,env,now,session,vault,h){
   const {fail,json,body,random,revokeUserSessions}=h;
   if(!can(session.user,'users.permissions',now))fail(403,'Ton profil ne permet pas d’attribuer les droits.');
+  await retainRecentLogs(env,now);
   if(request.method==='GET'){
     if(path==='/api/users/permissions')return json({sections:PERMISSION_SECTIONS,actions:PERMISSION_ACTIONS,levels:SECTION_LEVELS,profiles:PERMISSION_PROFILES,defaultProfile:'guest',groupRights:true});
     if(path==='/api/users/permissions/audit'){
@@ -38,6 +40,5 @@ export async function permissionAPI(path,request,env,now,session,vault,h){
   if(Number(result[0]?.meta?.changes)!==1)fail(409,'Les droits ont changé. Recharge ce compte.');
   await revokeUserSessions(env,target.id,now);
   await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE created_by=? AND status IN ('queued','running')").bind(now,target.id).run();
-  await env.DB.prepare('DELETE FROM permission_audit WHERE id NOT IN (SELECT id FROM permission_audit ORDER BY created_at DESC,id DESC LIMIT 2000)').run();
   return json({ok:true,revision,sessionsRevoked:true,reconnect:target.id===session.user.id});
 }

@@ -12,6 +12,15 @@ const document=value=>vm.runInContext('webScanPDF.definition',context)(value);
 const row={address:'192.0.2.1',port:22,transport:'TCP',status:'open',service:'ssh',product:'OpenSSH',version:'9.9',detail:'Bannière reçue',hostname:'serveur',macAddress:'',interfaceName:'',checkId:'',title:'',severity:'',recommendation:'',reference:''};
 const report={name:'Agence · scan',target:'192.0.2.1',source:'Agent · Windows',capturedAt:'2026-11-02T09:00:00Z',jobStatus:'completed',warnings:[],rows:[row]};
 
+test('map import retains silent and failed observations through metrics and PDF tables',()=>{
+  const parse=vm.runInContext('webScanModel.parse',context);
+  const value=parse(JSON.stringify({strategy:'active',workspace:'map',results:[{...row,status:'reachable'},{...row,address:'192.0.2.2',status:'no-response'},{...row,address:'192.0.2.3',status:'error'}]}),'active','Cartographie complète','map');
+  assert.equal(value.rows.length,3);
+  const output=JSON.stringify(document(model('map',value)));
+  for(const address of ['192.0.2.1','192.0.2.2','192.0.2.3'])assert.ok(output.includes(address),address);
+  const metrics=model('map',value).metrics;assert.equal(metrics.find(([,label])=>label==='Sans réponse')[0],1);assert.equal(metrics.find(([,label])=>label==='Erreurs de collecte')[0],1);
+});
+
 test('scan reading keeps measured timing and coverage distinct from requested ports and unknown facts',()=>{
   const reading=vm.runInContext('webScanReport.reading',context);
   const value=reading('active',{...report,startedAt:'2026-11-02T09:00:00Z',finishedAt:'2026-11-02T09:00:02.500Z',completed:2,total:3,

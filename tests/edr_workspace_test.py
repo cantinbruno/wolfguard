@@ -37,12 +37,24 @@ def run():
             now=int(time.time()*1000)
             agent_api('poll',{'capabilities':['endpoint-protection-v1','security-audit-v1']},enrolled['token'])
             event={'id':'native-block-1','occurredAt':now,'provider':'Microsoft Defender','title':'Accès malveillant bloqué','resource':'C:/synthetic/threat.exe','detail':'Action native confirmée','status':'blocked','severity':'high'}
-            report={'collectedAt':now,'platform':'win32','provider':'Microsoft Defender','supported':True,'canEnforce':True,'antivirus':'enabled','realtime':'enabled','firewall':'enabled','signatures':'enabled','activeThreats':0,'events':[event]}
+            report={'collectedAt':now,'platform':'win32','provider':'Microsoft Defender','supported':True,'canEnforce':True,'antivirus':'enabled','realtime':'enabled','firewall':'enabled','signatures':'enabled','activeThreats':0,'events':[event],'wolfguardAntivirus':{'version':1,'capable':True,'installed':True,'enabled':True,'state':'ready','signatureAt':now,'signatureVersion':'fixture','quarantine':[]}}
             agent_api('edr/report',report,enrolled['token'])
+            report['inventory']={'username':'fixture-user','agentUser':'SYSTEM','domain':'FIXTURE-DOMAIN','domainJoined':True,'hostname':'fixture-host'}
+            report['systemMonitor']={'scope':'system','processes':42,'services':80,'connections':12,'startupEntries':3,'eventLogs':['System','Security'],'limitations':['Observation périodique de test']}
+            report['collectedAt']+=1;agent_api('edr/report',report,enrolled['token'])
             edr_calls=[];page.on('request',lambda request:edr_calls.append(urlsplit(request.url).path))
-            open_security(page);open_security_tool(page,'edr');expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test')
+            open_security(page)
+            page.locator('[data-fleet-agent="'+enrolled['id']+'"]').click()
+            expect(page.locator('#agentRecord-overview')).to_contain_text('fixture-user')
+            expect(page.locator('#agentRecord-overview')).to_contain_text('FIXTURE-DOMAIN')
+            page.locator('#agentDetailsClose').click()
+            open_security_tool(page,'edr');expect(page.locator('#edrPosts')).to_contain_text('Poste EDR test')
             expect(page.locator('#edrPostDetail')).to_contain_text('Accès malveillant bloqué')
             expect(page.locator('#edrProtectionState')).to_contain_text('Protégé')
+            expect(page.locator('#edrSystemMonitor')).to_contain_text('Surveillance du système')
+            expect(page.locator('#edrSystemMonitor')).to_contain_text('42')
+            expect(page.locator('#edrSystemMonitor')).to_contain_text('Security')
+            expect(page.locator('#edrSystemMonitor')).to_contain_text('Observation périodique de test')
             expect(page.locator('#edrPosts')).to_contain_text('1 blocage(s)')
             page.locator('summary').filter(has_text='Preuve et détails').click();expect(page.get_by_text('Action native confirmée',exact=True)).to_be_visible()
             page.locator('[data-edr-ack]').click();expect(page.locator('#edrEvents')).to_contain_text('Acquitté')

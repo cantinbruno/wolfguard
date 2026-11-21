@@ -60,6 +60,8 @@ Vérification du résultat visible : `python tests/personal_vault_navigation_tes
 
 Les changements de droits sont versionnés, journalisés sous chiffrement et révoquent les accès concernés, y compris les opérations en cours. Supprimer un compte retire son coffre de la copie courante ; les copies techniques de récupération déjà présentes ne sont pas des données à effacer lors d’une réorganisation du code.
 
+Le journal des droits suit une conservation de 30 jours par date, sans plafond de 2 000 événements qui raccourcirait cette durée. La purge intervient après authentification et contrôle du droit de gestion, au plus une fois par heure et par instance de base ; la liste affichée des 100 événements récents ne supprime pas les autres événements conservés.
+
 Les anciennes politiques restent lisibles sans élargissement de droits. `vault.all` n’ouvre pas les coffres des autres comptes.
 
 ## Sessions et limites

@@ -8,7 +8,8 @@ import vm from 'node:vm';
 import {setup} from './endpoint-fixture.mjs';
 import {workspaceUsage} from '../server/lib/wolfguard/storage-usage.mjs';
 import {profilePolicy,normalizePolicy,vaultHomeId} from '../server/lib/wolfguard/permissions.mjs';
-import {endpointSnapshot} from '../server/lib/wolfguard/endpoint-spec.mjs';
+import {endpointSnapshot,endpointHealth} from '../server/lib/wolfguard/endpoint-spec.mjs';
+import {seal} from '../server/lib/wolfguard/access.mjs';
 import {retainRecentLogs,LOG_RETENTION_MS} from '../server/lib/wolfguard/retention.mjs';
 import {AntivirusManager} from '../agent/antivirus.mjs';
 
@@ -55,6 +56,32 @@ test('retention removes logs older than 30 days and preserves recent and active 
     const cutoff=s.clock()-LOG_RETENTION_MS,db=s.env.DB.db;
     for(const [id,at]of [['old',cutoff-1],['boundary',cutoff],['recent',s.clock()]])db.prepare('INSERT INTO permission_audit(id,created_at,details_cipher) VALUES (?,?,?)').run(id,at,'synthetic');
     await retainRecentLogs(s.env,s.clock());assert.deepEqual(db.prepare('SELECT id FROM permission_audit ORDER BY id').all().map(row=>row.id),['boundary','recent']);
+  }finally{s.env.DB.db.close();}
+});
+
+test('rights changes preserve more than 2000 recent audit events for the full thirty days',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543'),member=await s.createMember('audit-volume@example.test','12345678',owner.token),db=s.env.DB.db;
+    const insert=db.prepare('INSERT INTO permission_audit(id,created_at,details_cipher) VALUES (?,?,?)');
+    db.exec('BEGIN');for(let i=0;i<2100;i++)insert.run('recent-'+i,s.clock(),'synthetic-preserved-ciphertext');insert.run('too-old',s.clock()-LOG_RETENTION_MS-1,'expired');db.exec('COMMIT');
+    s.advance(3600001);
+    let response=await s.api('users/permissions',{id:member.user.id,revision:1,policy:profilePolicy('observer')},owner.token);assert.equal(response.status,200,await response.clone().text());
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM permission_audit WHERE id LIKE 'recent-%'").get().n,2100,'individual compatibility route must not truncate recent history');
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM permission_audit WHERE id='too-old'").get().n,0);
+    await s.api('agents/groups/bootstrap',{legacy:{}},owner.token);const groups=await(await s.api('users/groups/bootstrap',{},owner.token)).json();
+    response=await s.api('users/groups/create',{name:'GG_Audit_Retention',revision:groups.revision},owner.token);assert.equal(response.status,200,await response.clone().text());
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM permission_audit WHERE id LIKE 'recent-%'").get().n,2100,'group changes must not truncate recent history');
+  }finally{s.env.DB.db.close();}
+});
+
+test('legacy Windows telemetry, including previously stored Defender state, never proves WolfGuard coverage',async()=>{
+  const s=await setup();try{
+    await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543'),ticket=await(await s.api('agents/pair',{},owner.token)).json(),agent=await(await s.api('agent/enroll',{code:ticket.code,name:'Legacy protection fixture',platform:'win32'})).json();
+    const legacy={collectedAt:s.clock(),platform:'win32',provider:'Microsoft Defender',supported:true,canEnforce:true,antivirus:'enabled',realtime:'enabled',firewall:'enabled',signatures:'enabled',activeThreats:0,events:[]};
+    const normalized=endpointSnapshot(legacy,s.clock());assert.equal(normalized.antivirus,'unknown');assert.equal(endpointHealth(legacy,true,s.clock()),'unknown');
+    s.env.DB.db.prepare('INSERT INTO endpoint_states(agent_id,generation,collected_at,received_at,snapshot_cipher) VALUES (?,?,?,?,?)').run(agent.id,s.env.DB.db.prepare('SELECT generation FROM vault WHERE id=1').get().generation,s.clock(),s.clock(),await seal(legacy,'WolfGuard agent v1:'+agent.id+':endpoint-state',s.env));
+    const response=await s.api('edr',undefined,owner.token);assert.equal(response.status,200,await response.clone().text());const row=(await response.json()).endpoints[0];
+    assert.equal(row.health,'unknown');assert.equal(row.snapshot.provider,'WolfGuard Antivirus / ClamAV');assert.equal(row.snapshot.antivirus,'unknown');assert.ok(row.snapshot.warnings.some(message=>message.includes('Mets à jour')));
   }finally{s.env.DB.db.close();}
 });
 

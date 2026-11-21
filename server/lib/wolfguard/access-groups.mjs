@@ -1,4 +1,5 @@
 import {seal,open} from './access.mjs';
+import {retainRecentLogs} from './retention.mjs';
 import {normalizePolicy,profilePolicy,can,canManagePolicy,grantsOf,PERMISSION_SECTIONS,PERMISSION_ACTIONS} from './permissions.mjs';
 import {directGroupIds,effectiveGroupIds,groupClosure,validateGroupNesting} from './group-membership.mjs';
 
@@ -69,6 +70,7 @@ export async function reconcileFleetAccessGroups(env,fleet,now){
 export async function accessGroupAPI(request,env,now,session,h){
   const {fail,json,body,random,revokeUserSessions}=h,url=new URL(request.url),operation=url.pathname.slice('/api/users/groups'.length).replace(/^\//,'');
   if(!can(session.user,'users.permissions',now))fail(403,'La gestion des groupes nécessite le droit Utilisateurs et droits en écriture.');
+  await retainRecentLogs(env,now);
   let state=await accessGroupState(env),fleet=await (await fleetModule()).fleetState(env);
   const registered=(await env.DB.prepare('SELECT id,role FROM users').all()).results;
   if(state)state={...state,memberships:Object.fromEntries(Object.entries(state.memberships||{}).filter(([id])=>registered.some(user=>user.id===id&&user.role!=='admin')).map(([id,ids])=>[id,ids.filter(groupId=>state.groups.some(group=>group.id===groupId))]))};
@@ -132,7 +134,7 @@ export async function accessGroupAPI(request,env,now,session,h){
     }
   }
   const before=id=>membershipIds(state,id),after=id=>next.memberships[id]||[],auditId=random(16),details={kind:'access-group',actor:session.user.username,user:operation==='prepare'?'Groupes par section':group?.name||data.userId||next.groups.at(-1)?.name||'',revision:state.revision+1,operation,count:affected.size,reason:typeof data.reason==='string'?data.reason.trim().slice(0,500):'',...(operation==='policy'?{beforePolicy:state.groups.find(row=>row.id===data.id).policy,afterPolicy:group.policy}:{}),...(['assign','unassign','memberships'].includes(operation)?{members:[...affected].map(id=>({id,before:before(id),after:after(id)}))}:{})};
-  const result=await env.DB.batch([env.DB.prepare('UPDATE access_groups SET config_cipher=?,revision=revision+1,updated_at=? WHERE id=1 AND generation=? AND revision=? AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)').bind(await encode(next),now,session.generation,state.revision,session.hash),env.DB.prepare('INSERT INTO permission_audit(id,created_at,details_cipher) SELECT ?,?,? WHERE changes()=1').bind(auditId,now,await seal(details,'WolfGuard permissions audit v1:'+auditId,env)),env.DB.prepare('UPDATE users SET permission_revision=permission_revision+1,code_version=code_version+1,updated_at=? WHERE id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM permission_audit WHERE id=?)').bind(now,JSON.stringify([...affected]),auditId),env.DB.prepare('DELETE FROM permission_audit WHERE id NOT IN (SELECT id FROM permission_audit ORDER BY created_at DESC,id DESC LIMIT 2000) AND EXISTS(SELECT 1 FROM permission_audit WHERE id=?)').bind(auditId)]);
+  const result=await env.DB.batch([env.DB.prepare('UPDATE access_groups SET config_cipher=?,revision=revision+1,updated_at=? WHERE id=1 AND generation=? AND revision=? AND EXISTS(SELECT 1 FROM sessions WHERE token_hash=?)').bind(await encode(next),now,session.generation,state.revision,session.hash),env.DB.prepare('INSERT INTO permission_audit(id,created_at,details_cipher) SELECT ?,?,? WHERE changes()=1').bind(auditId,now,await seal(details,'WolfGuard permissions audit v1:'+auditId,env)),env.DB.prepare('UPDATE users SET permission_revision=permission_revision+1,code_version=code_version+1,updated_at=? WHERE id IN (SELECT value FROM json_each(?)) AND EXISTS(SELECT 1 FROM permission_audit WHERE id=?)').bind(now,JSON.stringify([...affected]),auditId)]);
   if(!result[0]?.meta?.changes)fail(409,'Les groupes ont changé. Recharge avant de réessayer.');clearAccessGroups(env);state={...next,revision:state.revision+1};for(const id of affected)await revokeUserSessions(env,id,now);return json({...snapshot(),reconnect:affected.has(session.user.id)});
   async function encode(config){if(new TextEncoder().encode(JSON.stringify(config)).length>1000000)fail(413,'La configuration des groupes est trop volumineuse.');return seal(config,'WolfGuard access groups v1',env);}
 }

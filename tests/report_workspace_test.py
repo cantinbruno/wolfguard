@@ -6,6 +6,21 @@ from site_fixture import open_security
 
 def run():
     with account_ui() as (page, context, origin, errors):
+        page.evaluate("""async()=>{
+          await put('folders',{id:'report-memo-parent',section:'library',name:'Rapport parent',parentId:null});
+          await put('folders',{id:'report-memo-child',section:'library',name:'Rapport enfant',parentId:'report-memo-parent'});
+          await put('items',{id:'report-search-synonym',type:'memo',title:'Firewall réseau',content:'Documentation synthétique du pare-feu',folderId:null,tags:[]});
+          await openSection('library');await selectFolder('report-memo-child');
+        }""")
+        parent=page.locator('[data-tree-folder="report-memo-parent"] .tree-caret')
+        if parent.get_attribute('aria-expanded')=='false':parent.click()
+        page.locator('[data-tree-folder="report-memo-child"]').click(button='right')
+        page.locator('#ctxMenu [data-action="move-folder-root"]').click()
+        page.wait_for_function("async()=>(await get('folders','report-memo-child')).parentId===null")
+        expect(page.locator('[data-tree-folder="report-memo-child"]')).to_be_visible()
+        page.locator('#globalSearch').fill('parefeu')
+        expect(page.locator('#searchResults')).to_contain_text('Firewall réseau')
+        page.locator('#globalSearch').fill('');page.locator('#globalSearch').press('Escape')
         page.locator('#settingsBtn').click()
         page.locator('#settings-tab-account').click()
         expect(page.locator('#settings-account')).to_contain_text('cantin.bruno@gmx.fr')
@@ -42,6 +57,9 @@ def run():
         page.locator('.app-dialog-submit').click()
         section = page.locator('[data-agent-group]').filter(has_text='Rapport atelier')
         expect(section).to_be_visible()
+        for density in ['comfortable','compact']:
+            page.locator('html').evaluate('(element,density)=>element.dataset.uiDensity=density',density)
+            assert section.bounding_box()['height']<=34,(density,section.bounding_box())
         section.locator('[data-group-toggle]').click(button='right')
         page.locator('[data-section-action=color]').click()
         page.locator('[data-section-color="#77d6b0"]').click()
@@ -62,7 +80,11 @@ def run():
         page.locator('[data-section-action=rename]').click()
         page.locator('.app-dialog-input').fill('Rapport renommé')
         page.locator('.app-dialog-submit').click()
-        expect(page.locator('[data-agent-group]').filter(has_text='Rapport renommé')).to_be_visible()
+        renamed=page.locator('[data-agent-group]').filter(has_text='Rapport renommé')
+        expect(renamed).to_be_visible()
+        renamed.locator('[data-group-toggle]').click(button='right');page.locator('[data-section-action=remove]').click()
+        page.locator('.app-dialog-submit').click()
+        expect(page.locator('[data-agent-group]').filter(has_text='Rapport renommé')).to_have_count(0)
         assert not errors, errors
     print('PASS: account, storage, customization, code cancellation, group filters, section colors, persistence and central reports')
 

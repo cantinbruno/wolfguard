@@ -28,6 +28,12 @@ export function ownProtection(antivirus,now=Date.now()){
     realtime:active?(antivirus.state==='error'?'disabled':'enabled'):'disabled',
     signatures:antivirus.signatureAt>0&&antivirus.signatureAt<=now+300000&&now-antivirus.signatureAt<=2*86400000?'enabled':'disabled',signatureVersion:antivirus.signatureVersion};
 }
+export function independentWindowsProtection(snapshot,now=Date.now()){
+  if(!snapshot||snapshot.platform!=='win32')return snapshot;
+  if(snapshot.wolfguardAntivirus)return {...snapshot,...ownProtection(snapshot.wolfguardAntivirus,now)};
+  const warning='Ancien agent : la protection WolfGuard n’est pas confirmée. Mets à jour l’agent.';
+  return {...snapshot,provider:'WolfGuard Antivirus / ClamAV',antivirus:'unknown',realtime:'unknown',signatures:'unknown',signatureVersion:'',warnings:[warning,...(Array.isArray(snapshot.warnings)?snapshot.warnings:[]).filter(value=>value!==warning)].slice(0,8)};
+}
 export function endpointPolicy(value){
   if(!value||!['protect','observe'].includes(value.mode)||typeof value.realtime!=='boolean'||typeof value.firewall!=='boolean')throw new Error('Politique de protection invalide.');
   return {mode:value.mode,realtime:value.realtime,firewall:value.firewall};
@@ -41,10 +47,12 @@ export function endpointSnapshot(value,now=Date.now()){
   });
   const ownAntivirus=antivirusSnapshot(value.wolfguardAntivirus);
   if(ownAntivirus)value={...value,...ownProtection(ownAntivirus,now)};
+  else value=independentWindowsProtection(value,now);
   const metadata={inventory:endpointInventory(value.inventory),systemMonitor:systemMonitorSnapshot(value.systemMonitor)};
   return {...metadata,...(ownAntivirus?{wolfguardAntivirus:ownAntivirus}:{}),version:1,collectedAt:value.collectedAt,platform:['win32','linux','darwin'].includes(value.platform)?value.platform:'unknown',provider:text(value.provider,120),realtime:state(value.realtime),antivirus:state(value.antivirus),firewall:state(value.firewall),signatures:state(value.signatures),signatureVersion:text(value.signatureVersion,80),canEnforce:value.canEnforce===true,supported:value.supported===true,warnings:Array.isArray(value.warnings)?value.warnings.slice(0,8).map(item=>text(item,250)):[],activeThreats:Number.isSafeInteger(value.activeThreats)&&value.activeThreats>=0?Math.min(10000,value.activeThreats):events.filter(row=>['alert','failed'].includes(row.status)).length,appliedRevision:Number.isSafeInteger(value.appliedRevision)&&value.appliedRevision>=0?value.appliedRevision:0,events};
 }
 export function endpointHealth(snapshot,fresh=true,now=Date.now()){
+  snapshot=independentWindowsProtection(snapshot,now);
   if(!snapshot||!fresh)return 'unknown';
   if(!snapshot.supported)return 'unsupported';
   if(snapshot.activeThreats>0)return 'attention';

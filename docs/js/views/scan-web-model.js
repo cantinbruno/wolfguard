@@ -117,7 +117,7 @@ const webScanModel = (() => {
     if(!parsed.rows.length)throw new Error('Aucune observation reconnue. Le relevé précédent reste conservé.');
     if(workspace==='vulnerability'&&parsed.rows.some(row=>!row.checkId||row.transport!=='AUDIT'||!['issue','passed','notchecked','info'].includes(row.status)))throw new Error('Importe un rapport d’audit de l’agent Windows, Linux ou macOS, avec ses contrôles et leurs preuves.');
     const unique=new Map();for(const raw of parsed.rows){const record=row(raw,kind,parsed.source);unique.set(key(record),record);}
-    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,target:parsed.target||'',name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),...parsed.collection,source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()].filter(record=>workspace!=='map'||['reachable','open','closed'].includes(record.status))};
+    return {format:'wolfguard-scan',version:1,strategy:kind,workspace,target:parsed.target||'',name:text(name,180),importedAt:new Date().toISOString(),capturedAt:text(parsed.capturedAt),...parsed.collection,source:parsed.source,warnings:parsed.warnings||[],rows:[...unique.values()]};
   }
   function compare(current,baseline){
     const old=new Map(baseline.rows.map(r=>[key(r),r])),next=new Map(current.rows.map(r=>[key(r),r])),changes=[];

@@ -56,7 +56,7 @@ def run():
         expect(page.locator('[data-section-rights]')).to_have_count(0)
         page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
         expect(page.locator('#settings-groups')).to_be_visible()
-        expect(page.locator('#settings-groups .settings-panel-head')).to_contain_text('Chaque section possède')
+        expect(page.locator('#settings-groups .settings-panel-head')).to_contain_text('groupes métier')
         url=invite(page,'group-ui@example.test');guest=context().new_page();activate(guest,url,'group-ui@example.test')
         page.locator('#wgUserInvitationClose').click();page.locator('#wgUsersRefresh').click()
         page.locator('#settings-tab-groups').click()
@@ -75,7 +75,15 @@ def run():
         expect(page.locator('#agentsGroupsRights')).to_have_count(0)
         expect(page.locator('[data-section-rights]')).to_have_count(0)
         page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
-        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==33
+        assert page.evaluate("""async()=>{
+          const groups=(await WolfGuardCloud.agentRequest('users/groups')).groups;
+          const catalogue=await WolfGuardCloud.agentRequest('users/permissions');
+          const fleet=await WolfGuardCloud.agentRequest('agents/groups');
+          return groups.filter(group=>group.presetKind==='section').length===catalogue.sections.length*2
+            && groups.filter(group=>group.presetKind==='action').length===catalogue.actions.length
+            && groups.filter(group=>group.presetKind==='fleet').length===fleet.groups.length*2
+            && groups.filter(group=>group.presetKind==='admin').length===1;
+        }""")
         for width in [1440,850,390,320]:
             page.set_viewport_size({'width':width,'height':900})
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width

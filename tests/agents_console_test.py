@@ -490,7 +490,7 @@ def run():
             page.set_viewport_size({'width':1440,'height':1000})
             select_agent(1)
             options(1)
-            page.evaluate("""async () => {const access=WolfGuardAccess;window.WolfGuardAccess={...access,can:right=>right==='remote.write'?false:access.can(right)};await agentsWorkspace.render()}""")
+            page.evaluate("""async () => {const access=WolfGuardAccess;window.WolfGuardAccess={...access,can:right=>right==='remote.terminal'?false:access.can(right)};await agentsWorkspace.render()}""")
             expect(fleet_action('terminal')).to_be_disabled()
             expect(fleet_action('terminal')).to_contain_text('Droit d’accès')
             state['fail'] = True

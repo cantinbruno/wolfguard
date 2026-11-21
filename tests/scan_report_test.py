@@ -98,6 +98,7 @@ def run():
             assert text.count('Adresse / port')>=4
             (ROOT/'.cache/rapport-pagination.pdf').write_bytes(data)
             print('PASS: genuine A4 PDFs, selectable French text, embedded fonts, complete pagination, safe scan data and local-only generation')
+            if page.locator('#agentToolPanel:modal').count():page.locator('#agentToolClose').click()
             # Every Settings tab must keep the same outer size for a given viewport.
             for width,height in [(1440,1000),(1100,900),(900,900),(640,900),(390,844),(320,720)]:
                 page.set_viewport_size({'width':width,'height':height})
@@ -105,7 +106,8 @@ def run():
                 expect(page.locator('#settings-tab-account')).to_have_attribute('aria-selected','true')
                 page.locator('.settings-modal').evaluate('async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))}')
                 baseline=page.locator('.settings-modal').bounding_box()
-                for tab in ['account','data','interface','users','access']:
+                tabs=page.locator('.settings-tab:visible').evaluate_all('tabs=>tabs.map(tab=>tab.dataset.settingsTab)')
+                for tab in tabs:
                     page.locator('#settings-tab-'+tab).click()
                     expect(page.locator('#settings-tab-'+tab)).to_have_attribute('aria-selected','true')
                     box=page.locator('.settings-modal').bounding_box()
