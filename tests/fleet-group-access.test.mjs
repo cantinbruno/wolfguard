@@ -38,6 +38,19 @@ test('bootstrap refuses a concurrent permission edit without activating a partia
   }finally{s.env.DB.db.close();}
 });
 
+test('machine sections create, rename and remove their read/write access groups',async()=>{
+  const s=await setup();try{
+    await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');const member=await s.createMember('section-groups@example.test','12345678',s.owner.token);
+    let response=await s.api('agents/groups/bootstrap',{legacy:{}},s.owner.token);assert.equal(response.status,200);let fleet=await response.json();
+    response=await s.api('users/groups/bootstrap',{},s.owner.token);assert.equal(response.status,200);let access=await response.json();assert.ok(access.groups.some(group=>group.name==='GG_Acces_Sans_section_lecture'));
+    response=await s.api('agents/groups/create',{name:'Bureau Paris',revision:fleet.revision},s.owner.token);assert.equal(response.status,200,await response.clone().text());fleet=await response.json();const section=fleet.groups.find(group=>group.name==='Bureau Paris');
+    access=await(await s.api('users/groups',undefined,s.owner.token)).json();let read=access.groups.find(group=>group.name==='GG_Acces_Bureau_Paris_lecture');assert.ok(read);assert.ok(access.groups.some(group=>group.name==='GG_Acces_Bureau_Paris_ecriture'));
+    response=await s.api('users/groups/memberships',{userId:member.user.id,groupIds:[read.id],revision:access.revision},s.owner.token);assert.equal(response.status,200);let auth=await s.login('section-groups@example.test','12345678');
+    response=await s.api('agents/groups/rename',{id:section.id,name:'Serveurs',revision:fleet.revision},s.owner.token);assert.equal(response.status,200);fleet=await response.json();access=await(await s.api('users/groups',undefined,s.owner.token)).json();assert.equal(access.groups.some(group=>group.name==='GG_Acces_Bureau_Paris_lecture'),false);read=access.groups.find(group=>group.name==='GG_Acces_Serveurs_lecture');assert.ok(read.memberIds.includes(member.user.id));
+    response=await s.api('agents/groups/remove',{id:section.id,revision:fleet.revision},s.owner.token);assert.equal(response.status,200);access=await(await s.api('users/groups',undefined,s.owner.token)).json();assert.equal(access.groups.some(group=>group.name==='GG_Acces_Serveurs_lecture'),false);assert.equal((await s.api('me',undefined,auth.token)).status,401,'removing a section revokes members of its generated groups');
+  }finally{s.env.DB.db.close();}
+});
+
 test('shared group CRUD and moves enforce access in direct APIs and cancel issued remote/scans',async()=>{
   const s=await setup();try{
     await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');

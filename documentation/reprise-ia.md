@@ -16,7 +16,7 @@ Un dépôt sale n’est pas un motif pour abandonner. Utiliser si nécessaire un
 
 - Session : expiration après **4 heures d’inactivité**, sans maximum absolu de durée. Le polling ne compte pas comme activité.
 - MFA : Authenticator TOTP ; remplacement du téléphone sans désactiver le facteur actuel avant validation du nouveau.
-- Partage et permissions conservés. Tous les droits sont hérités d’un groupe d’utilisateurs dans Paramètres → Groupes, sur toutes les sections de l’application et les sections de postes. Les regroupements de machines se nomment sections ; les mêmes groupes d’utilisateurs fixent tous les droits. Un seul groupe par utilisateur, sans réglage individuel. Reprise sans élargissement des anciens accès ; coffres personnels isolés et ouverts directement dans le dossier de l’adresse mail. Voir [Droits](droits.md).
+- Partage et permissions conservés. Tous les droits viennent de groupes d’accès cumulatifs dans Paramètres → Groupes, sans réglage individuel. Chaque section ou paramètre possède `GG_Acces_<Nom>_lecture` et `GG_Acces_<Nom>_ecriture`; sans appartenance, la section est invisible. `GG_Acces_Application_administrateur` donne l’accès complet. Les sections de postes créent, renomment et suppriment automatiquement leurs deux groupes. Reprise sans élargissement des anciens accès ; coffres personnels isolés et ouverts directement dans le dossier de l’adresse mail. Voir [Droits](droits.md).
 - Aucune fonction de sauvegarde utilisateur à réintroduire. Préserver les données et copies techniques déjà présentes.
 - L’agent Windows ne doit pas être annoncé comme signé par Windows sans vérification Authenticode.
 - Le domaine, le lien privé et les clés ne sont pas à recréer ou à déplacer pour une tâche ordinaire.

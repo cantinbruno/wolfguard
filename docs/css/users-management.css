@@ -254,6 +254,8 @@
 .access-group-member{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;overflow-wrap:anywhere}
 .access-group-members select,.user-access-group select{min-width:0;max-width:100%;padding:9px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
 .user-access-group{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.user-access-groups{margin:16px 0;padding:14px;border:1px solid var(--ui-border);border-radius:6px}.user-access-groups>p{color:var(--ui-muted);line-height:1.6}.user-access-group-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:340px;overflow:auto}.user-access-group-list label{display:flex;align-items:flex-start;gap:9px;padding:9px;border:1px solid var(--ui-border);border-radius:5px;overflow-wrap:anywhere}.user-access-group-list input{margin-top:2px;accent-color:var(--users-accent)}
+.access-group-preset{padding:18px;line-height:1.65}.access-group-preset h5{margin:0 0 8px}.access-group-preset p{margin:0 0 8px}.access-group-preset small{color:var(--ui-muted)}
 .access-groups-workspace .users-directory>label{display:flex;flex-direction:column;gap:8px}
 .access-groups-workspace .users-directory input{min-width:0;padding:10px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
 
@@ -267,3 +269,5 @@
 }
 
 #wgGroupPermissionHost>p{padding:16px;margin:0;line-height:1.7}
+
+@media(max-width:480px){.user-access-group-list{grid-template-columns:minmax(0,1fr)}}

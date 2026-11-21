@@ -56,34 +56,25 @@ def run():
         expect(page.locator('[data-section-rights]')).to_have_count(0)
         page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
         expect(page.locator('#settings-groups')).to_be_visible()
-        expect(page.locator('#settings-groups .settings-panel-head')).to_contain_text('préparés automatiquement')
+        expect(page.locator('#settings-groups .settings-panel-head')).to_contain_text('Chaque section possède')
         url=invite(page,'group-ui@example.test');guest=context().new_page();activate(guest,url,'group-ui@example.test')
         page.locator('#wgUserInvitationClose').click();page.locator('#wgUsersRefresh').click()
-        page.locator('#settings-tab-groups').click();page.locator('#wgGroupCreate').click();page.locator('.app-dialog-input').fill('Équipe postes');page.locator('.app-dialog-submit').click()
-        expect(page.locator('#wgGroupName')).to_have_text('Équipe postes')
-        expect(page.locator('[data-permission-profile]')).to_have_count(4)
-        page.locator('[data-permission-profile=editor]').click()
-        expect(page.locator('[data-agent-right-id],[data-agent-scope]')).to_have_count(0)
-        expect(page.locator('[data-group-right]')).to_have_count(3)
-        page.locator(f'[data-group-right-id="{servers}"][data-group-level="read"]').click();page.locator('#wgPermissionSave').click()
-        expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
-        page.locator('[data-permission-profile=observer]').click()
-        expect(page.locator(f'[data-group-right-id="{servers}"][data-group-level="read"]')).to_have_attribute('aria-pressed','true')
-        page.locator('#wgPermissionSave').click();expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
-        permission_group=page.locator('[data-access-group]').filter(has_text='Équipe postes').get_attribute('data-access-group')
+        page.locator('#settings-tab-groups').click()
+        for name in ['GG_Acces_Application_administrateur','GG_Acces_Atelier_lecture','GG_Acces_Atelier_ecriture','GG_Acces_Serveurs_lecture','GG_Acces_Serveurs_ecriture']:
+            expect(page.locator('#wgGroupsList')).to_contain_text(name)
+        for name in ['GG_Acces_Memo_lecture','GG_Acces_Serveurs_ecriture']:
+            page.locator('[data-access-group]').filter(has_text=name).click()
+            if page.locator('#wgGroupMembers').get_attribute('open') is None:page.locator('#wgGroupMembers > summary').click()
+            page.locator('#wgGroupAddMember').select_option(label='group-ui@example.test');page.locator('#wgGroupAssign').click()
+        saved=page.evaluate("async()=>{const s=await WolfGuardCloud.agentRequest('users/groups');return s.groups.filter(g=>g.memberIds.length).map(g=>g.name)}")
+        assert 'GG_Acces_Memo_lecture' in saved and 'GG_Acces_Serveurs_ecriture' in saved,saved
         page.locator('.settings-close').click()
         expect(page.locator('#agentsGroupCreate')).to_have_text('Nouvelle section')
         expect(page.locator('[data-agent-group=ungrouped]')).to_contain_text('Sans section')
         expect(page.locator('#agentsGroupsRights')).to_have_count(0)
         expect(page.locator('[data-section-rights]')).to_have_count(0)
         page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
-        page.locator(f'[data-access-group="{permission_group}"]').click()
-        expect(page.locator('[data-section=library][data-level=read]')).to_have_attribute('aria-pressed','true')
-        page.locator(f'[data-group-right-id="{servers}"][data-group-level=write]').click();page.locator('#wgPermissionSave').click()
-        expect(page.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
-        saved=page.evaluate("async id=>(await WolfGuardCloud.agentRequest('users/groups')).groups.find(group=>group.id===id)",permission_group)
-        assert saved['policy']['sections']['library']=='read' and saved['policy']['groupLevels'][servers]=='write'
-        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==2
+        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==31
         for width in [1440,850,390,320]:
             page.set_viewport_size({'width':width,'height':900})
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width

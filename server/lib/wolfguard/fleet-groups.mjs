@@ -1,5 +1,7 @@
 import {seal,open} from './access.mjs';
 import {normalizePolicy,profilePolicy,can} from './permissions.mjs';
+import {reconcileFleetAccessGroups} from './access-groups.mjs';
+import {revokeUserSessions} from './users.mjs';
 
 export const validGroup=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(id)&&!['__proto__','constructor','prototype'].includes(id);
 const admin=(user,now)=>user?.role==='admin'||!!(user?.permissions?.admin&&can(user,'users.permissions',now));
@@ -67,7 +69,7 @@ export async function fleetGroupAPI(request,env,now,session,h){
     const agentSignature=agents.map(agent=>agent.id+':'+agent.restricted).join(',');
     const inserted=await env.DB.prepare("INSERT INTO fleet_groups(id,generation,revision,config_cipher,updated_at) SELECT 1,?,1,?,? WHERE NOT EXISTS(SELECT 1 FROM fleet_groups WHERE id=1 AND generation=?) AND COALESCE((SELECT GROUP_CONCAT(signature,',') FROM (SELECT id||':'||permission_revision AS signature FROM users ORDER BY id)),'')=? AND COALESCE((SELECT GROUP_CONCAT(signature,',') FROM (SELECT id||':'||restricted AS signature FROM scan_agents WHERE generation=? AND revoked_at IS NULL ORDER BY id)),'')=? ON CONFLICT(id) DO UPDATE SET generation=excluded.generation,revision=1,config_cipher=excluded.config_cipher,updated_at=excluded.updated_at WHERE fleet_groups.generation<>excluded.generation").bind(session.generation,await seal(next,'WolfGuard fleet groups v1',env),now,session.generation,signature,session.generation,agentSignature).run();
     if(!inserted.meta?.changes)fail(409,'Les droits ont changé pendant la migration. Recharge les groupes.');
-    delete env[stateCache];state={...next,revision:1};return json(await snapshot());
+    delete env[stateCache];state={...next,revision:1};for(const id of await reconcileFleetAccessGroups(env,state,now))await revokeUserSessions(env,id,now);return json(await snapshot());
   }
   if(!state)fail(409,'Le propriétaire doit initialiser les groupes.');
   if(data.revision!==state.revision)fail(409,'Les groupes ont changé. Recharge avant de réessayer.');
@@ -100,5 +102,5 @@ export async function fleetGroupAPI(request,env,now,session,h){
     env.DB.prepare('INSERT INTO permission_audit(id,created_at,details_cipher) SELECT ?,?,? WHERE changes()=1').bind(auditId,now,await seal(details,'WolfGuard permissions audit v1:'+auditId,env))
   ]);
   if(!changed[0]?.meta?.changes)fail(409,'Les groupes ont changé. Recharge avant de réessayer.');
-  delete env[stateCache];state={...next,revision:state.revision+1};return json(await snapshot());
+  delete env[stateCache];state={...next,revision:state.revision+1};for(const id of await reconcileFleetAccessGroups(env,state,now))await revokeUserSessions(env,id,now);return json(await snapshot());
 }

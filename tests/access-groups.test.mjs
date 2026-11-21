@@ -2,39 +2,42 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {setup} from './endpoint-fixture.mjs';
 import {profilePolicy} from '../server/lib/wolfguard/permissions.mjs';
+import {open,seal} from '../server/lib/wolfguard/access.mjs';
 
-test('shared authorization groups replace individual policies, revoke all members and preserve vault isolation',async()=>{
+test('section access groups combine, default to invisible and preserve previous policies',async()=>{
   const s=await setup();try{
     await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');
     const first=await s.createMember('first-group@example.test','12345678',s.owner.token),second=await s.createMember('second-group@example.test','12345679',s.owner.token);
     for(const member of [first,second])assert.equal((await s.api('users/permissions',{id:member.user.id,revision:1,policy:profilePolicy('observer')},s.owner.token)).status,200);
     assert.equal((await s.api('agents/groups/bootstrap',{legacy:{}},s.owner.token)).status,200);
     let response=await s.api('users/groups/bootstrap',{},s.owner.token);assert.equal(response.status,200,await response.clone().text());let state=await response.json();
-    const old=state.groups.find(group=>group.memberIds.includes(first.user.id));assert.ok(old.memberIds.includes(second.user.id),'identical old rights form one shared group');assert.equal(old.name,'Observateurs','prepared groups use the existing access profile name');
-    s.env.DB.db.prepare('UPDATE users SET permissions_cipher=? WHERE id=?').run('obsolete-individual-policy-is-ignored',first.user.id);
-    let firstAuth=await s.login('first-group@example.test','12345678'),secondAuth=await s.login('second-group@example.test','12345679');
-    assert.equal(firstAuth.user.permissions.sections.library,'read');assert.equal(firstAuth.user.permissions.accessGroup.id,old.id);
-    assert.equal((await s.api('users/permissions',{id:first.user.id,revision:2,policy:profilePolicy('admin')},s.owner.token)).status,409);
-    const policy={...profilePolicy('editor'),groupLevels:{ungrouped:'read'}};
-    response=await s.api('users/groups/policy',{id:old.id,revision:state.revision,policy},s.owner.token);assert.equal(response.status,200,await response.clone().text());state=await response.json();
-    for(const auth of [firstAuth,secondAuth])assert.equal((await s.api('me',undefined,auth.token)).status,401,'every member loses old sessions');
-    firstAuth=await s.login('first-group@example.test','12345678');secondAuth=await s.login('second-group@example.test','12345679');
-    for(const auth of [firstAuth,secondAuth])assert.equal(auth.user.permissions.sections.library,'write');
-    assert.equal((await s.api('users/groups/create',{name:'Escalation',revision:state.revision},firstAuth.token)).status,403);
-    response=await s.api('users/groups/create',{name:'Support',revision:state.revision},s.owner.token);assert.equal(response.status,200);state=await response.json();const support=state.groups.find(group=>group.name==='Support');
-    assert.equal((await s.api('users/groups/assign',{id:support.id,userIds:[first.user.id],revision:state.revision-1},s.owner.token)).status,409);
-    response=await s.api('users/groups/assign',{id:support.id,userIds:[first.user.id],revision:state.revision},s.owner.token);assert.equal(response.status,200);state=await response.json();
-    assert.equal((await s.api('me',undefined,firstAuth.token)).status,401);assert.equal((await s.api('me',undefined,secondAuth.token)).status,200,'other group remains connected');
-    firstAuth=await s.login('first-group@example.test','12345678');assert.equal(firstAuth.user.permissions.sections.library,'deny');
-    assert.equal((await s.api('users/groups/assign',{id:support.id,userIds:[s.owner.user.id],revision:state.revision},s.owner.token)).status,409);
-    assert.equal((await s.api('users/groups/remove',{id:support.id,revision:state.revision},s.owner.token)).status,409,'occupied group cannot disappear');
-    assert.equal((await s.api('users/groups/policy',{id:'default',revision:state.revision,policy},s.owner.token)).status,409,'initial invitations stay without rights');
-    const newer=await s.createMember('new-group@example.test','12345670',s.owner.token);state=await(await s.api('users/groups',undefined,s.owner.token)).json();assert.ok(state.groups.find(group=>group.id==='default').memberIds.includes(newer.user.id));
-    response=await s.api('users/groups/duplicate',{id:old.id,name:'Copie',revision:state.revision},s.owner.token);assert.equal(response.status,200);state=await response.json();const copy=state.groups.find(group=>group.name==='Copie');assert.equal(copy.memberIds.length,0);assert.equal(copy.policy.sections.library,'write');
-    response=await s.api('users/groups/policy',{id:old.id,revision:state.revision,policy:{...profilePolicy('admin'),groupLevels:{}}},s.owner.token);assert.equal(response.status,200);
-    secondAuth=await s.login('second-group@example.test','12345679');
-    const vault=await s.api('vault',undefined,secondAuth.token);assert.equal(vault.status,200);assert.equal(secondAuth.user.vaultHome.id,'vault-user-'+second.user.id);assert.notEqual(secondAuth.user.vaultHome.id,firstAuth.user.vaultHome.id);
-    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM access_groups').all());assert.equal(disk.includes('Support'),false);assert.equal(disk.includes(first.user.id),false);
-    const audit=await(await s.api('users/permissions/audit',undefined,s.owner.token)).json();assert.ok(audit.events.some(event=>event.kind==='access-group'&&event.operation==='policy'&&event.count===2));
+    assert.equal(state.prepared,true);assert.ok(state.groups.some(group=>group.name==='GG_Acces_Application_administrateur'));
+    const memoRead=state.groups.find(group=>group.name==='GG_Acces_Memo_lecture'),vaultWrite=state.groups.find(group=>group.name==='GG_Acces_Coffre_fort_ecriture');assert.ok(memoRead&&vaultWrite);
+    const preserved=state.groups.find(group=>group.memberIds.includes(first.user.id));assert.equal(preserved.name,'GG_Acces_conserve');assert.ok(preserved.memberIds.includes(second.user.id));
+    let firstAuth=await s.login('first-group@example.test','12345678'),secondAuth=await s.login('second-group@example.test','12345679');assert.equal(firstAuth.user.permissions.sections.library,'read');
+    response=await s.api('users/groups/memberships',{userId:first.user.id,groupIds:[memoRead.id,vaultWrite.id],revision:state.revision-1},s.owner.token);assert.equal(response.status,409);
+    response=await s.api('users/groups/memberships',{userId:first.user.id,groupIds:[memoRead.id,vaultWrite.id],revision:state.revision},s.owner.token);assert.equal(response.status,200,await response.clone().text());state=await response.json();
+    assert.equal((await s.api('me',undefined,firstAuth.token)).status,401);assert.equal((await s.api('me',undefined,secondAuth.token)).status,200);
+    firstAuth=await s.login('first-group@example.test','12345678');assert.equal(firstAuth.user.permissions.sections.library,'read');assert.equal(firstAuth.user.permissions.sections.vault,'write');assert.equal(firstAuth.user.permissions.sections.agents,'deny');assert.deepEqual(new Set(firstAuth.user.permissions.accessGroup.ids),new Set([memoRead.id,vaultWrite.id]));
+    const policy={...profilePolicy('editor'),groupLevels:{ungrouped:'read'}};response=await s.api('users/groups/policy',{id:preserved.id,revision:state.revision,policy},s.owner.token);assert.equal(response.status,200);state=await response.json();assert.equal((await s.api('me',undefined,secondAuth.token)).status,401);
+    const newer=await s.createMember('new-group@example.test','12345670',s.owner.token),newAuth=await s.login('new-group@example.test','12345670');assert.equal(newAuth.user.permissions.sections.library,'deny');assert.deepEqual(newAuth.user.permissions.accessGroup.ids,[]);
+    response=await s.api('users/groups/assign',{id:memoRead.id,userIds:[newer.user.id],revision:state.revision},s.owner.token);assert.equal(response.status,200);state=await response.json();assert.ok(state.groups.find(group=>group.id===memoRead.id).memberIds.includes(newer.user.id));
+    response=await s.api('users/groups/unassign',{id:memoRead.id,userIds:[newer.user.id],revision:state.revision},s.owner.token);assert.equal(response.status,200);state=await response.json();
+    assert.equal((await s.api('users/groups/policy',{id:memoRead.id,revision:state.revision,policy},s.owner.token)).status,409,'automatic groups cannot be edited');
+    assert.equal((await s.api('users/groups/remove',{id:memoRead.id,revision:state.revision},s.owner.token)).status,409,'automatic groups follow their section');
+    const vault=await s.api('vault',undefined,firstAuth.token);assert.equal(vault.status,200);assert.equal(firstAuth.user.vaultHome.id,'vault-user-'+first.user.id);
+    const disk=JSON.stringify(s.env.DB.db.prepare('SELECT * FROM access_groups').all());assert.equal(disk.includes('GG_Acces_Memo_lecture'),false);assert.equal(disk.includes(first.user.id),false);
+    const audit=await(await s.api('users/permissions/audit',undefined,s.owner.token)).json();assert.ok(audit.events.some(event=>event.kind==='access-group'&&event.operation==='memberships'));
+  }finally{s.env.DB.db.close();}
+});
+
+test('existing single memberships upgrade once to cumulative section groups',async()=>{
+  const s=await setup();try{
+    await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');const member=await s.createMember('legacy-groups@example.test','12345678',s.owner.token);
+    assert.equal((await s.api('agents/groups/bootstrap',{legacy:{}},s.owner.token)).status,200);let state=await(await s.api('users/groups/bootstrap',{},s.owner.token)).json();const preserved=state.groups.find(group=>group.memberIds.includes(member.user.id));
+    const row=s.env.DB.db.prepare('SELECT * FROM access_groups WHERE id=1').get(),legacy=await open(row.config_cipher,'WolfGuard access groups v1',s.env);legacy.members={[member.user.id]:preserved.id};delete legacy.memberships;delete legacy.model;legacy.groups=[{id:'default',name:'Invités',policy:profilePolicy('guest')},preserved];
+    s.env.DB.db.prepare('UPDATE access_groups SET config_cipher=? WHERE id=1').run(await seal(legacy,'WolfGuard access groups v1',s.env));state=await(await s.api('users/groups',undefined,s.owner.token)).json();assert.equal(state.prepared,false);
+    let response=await s.api('users/groups/prepare',{revision:state.revision},s.owner.token);assert.equal(response.status,200,await response.clone().text());state=await response.json();assert.equal(state.prepared,true);assert.ok(state.groups.find(group=>group.id===preserved.id).memberIds.includes(member.user.id));assert.ok(state.groups.some(group=>group.name==='GG_Acces_Memo_ecriture'));
+    const revision=state.revision;state=await(await s.api('users/groups/prepare',{revision},s.owner.token)).json();assert.equal(state.revision,revision);
   }finally{s.env.DB.db.close();}
 });
