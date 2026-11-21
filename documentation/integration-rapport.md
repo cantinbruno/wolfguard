@@ -1,11 +1,11 @@
 # Intégration du rapport du 21 novembre 2026
 
-Les demandes de `rapport.txt` sont traitées dans la version courante. Les modifications préexistantes des scans et des groupes ont été conservées. La documentation reste dans `documentation/` ; `app/` et `browser/` sont les sources et `docs/` leur distribution générée nécessaire à GitHub Pages.
+Ce tableau décrit les modifications apportées à `rapport.txt` ; il ne constitue pas une validation complète de tous les points sur les postes réels. L’audit du 21 novembre a relevé des limites de couverture EDR, un plafond de 2 000 événements pouvant raccourcir la rétention du journal des droits, et des caches de compilation réapparus dans le projet. Les volumes de stockage mesurent les enregistrements sérialisés. Ces écarts empêchent de présenter le rapport entier comme terminé. Les modifications préexistantes des scans et des groupes ont été conservées. La documentation reste dans `documentation/` ; `app/` et `browser/` sont les sources et `docs/` leur distribution générée nécessaire à GitHub Pages.
 
 | Point | Comportement intégré | Vérification |
 | --- | --- | --- |
 | 1. Mémo : déplacer un dossier à la racine | Action explicite au clic droit d’un sous-dossier. Le déplacement par glisser-déposer et le choix Racine dans le formulaire restent disponibles. | Parcours Mémo et contrôle des permissions existant |
-| 2. Coffre personnel | Ouverture directement dans le dossier du compte, sans afficher son dossier conteneur. Isolation conservée côté serveur. | `vault_workspace_test.py`, `permissions.test.mjs` |
+| 2. Coffre personnel | Ouverture dans le coffre du compte. Conteneur de l’adresse mail masqué dans l’arborescence, les titres, chemins, recherche et formulaires ; ses enfants deviennent le premier niveau visible. Racine conserve le parent personnel lors des créations et déplacements. Isolation conservée côté serveur. | `personal_vault_navigation_test.py`, `vault_workspace_test.py`, `permissions.test.mjs` |
 | 3. Sections de postes | Clic droit sur le titre : renommer, supprimer ou choisir une couleur. Palette et couleur personnalisée, enregistrées côté serveur. | `report_workspace_test.py`, `fleet-group-access.test.mjs` |
 | 4. Erreur ACL antivirus | Écriture des seules sections d’accès et de propriétaire modifiées avec `Directory.SetAccessControl`, sans demander l’écriture des règles d’audit. Les accès SYSTEM, administrateurs et compte de l’agent restent explicites. | Exécution Windows sur un dossier temporaire dans `report-integration.test.mjs` |
 | 5. Bouton Journal de la fiche | Suppression du bouton dans l’en-tête. Les événements restent accessibles par l’onglet Journal et les alertes. | `agents_console_test.py`, `agent_journal_test.py` |

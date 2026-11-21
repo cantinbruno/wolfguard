@@ -54,7 +54,9 @@ Vérifications : `python tests/fleet_groups_test.py` contrôle la nomenclature, 
 
 ## Coffres et partage
 
-Les coffres sont personnels, administrateurs compris. Ouvrir le Coffre-fort sélectionne directement le dossier de l’adresse mail du compte connecté ; revenir à la racine conserve ce dossier personnel. Les sous-dossiers restent navigables. Le serveur filtre la copie remise au navigateur et utilise une clé liée au compte et à la révision des droits. Les écritures doivent préserver les données invisibles et contrôler les conflits de version.
+Les coffres sont personnels, administrateurs compris. Ouvrir le Coffre-fort sélectionne directement le dossier de l’adresse mail du compte connecté ; revenir à la racine conserve ce dossier personnel. Le conteneur technique portant l’adresse mail reste dans les données mais n’apparaît ni dans l’arborescence, ni dans le titre du coffre, ni dans les chemins ou les listes de dossiers. Ses enfants sont affichés au premier niveau. Le choix Racine, dans les formulaires et les déplacements par glisser-déposer, désigne ce coffre personnel et conserve son identifiant comme parent. Les sous-dossiers restent navigables. Le serveur filtre la copie remise au navigateur et utilise une clé liée au compte et à la révision des droits. Les écritures doivent préserver les données invisibles et contrôler les conflits de version.
+
+Vérification du résultat visible : `python tests/personal_vault_navigation_test.py` exerce le propriétaire et un utilisateur classique, les titres et chemins, la recherche, les formulaires, les déplacements, le rechargement et les largeurs 1440/390/320 px. La seule vérification de `state.folder` ne suffit pas à confirmer que le conteneur est masqué.
 
 Les changements de droits sont versionnés, journalisés sous chiffrement et révoquent les accès concernés, y compris les opérations en cours. Supprimer un compte retire son coffre de la copie courante ; les copies techniques de récupération déjà présentes ne sont pas des données à effacer lors d’une réorganisation du code.
 

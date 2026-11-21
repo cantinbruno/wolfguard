@@ -70,7 +70,7 @@ function normalFolder() {
 /* SAVE */
 async function baseForm(item) {
   item.title = $('#fTitle')?.value.trim() || 'Sans titre';
-  item.folderId = $('#fFolder')?.value || null;
+  item.folderId = $('#fFolder')?.value || workspaceRootFolder(sectionForItem(item));
   if ($('#fTags')) item.tags = $('#fTags').value.split(',').map(s => s.trim()).filter(Boolean);
   item.updatedAt = now();
   return item;
@@ -154,7 +154,7 @@ async function folderMenu(id) {
     </div>`);
   $('#ren').onclick = async () => {
     f.name = $('#folderRename').value.trim() || f.name;
-    f.parentId = $('#folderParentEdit').value || null;
+    f.parentId = $('#folderParentEdit').value || workspaceRootFolder(f.section);
     await put('folders', f);
     closeModal();
     await renderWorkspace();

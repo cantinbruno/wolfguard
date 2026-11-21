@@ -168,18 +168,20 @@ async function dropOnRoot(e) {
   e.currentTarget.classList.remove('drop-target');
   const payload = readDragPayload(e);
   if (!payload?.id) return;
+  const root = workspaceRootFolder();
+  if (payload.kind === 'folder' && payload.id === root) return dragEnd(e);
 
   if (payload.kind === 'item') {
     const item = await get('items', payload.id);
     if (item) {
-      item.folderId = null;
+      item.folderId = root;
       item.updatedAt = now();
       await put('items', item)
     }
   } else if (payload.kind === 'folder') {
     const folder = await get('folders', payload.id);
     if (folder) {
-      folder.parentId = null;
+      folder.parentId = root;
       await put('folders', folder)
     }
   }
@@ -188,7 +190,7 @@ async function dropOnRoot(e) {
     kind: null,
     id: null
   };
-  state.folder = null;
+  state.folder = root;
   await renderWorkspace();
 }
 
@@ -243,16 +245,17 @@ function sectionItemLabel(item) {
   return item.title || 'Sans titre';
 }
 async function explorerData() {
-  const folders = (db?.native ? (await db.readOnly('folders')).filter(folder => !isDeleted(folder) && !folder.consolidatedFolder) : await activeFolders())
-    .filter(f => f.section === state.section)
+  const folders = workspaceDisplayFolders(db?.native ? (await db.readOnly('folders')).filter(folder => !isDeleted(folder) && !folder.consolidatedFolder) : await activeFolders())
     .map(f => ({
       ...f,
       parentId: f.parentId || null
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const root = workspaceRootFolder(), visible = new Set([root, ...folders.map(folder => folder.id)]);
   const items = (db?.native ? (await db.readOnly('items')).filter(item => !isDeleted(item) && !item.consolidatedInto) : await activeItems())
     .filter(x => sectionTypes().includes(x.type))
+    .filter(item => !root || visible.has(item.folderId))
     .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
   return {
@@ -467,12 +470,12 @@ async function renderUnifiedExplorer(detailHtml = '', isCurrent = () => true) {
         </div>
 
         <div id="unifiedTree" class="explorer-tree" data-wg-contextmenu="navigationContextMenu(event)">
-          <div class="tree-row tree-overview-row ${!state.folder && !state.item?'active':''}" data-wg-click="selectFolder(null)">
+          <div class="tree-row tree-overview-row ${state.folder === workspaceRootFolder() && !state.item?'active':''}" data-wg-click="selectFolder(null)">
             <span class="tree-caret"></span>
             <span class="tree-icon">${WORKSPACE_LAYOUT_ICONS.cards}</span>
             <span class="tree-label">Tous</span><span class="tree-folder-count">${items.length}</span>
           </div>
-          ${renderUnifiedTree(folders,desktopBridge.available?[]:items,null,0,workspaceFolderCounts(folders,items))}
+          ${renderUnifiedTree(folders,desktopBridge.available?[]:items,workspaceRootFolder(),0,workspaceFolderCounts(folders,items))}
           <p id="workspaceTreeEmpty" class="workspace-tree-empty" role="status" aria-live="polite" hidden>Aucun résultat.</p>
         </div>`}
       </section>

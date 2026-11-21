@@ -20,7 +20,11 @@ def run():
         viewer.locator('#lock').focus();viewer.keyboard.type('12345678');expect(viewer.locator('#app')).to_be_visible(timeout=20000);viewer.wait_for_function('()=>!document.querySelector("#app").inert')
         assert viewer.evaluate("WolfGuardCloud.currentUser().permissions.accessGroup.names.includes('GG_Acces_Memo_lecture')&&WolfGuardCloud.currentUser().permissions.accessGroup.names.includes('GG_Acces_Coffre_fort_ecriture')&&WolfGuardCloud.can('library.read')&&!WolfGuardCloud.can('library.write')&&WolfGuardCloud.can('vault.edit')&&!WolfGuardCloud.can('agents.read')")
         viewer.evaluate("()=>openSection('vault')");viewer.wait_for_function("()=>state.section==='vault'&&!sectionTransition.active")
-        assert viewer.evaluate('state.folder===WolfGuardCloud.currentUser().vaultHome.id');assert viewer.locator('#content').inner_text().find('team-member@example.test')>=0
+        assert viewer.evaluate('state.folder===WolfGuardCloud.currentUser().vaultHome.id')
+        expect(viewer.locator('.catalog-vault h2')).to_have_text('Coffre-fort')
+        expect(viewer.locator('#unifiedTree')).not_to_contain_text('team-member@example.test')
+        expect(viewer.locator('[data-tree-folder^="vault-user-"]')).to_have_count(0)
+        expect(viewer.locator('.tree-overview-row')).to_have_class('tree-row tree-overview-row active')
         viewer.evaluate('()=>selectFolder(null)');assert viewer.evaluate('state.folder===WolfGuardCloud.currentUser().vaultHome.id')
         owner.locator('#settings-tab-users').click();owner.locator('[data-select-user]').filter(has_text='team-member@example.test').click();expect(owner.locator('[data-user-access-group]:checked')).to_have_count(2)
         expect(owner.locator('#settings-users [data-permission-profile],#settings-users [data-section],#settings-users [data-group-right-id]')).to_have_count(0)

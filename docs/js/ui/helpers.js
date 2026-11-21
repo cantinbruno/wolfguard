@@ -1,5 +1,26 @@
 'use strict';
 
+function workspaceRootFolder(section = state.section) {
+  return section === 'vault' ? window.WolfGuardAccess?.personalVaultHome()?.id || null : null;
+}
+
+// Keep the account container in storage, but expose only its contents in the UI.
+function workspaceDisplayFolders(folders, section = state.section) {
+  const scoped = folders.filter(folder => folder.section === section);
+  const root = workspaceRootFolder(section);
+  if (!root) return scoped;
+  const children = new Map();
+  for (const folder of scoped) {
+    if (!children.has(folder.parentId)) children.set(folder.parentId, []);
+    children.get(folder.parentId).push(folder.id);
+  }
+  const visible = new Set([root]), pending = [root];
+  while (pending.length) for (const id of children.get(pending.pop()) || []) {
+    if (!visible.has(id)) { visible.add(id); pending.push(id); }
+  }
+  return scoped.filter(folder => folder.id !== root && visible.has(folder.id));
+}
+
 function documentHTML(html) {
   return DOMPurify.sanitize(String(html || ''), {
     USE_PROFILES: {
@@ -27,6 +48,7 @@ async function breadcrumbHTML(item) {
     let id = item.folderId || null,
       guard = 0;
     while (id && guard++ < 80) {
+      if (id === workspaceRootFolder(section)) break;
       const f = folders.find(x => x.id === id);
       if (!f) break;
       chain.unshift(f);
@@ -159,9 +181,10 @@ async function copySecret(text) {
 
 /* EDITORS */
 function foldersForSection(sec) {
-  return activeFolders().then(fs => fs.filter(f => f.section === sec).map(f => ({
+  const root = workspaceRootFolder(sec);
+  return activeFolders().then(fs => workspaceDisplayFolders(fs,sec).map(f => ({
     ...f,
-    parentId: f.parentId || null
+    parentId: f.parentId === root ? null : f.parentId || null
   })).sort((a, b) => a.name.localeCompare(b.name)))
 }
 

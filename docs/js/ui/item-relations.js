@@ -24,7 +24,7 @@ async function openItemRelations(id) {
     folders = await activeFolders(),
     source = items.find(item => item.id === id);
   if (!source || !itemActionSessionValid(key)) return;
-  const names = new Map(folders.map(folder => [folder.id, folder.name])),
+  const names = new Map(folders.filter(folder => !folder.systemVaultHome).map(folder => [folder.id, folder.name])),
     selected = new Set(relatedItemRecords(source, items).map(item => item.id));
   const entries = items.filter(item => item.id !== id).sort((a, b) => (a.title || '').localeCompare(b.title || '', 'fr')).map(item => {
     const folder = names.get(item.folderId) || '',

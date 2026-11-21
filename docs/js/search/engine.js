@@ -234,6 +234,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
             seen = new Set();
           let folder = folders.get(item.folderId);
           while (folder && !seen.has(folder.id)) {
+            if (item.type === 'vault' && folder.systemVaultHome) break;
             seen.add(folder.id);
             path.unshift(String(folder.name || ''));
             folder = folders.get(folder.parentId);
