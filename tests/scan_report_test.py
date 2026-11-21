@@ -102,17 +102,17 @@ def run():
             for width,height in [(1440,1000),(1100,900),(900,900),(640,900),(390,844),(320,720)]:
                 page.set_viewport_size({'width':width,'height':height})
                 page.evaluate("openSettings('security')")
-                expect(page.locator('#settings-tab-security')).to_have_attribute('aria-selected','true')
+                expect(page.locator('#settings-tab-account')).to_have_attribute('aria-selected','true')
                 page.locator('.settings-modal').evaluate('async el=>{await Promise.all(el.getAnimations().map(a=>a.finished.catch(()=>{})))}')
                 baseline=page.locator('.settings-modal').bounding_box()
-                for tab in ['security','data','interface','users','access']:
+                for tab in ['account','data','interface','users','access']:
                     page.locator('#settings-tab-'+tab).click()
                     expect(page.locator('#settings-tab-'+tab)).to_have_attribute('aria-selected','true')
                     box=page.locator('.settings-modal').bounding_box()
                     assert abs(box['width']-baseline['width'])<.5 and abs(box['height']-baseline['height'])<.5,(width,tab,baseline,box)
                     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(width,tab)
                     assert page.locator('.settings-main').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),(width,tab)
-                    if width in [1440,390] and tab in ['security','users','data']:
+                    if width in [1440,390] and tab in ['account','users','data']:
                         page.screenshot(path=str(ROOT/f'.cache/settings-fixed-{tab}-{width}.png'),animations='disabled')
                 page.locator('#closeSettingsBtn').click()
             assert not errors,errors

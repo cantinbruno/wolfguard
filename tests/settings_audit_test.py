@@ -37,20 +37,25 @@ def run():
             page.wait_for_function("() => !document.querySelector('#app').inert")
             page.locator('#settingsBtn').click()
             expect(page.locator('#settings-tab-audit,#settings-audit')).to_have_count(0)
-            panel = page.locator('#settings-security')
+            panel = page.locator('#settings-account')
             expect(panel).to_be_visible()
-            expect(panel.locator('h3')).to_have_text('Sécurité')
+            expect(panel.locator('h3')).to_have_text('Mon compte et sécurité')
+            expect(page.locator('#settings-tab-security,#settings-security,#accountSecurityBtn')).to_have_count(0)
+            expect(panel.locator('#changeCodeBtn')).to_be_visible()
+            expect(panel.locator('#lockNowBtn')).to_be_visible()
             for width in [1440,900,390]:
                 page.set_viewport_size({'width':width,'height':950})
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), width
                 assert page.locator('.settings-main').evaluate('el=>el.scrollWidth <= el.clientWidth'), width
                 assert panel.evaluate('el=>el.scrollWidth <= el.clientWidth'), width
-            page.locator('#settings-tab-security').focus()
+            page.locator('#settings-tab-account').focus()
             page.keyboard.press('ArrowDown')
             expect(page.locator('#settings-data')).to_be_visible()
             page.keyboard.press('Escape')
             expect(page.locator('.settings-modal')).to_have_count(0)
             page.evaluate("openSettings('audit')")
+            expect(panel).to_be_visible()
+            page.evaluate("openSettings('security')")
             expect(panel).to_be_visible()
             page.evaluate('lockApplication()')
             expect(page.locator('.settings-modal')).to_have_count(0)

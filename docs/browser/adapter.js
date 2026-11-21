@@ -735,7 +735,7 @@ const webWorkspace = (() => {
   }
   async function mountOTPSettings(){
     const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
-    ($('#webMFASteps')||$('#settings-security')).append(root);
+    ($('#webMFASteps')||$('#settings-account')).append(root);
     const live=()=>session===current&&root.isConnected;
     const request=(path,value)=>cloud.agentRequest('users/otp'+path,value);
     let enabled=false,pending=false,required=false,canReplace=false;
@@ -813,7 +813,7 @@ const webWorkspace = (() => {
   openSettings=async initialTab => {
     assertFreshSession();
     if (!session) return;
-    await originalSettings(initialTab === 'modules' ? 'security' : initialTab);
+    await originalSettings(initialTab === 'modules' ? 'account' : initialTab);
     if (!session) { closeModal(); return; }
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
@@ -821,8 +821,8 @@ const webWorkspace = (() => {
     const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
-      mfa.innerHTML='<header><div><span>MON COMPTE · '+esc(cloud.currentUser()?.username||'')+'</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
-      security.before(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
+      mfa.innerHTML='<header><div><span>CONNEXION</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
+      $('#accountAuthentication').append(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
     }
     $('#changeBaseBtn').remove();
     const idle=$('#autoLockSelect');
@@ -831,7 +831,7 @@ const webWorkspace = (() => {
   };
   window.openAccountMFA=async()=>{
     if(!session||!cloud?.hasUsers())return;
-    if(!$('#webMFASettings'))await openSettings('security');else setSettingsTab('security');
+    if(!$('#webMFASettings'))await openSettings('account');else await setSettingsTab('account');
     const root=$('#webMFASettings');root?.scrollIntoView({block:'start'});root?.querySelector('input')?.focus({preventScroll:true});
   };
   generatePassword=cryptographicPassword;

@@ -34,7 +34,7 @@ def run():
             page.goto(origin+'/?sync-test#activate='+('b'*64)); unlock(page)
             expect(page.locator('#webUsername')).to_be_hidden()
             page.locator('#settingsBtn').click();page.locator('#settings-tab-users').click()
-            expect(page.locator('#wgUserDetail')).to_be_visible();page.locator('.users-account-security summary').click()
+            expect(page.locator('#wgUserDetail')).to_be_visible();page.locator('#wgUserTabAccount').click()
             page.get_by_role('button',name='Configurer ma MFA').click()
             expect(page.locator('#webOTPForm')).to_be_visible()
             page.locator('#webOTPPassword').fill(CODE)
@@ -74,7 +74,7 @@ def run():
             page.locator('#lock').focus();page.keyboard.type(CODE)
             expect(prompt).to_be_visible();prompt.fill(codes[0]);page.locator('.app-dialog-submit').click()
             expect(page.locator('#app')).to_be_visible(timeout=20000)
-            page.locator('#settingsBtn').click();page.locator('#settings-tab-security').click();expect(page.locator('#webOTPPassword')).to_be_visible()
+            page.locator('#settingsBtn').click();page.locator('#settings-tab-account').click();expect(page.locator('#webOTPPassword')).to_be_visible()
             page.locator('#webOTPChangePhone').click()
             page.locator('#webOTPReplacePassword').fill(CODE);page.locator('#webOTPReplaceCurrent').fill(codes[1])
             page.locator('#webOTPReplaceForm button[type=submit]').click()
@@ -109,7 +109,7 @@ def run():
             expect(prompt).to_be_visible();prompt.fill(new_codes[0]);page.locator('.app-dialog-submit').click()
             expect(page.locator('#app')).to_be_visible(timeout=20000)
             codes=new_codes
-            page.locator('#settingsBtn').click();page.locator('#settings-tab-security').click()
+            page.locator('#settingsBtn').click();page.locator('#settings-tab-account').click()
             page.locator('#webOTPPassword').fill(CODE);page.locator('#webOTPCode').fill(codes[1]);page.locator('#webOTPForm button[type=submit]').click()
             expect(page.locator('#webOTPFeedback')).to_contain_text('désactivé')
             assert not errors, errors

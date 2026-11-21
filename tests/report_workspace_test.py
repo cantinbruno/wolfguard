@@ -17,7 +17,7 @@ def run():
         page.locator('#interface-text').select_option('120')
         page.locator('#interface-motion').select_option('reduced')
         expect(page.locator('html')).to_have_attribute('data-ui-theme', 'contrast')
-        page.locator('#settings-tab-security').click()
+        page.locator('#settings-tab-account').click()
         page.locator('#changeCodeBtn').click()
         expect(page.locator('#personalCodeForm')).to_be_visible()
         page.locator('#newAccessCode').fill('12345678')

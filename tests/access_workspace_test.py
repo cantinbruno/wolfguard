@@ -84,7 +84,7 @@ def run():
             expect(first.locator('#wgAccessConnections')).to_contain_text('198.51.100.1')
             expect(first.locator('#wgAccessConnections [data-access-action=disconnect]').first).to_be_disabled()
             outage['active']=False;first.locator('#wgAccessRefresh').click();expect(first.locator('#wgAccessError')).to_be_empty()
-            first.locator('#settings-tab-security').click();first.locator('#settings-tab-access').click();expect(manual).to_have_count(1)
+            first.locator('#settings-tab-account').click();first.locator('#settings-tab-access').click();expect(manual).to_have_count(1)
             print('PASS: persistent manual IPv6 blocks, self-block prevention, truthful outage handling and settings navigation cleanup')
             self_row.get_by_role('button',name='Déconnecter cet onglet').click();first.locator('.app-dialog-submit').click()
             expect(first.locator('#lock')).to_be_visible()

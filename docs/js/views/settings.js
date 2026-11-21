@@ -123,6 +123,7 @@ function settingsTabsLayout(){
 window.addEventListener('resize',settingsTabsLayout);
 
 async function setSettingsTab(name, focus = false) {
+  if(name==='security'||name==='audit')name='account';
   const dialog = $('.settings-modal');
   if (!dialog) return;
   const button = dialog.querySelector(`[data-settings-tab="${name}"]`);
@@ -148,7 +149,8 @@ async function setSettingsTab(name, focus = false) {
   if (focus) button.focus();
   settingsTabsLayout();
 }
-async function openSettings(initialTab = 'security') {
+async function openSettings(initialTab = 'account') {
+  if(initialTab==='security'||initialTab==='audit')initialTab='account';
   sectionTransition.cancel();
   const n = (await activeItems()).length;
   const autoLock = 240;
@@ -165,7 +167,7 @@ async function openSettings(initialTab = 'security') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['account', 'security', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'security';
+  const tabName = ['account', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'account';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -174,7 +176,6 @@ async function openSettings(initialTab = 'security') {
         <div class="settings-identity"><img class="wolf-logo" src="images/logo-loup.svg" alt="Logo loup" width="64" height="64"></div>
         <nav class="settings-tabs" role="tablist" aria-label="Catégories des paramètres" aria-orientation="${matchMedia('(max-width:640px)').matches?'horizontal':'vertical'}">
           <button type="button" class="settings-tab" id="settings-tab-account" data-settings-tab="account" role="tab" aria-controls="settings-account" aria-selected="false" tabindex="-1">${settingsIcon('user')}<span>Mon compte</span></button>
-          <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
@@ -191,14 +192,36 @@ async function openSettings(initialTab = 'security') {
       </aside>
       <div class="settings-main">
         <section class="settings-panel hidden" id="settings-account" data-settings-panel="account" role="tabpanel" aria-labelledby="settings-tab-account">
-          <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('user')}<h3>Mon compte</h3></div></header>
+          <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('user')}<h3>Mon compte et sécurité</h3></div><span class="settings-status">Session active</span></header>
           <dl class="settings-about-facts">
             <div><dt>Adresse du compte</dt><dd>${esc(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.username||'Compte local':'Compte local')}</dd></div>
             <div><dt>Rôle</dt><dd>${admin?'Administrateur':'Utilisateur'}</dd></div>
             <div><dt>Groupes d’accès</dt><dd>${esc(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.permissions?.accessGroup?.names?.join(', ')||'Aucun groupe attribué':'Compte local')}</dd></div>
             <div><dt>Coffre personnel</dt><dd>Isolé des autres comptes</dd></div>
           </dl>
-          <div class="settings-row">${settingsIcon('key-round')}<div class="settings-row-copy"><div class="settings-row-title">Connexion et double authentification</div><p class="settings-row-desc">Code personnel, Authenticator et changement de téléphone.</p></div><button type="button" class="settings-btn" id="accountSecurityBtn">Gérer ma sécurité</button></div>
+
+          <h4 class="settings-group-title">Mon code personnel</h4><p class="settings-row-desc">Ce code déverrouille votre compte. Il est distinct du code Authenticator à six chiffres.</p>
+          <div class="settings-row">
+            ${settingsIcon('key-round')}
+            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">8 chiffres · Personnel à votre compte</div></div>
+            <button type="button" class="settings-btn settings-control" id="changeCodeBtn">${settingsIcon('key-round')}Modifier</button>
+          </div>
+          <div id="changeCodeArea"></div>
+          <div id="accountAuthentication"></div>
+          <h4 class="settings-group-title">Session</h4>
+          <div class="settings-row">
+            ${settingsIcon('lock')}
+            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Délai d’inactivité</label><div class="settings-row-desc">Verrouillage après 4 heures sans activité</div></div>
+            <select id="autoLockSelect" class="settings-select settings-control" disabled>
+              <option value="240" selected>4 heures</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            ${settingsIcon('shield-check')}
+            <div class="settings-row-copy"><div class="settings-row-title">Session actuelle</div><div class="settings-row-desc">Accès déverrouillé</div></div>
+            <button type="button" class="settings-btn settings-control" id="lockNowBtn">${settingsIcon('lock')}Verrouiller</button>
+          </div>
+          <div class="settings-security-note">${settingsIcon('circle-alert')}<div>Conservez votre code : il est nécessaire pour retrouver l’accès au coffre chiffré.</div></div>
           <div class="settings-row">${settingsIcon('database')}<div class="settings-row-copy"><div class="settings-row-title">Mon espace de stockage</div><p class="settings-row-desc">Volume du coffre et des dossiers partagés accessibles.</p></div><button type="button" class="settings-btn" id="accountStorageBtn">Voir mon espace</button></div>
         </section>
         <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
@@ -218,31 +241,8 @@ async function openSettings(initialTab = 'security') {
         <section class="settings-panel hidden" id="settings-groups" data-settings-panel="groups" role="tabpanel" aria-labelledby="settings-tab-groups"></section>
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
-        
-        <section class="settings-panel hidden" id="settings-security" data-settings-panel="security" role="tabpanel" aria-labelledby="settings-tab-security">
-          <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Sécurité</h3></div><span class="settings-status">Session active</span></header>
-          <h4 class="settings-group-title">Mon code personnel</h4><p class="settings-row-desc">Ce code sert ? déverrouiller votre compte. Il est distinct du code Authenticator ? six chiffres.</p>
-          <div class="settings-row">
-            ${settingsIcon('key-round')}
-            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">8 chiffres · Personnel à votre compte</div></div>
-            <button type="button" class="settings-btn settings-control" id="changeCodeBtn">${settingsIcon('key-round')}Modifier</button>
-          </div>
-          <div id="changeCodeArea"></div>
-          <h4 class="settings-group-title">Session</h4>
-          <div class="settings-row">
-            ${settingsIcon('lock')}
-            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Délai d’inactivité</label><div class="settings-row-desc">Verrouillage après 4 heures sans activité</div></div>
-            <select id="autoLockSelect" class="settings-select settings-control" disabled>
-              <option value="240" selected>4 heures</option>
-            </select>
-          </div>
-          <div class="settings-row">
-            ${settingsIcon('shield-check')}
-            <div class="settings-row-copy"><div class="settings-row-title">Session actuelle</div><div class="settings-row-desc">Accès déverrouillé</div></div>
-            <button type="button" class="settings-btn settings-control" id="lockNowBtn">${settingsIcon('lock')}Verrouiller</button>
-          </div>
-          <div class="settings-security-note">${settingsIcon('circle-alert')}<div>Conservez votre code : il est nécessaire pour retrouver l’accès au coffre chiffré.</div></div>
-        </section>
+
+
         <section class="settings-panel hidden" id="settings-data" data-settings-panel="data" role="tabpanel" aria-labelledby="settings-tab-data">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('database')}<h3>Données</h3></div><span class="settings-status settings-status-data">${n.toLocaleString('fr-FR')} élément${n===1?'':'s'}</span></header>
           <div class="settings-file">
@@ -342,7 +342,6 @@ async function openSettings(initialTab = 'security') {
       first?.focus()
     }
   };
-  $('#accountSecurityBtn').onclick=()=>setSettingsTab('security',true);
   $('#accountStorageBtn').onclick=()=>setSettingsTab('data',true);
   const preferences=applyInterfacePreferences();
   for(const select of dialog.querySelectorAll('[data-interface-option]')){select.value=preferences[select.dataset.interfaceOption];select.onchange=()=>{preferences[select.dataset.interfaceOption]=select.value;applyInterfacePreferences(preferences);try{localStorage.setItem(interfacePreferenceKey(),JSON.stringify(preferences));}catch{}feedback('Préférences enregistrées sur cet appareil.');};}
