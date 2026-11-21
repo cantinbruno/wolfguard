@@ -75,7 +75,7 @@ const workspaceAgents = (() => {
     }
     function updateControl(agent){
       const update=WolfGuardAgentUpdates.state(agent.id),current=!!publishedRelease&&agent.version===publishedRelease.version;
-      const capable=agent.capabilities?.includes('remote-terminal-v1'),allowed=cloud()?.can('agents.write')&&cloud()?.can('remote.write');
+      const capable=agent.capabilities?.includes('remote-terminal-v1'),allowed=cloud()?.can('agents.write')&&cloud()?.can('remote.terminal');
       const confirmed=current||update?.status==='completed'&&update.version===publishedRelease?.version;
       const message=update?.message||(current?'Dernière version installée.':publishedRelease?'Une version récente est disponible.':'Vérification de la version disponible…');
       return '<section class="agent-manager-update"><div><strong>Version de l’agent</strong><code>'+esc(agent.version?.slice(0,8)||'Version ancienne')+'</code></div><p role="status" data-agent-update-status="'+esc(agent.id)+'" data-state="'+esc(update?.status||'')+'">'+esc(message)+'</p>'+(capable?'<button type="button" class="settings-btn" data-agent-install-update="'+esc(agent.id)+'" '+(!publishedRelease||!agent.online||!allowed||update?.running||confirmed?'disabled':'')+'>'+esc(update?.running?'Mise à jour…':confirmed?'À jour':'Mettre à jour cet agent')+'</button><small>'+(!allowed?'Droits Agents et Prise en main en écriture nécessaires.':!agent.online?'Le poste doit être connecté.':'La connexion au poste est brièvement interrompue.')+'</small>':'<button type="button" class="settings-btn" data-agent-update="'+esc(agent.platform)+'">Télécharger la dernière version</button>')+'</section>';

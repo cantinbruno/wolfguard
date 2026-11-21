@@ -100,7 +100,7 @@ const agentsWorkspace = (() => {
     }
     function updateInfo(agent) {
       const task = WolfGuardAgentUpdates.state(agent.id), current = !stale && !releaseStale && !!publishedRelease && agent.version === publishedRelease.version;
-      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write',agent) || !can('remote.write',agent) ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
+      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write',agent) || !can('remote.terminal',agent) ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
       return {task,current,reason,canUpdate:!reason && !current && !task?.running, outdated:!!publishedRelease && !releaseStale && !stale && !!agent.version && agent.version!==publishedRelease.version};
     }
     function updateHTML(agent,{record=false}={}) {
@@ -147,7 +147,7 @@ const agentsWorkspace = (() => {
     }
 
     function reason(action, agent) {
-      if (!workspaceModules.allows(action.section) || (action.mode && !can('remote.write',agent))) return 'Droit d’accès non accordé';
+      if (!workspaceModules.allows(action.section) || (action.mode && !can('remote.'+action.mode,agent))) return 'Droit d’accès non accordé';
       if (stale) return 'Connexion au service à vérifier';
       if (action.id !== 'edr' && WolfGuardAgentUpdates.state(agent.id)?.running) return 'Mise à jour de l’agent en cours';
       if (!action.offline && !agent.online) return 'Le poste doit être connecté';

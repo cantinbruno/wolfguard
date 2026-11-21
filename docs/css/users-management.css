@@ -251,6 +251,19 @@
 .access-group-heading h4{margin:0}.access-group-heading .actions{flex-wrap:wrap}
 .access-group-members{padding:16px;border-bottom:1px solid var(--ui-border)}
 .access-group-members summary{cursor:pointer;font-weight:600}.access-group-members p{line-height:1.7;color:var(--ui-muted)}
+.permission-action-rules{margin:16px 0;border:1px solid var(--ui-border);border-radius:8px;padding:12px}
+.permission-action-rules>summary{cursor:pointer;font-weight:600}
+.permission-action-rules>p{color:var(--ui-muted);line-height:1.6}
+.permission-action-list{display:grid;gap:0;margin-top:12px;max-height:420px;overflow:auto}
+.permission-action-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 4px;border-bottom:1px solid var(--ui-border);min-width:0}
+.permission-action-row>span{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.permission-action-row small{color:var(--ui-muted);font-size:11px;line-height:1.5}
+.permission-action-row select{flex-shrink:0;max-width:48%;padding:8px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
+.permission-action-row[data-allowed=false]>strong{color:var(--ui-muted)}
+.access-group-members .actions{flex-wrap:wrap}.access-group-members .actions select{flex:1 1 180px;width:0}
+.access-group-member{overflow-wrap:anywhere;gap:10px}.access-group-member>span{min-width:0}
+.user-inherited-groups{margin-top:16px;overflow-wrap:anywhere}
+@media(max-width:600px){.permission-action-row{flex-wrap:wrap}.permission-action-row select{max-width:100%;width:100%}.permission-action-row>span{width:100%}.access-group-members{padding:12px}}
 .access-group-member{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;overflow-wrap:anywhere}
 .access-group-members select,.user-access-group select{min-width:0;max-width:100%;padding:9px;background:var(--ui-sidebar);color:var(--ui-text);border:1px solid var(--ui-border);border-radius:6px}
 .user-access-group{display:flex;flex-direction:column;gap:10px;margin:16px 0}

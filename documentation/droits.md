@@ -1,8 +1,24 @@
 # Droits, postes et confidentialité
 
+## Groupes de sécurité inspirés d’Active Directory
+
+Les droits suivent désormais la chaîne **utilisateurs → groupes métier → groupes d’accès → autorisations**. Un groupe peut contenir des utilisateurs et d’autres groupes ; ses droits s’appliquent à tous leurs membres, directement ou par imbrication. Les cycles sont refusés côté serveur, avec une profondeur maximale de 32 niveaux. Les noms et identifiants existants sont conservés. Ce modèle concerne les autorisations WolfGuard ; il ne configure pas une connexion LDAP ni une synchronisation d’annuaire externe.
+
+Dans **Paramètres → Groupes**, créer par exemple `GG_Equipe_Support`, ajouter ses utilisateurs, puis ouvrir **Groupes membres et appartenance → Membre de** pour le rattacher aux groupes d’accès nécessaires. Les groupes automatiques Lecture/Écriture restent disponibles et chaque action possède aussi son groupe automatique : créer, modifier, supprimer, lancer un scan, ouvrir un terminal, etc. La consultation de la section est incluse dans les groupes d’action lorsque cette section possède un droit de lecture. Les droits de poste nécessitent en plus la consultation Agents et le périmètre de section de postes approprié.
+
+Un groupe personnalisé permet de régler **Autorisations avancées · par action** : **Selon le niveau**, **Autoriser** ou **Refuser**. Selon le niveau conserve le réglage Lecture/Écriture/Invisible de ce groupe ; ce n’est pas un refus explicite. Les autorisations se cumulent entre appartenances directes et héritées. Un **refus explicite actif est prioritaire** sur les autorisations des autres groupes, y compris un groupe administrateur. Seul le propriétaire protégé conserve tous les droits. L’absence d’autorisation laisse l’action interdite. Les contrôles sont appliqués par le serveur et par l’interface.
+
+La gestion des comptes distingue création/invitation, modification, activation/désactivation, suppression, réinitialisation du code, réinitialisation MFA, déconnexion et gestion des groupes/droits. La gestion des connexions distingue consultation, déconnexion, blocage et déblocage d’IP. Les anciens droits Administrer conservent les opérations qu’ils autorisaient déjà. Les scans contrôlent séparément lancement, arrêt et suppression. Les sessions distantes contrôlent leur mode exact : Bureau, Terminal ou Fichiers.
+
+**Accès effectifs d’un utilisateur** affiche les autorisations accordées, les refus explicites, leurs groupes sources et le périmètre des postes. Les membres directs et les membres issus de groupes inclus sont distingués. La fiche Utilisateurs montre aussi les groupes hérités sans les transformer en affectations directes.
+
+Tout changement de droit ou d’imbrication révoque les sessions et opérations des membres indirectement concernés, dans la même transaction de révision que les membres directs. Un gestionnaire délégué doit pouvoir gérer les droits de tous les groupes parents concernés ; un groupe vide inclus dans un groupe privilégié ne permet pas de contourner cette règle. Un groupe ne se supprime qu’après retrait de ses membres et de ses appartenances. Les groupes automatiques suivent toujours les sections de postes, en préservant leurs groupes inclus lorsqu’une section est créée ou renommée. Les anciennes restrictions de dossiers sont conservées lors du cumul de groupes ; un droit de création sur tout le Mémo n’étend pas un droit de modification limité à un dossier.
+
+Vérifications : `node --test tests/ad-groups.test.mjs` et `python tests/ad_groups_workspace_test.py`, avec comptes, machines et annuaire de groupes synthétiques, sans interaction avec le poste réel. Référence du modèle de groupes : [Microsoft Learn — Groupes de sécurité Active Directory](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups).
+
 ## Sections et comptes
 
-La gestion repose sur cinq rôles :
+Les profils suivants restent des préréglages pour les autorisations des groupes ; les appartenances et les refus explicites déterminent les accès effectifs :
 
 - **Propriétaire** : le compte d’origine, protégé, avec tous les droits. Ce rôle ne s’attribue pas à un autre compte.
 - **Administrateur** : écriture partout, y compris les utilisateurs, les droits et les connexions.
@@ -28,7 +44,7 @@ Une **section de postes** organise les machines (Atelier, Bureau, Serveurs…). 
 
 Dans Sécurité, créer, renommer, dupliquer, supprimer et déplacer des postes concerne les **sections**. Les noms existants, les affectations et le glisser-déposer sont conservés. La section par défaut s’appelle **Sans section** ; les nouveaux postes y arrivent. Dupliquer une section ne copie ni postes ni droits. Supprimer une section replace ses postes dans Sans section avec les droits définis pour cette destination.
 
-Les autorisations se règlent uniquement dans **Paramètres → Groupes**. Le tableau des postes et les en-têtes de section ne proposent aucun raccourci vers les droits. Les groupes automatiques ont des droits fixes : on gère uniquement leurs membres. Pour accéder à un outil sur une section de postes, le compte cumule le groupe de l’outil et celui de la section de postes au niveau nécessaire. Une nouvelle section crée ses groupes Lecture et Écriture sans membre ; elle reste donc invisible par défaut.
+Les autorisations se règlent uniquement dans **Paramètres → Groupes**. Le tableau des postes et les en-têtes de section ne proposent aucun raccourci vers les droits. Les groupes automatiques ont des droits fixes : on gère leurs utilisateurs membres et leurs groupes inclus. Pour accéder à un outil sur une section de postes, le compte cumule le groupe de l’outil et celui de la section de postes au niveau nécessaire. Une nouvelle section crée ses groupes Lecture et Écriture sans membre ; elle reste donc invisible par défaut.
 
 Les contrôles serveur existants restent applicables à l’inventaire, aux scans et historiques, à l’EDR, au bureau, au terminal et aux fichiers. Déplacer un poste applique les droits de sa nouvelle section et arrête les opérations devenues interdites. Le propriétaire et les groupes administrateurs actifs gardent l’accès complet. Aucun droit individuel n’est réintroduit.
 

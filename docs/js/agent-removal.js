@@ -7,7 +7,7 @@ globalThis.WolfGuardAgentRemoval=(()=>{
     if(!agent||agent.local)return 'Choisis un poste associé.';
     const cloud=typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud;
     if(!cloud?.hasSession()||!state.vaultKey)return 'Connecte-toi pour désinstaller un agent.';
-    if(!['agents.write','agents.revoke','remote.write'].every(right=>cloud.can(right)&&(!globalThis.WolfGuardAccess||WolfGuardAccess.can(right)&&WolfGuardAccess.canAgent(agent.id,right))))return 'Droits d’écriture requis sur Agents et Prise en main pour ce poste.';
+    if(!['agents.write','agents.revoke','remote.terminal'].every(right=>cloud.can(right)&&(!globalThis.WolfGuardAccess||WolfGuardAccess.can(right)&&WolfGuardAccess.canAgent(agent.id,right))))return 'Droits d’écriture requis sur Agents et Prise en main pour ce poste.';
     if(!['win32','linux','darwin'].includes(agent.platform))return 'Système non pris en charge.';
     if(!agent.online)return 'Le poste doit être connecté pour recevoir la commande.';
     if(!agent.capabilities?.includes('remote-terminal-v1'))return 'Mets l’agent à jour pour autoriser la désinstallation à distance.';
@@ -27,7 +27,7 @@ globalThis.WolfGuardAgentRemoval=(()=>{
     let session=null,submitted=false;
     const request=(path,body)=>{
       if(!sameSession())throw new Error('Session fermée.');
-      if(!['agents.write','agents.revoke','remote.write'].every(right=>cloud.can(right)&&(!globalThis.WolfGuardAccess||WolfGuardAccess.can(right)&&WolfGuardAccess.canAgent(agent.id,right))))throw new Error('Les droits nécessaires ne sont plus accordés.');
+      if(!['agents.write','agents.revoke','remote.terminal'].every(right=>cloud.can(right)&&(!globalThis.WolfGuardAccess||WolfGuardAccess.can(right)&&WolfGuardAccess.canAgent(agent.id,right))))throw new Error('Les droits nécessaires ne sont plus accordés.');
       return cloud.agentRequest(path,body);
     };
     try{

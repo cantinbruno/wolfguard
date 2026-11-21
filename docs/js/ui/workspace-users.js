@@ -8,7 +8,7 @@ const workspaceUsers=(()=>{
     const live=()=>generation===token&&root.isConnected&&state.vaultKey===key&&!$('#app').classList.contains('hidden');
     const cloud=()=>typeof WolfGuardCloud==='undefined'?null:WolfGuardCloud;
     const available=()=>cloud()?.enabled&&cloud().hasSession()&&(cloud().isAdmin()||cloud().can?.('users.read'));
-    const manage=()=>cloud()?.can?.('users.manage'),rights=()=>cloud()?.can?.('users.permissions');
+    const manage=(action='manage')=>cloud()?.can?.('users.'+({edit:'edit',toggle:'disable',reset:'reset','reset-otp':'mfa',disconnect:'sessions',delete:'delete',create:'create'}[action]||action)),rights=()=>cloud()?.can?.('users.permissions');
     const request=(path,value)=>cloud().agentRequest('users'+path,value,{signal});
     const find=selector=>root.querySelector(selector),permissionEditor=()=>window.WolfGuardPermissionEditor;
     const date=value=>value?new Date(value).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Jamais';
@@ -56,9 +56,9 @@ const workspaceUsers=(()=>{
     },{signal});
     function renderOverview(){
       const user=users.find(row=>row.id===selected);if(!user){find('#wgUserOverview').innerHTML='<div class="users-detail-placeholder">'+settingsIcon('users')+'<p>Sélectionne un utilisateur dans la liste.</p></div>';find('#wgUserAccountActions').innerHTML='';return;}
-      const disabled=busy||stale||!manage(),mfa=user.mfa?.complete;
+      const disabled=busy||stale,mfa=user.mfa?.complete;
       find('#wgUserOverview').innerHTML='<header class="users-detail-heading"><span class="user-avatar" aria-hidden="true">'+esc(user.username.slice(0,2).toUpperCase())+'</span><div><span class="users-eyebrow">'+(user.current?'MON COMPTE':'COMPTE')+'</span><h4>'+esc(user.username)+'</h4><div class="users-account-badges"><span class="access-badge">'+esc(profile(user))+'</span>'+'<span class="users-account-state" data-state="'+(user.disabled?'disabled':user.credentialPending?'pending':'active')+'">'+accountState(user)+'</span></div></div></header>';
-      find('#wgUserAccountActions').innerHTML='<dl class="users-account-facts"><div><dt>MFA</dt><dd data-mfa-state="'+(mfa?'complete':'missing')+'">'+(mfa?'Activée':'À configurer')+'</dd></div><div><dt>Sessions</dt><dd>'+user.sessions+'</dd></div><div><dt>Dernière connexion</dt><dd>'+esc(date(user.lastLogin))+'</dd></div></dl><div class="users-account-rename"><button type="button" class="settings-btn" data-user-action="edit" data-user-id="'+esc(user.id)+'" '+(disabled?'disabled':'')+'>Renommer</button></div><section class="users-account-security" aria-labelledby="wgUserActionsTitle"><h5 id="wgUserActionsTitle">Actions du compte</h5><div class="access-actions">'+(user.current?'<button type="button" class="settings-btn" data-user-action="security" data-user-id="'+esc(user.id)+'">'+(mfa?'Gérer ma MFA':'Configurer ma MFA')+'</button>':'')+[['disconnect','Déconnecter les sessions'],['toggle',user.disabled?'Activer':'Désactiver'],['reset',user.credentialPending?'Nouveau lien':'Réinitialiser le code'],...(!protectedAdmin(user)?[['reset-otp','Réinitialiser Authenticator']]:[]),['delete','Supprimer']].map(([action,label])=>'<button type="button" class="settings-btn'+(action==='delete'?' access-danger':'')+'" data-user-action="'+action+'" data-user-id="'+esc(user.id)+'" '+(disabled||user.current&&action==='reset'||protectedAdmin(user)&&['toggle','delete','restricted'].includes(action)?'disabled':'')+'>'+label+'</button>').join('')+'</div></section>';
+      find('#wgUserAccountActions').innerHTML='<dl class="users-account-facts"><div><dt>MFA</dt><dd data-mfa-state="'+(mfa?'complete':'missing')+'">'+(mfa?'Activée':'À configurer')+'</dd></div><div><dt>Sessions</dt><dd>'+user.sessions+'</dd></div><div><dt>Dernière connexion</dt><dd>'+esc(date(user.lastLogin))+'</dd></div></dl><div class="users-account-rename"><button type="button" class="settings-btn" data-user-action="edit" data-user-id="'+esc(user.id)+'" '+(disabled||!manage('edit')?'disabled':'')+'>Renommer</button></div><section class="users-account-security" aria-labelledby="wgUserActionsTitle"><h5 id="wgUserActionsTitle">Actions du compte</h5><div class="access-actions">'+(user.current?'<button type="button" class="settings-btn" data-user-action="security" data-user-id="'+esc(user.id)+'">'+(mfa?'Gérer ma MFA':'Configurer ma MFA')+'</button>':'')+[['disconnect','Déconnecter les sessions'],['toggle',user.disabled?'Activer':'Désactiver'],['reset',user.credentialPending?'Nouveau lien':'Réinitialiser le code'],...(!protectedAdmin(user)?[['reset-otp','Réinitialiser Authenticator']]:[]),['delete','Supprimer']].map(([action,label])=>'<button type="button" class="settings-btn'+(action==='delete'?' access-danger':'')+'" data-user-action="'+action+'" data-user-id="'+esc(user.id)+'" '+(disabled||!manage(action)||user.current&&action==='reset'||protectedAdmin(user)&&['toggle','delete','restricted'].includes(action)?'disabled':'')+'>'+label+'</button>').join('')+'</div></section>';
     }
     async function loadPermissions(){
       clearEditor();const user=users.find(row=>row.id===selected);if(!user)return;
@@ -68,7 +68,9 @@ const workspaceUsers=(()=>{
       try{
         const groups=await workspaceGroups.ensure(current.signal);if(current.signal.aborted||!live()||selected!==user.id)return;
         const membership=new Set(groups.groups.filter(group=>group.memberIds.includes(user.id)).map(group=>group.id));
-        find('#wgPermissionHost').innerHTML=user.role==='admin'?'<p>Le propriétaire conserve tous les droits.</p>':'<fieldset class="user-access-groups"><legend>Groupes d’accès</legend><p>Coche tous les groupes nécessaires. Lecture et Écriture se cumulent ; sans groupe, la section reste invisible.</p><div class="user-access-group-list">'+groups.groups.map(group=>'<label><input type="checkbox" data-user-access-group="'+esc(group.id)+'" '+(membership.has(group.id)?'checked':'')+'><span>'+esc(group.name)+'</span></label>').join('')+'</div></fieldset><button type="button" class="settings-btn primary" id="wgUserApplyGroup">Appliquer les groupes</button><button type="button" class="settings-btn" id="wgUserManageGroups">Gérer les groupes</button>';
+        find('#wgPermissionHost').innerHTML=user.role==='admin'?'<p>Le propriétaire conserve tous les droits.</p>':'<fieldset class="user-access-groups"><legend>Groupes d’accès</legend><p>Coche les appartenances directes. Les groupes imbriqués transmettent aussi leurs droits. Les refus explicites sont prioritaires.</p><div class="user-access-group-list">'+groups.groups.map(group=>'<label><input type="checkbox" data-user-access-group="'+esc(group.id)+'" '+(membership.has(group.id)?'checked':'')+'><span>'+esc(group.name)+'</span></label>').join('')+'</div></fieldset><button type="button" class="settings-btn primary" id="wgUserApplyGroup">Appliquer les groupes</button><button type="button" class="settings-btn" id="wgUserManageGroups">Gérer les groupes</button>';
+        const inherited=groups.groups.filter(group=>(group.effectiveMemberIds||[]).includes(user.id)&&!membership.has(group.id));
+        if(inherited.length)find('#wgPermissionHost').insertAdjacentHTML('beforeend','<details class="user-inherited-groups"><summary>Groupes hérités ('+inherited.length+')</summary>'+inherited.map(group=>'<p>'+esc(group.name)+'</p>').join('')+'</details>');
         const apply=find('#wgUserApplyGroup');if(!apply)return;
         find('#wgUserManageGroups').onclick=()=>setSettingsTab('groups',true);
         const selectedGroups=()=>[...root.querySelectorAll('[data-user-access-group]:checked')].map(input=>input.dataset.userAccessGroup),changed=()=>{const ids=selectedGroups();return ids.length!==membership.size||ids.some(id=>!membership.has(id));};
@@ -78,7 +80,7 @@ const workspaceUsers=(()=>{
     }
     function visibleUsers(){return users.filter(user=>(!search||[user.username,...(user.permissions?.accessGroup?.names||[])].some(value=>value.toLocaleLowerCase().includes(search)))&&(filter==='all'||filter==='disabled'&&user.disabled||filter==='pending'&&!user.disabled&&user.credentialPending||filter==='active'&&!user.disabled&&!user.credentialPending));}
     function render(){
-      if(!live())return;const disabled=busy||stale||!available()||!manage();find('#wgUserAdd').disabled=disabled;
+      if(!live())return;const disabled=busy||stale||!available()||!manage('create');find('#wgUserAdd').disabled=disabled;
       find('#wgUsersSearch').value=search?find('#wgUsersSearch').value:'';
       const visible=visibleUsers();
       const focused=document.activeElement?.dataset.selectUser;
@@ -115,7 +117,7 @@ const workspaceUsers=(()=>{
     find('#wgUserInvitationClose').onclick=()=>{find('#wgUserInvitationLink').value='';find('#wgUserInvitationEmail').removeAttribute('href');find('#wgUserInvitation').hidden=true;};
     find('#wgUserReloadRights').onclick=async()=>{if(await canLeave()&&live())await loadPermissions();};
     find('#wgUserForm').onsubmit=async event=>{
-      event.preventDefault();if(busy||stale||!live()||!manage()||permissionEditor()?.isSaving(root))return;
+      event.preventDefault();if(busy||stale||!live()||!manage(editing?'edit':'create')||permissionEditor()?.isSaving(root))return;
       const target=editing,value={username:find('#wgUserName').value.trim(),role:target?.role||'member'};if(target){value.id=target.id;value.disabled=target.disabled;}
       if(!live())return;busy=true;find('#wgUserSave').disabled=true;render();
       try{const result=await request(target?'/update':'/create',value);if(!live())return;find('#wgUserForm').reset();find('#wgUserForm').hidden=true;find('#wgUserForm').dataset.dirty='false';if(result.reconnect){await lockApplication();return;}selected=result.user?.id||selected;feedback(target?'Compte modifié.':'Compte créé. Transmets le lien personnel à la personne.');if(result.invitation)showInvitation(result.invitation,value.username);feedback('',true);}
@@ -129,7 +131,7 @@ const workspaceUsers=(()=>{
       const button=event.target.closest('[data-user-action]');if(!button||button.disabled||busy||stale)return;const user=users.find(row=>row.id===button.dataset.userId);if(!user)return;
       const action=button.dataset.userAction;
       if(action==='edit'){if(!permissionEditor()?.isSaving(root))editor(user);return;}if(action==='security'&&user.current){if(await canLeave()&&live())window.openAccountMFA?.();return;}
-      if(!manage()||!await canLeave()||!live())return;
+      if(!manage(action)||!await canLeave()||!live())return;
       const labels={disconnect:'Déconnecter toutes les sessions',toggle:user.disabled?'Activer':'Désactiver',reset:'Réinitialiser le code','reset-otp':'Réinitialiser Authenticator',delete:'Supprimer définitivement'};
       if(!labels[action]||!await appConfirm(labels[action]+' de « '+user.username+' » ?',{title:'Gestion de '+user.username,confirmLabel:labels[action],danger:action==='delete'||action==='toggle'&&!user.disabled})||!live()||busy)return;
       busy=true;render();feedback('');feedback('',true);

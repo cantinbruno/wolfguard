@@ -66,7 +66,7 @@ export async function stopRemoteOwners(env,owners,now){
 }
 export async function handleAccessAPI(request,env,now,session,h){
   const path=new URL(request.url).pathname,{fail,json,body}=h;
-  const permission=request.method==='GET'?'access.read':'access.manage';
+  const action=path.slice('/api/access/'.length),permission=request.method==='GET'?'access.read':'access.'+(['disconnect','block','unblock'].includes(action)?action:'manage');
   if(!can(session.user,permission,now))fail(403,'Ton profil ne permet pas cette gestion des connexions.');
   if(path==='/api/access'&&request.method==='GET'){
     await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND active_at IS NOT NULL)').run();

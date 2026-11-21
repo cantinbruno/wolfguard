@@ -1,5 +1,5 @@
 import {openWorkspaceKey} from './workspace-key.mjs';
-import {can,recordLevel,recordSection,isVaultHome} from './permissions.mjs';
+import {can,canRecord,recordLevel,recordSection,isVaultHome} from './permissions.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder('utf-8',{fatal:true});
 const from64=value=>Uint8Array.from(atob(value),c=>c.charCodeAt(0));
 const to64=value=>{let text='';const bytes=new Uint8Array(value);for(let i=0;i<bytes.length;i+=16000)text+=String.fromCharCode(...bytes.subarray(i,i+16000));return btoa(text);};
@@ -50,7 +50,7 @@ export async function projectWorkspace(source,user,master,delivery,now){
     if(row.folderId&&!folderIds.has(row.folderId))row.folderId=null;
     if(row.linkedItemIds)row.linkedItemIds=row.linkedItemIds.filter(id=>itemIds.has(id));
     if(row.type==='vault'){
-      if(!can(user,'vault.secrets',now)){for(const field of secretFields)delete row[field];row.secretsRestricted=true;}
+      if(!canRecord(user,row,'items',source.folders,'secrets',now)){for(const field of secretFields)delete row[field];row.secretsRestricted=true;}
       else {if(row.vaultBlobEnc)row.vaultBlobEnc=await rewrap(row.vaultBlobEnc,master,delivery,true);if(row.passwordEnc)row.passwordEnc=await rewrap(row.passwordEnc,master,delivery,true);}
     }
   }
@@ -72,13 +72,13 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
       const section=recordSection(before||after,collection);
       if(before&&after&&recordSection(after,collection)!==section)denied(fail);
       const action=!before?'create':!after||!!before.deletedAt!==!!after.deletedAt?'delete':'edit';
-      if(!can(user,section+'.'+action,now)||!can(user,section+'.write',now)||before&&recordLevel(user,canonical.get(id),collection,source.folders,now)!=='write'||after&&recordLevel(user,after,collection,wanted.folders,now)!=='write')denied(fail);
+      if(before&&!canRecord(user,canonical.get(id),collection,source.folders,action,now)||after&&!canRecord(user,after,collection,wanted.folders,action,now))denied(fail);
       const parentField=collection==='folders'?'parentId':'folderId';
       if(after?.[parentField]&&after[parentField]!==before?.[parentField]){const destination=wanted.folders.find(row=>row.id===after[parentField]);if(!destination||!can(user,section+'.write',now)||recordLevel(user,destination,'folders',wanted.folders,now)!=='write'||recordSection(destination,'folders')!==section)denied(fail);}
       // A folder operation must never move, delete or expose hidden descendants.
       if(collection==='folders'&&before&&(!after||before.parentId!==after.parentId||!!before.deletedAt!==!!after.deletedAt)){
         for(const [kind,rows]of [['folders',source.folders],['items',source.items]])for(const row of rows){
-          let parent=kind==='folders'?row.parentId:row.folderId;const seen=new Set();while(parent&&!seen.has(parent)){if(parent===id){if(recordLevel(user,row,kind,source.folders,now)!=='write'||!can(user,recordSection(row,kind)+'.write',now)||!can(user,recordSection(row,kind)+'.'+(action==='delete'?'delete':'edit'),now))denied(fail);break;}seen.add(parent);parent=source.folders.find(f=>f.id===parent)?.parentId;}
+          let parent=kind==='folders'?row.parentId:row.folderId;const seen=new Set();while(parent&&!seen.has(parent)){if(parent===id){if(!canRecord(user,row,kind,source.folders,action==='delete'?'delete':'edit',now))denied(fail);break;}seen.add(parent);parent=source.folders.find(f=>f.id===parent)?.parentId;}
         }
       }
       const index=output[collection].findIndex(row=>row.id===id);
@@ -93,7 +93,7 @@ export async function mergeScopedWorkspace(source,visible,wanted,user,master,del
         if(after.linkedItemIds)next.linkedItemIds=[...new Set([...after.linkedItemIds.filter(target=>allowedTargets.has(target)),...(original?.linkedItemIds||[]).filter(target=>!visibleIds.has(target))])];
         if(section==='vault')for(const field of secretFields){
           if(same(before?.[field],after[field])){if(original&&field in original)next[field]=original[field];else delete next[field];}
-          else {if(!can(user,'vault.secrets',now))denied(fail);if(['vaultBlobEnc','passwordEnc'].includes(field)&&after[field]){try{next[field]=await rewrap(after[field],delivery,master);}catch{fail(400,'Secret chiffré invalide.');}}}
+          else {if(!canRecord(user,after,'items',wanted.folders,'secrets',now))denied(fail);if(['vaultBlobEnc','passwordEnc'].includes(field)&&after[field]){try{next[field]=await rewrap(after[field],delivery,master);}catch{fail(400,'Secret chiffré invalide.');}}}
         }
       }
       if(index<0)output[collection].push(next);else output[collection][index]=next;

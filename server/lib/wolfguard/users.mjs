@@ -160,7 +160,8 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(path==='/api/users/groups'||path.startsWith('/api/users/groups/'))return accessGroupAPI(request,env,now,session,{...h,revokeUserSessions});
   if(path==='/api/users/permissions'||path.startsWith('/api/users/permissions/'))return permissionAPI(path,request,env,now,session,vault,{...h,revokeUserSessions});
-  requirePermission(session.user,request.method==='GET'?'users.read':'users.manage',fail,now);
+  const operationPermission={create:'create',invite:'create','revoke-invitation':'create',update:'read','reset-code':'reset','reset-otp':'mfa',disconnect:'sessions',delete:'delete'};
+  requirePermission(session.user,request.method==='GET'?'users.read':'users.'+(operationPermission[path.slice('/api/users/'.length)]||'manage'),fail,now);
   if(path==='/api/users'&&request.method==='GET'){
     const rows=await env.DB.prepare(`SELECT u.*,EXISTS(SELECT 1 FROM push_devices p WHERE p.user_id=u.id) AS has_phone,
       (SELECT COUNT(*) FROM sessions s WHERE s.user_id=u.id AND s.user_version=u.code_version AND s.active_at IS NOT NULL AND s.generation=?) AS session_count
@@ -207,6 +208,9 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/update'){
     const name=normalizeUsername(data.username),role=isOwner?'admin':'member',disabled=data.disabled;
     if(!name||typeof disabled!=='boolean')fail(400,'Vérifie l’adresse mail et les paramètres du compte.');
+    const oldName=await open(target.name_cipher,'WolfGuard users v1:name:'+target.id,env);
+    if(name!==oldName)requirePermission(session.user,'users.edit',fail,now);
+    if(disabled!==(target.disabled_at!==null))requirePermission(session.user,'users.disable',fail,now);
     if(isOwner&&(name!==OWNER_EMAIL||disabled||data.role!==undefined&&data.role!=='admin'))fail(409,'Le compte administrateur '+OWNER_EMAIL+' est protégé.');
     if(!isOwner&&(name===OWNER_EMAIL||data.role!==undefined&&data.role!=='member'))fail(403,'Seul '+OWNER_EMAIL+' est administrateur.');
     const duplicate=await findUser(name,env);if(duplicate&&duplicate.id!==target.id)fail(409,'Ce nom d’utilisateur est déjà utilisé.');

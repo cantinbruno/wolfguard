@@ -30,9 +30,11 @@ const GROUP_ACTIONS = {
   'scan.passive': ['read', 'run', 'cancel', 'delete', 'export'], 'scan.active': ['read', 'run', 'cancel', 'delete', 'export'],
   'scan.map': ['read', 'run', 'cancel', 'delete', 'export'], 'scan.vulnerability': ['read', 'run', 'cancel', 'delete', 'export'],
   remote: ['read', 'desktop', 'terminal', 'files'], agents: ['read', 'pair', 'revoke'], edr: ['read', 'acknowledge', 'manage'], ai: ['use'], tools: ['use'],
-  users: ['read', 'manage', 'permissions'], access: ['read', 'manage'], data: ['read']
+  users: ['read', 'manage', 'create', 'edit', 'disable', 'delete', 'reset', 'sessions', 'mfa', 'permissions'], access: ['read', 'manage', 'disconnect', 'block', 'unblock'], data: ['read']
 };
 const PERMISSION_KEYS = Object.entries(GROUP_ACTIONS).flatMap(([group, actions]) => actions.map(action => group + '.' + action));
+const ACTION_LABELS={read:'Consulter',create:'Créer',edit:'Modifier',delete:'Supprimer',export:'Exporter',secrets:'Consulter les secrets',run:'Lancer une analyse',cancel:'Arrêter une analyse',desktop:'Bureau à distance',terminal:'Terminal distant',files:'Transférer des fichiers',pair:'Associer un poste',revoke:'Révoquer un poste',acknowledge:'Acquitter les alertes',manage:'Administrer',permissions:'Gérer les groupes et les droits',use:'Utiliser',disable:'Activer ou désactiver les comptes',reset:'Réinitialiser les codes',sessions:'Déconnecter les comptes',mfa:'Réinitialiser Authenticator',disconnect:'Déconnecter une session',block:'Bloquer une adresse IP',unblock:'Débloquer une adresse IP'};
+const PERMISSION_ACTIONS=PERMISSION_SECTIONS.flatMap(([section,label])=>(GROUP_ACTIONS[section]||[]).map(action=>[section+'.'+action,ACTION_LABELS[action],section,label]));
 const LEVEL_ACTIONS = { read: {}, write: {} };
 // A section at 'write' implies every action key of that group; 'read' keeps
 // only the read-side keys. Derived at load time so both stay in sync.
@@ -60,6 +62,7 @@ function profilePolicy(id = 'guest') {
 }
 function policyProfile(policy) {
   if (!policy) return 'guest';
+  if (Object.keys(policy.actionRules||{}).length) return 'custom';
   if (policy.admin) return 'admin';
   if (policy.legacyGrants || policy.grants) return 'custom';
   return PERMISSION_PROFILES.find(profile => profile.sections && SECTION_IDS.every(id => policy.sections?.[id] === profile.sections[id]))?.id || 'custom';
@@ -113,16 +116,25 @@ function normalizePolicy(input) {
     }
     compatibility={legacyGrants:[...new Set(input.legacyGrants)],scopes};
   }
-  return { ...compatibility,...individual,version: 2, profile: typeof input.profile === 'string' ? input.profile : 'custom', admin: !!input.admin, sections, agents, expiresAt: expiry };
+  let actions={};
+  if(input.actionRules!==undefined){
+    const rules=input.actionRules;
+    if(!rules||typeof rules!=='object'||Array.isArray(rules)||Object.entries(rules).some(([key,value])=>!PERMISSION_KEYS.includes(key)||!['allow','deny'].includes(value)))throw new Error('Autorisations détaillées invalides.');
+    if(Object.keys(rules).length)actions={actionRules:Object.fromEntries(Object.entries(rules))};
+  }
+  return { ...compatibility,...individual,...actions,version: 2, profile: typeof input.profile === 'string' ? input.profile : 'custom', admin: !!input.admin, sections, agents, expiresAt: expiry };
 }
 function grantsOf(policy) {
-  if(policy.legacyGrants)return [...policy.legacyGrants];
-  const grants = new Set();
-  for (const [section, level] of Object.entries(policy.sections)) {
+  const grants = new Set(policy.admin?PERMISSION_KEYS:policy.legacyGrants||policy.grants||[]);
+  for (const [section, level] of Object.entries(policy.legacyGrants||policy.grants?{}:policy.sections||{})) {
     if (level === 'deny') continue;
     const keys = level === 'write' ? LEVEL_ACTIONS.write[section] || [] : LEVEL_ACTIONS.read[section] || [];
     for (const key of keys) grants.add(key);
   }
+  for(const [key,rule]of Object.entries(policy.actionRules||{}))if(rule==='allow')grants.add(key);
+  // The old management rights keep exactly the operations they already owned.
+  for(const section of ['users','access'])if(grants.has(section+'.manage'))for(const action of GROUP_ACTIONS[section])if(action!=='read'&&action!=='permissions')grants.add(section+'.'+action);
+  for(const [key,rule]of Object.entries(policy.actionRules||{}))if(rule==='deny')grants.delete(key);
   return [...grants];
 }
 function can(user, key, now = Date.now()) {
@@ -130,8 +142,14 @@ function can(user, key, now = Date.now()) {
   if (user?.role === 'admin') return true;
   const policy = user?.permissions; if (!policy) return false;
   if (policy.expiresAt !== null && policy.expiresAt <= now) return false;
+  if(policy.actionRules?.[key]==='deny')return false;
+  if(policy.actionRules?.[key]==='allow')return true;
+  if(Object.keys(policy.actionRules||{}).length||policy.legacyGrants||policy.grants){
+    const grants=grantsOf(policy);
+    if(key.endsWith('.write')){const section=key.slice(0,-6);return grants.some(grant=>grant.startsWith(section+'.')&&!['read','secrets','export','use'].includes(grant.split('.').at(-1)))||!GROUP_ACTIONS[section]?.some(action=>!['read','secrets','export','use'].includes(action))&&(policy.admin||policy.sections?.[section]==='write')&&grants.some(grant=>grant.startsWith(section+'.'));}
+    return grants.includes(key)||SECTION_IDS.includes(key)&&grants.some(grant=>grant.startsWith(key+'.'));
+  }
   if (policy.admin) return true;
-  if(policy.legacyGrants||policy.grants){const grants=policy.legacyGrants||policy.grants;if(key.endsWith('.write'))return grants.some(grant=>grant.startsWith(key.slice(0,-5))&&!['read','secrets','export','use'].includes(grant.split('.').at(-1)));return grants.includes(key)||SECTION_IDS.includes(key)&&grants.some(grant=>grant.startsWith(key+'.'));}
   const section = SECTION_IDS.find(id => key === id || key.startsWith(id + '.')); if (!section) return false;
   const level = policy.sections?.[section];
   if (level === 'write') return true;
@@ -172,16 +190,30 @@ function recordLevel(user, record, kind, folders, now = Date.now()) {
     else {let id=kind==='items'?record.folderId:record.parentId;const seen=new Set();scoped=scope.mode==='all'?'write':'deny';while(id){if(seen.has(id))return 'deny';seen.add(id);if(own(scope.folders||{},id)){scoped=scope.folders[id];break;}id=folders.find(row=>row.id===id)?.parentId;}}
   }
   if(scoped==='deny')return 'deny';
+  if(user.permissions?.resourcePolicies){
+    const levels=user.permissions.resourcePolicies.map(policy=>recordLevel({...user,role:'member',permissions:policy},record,kind,folders,now));
+    scoped=levels.includes('write')?'write':levels.includes('read')?'read':'deny';
+    if(scoped==='deny')return 'deny';
+  }
   return scoped==='write'&&can(user,section+'.write',now)?'write':'read';
+}
+function canRecord(user,record,kind,folders,action,now=Date.now()){
+  const section=recordSection(record,kind);
+  if(!can(user,section+'.'+action,now))return false;
+  const level=recordLevel(user,record,kind,folders,now);
+  if(level==='deny'||!['read','export','secrets'].includes(action)&&level!=='write')return false;
+  // Do not combine a scoped edit grant from one group with an unrestricted
+  // create grant from another group to obtain unrestricted editing.
+  return !user.permissions?.resourcePolicies||user.permissions.resourcePolicies.some(policy=>canRecord({...user,role:'member',permissions:policy},record,kind,folders,action,now));
 }
 function requirePermission(user, key, fail, now) { if (!can(user, key, now)) fail(403, 'Ton compte ne dispose pas du droit « ' + key + ' ».', { code: 'PERMISSION_DENIED' }); }
 function canManagePolicy(actor, target, now = Date.now()) {
   if (actor?.role === 'admin') return true;
   const ownPolicy = actor?.permissions; if (!ownPolicy) return false;
   if (ownPolicy.expiresAt !== null && (ownPolicy.expiresAt <= now || target.expiresAt === null || target.expiresAt > ownPolicy.expiresAt)) return false;
-  if (ownPolicy.admin) return true;
-  if (target.admin) return false;
   if(grantsOf(target).some(key=>!can(actor,key,now)))return false;
+  if (ownPolicy.admin) return !target.admin||PERMISSION_KEYS.every(key=>can(actor,key,now));
+  if (target.admin) return false;
   if(ownPolicy.groupLevels!==undefined){
     if(target.groupLevels===undefined)return false;
     for(const [id,level]of Object.entries(target.groupLevels))if(LEVEL_ORDER[level]>LEVEL_ORDER[ownPolicy.groupLevels[id]??'deny'])return false;
@@ -192,8 +224,12 @@ function canManagePolicy(actor, target, now = Date.now()) {
   for(const id of affected)for(const action of [...PERMISSION_KEYS.filter(key=>AGENT_SECTIONS.some(section=>key.startsWith(section+'.'))),'tools.write']){
     if(canAgent(targetUser,id,now,action)&&!canAgent(actor,id,now,action))return false;
   }
-  if(ownPolicy.scopes&&JSON.stringify(ownPolicy.scopes)!==JSON.stringify(target.scopes))return false;
-  for (const section of SECTION_IDS) {
+  const unrestricted=scope=>!scope||scope.mode==='all'&&!Object.keys(scope.folders||{}).length&&!Object.keys(scope.items||{}).length;
+  for(const key of grantsOf(target).filter(key=>key.startsWith('library.')||key.startsWith('vault.'))){
+    const section=key.split('.')[0],sources=(ownPolicy.resourcePolicies||[ownPolicy]).filter(policy=>can({role:'member',permissions:policy},key,now));
+    if(!sources.some(policy=>unrestricted(policy.scopes?.[section])||JSON.stringify(policy.scopes?.[section])===JSON.stringify(target.scopes?.[section])))return false;
+  }
+  for (const section of ownPolicy.legacyGrants||Object.keys(ownPolicy.actionRules||{}).length?[]:SECTION_IDS) {
     // A manager may only hand out levels at or below his own for each section.
     if (LEVEL_ORDER[target.sections[section]] > LEVEL_ORDER[ownPolicy.sections[section]]) return false;
   }
@@ -201,5 +237,5 @@ function canManagePolicy(actor, target, now = Date.now()) {
   return true;
 }
 
-return Object.freeze({PERMISSION_SECTIONS,SECTION_LEVELS,AGENT_SECTIONS,PERMISSION_KEYS,LEVEL_ACTIONS,PERMISSION_PROFILES,profilePolicy,policyProfile,userRole,normalizePolicy,grantsOf,can,canAgent,recordSection,vaultHomeId,isVaultHome,isInPersonalVault,recordLevel,requirePermission,canManagePolicy});
+return Object.freeze({PERMISSION_SECTIONS,SECTION_LEVELS,AGENT_SECTIONS,PERMISSION_KEYS,PERMISSION_ACTIONS,LEVEL_ACTIONS,PERMISSION_PROFILES,profilePolicy,policyProfile,userRole,normalizePolicy,grantsOf,can,canAgent,recordSection,vaultHomeId,isVaultHome,isInPersonalVault,recordLevel,canRecord,requirePermission,canManagePolicy});
 })();

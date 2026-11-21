@@ -4,6 +4,8 @@ Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvell
 
 ## 21 novembre 2026 — Intégration du rapport
 
+À la demande « les droits comme dans un AD », les groupes peuvent maintenant inclure d’autres groupes : utilisateurs → groupes métier → groupes d’accès → autorisations. Ajouter des groupes automatiques par action, des autorisations/refus explicites dans les groupes personnalisés et une consultation des droits effectifs avec leurs sources. Les refus actifs priment sur les autorisations, sauf pour le propriétaire protégé. Préserver les groupes et appartenances existants, les restrictions de dossiers et les périmètres de postes. Révoquer aussi les membres indirects lors d’un changement et contrôler toute la chaîne de délégation. Les droits fixes des groupes automatiques restent protégés ; leurs utilisateurs et leurs groupes inclus sont administrables. Il s’agit du modèle d’autorisation interne, sans connexion LDAP créée implicitement. Voir [Droits](droits.md).
+
 La [mise à jour point par point](integration-rapport.md) précise les nouveaux comportements et remplace les descriptions antérieures incompatibles : statut antivirus Windows indépendant de Defender, parcours progressif des disques locaux, surveillance système, rapports centralisés, rétention de 30 jours, couleurs des sections et paramètres personnels. Les protections natives ne sont pas désactivées. La surveillance reste réactive et ne doit pas être présentée comme un filtrage avant exécution.
 
 Les bandeaux des sections de postes sont compacts : 32 px de contenu sur ordinateur, sans padding ajouté par les réglages de densité. Sur mobile, la hauteur suit les commandes pour éviter leur chevauchement avec les postes.

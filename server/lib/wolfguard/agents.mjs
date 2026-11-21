@@ -82,7 +82,7 @@ export async function handleAgentAPI(request,env,now,h){
     const agents=[];for(const row of rows.results){if(!await accessibleAgent(env,session.user,row.id,now))continue;const metadata=await open(row.name_cipher,row.id+':name');agents.push({id:row.id,...metadata,...(administrator(session.user,now)?{restricted:!!row.restricted}:{}),online:row.last_seen>now-ONLINE_MS,lastSeen:row.last_seen});}return json({agents});
   }
   if(path==='/api/agents/pair'&&request.method==='POST'){
-    requirePermission(session.user,'agents.write',fail,now);
+    requirePermission(session.user,'agents.pair',fail,now);
     const code=random(16),expiresAt=now+PAIRING_TTL_MS;await env.DB.prepare('DELETE FROM scan_pairings WHERE expires_at<=? OR generation<>?').bind(now,session.generation).run();
     const pending=await env.DB.prepare('SELECT COUNT(*) AS count FROM scan_pairings WHERE generation=?').bind(session.generation).first();if(pending.count>=3)fail(429,'Trois codes sont déjà valides. Attends leur expiration.');
     await env.DB.prepare('INSERT INTO scan_pairings (token_hash,generation,expires_at) VALUES (?,?,?)').bind(await digest(code),session.generation,expiresAt).run();return json({code,expiresAt});
@@ -96,17 +96,17 @@ export async function handleAgentAPI(request,env,now,h){
     await expire();await expireRemote(env,now,remoteHelpers);return json({ok:true,restricted});
   }
   if(path==='/api/agents/revoke'&&request.method==='POST'){
-    requirePermission(session.user,'agents.write',fail,now);
-    const {id}=await body();if(!validId(id))fail(400,'Agent invalide.');await permitAgent(id,'agents.write');
+    requirePermission(session.user,'agents.revoke',fail,now);
+    const {id}=await body();if(!validId(id))fail(400,'Agent invalide.');await permitAgent(id,'agents.revoke');
     const row=await env.DB.prepare('UPDATE scan_agents SET revoked_at=? WHERE id=? AND generation=? AND revoked_at IS NULL RETURNING id').bind(now,id,session.generation).first();if(!row)fail(404,'Agent introuvable.');
     await expireRemote(env,now,remoteHelpers);
     await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE agent_id=? AND status IN ('queued','running')").bind(now,id).run();return json({ok:true});
   }
   if(path==='/api/scans'&&request.method==='POST'){
-    const data=await body();const requested=data.workspace||(data.strategy==='passive'?(data.passiveScope==='security'?'vulnerability':'passive'):'active');requirePermission(session.user,'scan.'+requested+'.write',fail,now);await permitAgent(data.agentId,'scan.'+requested+'.write');const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
+    const data=await body();const requested=data.workspace||(data.strategy==='passive'?(data.passiveScope==='security'?'vulnerability':'passive'):'active');requirePermission(session.user,'scan.'+requested+'.run',fail,now);await permitAgent(data.agentId,'scan.'+requested+'.run');const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
     let spec;try{spec=h.scanSpec(data);}catch(error){fail(400,error.message);}
     if(spec.workspace==='map'&&spec.target==='auto'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-topology-v1'))fail(409,'Mets à jour l’agent depuis Agents pour la cartographie automatique.');
-    const workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':spec.strategy);requirePermission(session.user,'scan.'+workspace+'.read',fail,now);requirePermission(session.user,'scan.'+workspace+'.write',fail,now);
+    const workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':spec.strategy);requirePermission(session.user,'scan.'+workspace+'.read',fail,now);requirePermission(session.user,'scan.'+workspace+'.run',fail,now);
     await expireRemote(env,now,remoteHelpers);
     if(await env.DB.prepare("SELECT id FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')").bind(agent.id).first())fail(409,'Une prise en main est en cours. Déconnecte-la avant de lancer un scan.');
     if(spec.passiveScope!=='security'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-scan-v3'))fail(409,'Mets à jour l’agent depuis Paramètres → Agents pour les observations enrichies et les adresses publiques.');

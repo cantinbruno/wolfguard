@@ -183,7 +183,7 @@ const webScanWorkspace = (() => {
     syncWorkflow(view);
   }
   async function exportData(view,kind,token){
-    if(window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind)){appNotify('L’export de ces rapports ne fait pas partie de vos droits.');return;}
+    if(window.WolfGuardAccess&&!WolfGuardAccess.can('scan.'+kind+'.export')){appNotify('L’export de ces rapports ne fait pas partie de vos droits.');return;}
     if(!view.report||view.busy)return;
     const report=structuredClone(view.report),reference=view.reference?structuredClone(view.reference):null;
     view.busy=true;draw(view,kind==='passive');

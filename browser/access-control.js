@@ -10,7 +10,7 @@ window.WolfGuardAccess=(()=>{
   const sectionKey=section=>section==='vault'?'vault':section==='remote'?'remote':section.startsWith('scan-')?'scan.'+section.slice(5):section==='tools'?'tools':section==='agents'?'agents':section==='edr'?'edr':'library';
   function allows(section){if(section==='modules')return true;if(section==='chatbot')return false;if(section==='edr')return can('edr');const key=sectionKey(section);return key==='remote'?can('remote'):can(key+'.read')||can(key+'.write');}
   const level=(record,kind,folders)=>!cloud()?.hasUsers()?'write':WolfGuardPermissions.recordLevel(user(),record,kind,folders);
-  const action=(record,verb,kind='items',folders=[])=>can(WolfGuardPermissions.recordSection(record,kind)+'.'+verb)&&(verb==='read'?level(record,kind,folders)!=='deny':level(record,kind,folders)==='write');
+  const action=(record,verb,kind='items',folders=[])=>!cloud()?.hasUsers()||WolfGuardPermissions.canRecord(user(),record,kind,folders,verb);
   const reject=()=>{const error=new Error('Ton compte ne dispose pas du droit nécessaire pour cette action.');error.code='PERMISSION_DENIED';throw error;};
   function assertChanges(before,after){
     if(!restricted())return;
@@ -25,19 +25,19 @@ window.WolfGuardAccess=(()=>{
       }
     }
   }
-  const clickRules={newMemo:'library',newItem:'library',newProcedure:'library',newVault:'vault',saveVault:'vault',saveMemo:'library',exportScanPDF:'scan-export',exportScanJSON:'scan-export',generatePairing:'agents'};
+  const clickRules={newMemo:'library.create',newItem:'library.create',newLibraryItem:'library.create',newProcedure:'library.create',newVault:'vault.create',saveVault:'vault.edit',saveMemo:'library.edit',saveLibraryItem:'library.edit',generatePairing:'agents.pair'};
   function paint(){
     if(!cloud()?.hasSession())return;
     const agentsButton=document.querySelector('#agentsBtn');if(agentsButton)agentsButton.hidden=!can('agents.read');
     const current=state.section==='vault'?'vault':'library';
     for(const button of document.querySelectorAll('[data-wg-click]')){
       const expression=button.getAttribute('data-wg-click')||'',name=/^([\w.]+)\(/.exec(expression)?.[1];let key=clickRules[name];
-      if(name==='newFolder')key=current;
-      if(['deleteItem','deleteFolderDirect'].includes(name))key=current;
-      if(['setMode','editItemById','toggleFavorite','duplicateItem'].includes(name)&&(!expression.includes("'view'")&&name!=='duplicateItem'))key=current;
-      if(name==='duplicateItem')key=current;
-      const scanExport=key==='scan-export';if(scanExport)key='scan.'+(state.section?.slice(5)||'passive');
-      if(key&&!can(key+(scanExport?'.read':'.write'))){if(button.dataset.permissionDisabled!=='1'){button.dataset.permissionDisabled='1';button.dataset.permissionWasDisabled=String(!!button.disabled);button.disabled=true;button.title='Droit non accordé : '+key;}}
+      if(name==='newFolder')key=current+'.create';
+      if(['deleteItem','deleteFolderDirect'].includes(name))key=current+'.delete';
+      if(['setMode','editItemById','toggleFavorite'].includes(name)&&!expression.includes("'view'"))key=current+'.edit';
+      if(name==='duplicateItem')key=current+'.create';
+      if(['exportScanPDF','exportScanJSON'].includes(name))key='scan.'+(state.section?.slice(5)||'passive')+'.export';
+      if(key&&!can(key)){if(button.dataset.permissionDisabled!=='1'){button.dataset.permissionDisabled='1';button.dataset.permissionWasDisabled=String(!!button.disabled);button.disabled=true;button.title='Droit non accordé : '+key;}}
       else if(button.dataset.permissionDisabled==='1'){button.disabled=button.dataset.permissionWasDisabled==='true';delete button.dataset.permissionDisabled;delete button.dataset.permissionWasDisabled;}
     }
     document.documentElement.dataset.restricted=restricted()?'true':'false';
