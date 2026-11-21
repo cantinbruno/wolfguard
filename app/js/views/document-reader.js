@@ -204,8 +204,9 @@ function bindDocumentReader(root, item, key) {
     button.setAttribute('aria-pressed', String(documentReaderPreferences.wide));
     button.title = documentReaderPreferences.wide ? 'Rétablir la navigation' : 'Élargir la lecture';
     button.setAttribute('aria-label', button.title);
-    root.style.setProperty('--reader-font-size', (base + documentReaderPreferences.fontStep) + 'px');
-    root.querySelector('[data-reader-font-label]').textContent = Math.round((base + documentReaderPreferences.fontStep) / base * 100) + ' %';
+    root.style.setProperty('--reader-font-size', 'calc('+(base + documentReaderPreferences.fontStep)+'px * var(--reading-scale,1))');
+    const scale=Number(getComputedStyle(document.documentElement).getPropertyValue('--reading-scale'))||1;
+    root.querySelector('[data-reader-font-label]').textContent = Math.round((base + documentReaderPreferences.fontStep) * scale / base * 100) + ' %';
     root.querySelector('[data-reader-font="-1"]').disabled = documentReaderPreferences.fontStep <= -1;
     root.querySelector('[data-reader-font="1"]').disabled = documentReaderPreferences.fontStep >= 3;
   };

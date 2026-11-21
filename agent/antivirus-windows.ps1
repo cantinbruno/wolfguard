@@ -21,7 +21,9 @@ foreach($sid in @('S-1-5-18','S-1-5-32-544')){
 if(-not $administrator){$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,'FullControl',$inherit,$propagation,'Allow')))}
 else{$acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity.User,'ReadAndExecute',$inherit,$propagation,'Allow')))}
 $acl.SetOwner($(if($administrator){New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')}else{$identity.User}))
-Set-Acl -LiteralPath $directoryPath -AclObject $acl
+# Persist only the access/owner sections modified above. Set-Acl also attempts
+# to write the audit descriptor and requires SeSecurityPrivilege unnecessarily.
+[IO.Directory]::SetAccessControl($directoryPath,$acl)
 if($Operation -eq 'secure'){exit}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip=[IO.Compression.ZipFile]::OpenRead([IO.Path]::GetFullPath($Archive))

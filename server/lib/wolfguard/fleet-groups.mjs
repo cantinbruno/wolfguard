@@ -83,6 +83,10 @@ export async function fleetGroupAPI(request,env,now,session,h){
     data.target=id;
   }else if(operation==='rename'){
     if(!group||group.id==='ungrouped')fail(400,'Groupe invalide.');group.name=name();
+  }else if(operation==='color'){
+    if(!group||group.id==='ungrouped')fail(400,'Section invalide.');
+    if(data.color!==null&&!/^#[a-f0-9]{6}$/i.test(data.color||''))fail(400,'Couleur invalide.');
+    if(data.color===null)delete group.color;else group.color=data.color.toLowerCase();
   }else if(operation==='remove'){
     if(!group||group.id==='ungrouped')fail(400,'Groupe invalide.');
     next.groups=next.groups.filter(row=>row.id!==group.id);

@@ -18,7 +18,7 @@
   --reader-paper: var(--ui-surface);
   --reader-border: var(--ui-border);
   --reader-accent: var(--ui-accent);
-  --reader-font-size: 15px;
+  --reader-font-size: calc(15px * var(--reading-scale,1));
   display: flex;
   flex: 1;
   flex-direction: column;

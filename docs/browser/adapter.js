@@ -115,10 +115,13 @@ const webWorkspace = (() => {
     if (sessionExpired()) { lock(); throw new Error('Session expirée. Saisis à nouveau ton code.'); }
   }
   function armSessionTimer() {
-    clearTimeout(autoLockTimer); autoLockTimer=null; sessionTimerDue=0;
-    if(!session || !sessionClock)return;
+    if(!session || !sessionClock){clearTimeout(autoLockTimer);autoLockTimer=null;sessionTimerDue=0;return;}
     const remaining=SESSION_MS-inactiveFor();
-    sessionTimerDue=Date.now()+Math.max(0,remaining);
+    const due=Date.now()+Math.max(0,remaining);
+    // Keep the earlier timer: its callback checks the latest real activity.
+    // Mouse movement must not allocate a new four-hour timer per pixel.
+    if(autoLockTimer&&sessionTimerDue>Date.now()&&sessionTimerDue<=due)return;
+    clearTimeout(autoLockTimer);sessionTimerDue=due;
     autoLockTimer=setTimeout(()=>{if(sessionExpired())lock();else armSessionTimer();},Math.max(1,remaining));
   }
   let attemptState = {failures:0,blockedUntil:0}, attemptScope = '', attemptTimer = null, attemptsUnavailable=false;
@@ -716,8 +719,11 @@ const webWorkspace = (() => {
   changeWorkspaceFromSettings=() => {};
   changeAccessCode=rotatePassword;
   showChangeCodeForm=() => {
-    $('#changeCodeArea').innerHTML='<div class="pin-fields"><label>Code actuel ou ancien mot de passe<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password"></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><label>Confirmer le code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password"></label><div class="settings-form-actions"><button type="button" class="settings-btn primary" id="webChangePassword">Enregistrer</button></div></div>';
-    $('#webChangePassword').onclick=rotatePassword;
+    const area=$('#changeCodeArea');
+    area.innerHTML='<form class="pin-fields" id="personalCodeForm"><label>Code actuel<input id="oldAccessCode" type="password" maxlength="1024" autocomplete="current-password" required></label><label>Nouveau code de 8 chiffres<input id="newAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password" required></label><label>Confirmer le nouveau code<input id="confirmAccessCode" type="password" inputmode="numeric" minlength="8" maxlength="8" pattern="[0-9]{8}" autocomplete="new-password" required></label><p class="settings-row-desc">Les autres sessions seront déconnectées après confirmation. Le code Authenticator reste inchangé.</p><div class="settings-form-actions"><button type="button" class="settings-btn" id="webCancelPassword">Annuler</button><button type="submit" class="settings-btn primary" id="webChangePassword">Enregistrer mon code</button></div></form>';
+    $('#personalCodeForm').onsubmit=async event=>{event.preventDefault();const button=$('#webChangePassword');button.disabled=true;try{await rotatePassword();}finally{if(button.isConnected)button.disabled=false;}};
+    $('#webCancelPassword').onclick=()=>{area.querySelectorAll('input').forEach(input=>{input.value='';});area.replaceChildren();$('#changeCodeBtn').focus();};
+    $('#oldAccessCode').focus();
   };
   async function refreshMFASettings(){
     const current=session;await cloud.me();if(session!==current)return;updateMFAIndicator();

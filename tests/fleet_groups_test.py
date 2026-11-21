@@ -66,6 +66,7 @@ def run():
             page.locator('[data-access-group]').filter(has_text=name).click()
             if page.locator('#wgGroupMembers').get_attribute('open') is None:page.locator('#wgGroupMembers > summary').click()
             page.locator('#wgGroupAddMember').select_option(label='group-ui@example.test');page.locator('#wgGroupAssign').click()
+            expect(page.locator('#wgGroupMemberList')).to_contain_text('group-ui@example.test')
         saved=page.evaluate("async()=>{const s=await WolfGuardCloud.agentRequest('users/groups');return s.groups.filter(g=>g.memberIds.length).map(g=>g.name)}")
         assert 'GG_Acces_Memo_lecture' in saved and 'GG_Acces_Serveurs_ecriture' in saved,saved
         page.locator('.settings-close').click()
@@ -74,7 +75,7 @@ def run():
         expect(page.locator('#agentsGroupsRights')).to_have_count(0)
         expect(page.locator('[data-section-rights]')).to_have_count(0)
         page.locator('#settingsBtn').click();page.locator('#settings-tab-groups').click()
-        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==31
+        assert len(page.evaluate("async()=>(await WolfGuardCloud.agentRequest('users/groups')).groups"))==33
         for width in [1440,850,390,320]:
             page.set_viewport_size({'width':width,'height':900})
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width

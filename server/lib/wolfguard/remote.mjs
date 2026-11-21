@@ -40,7 +40,7 @@ export async function handleRemoteAPI(request,env,now,h){
     const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes(mode==='files'?'remote-files-v1':mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser cette prise en main.');
     const id=h.random(16);
     if(await env.DB.prepare("SELECT id FROM ai_jobs WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first())fail(409,'Une réponse IA est en cours sur ce poste. Attends sa fin.');
-    const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until,mode,transfer_seq) SELECT ?,?,?,?,'requested',?,?,?,0,?,0 WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+15000,mode,agent.id).first();
+    const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until,mode,transfer_seq) SELECT ?,?,?,?,'requested',?,?,?,0,?,0 WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+120000,mode,agent.id).first();
     if(!inserted)fail(409,'Le poste exécute déjà un scan ou une prise en main. Termine cette opération avant de te connecter.');
     return json({id,status:'requested',expiresAt:now+20*60000},201);
   }
@@ -52,7 +52,7 @@ export async function handleRemoteAPI(request,env,now,h){
   if(agentRoute&&(!/^[a-f0-9]{64}$/.test(data.lease||'')||row.lease_hash!==await h.digest(data.lease)))fail(403,'Session non attribuée à cet agent.');
   const describe=async value=>({id:value.id,status:value.status,revision:value.frame_revision,expiresAt:value.expires_at,message:await open(value.message_cipher,value.id+':remote-message')||''});
   if(path==='/api/remote/session'&&request.method==='GET'){
-    if(REMOTE_LIVE.includes(row.status))await env.DB.prepare('UPDATE remote_sessions SET viewer_until=? WHERE id=? AND status IN '+liveSQL).bind(now+15000,row.id).run();
+    if(REMOTE_LIVE.includes(row.status))await env.DB.prepare('UPDATE remote_sessions SET viewer_until=? WHERE id=? AND status IN '+liveSQL).bind(now+120000,row.id).run();
     if(row.mode==='terminal')return json({...await describe(row),...await terminalView(env,row,h)});
     const object=row.status==='active'?await env.BUCKET.get(key(row.id)):null;
     return json({...await describe(row),frame:object?await open(await object.text(),row.id+':remote-frame'):null});
@@ -72,7 +72,7 @@ export async function handleRemoteAPI(request,env,now,h){
     const cipher=await seal(events,row.id+':remote-input:'+data.seq);
     await env.DB.batch([
       env.DB.prepare("INSERT INTO remote_inputs(session_id,seq,created_at,input_cipher) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM remote_sessions WHERE id=? AND status='active' AND input_seq=?) ON CONFLICT DO NOTHING").bind(row.id,data.seq,now,cipher,row.id,data.seq-1),
-      env.DB.prepare("UPDATE remote_sessions SET input_seq=?,viewer_until=? WHERE id=? AND status='active' AND input_seq=?").bind(data.seq,now+15000,row.id,data.seq-1)
+      env.DB.prepare("UPDATE remote_sessions SET input_seq=?,viewer_until=? WHERE id=? AND status='active' AND input_seq=?").bind(data.seq,now+120000,row.id,data.seq-1)
     ]);return json({ok:true,accepted:true});
   }
   if(path==='/api/agent/remote/exchange'&&request.method==='POST'){

@@ -13,6 +13,8 @@ La [présentation du projet](projet.md) et les [instructions des outils IA](inst
 
 ## Références par sujet
 
+Le [suivi du rapport du 21 novembre 2026](integration-rapport.md) détaille les 25 demandes, leur intégration et les limites vérifiables.
+
 | Besoin | Document |
 | --- | --- |
 | Fonctions de l’application et limites des scans | [Application](application.md) |

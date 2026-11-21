@@ -92,7 +92,7 @@ def run():
             page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             # The only fleet action opens enrollment, independently of existing posts.
-            expect(page.locator('.agents-heading-actions button')).to_have_count(2)
+            expect(page.locator('.agents-heading-actions button')).to_have_count(3)
             expect(page.locator('#agentsAdd')).to_have_count(0)
             page.locator('#agentsManage').click()
             expect(page.locator('#wgAgentManage,#wgAgentFleetPanel,[data-agent-revoke]')).to_have_count(0)
@@ -111,7 +111,7 @@ def run():
             expect(page.locator('#wgAgentConnect')).to_be_visible()
             page.locator('#closeAgentsBtn').click()
             state['endpoints_only']=False
-            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '1', '3', '4'])
+            expect(page.locator('#agentsMetrics')).to_have_count(0)
             page.screenshot(path=str(ROOT/'.cache/fleet-desktop.png'))
             fleet_bounds=page.locator('.agents-table-scroll').bounding_box()
             assert fleet_bounds['y']<500 and fleet_bounds['height']>400,fleet_bounds
@@ -498,7 +498,7 @@ def run():
             expect(page.locator('#agentsStatus')).to_contain_text('plus confirmée')
             options(1)
             expect(fleet_action('active')).to_be_disabled()
-            expect(page.locator('#agentsMetrics strong')).to_have_text(['4', '—', '—', '—'])
+            expect(page.locator('#agentsMetrics')).to_have_count(0)
             fleet_action('details').click()
             expect(page.locator('#agentDetailsBody')).to_contain_text('Le service est indisponible')
             expect(page.locator('#agentDetailsBody')).not_to_contain_text('Microsoft Defender')

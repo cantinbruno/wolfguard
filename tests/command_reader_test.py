@@ -56,7 +56,8 @@ def run():
             expect(page.locator('[data-library-part=reference]')).to_contain_text('Description de la fiche complétée')
             expect(page.locator('[data-library-part=memo]')).to_contain_text('Contexte de diagnostic complété')
             saved=page.evaluate("async id=>await get('items',id)",item['id'])
-            for field in ['platform','vendor','sources','example','tags']:assert saved[field]==item[field],field
+            for field in ['platform','vendor','example','tags']:assert saved[field]==item[field],field
+            assert 'sources' not in saved and 'references' not in saved
             assert saved['commandBlocks'][0]['code']==item['content']
             page.locator('.library-command-jump').click();page.screenshot(path=str(ROOT/'.cache/command-reader-mobile.png'),full_page=True)
             page.set_viewport_size({'width':1440,'height':950});page.screenshot(path=str(ROOT/'.cache/command-reader-desktop.png'),full_page=True)

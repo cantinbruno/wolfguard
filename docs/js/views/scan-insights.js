@@ -56,19 +56,21 @@ const scanInsights = (() => {
     if (!report) return empty('map');
     const hosts = new Map();
     for (const row of report.rows) {
+      if(!answered(row))continue;
       if (!hosts.has(row.address)) hosts.set(row.address,{address:row.address,name:'',rows:[],responded:false});
       const host = hosts.get(row.address);host.rows.push(row);host.name ||= row.hostname;host.responded ||= answered(row);
     }
     const all = [...hosts.values()].sort((a,b) => compareAddresses(a.address,b.address)), query = String(options.mapQuery || '').toLocaleLowerCase('fr');
     const visible = all.filter(host => !query || (host.address + ' ' + host.name).toLocaleLowerCase('fr').includes(query));
     const selected = visible.find(host => host.address === options.mapSelection) || visible.find(host => host.responded) || visible[0];
-    const responders = visible.filter(host => host.responded), shown = responders.slice(0,28);
-    if (selected?.responded && !shown.includes(selected)) shown[shown.length-1] = selected;
+    const origin=report.network?.origin,originHost=all.find(host=>host.address===origin?.address);
+    const responders = visible.filter(host => host.responded), shown = responders.filter(host=>host!==originHost).sort((a,b)=>Number(a.rows.every(row=>['router','internet'].includes(row.role)))-Number(b.rows.every(row=>['router','internet'].includes(row.role)))).slice(0,28);
+    if (selected?.responded && selected!==originHost && !shown.includes(selected)) shown[shown.length-1] = selected;
     const indexes = new Map(visible.map((host,index) => [host.address,index+1]));
-    // Radial topology drawn automatically around the agent, grouped by /24
-    // third octet so clusters of the same subnet appear together.
-    const clusters=new Map();for(const host of shown){const octet=host.address.split('.').slice(0,3).join('.');if(!clusters.has(octet))clusters.set(octet,[]);clusters.get(octet).push(host);}
-    const sortedClusters=[...clusters.entries()].sort((a,b)=>compareAddresses(a[0]+'.0.0',b[0]+'.0.0'));
+    const networks=(Array.isArray(report.network?.networks)?report.network.networks:[]).slice().sort((a,b)=>Number(String(b.cidr).split('/')[1])-Number(String(a.cidr).split('/')[1]));
+    const group=host=>{for(const network of networks){try{const parsed=ipaddr.parse(host.address.split('%')[0]),range=ipaddr.parseCIDR(String(network.cidr));if(parsed.kind()===range[0].kind()&&parsed.match(range))return String(network.cidr);}catch{}}return 'Autres hôtes confirmés';};
+    const clusters=new Map();for(const host of shown){const subnet=group(host);if(!clusters.has(subnet))clusters.set(subnet,[]);clusters.get(subnet).push(host);}
+    const sortedClusters=[...clusters.entries()].sort((a,b)=>compareAddresses(a[0],b[0]));
     const groupAngles=sortedClusters.length?2*Math.PI/sortedClusters.length:0;
     const nodes=[];
     sortedClusters.forEach(([octet,members],groupIndex)=>{
@@ -83,23 +85,41 @@ const scanInsights = (() => {
     const zoom = Math.max(.7,Math.min(2.5,Number(options.mapZoom)||1)), focus = zoom>1 ? nodes.find(node => node.address===selected?.address) : null;
     const width=900/zoom,height=660/zoom,centerX=focus?.x??450,centerY=focus?.y??300;
     const ring=n=>'<circle cx="450" cy="300" r="'+n+'" class="wgscan-net-ring"/>';
-    const subnetLabels=sortedClusters.map(([octet,members],index)=>{if(members.length<2)return '';const angle=index*groupAngles-Math.PI/2,x=450+Math.cos(angle)*330,y=300+Math.sin(angle)*330*0.92;return '<text x="'+x+'" y="'+y+'" text-anchor="middle" class="wgscan-net-subnet">'+esc(octet+'.0/24')+'</text>';}).join('');
-    const svg = nodes.length ? '<svg viewBox="' + [centerX-width/2,centerY-height/2,width,height].join(' ') + '" role="img" aria-label="Schéma du réseau observé depuis l’agent">'
+    const subnetLabels=sortedClusters.map(([subnet,members],index)=>{const angle=index*groupAngles-Math.PI/2,x=450+Math.cos(angle)*330,y=300+Math.sin(angle)*330*0.92;return '<text x="'+x+'" y="'+y+'" text-anchor="middle" class="wgscan-net-subnet">'+esc(subnet)+'</text>';}).join('');
+    const pathData=Array.isArray(report.network?.paths)?report.network.paths.slice(0,2):[],positions=new Map(nodes.map(node=>[node.address,node]));
+    if(originHost)positions.set(originHost.address,{x:450,y:300});
+    const routeHosts=new Set(pathData.flatMap(path=>(Array.isArray(path.hops)?path.hops:[]).map(hop=>hop.address))),edges=[];
+    for(const node of nodes)if(!routeHosts.has(node.address))edges.push('<line data-map-edge="reachability" x1="450" y1="300" x2="'+node.x+'" y2="'+node.y+'"/>');
+    for(const path of pathData){let previous=originHost?{address:originHost.address,ttl:0}:null;
+      for(const hop of (Array.isArray(path.hops)?path.hops:[]).filter(hop=>hosts.has(hop.address)&&Number.isInteger(hop.ttl)&&hop.ttl>0&&hop.ttl<=32).slice(0,64).sort((a,b)=>a.ttl-b.ttl)){
+        const start=positions.get(previous?.address),end=positions.get(hop.address);
+        if(previous&&hop.ttl===previous.ttl+1&&start&&end&&previous.address!==hop.address)edges.push('<line data-map-edge="route" x1="'+start.x+'" y1="'+start.y+'" x2="'+end.x+'" y2="'+end.y+'"/>');
+        previous=hop;
+      }
+    }
+    const svg = nodes.length||originHost ? '<svg viewBox="' + [centerX-width/2,centerY-height/2,width,height].join(' ') + '" role="img" aria-label="Schéma du réseau observé depuis l’agent">'
       + '<defs><radialGradient id="wgMapGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="currentColor" stop-opacity=".18"/><stop offset="100%" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs>'
       + '<g class="wgscan-net-background"><circle cx="450" cy="300" r="360" fill="url(#wgMapGlow)"/>' + ring(120) + ring(220) + ring(330) + '</g>'
-      + '<g class="wgscan-network-links">' + nodes.map(node => '<line x1="450" y1="300" x2="' + node.x + '" y2="' + node.y + '"/>').join('') + '</g>'
-      + '<g class="wgscan-network-origin"><circle cx="450" cy="300" r="40"/><circle cx="450" cy="300" r="27" class="wgscan-net-core"/><text x="450" y="296" text-anchor="middle">POSTE</text><text x="450" y="312" text-anchor="middle" class="wgscan-net-core-sub">agent</text></g>'
+      + '<g class="wgscan-network-links">' + edges.join('') + '</g>'
+      + '<g class="wgscan-network-origin"><title>'+esc(originHost?[originHost.name,originHost.address].filter(Boolean).join(' · '):'Source du relevé')+'</title><circle cx="450" cy="300" r="40"/><circle cx="450" cy="300" r="27" class="wgscan-net-core"/><text x="450" y="296" text-anchor="middle">'+esc((originHost?.name||'POSTE').slice(0,15))+'</text><text x="450" y="312" text-anchor="middle" class="wgscan-net-core-sub">'+esc(originHost?.address||'source du relevé')+'</text></g>'
       + subnetLabels
-      + nodes.map(node => '<g class="wgscan-network-node" data-selected="' + (node.address===selected?.address) + '" role="button" tabindex="0" data-map-address="' + esc(node.address) + '" aria-label="Examiner ' + esc(node.address) + '"><title>' + esc(node.address + (node.name?' · '+node.name:'')) + '</title><circle cx="' + node.x + '" cy="' + node.y + '" r="22"/><text x="' + node.x + '" y="' + (node.y+4) + '" text-anchor="middle">' + indexes.get(node.address) + '</text><text x="' + node.x + '" y="' + (node.y+38) + '" text-anchor="middle" class="wgscan-net-node-label">' + esc(node.address.split('.').pop()) + '</text></g>').join('')
-      + '</svg>' : '<div class="wgscan-map-no-response"><strong>Aucune réponse à afficher</strong><p>Une absence de réponse peut correspondre à un filtrage. Les adresses restent consultables dans Hôtes et preuves.</p></div>';
+      + nodes.map(node => '<g class="wgscan-network-node" data-selected="' + (node.address===selected?.address) + '" role="button" tabindex="0" data-map-address="' + esc(node.address) + '" aria-label="Examiner ' + esc(node.address) + '"><title>' + esc(node.address + (node.name?' · '+node.name:'')) + '</title><circle cx="' + node.x + '" cy="' + node.y + '" r="22"/><text x="' + node.x + '" y="' + (node.y+4) + '" text-anchor="middle">' + indexes.get(node.address) + '</text><text x="' + node.x + '" y="' + (node.y+38) + '" text-anchor="middle" class="wgscan-net-node-label">' + esc(node.address) + '</text><text x="'+node.x+'" y="'+(node.y+52)+'" text-anchor="middle" class="wgscan-net-node-label">'+esc((node.name||'Nom non publié').slice(0,32))+'</text></g>').join('')
+      + '</svg>' : '<div class="wgscan-map-no-response"><strong>Aucune réponse à afficher</strong><p>Une absence de réponse peut correspondre à un filtrage. Seuls les hôtes dont une réponse a été observée sont affichés.</p></div>';
     const list = visible.slice(0,100).map(host => '<button type="button" data-map-select="' + esc(host.address) + '" aria-pressed="' + (host.address===selected?.address) + '"><span class="wgscan-map-index">' + indexes.get(host.address) + '</span><span><strong>' + esc(host.address) + '</strong><small>' + esc(host.name || (host.responded?'Réponse observée':'Sans réponse confirmée')) + '</small></span><i data-responded="' + host.responded + '"></i></button>').join('');
     const evidence = selected?.rows.find(answered) || selected?.rows[0], mac = selected?.rows.find(row => row.macAddress)?.macAddress;
     const detail = selected ? '<section class="wgscan-map-selection" data-selected-address="' + esc(selected.address) + '"><span class="wgscan-kicker">HÔTE SÉLECTIONNÉ</span><h3>' + esc(selected.address) + '</h3><dl><div><dt>Réponse</dt><dd>' + (selected.responded?'Observée':'Non confirmée') + '</dd></div><div><dt>Nom fourni</dt><dd>' + esc(selected.name || 'Non fourni') + '</dd></div><div><dt>Adresse MAC</dt><dd>' + esc(mac || 'Non fournie') + '</dd></div><div><dt>Observations</dt><dd>' + selected.rows.length + '</dd></div></dl><p>' + esc(evidence?.detail || 'Aucun détail fourni par le relevé.') + '</p><button type="button" data-map-observations="' + esc(selected.address) + '">Voir les observations ↗</button></section>' : '<p class="wgscan-note">Aucun hôte ne correspond à cette recherche.</p>';
-    return '<section class="wgscan-map-overview wgscan-map-explorer"><div class="wgscan-map-toolbar"><label class="wgscan-field">Rechercher un hôte<input id="wgMapSearch" type="search" value="' + esc(options.mapQuery || '') + '" placeholder="Adresse IP ou nom" autocomplete="off"></label><div class="wgscan-map-zoom" role="group" aria-label="Zoom de la carte"><button type="button" data-map-zoom="out" aria-label="Réduire la carte">−</button><span>' + Math.round(zoom*100) + ' %</span><button type="button" data-map-zoom="in" aria-label="Agrandir autour de l’hôte sélectionné">+</button><button type="button" data-map-zoom="fit">Ajuster</button></div></div><div class="wgscan-map-grid"><div class="wgscan-map-visual"><div class="wgscan-card-heading"><h2>' + responders.length + ' adresse(s) répondante(s)</h2><span>Schéma automatique</span></div><div class="wgscan-map-canvas">' + svg + '</div><div class="wgscan-map-legend"><span><i></i>Réponse observée</span><span>Groupés par sous-réseau /24 · Le numéro renvoie à la liste des hôtes.</span></div>' + (responders.length>28?'<p class="wgscan-note">28 hôtes affichés sur la carte. Recherche une adresse ou consulte Hôtes et preuves pour le relevé complet.</p>':'') + '</div><aside class="wgscan-map-hosts"><div class="wgscan-card-heading"><h2>Hôtes du relevé</h2><span>' + visible.length + '</span></div><div class="wgscan-map-host-list">' + (list || '<p class="wgscan-note">Aucun résultat.</p>') + '</div>' + detail + '</aside></div><p class="wgscan-note">Vue des hôtes joignables depuis le poste de l’agent. Les traits indiquent cette observation, sans présumer les câbles ou équipements intermédiaires.</p>' + warnings(report) + '</section>';
+    const paths=pathData;
+    const internet=paths.length?'<section class="wgscan-internet-paths"><div class="wgscan-card-heading"><h2>Parcours observés vers Internet</h2><span>Réponses des routeurs</span></div>'+paths.map(path=>{
+      const hops=(Array.isArray(path.hops)?path.hops:[]).filter(hop=>hosts.has(hop.address)&&Number.isInteger(hop.ttl)&&hop.ttl>0&&hop.ttl<=32).slice(0,64).sort((a,b)=>a.ttl-b.ttl);
+      let previous=0;
+      const steps=hops.map(hop=>{const gap=hop.ttl-previous-1;previous=hop.ttl;const host=hosts.get(hop.address);return (gap>0?'<li class="wgscan-path-gap">'+gap+' saut(s) sans réponse</li>':'')+'<li><button type="button" data-map-select="'+esc(hop.address)+'" data-map-hop><small>Saut '+hop.ttl+'</small><strong>'+esc(host.name||'Nom non publié')+'</strong><code>'+esc(hop.address)+'</code></button></li>';}).join('');
+      return '<article><header><strong>Vers '+esc(String(path.target||'').slice(0,100))+'</strong><span>'+ (hops.some(hop=>hop.address===path.target)?'Destination atteinte':'Parcours partiel')+'</span></header>'+(steps?'<ol class="wgscan-path-steps">'+steps+'</ol>':'<p class="wgscan-note">Aucun routeur n’a répondu au traçage.</p>')+'</article>';
+    }).join('')+'<p class="wgscan-note">Les sauts silencieux restent signalés sans créer de machine fictive. Les noms sont affichés uniquement lorsqu’ils ont été résolus.</p></section>':'';
+    return internet+'<section class="wgscan-map-overview wgscan-map-explorer"><div class="wgscan-map-toolbar"><label class="wgscan-field">Rechercher un hôte<input id="wgMapSearch" type="search" value="' + esc(options.mapQuery || '') + '" placeholder="Adresse IP ou nom" autocomplete="off"></label><div class="wgscan-map-zoom" role="group" aria-label="Zoom de la carte"><button type="button" data-map-zoom="out" aria-label="Réduire la carte">−</button><span>' + Math.round(zoom*100) + ' %</span><button type="button" data-map-zoom="in" aria-label="Agrandir autour de l’hôte sélectionné">+</button><button type="button" data-map-zoom="fit">Ajuster</button></div></div><div class="wgscan-map-grid"><div class="wgscan-map-visual"><div class="wgscan-card-heading"><h2>' + responders.length + ' adresse(s) répondante(s)</h2><span>Schéma automatique</span></div><div class="wgscan-map-canvas">' + svg + '</div><div class="wgscan-map-legend"><span><i></i>Réponse observée</span><span>Réseaux issus des interfaces et des routes du poste · Le numéro renvoie à la liste des hôtes.</span></div>' + (responders.length>28?'<p class="wgscan-note">28 hôtes affichés sur la carte. Recherche une adresse ou consulte Hôtes et preuves pour le relevé complet.</p>':'') + '</div><aside class="wgscan-map-hosts"><div class="wgscan-card-heading"><h2>Hôtes du relevé</h2><span>' + visible.length + '</span></div><div class="wgscan-map-host-list">' + (list || '<p class="wgscan-note">Aucun résultat.</p>') + '</div>' + detail + '</aside></div><p class="wgscan-note">Vue des hôtes joignables depuis le poste de l’agent. Les traits indiquent cette observation, sans présumer les câbles ou équipements intermédiaires.</p>' + warnings(report) + '</section>';
   }
   function bindMapping(root, onSelect) {
     for (const node of root.querySelectorAll('[data-map-address],[data-map-select]')) {
-      const select = () => onSelect(node.dataset.mapAddress || node.dataset.mapSelect);
+      const select = () => onSelect(node.dataset.mapAddress || node.dataset.mapSelect,node.hasAttribute('data-map-hop'));
       node.onclick = select;
       if (node.hasAttribute('data-map-address')) node.onkeydown = event => { if (['Enter',' '].includes(event.key)) {event.preventDefault();select();} };
     }

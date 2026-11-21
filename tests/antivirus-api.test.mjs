@@ -21,7 +21,7 @@ test('own-engine commands require new telemetry and are never leased to a legacy
     assert.equal((await(await s.report()).json()).command,null);
     const own=await(await s.report({canEnforce:false,wolfguardAntivirus:antivirus(s.clock())})).json();assert.equal(own.command.action,'av-install');
     assert.equal((await s.agentAPI('edr/result',{id:own.command.id,lease:own.command.lease,ok:true,message:'Fixture installed'})).status,200);
-    const rows=await(await s.api('edr',undefined,s.owner.token)).json();assert.equal(rows.endpoints[0].snapshot.wolfguardAntivirus.engineVersion,'ClamAV fixture');assert.equal(rows.endpoints[0].snapshot.provider,'Microsoft Defender');
+    const rows=await(await s.api('edr',undefined,s.owner.token)).json();assert.equal(rows.endpoints[0].snapshot.wolfguardAntivirus.engineVersion,'ClamAV fixture');assert.equal(rows.endpoints[0].snapshot.provider,'WolfGuard Antivirus / ClamAV');
   }finally{s.env.DB.db.close();}
 });
 test('pause cancels running antivirus work and the old lease cannot record a success',async()=>{

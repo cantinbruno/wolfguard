@@ -341,3 +341,5 @@
     transition: none !important
   }
 }
+
+.access-session-filters{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.access-session-filters label{display:grid;gap:8px;font-size:14px;flex:1;min-width:160px}.access-session-filters input,.access-session-filters select{min-height:40px;padding:8px 12px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-page);color:var(--ui-text)}

@@ -17,7 +17,8 @@ export const PERMISSION_SECTIONS = [
   ['edr', 'EDR'],
   ['tools', 'Outils'],
   ['users', 'Utilisateurs et droits'],
-  ['access', 'Connexions']
+  ['access', 'Connexions'],
+  ['data', 'Données des espaces']
 ];
 export const SECTION_LEVELS = [['read', 'Lecture'], ['write', 'Écriture'], ['deny', 'Invisible']];
 export const AGENT_SECTIONS = ['agents','scan.passive','scan.active','scan.map','scan.vulnerability','edr','remote'];
@@ -28,7 +29,7 @@ const GROUP_ACTIONS = {
   'scan.passive': ['read', 'run', 'cancel', 'delete', 'export'], 'scan.active': ['read', 'run', 'cancel', 'delete', 'export'],
   'scan.map': ['read', 'run', 'cancel', 'delete', 'export'], 'scan.vulnerability': ['read', 'run', 'cancel', 'delete', 'export'],
   remote: ['read', 'desktop', 'terminal', 'files'], agents: ['read', 'pair', 'revoke'], edr: ['read', 'acknowledge', 'manage'], ai: ['use'], tools: ['use'],
-  users: ['read', 'manage', 'permissions'], access: ['read', 'manage']
+  users: ['read', 'manage', 'permissions'], access: ['read', 'manage'], data: ['read']
 };
 export const PERMISSION_KEYS = Object.entries(GROUP_ACTIONS).flatMap(([group, actions]) => actions.map(action => group + '.' + action));
 export const LEVEL_ACTIONS = { read: {}, write: {} };
@@ -78,7 +79,9 @@ export function normalizePolicy(input) {
   if (!input || input.version !== 2 || typeof input.admin !== 'boolean') throw new Error('Liste de droits invalide.');
   const sections = {};
   for (const section of SECTION_IDS) {
-    const level = input.sections?.[section];
+    // The storage section was added after v2 shipped. Existing encrypted
+    // policies must still load, with this new permission denied by default.
+    const level = section==='data'&&!own(input.sections||{},'data')?'deny':input.sections?.[section];
     if (!['read', 'write', 'deny'].includes(level)) throw new Error('Niveau de section invalide : ' + section);
     sections[section] = level;
   }

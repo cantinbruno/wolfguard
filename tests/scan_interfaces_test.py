@@ -123,9 +123,10 @@ def run():
             page.locator('#wgScanFilter').select_option('all');page.locator('#wgScanSearch').fill('')
 
             navigate(page,'map');feed_report(page,XML,'Réseau')
-            page.locator('[data-map-select="192.0.2.51"]').click()
-            expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.51')
-            expect(page.locator('.wgscan-map-selection')).to_contain_text('Non confirmée')
+            expect(page.locator('[data-map-select="192.0.2.51"]')).to_have_count(0)
+            page.locator('[data-map-select="192.0.2.50"]').click()
+            expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.50')
+            expect(page.locator('.wgscan-map-selection')).to_contain_text('Observée')
             page.locator('[data-map-address]').focus();page.keyboard.press('Enter')
             expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','192.0.2.50')
             expect(page.locator('[data-map-address]')).to_be_focused()
@@ -134,11 +135,26 @@ def run():
             assert page.locator('.wgscan-map-canvas svg').get_attribute('viewBox') != initial
             page.locator('[data-map-zoom=fit]').click()
             assert page.locator('.wgscan-map-canvas svg').get_attribute('viewBox') == initial
-            page.locator('#wgMapSearch').fill('192.0.2.51');expect(page.locator('[data-map-select]')).to_have_count(1)
+            page.locator('#wgMapSearch').fill('192.0.2.51');expect(page.locator('[data-map-select]')).to_have_count(0)
             expect(page.locator('[data-map-address]')).to_have_count(0)
-            page.locator('[data-map-observations]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(1)
+            page.locator('#wgMapSearch').fill('192.0.2.50');expect(page.locator('[data-map-select]')).to_have_count(1)
+            page.locator('[data-map-observations]').click();expect(page.locator('#wgScanRows tbody tr')).to_have_count(2)
             page.locator('[data-wg-tab=overview]').click();page.locator('#wgMapSearch').fill('')
             expect(page.locator('.wgscan-map-explorer img,.wgscan-map-explorer script')).to_have_count(0)
+            topology={'strategy':'active','workspace':'map','target':'auto','network':{'origin':{'address':'192.0.2.10'},'networks':[{'cidr':'192.0.2.0/24'}],'paths':[{'target':'1.1.1.1','hops':[{'ttl':1,'address':'192.0.2.1'},{'ttl':3,'address':'203.0.113.1'},{'ttl':4,'address':'1.1.1.1'}]}]},'results':[
+                {'address':'192.0.2.10','hostname':'poste-test','transport':'LOCAL','status':'reachable','role':'origin'},
+                {'address':'192.0.2.1','hostname':'routeur.test','transport':'HOST','status':'reachable'},
+                {'address':'203.0.113.1','transport':'ICMP','status':'reachable'},
+                {'address':'1.1.1.1','hostname':'resolver.test','transport':'ICMP','status':'reachable'},
+                {'address':'192.0.2.99','hostname':'ghost.test','transport':'HOST','status':'no-response'}]}
+            feed_report(page,json.dumps(topology),'Parcours réel')
+            expect(page.locator('.wgscan-internet-paths')).to_contain_text('routeur.test');expect(page.locator('.wgscan-internet-paths')).to_contain_text('1 saut(s) sans réponse')
+            expect(page.locator('.wgscan-internet-paths')).to_contain_text('Destination atteinte')
+            expect(page.locator('[data-map-select="192.0.2.99"]')).to_have_count(0);expect(page.locator('.wgscan-map-host-list')).not_to_contain_text('ghost.test')
+            page.locator('[data-map-hop][data-map-select="1.1.1.1"]').click();expect(page.locator('.wgscan-map-selection')).to_have_attribute('data-selected-address','1.1.1.1')
+            for width in [320,390,1440]:
+                page.set_viewport_size({'width':width,'height':1000});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            page.screenshot(path=str(ROOT/'.cache/map-real-topology.png'),animations='disabled')
             print('PASS: network neighbors and services open evidence; map supports keyboard, host selection, zoom and search')
 
             navigate(page,'vulnerability')

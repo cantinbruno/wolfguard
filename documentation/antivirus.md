@@ -2,7 +2,7 @@
 
 L’utilisateur a choisi un **moteur libre intégré**. L’agent Windows x64 intègre désormais l’installation de ClamAV, ses mises à jour de signatures, l’analyse réelle des contenus et une quarantaine chiffrée réversible. L’antivirus natif et le pare-feu restent actifs.
 
-**Couverture de cette première version : surveillance réactive de dossiers utilisateur, sans interception avant ouverture ou exécution.** Ce n’est pas un remplacement complet de Defender, un antivirus inscrit au Centre de sécurité Windows ou un EDR complet. Linux et macOS conservent leur collecte native ; aucun moteur WolfGuard n’y est activé par cette version.
+**Couverture : surveillance réactive avec parcours progressif des disques locaux Windows accessibles, sans interception avant ouverture ou exécution.** Le statut antivirus est calculé à partir de WolfGuard/ClamAV, indépendamment de Defender. Cette intégration n’est pas un antivirus inscrit au Centre de sécurité Windows ni un EDR complet. Les protections natives restent actives. Linux et macOS conservent leur collecte native ; aucun moteur WolfGuard n’y est activé par cette version.
 
 ## Activation sur un poste
 
@@ -29,9 +29,11 @@ ClamAV est exécuté comme programme séparé avec ses notices et sa licence GNU
 
 ## Analyse et limites
 
-Les dossiers fixes sont `Downloads`, `Desktop`, `Documents` du compte exécutant l’agent et son répertoire temporaire, lorsqu’ils sont accessibles. **Les bibliothèques redirigées, notamment OneDrive, ne sont pas automatiquement résolues** : consulter les chemins effectivement affichés. L’analyse n’explore pas tout le disque, les volumes réseau, les autres comptes ou les liens/jonctions.
+Les racines Windows sont les disques locaux fixes remontés par `Win32_LogicalDisk`. Avant leur découverte, la racine du disque du compte est utilisée. Le parcours comprend les répertoires accessibles des autres comptes selon les droits du service. Les volumes réseau, les liens/jonctions et les fichiers OneDrive uniquement présents dans le cloud ne sont pas couverts. Consulter les racines effectivement remontées et le compteur des fichiers ignorés.
 
-La surveillance vérifie les fichiers nouveaux ou modifiés, avec un délai de 30 secondes après la fin du passage précédent. Limites par passage : profondeur 16, 10 000 entrées parcourues, 2 000 fichiers à examiner, 64 Mio par fichier ; l’analyse des archives est aussi bornée. Un lot contient au maximum 20 fichiers et 64 Mio. Les opérations sont annulables ; une analyse dure au maximum dix minutes. La mise en route du scanner et la taille des bases peuvent ajouter un délai notable. Une limite ou une erreur est signalée sans produire un verdict sain. Cette couverture ne détecte pas toutes les menaces, les attaques en mémoire ou un processus déjà exécuté.
+La surveillance vérifie les fichiers nouveaux ou modifiés, avec un délai de 30 secondes après la fin du passage précédent. Un curseur reprend le parcours pour éviter de laisser les derniers répertoires sans visite. Limites : profondeur 64, 10 000 fichiers visités par passe, 100 fichiers à examiner automatiquement ou 2 000 manuellement, 64 Mio par fichier ; l’analyse des archives est aussi bornée. Un lot contient au maximum 20 fichiers et 64 Mio. Les opérations sont annulables ; une analyse dure au maximum dix minutes. La mise en route du scanner et la taille des bases peuvent ajouter un délai notable. Une limite ou une erreur est signalée sans produire un verdict sain. Cette couverture ne détecte pas toutes les menaces, les attaques en mémoire ou un processus déjà exécuté. Le curseur de parcours n’est pas persisté après redémarrage de l’agent.
+
+L’EDR ajoute un inventaire système et des observations indépendantes des fichiers : processus, services, connexions, démarrage et certains événements des journaux System et Security. Les limites d’accès aux journaux sont remontées. Les événements et les rapports terminés sont conservés 30 jours côté serveur. Voir le [suivi du rapport](integration-rapport.md).
 
 Le moteur analyse une copie privée des octets lus. Chaque verdict est associé au chemin exact de cette copie. Après détection, l’agent vérifie à nouveau l’identité et l’empreinte du fichier avant de le déplacer. Un fichier modifié, un lien, un fichier à liens multiples ou une action non confirmée n’est pas supprimé automatiquement.
 

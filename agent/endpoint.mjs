@@ -13,7 +13,7 @@ export async function collectEndpoint({platform=process.platform,run=fixedProces
   const value=JSON.parse(await run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./endpoint.ps1',import.meta.url)),'-Operation','collect'],{signal,timeout:25000,maxBytes:250000}));
   const events=(Array.isArray(value.events)?value.events:[]).map(row=>({...row,id:createHash('sha256').update(row.id).digest('hex'),occurredAt:Date.parse(row.occurredAt)}));
   const manager=antivirus||getAntivirusManager(),own=await manager.snapshot();
-  return endpointSnapshot({...value,wolfguardAntivirus:own,collectedAt:Date.now(),platform,activeThreats:(Number.isSafeInteger(value.activeThreats)?value.activeThreats:0)+own.quarantine.filter(row=>row.status==='detected').length,events:[...events,...manager.events.values()].slice(-100)});
+  return endpointSnapshot({...value,wolfguardAntivirus:own,collectedAt:Date.now(),platform,activeThreats:own.quarantine.filter(row=>row.status==='detected').length,events:[...events,...manager.events.values()].slice(-100)});
 }
 export async function executeEndpointAction(action,policy=DEFAULT_ENDPOINT_POLICY,{platform=process.platform,run=fixedProcess,signal,antivirus}={}){
   if(antivirusCommand(action)){
@@ -21,6 +21,7 @@ export async function executeEndpointAction(action,policy=DEFAULT_ENDPOINT_POLIC
     return (antivirus||getAntivirusManager()).execute(action,{signal});
   }
   if(!ENDPOINT_COMMANDS.includes(action))throw new Error('Action de protection inconnue.');
+  if(action==='quick-scan'&&platform==='win32')return (antivirus||getAntivirusManager()).execute('av-scan',{signal});
   if(action==='refresh')return {ok:true,message:'Actualisation de la protection demandée.'};
   if(platform!=='win32')return executePosixEndpoint(action,policy,{platform,run,signal});
   return JSON.parse(await run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./endpoint.ps1',import.meta.url)),'-Operation',action],{input:JSON.stringify(endpointPolicy(policy)),signal,timeout:action==='quick-scan'?180000:30000,maxBytes:16000}));
@@ -78,7 +79,7 @@ export async function runEndpointProtection(client,{signal,onStatus=()=>{},colle
       for(const row of report.events)sent.set(row.id,JSON.stringify(row));while(sent.size>5000)sent.delete(sent.keys().next().value);
       await onReport();
       policy=endpointPolicy(response.policy);revision=response.revision;
-      await antivirus?.setPolicy(policy.mode);
+      await antivirus?.setPolicy(policy.mode==='protect'&&policy.realtime?'protect':'observe');
       if(response.cancelCommand&&pending?.id===response.cancelCommand)pending.controller.abort();
       if(response.command){
         const command=response.command;
@@ -101,7 +102,7 @@ export async function runEndpointProtection(client,{signal,onStatus=()=>{},colle
         if(result.ok)appliedRevision=revision;
         else onStatus('La politique de protection nécessite une intervention sur le poste.',{state:'protection-warning'});
       }
-    }catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('La protection native continue ; la remontée EDR sera retentée.',{state:'protection-offline'});}
+    }catch(error){if(signal?.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('La surveillance locale continue ; la remontée EDR sera retentée.',{state:'protection-offline'});}
     await delay(intervalMs,undefined,{signal}).catch(()=>{});
   }
   }finally{pending?.controller.abort();await pending?.promise;}

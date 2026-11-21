@@ -2,6 +2,10 @@
 
 Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvelle demande les change explicitement, mettre à jour le code et cette page ensemble.
 
+## 21 novembre 2026 — Intégration du rapport
+
+La [mise à jour point par point](integration-rapport.md) précise les nouveaux comportements et remplace les descriptions antérieures incompatibles : statut antivirus Windows indépendant de Defender, parcours progressif des disques locaux, surveillance système, rapports centralisés, rétention de 30 jours, couleurs des sections et paramètres personnels. Les protections natives ne sont pas désactivées. La surveillance reste réactive et ne doit pas être présentée comme un filtrage avant exécution.
+
 | Sujet | Décision |
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |

@@ -1,4 +1,4 @@
-'use strict';
+ 'use strict';
 
 async function newLibraryItem() {
   if (!await confirmDiscardChanges()) return;

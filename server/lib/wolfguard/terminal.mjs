@@ -18,7 +18,7 @@ export async function handleTerminalAPI(path,data,env,row,now,h){
     const cipher=await seal(command,row.id+':terminal-command:'+data.seq);
     const [inserted]=await env.DB.batch([
       env.DB.prepare("INSERT INTO terminal_commands(session_id,seq,created_at,status,spec_cipher,revision,cancel_requested) SELECT ?,?,?,'queued',?,0,0 WHERE EXISTS(SELECT 1 FROM remote_sessions WHERE id=? AND status='active' AND input_seq=?) AND NOT EXISTS(SELECT 1 FROM terminal_commands WHERE session_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING").bind(row.id,data.seq,now,cipher,row.id,data.seq-1,row.id),
-      env.DB.prepare("UPDATE remote_sessions SET input_seq=?,viewer_until=? WHERE id=? AND status='active' AND input_seq=? AND EXISTS(SELECT 1 FROM terminal_commands WHERE session_id=? AND seq=?)").bind(data.seq,now+15000,row.id,data.seq-1,row.id,data.seq)
+      env.DB.prepare("UPDATE remote_sessions SET input_seq=?,viewer_until=? WHERE id=? AND status='active' AND input_seq=? AND EXISTS(SELECT 1 FROM terminal_commands WHERE session_id=? AND seq=?)").bind(data.seq,now+120000,row.id,data.seq-1,row.id,data.seq)
     ]);
     if(!Number(inserted?.meta?.changes))fail(409,'Une commande est déjà en cours. Attends sa fin ou interromps-la.');
     await env.DB.prepare('DELETE FROM terminal_commands WHERE session_id=? AND seq<?').bind(row.id,Math.max(1,data.seq-19)).run();

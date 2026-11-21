@@ -1,4 +1,4 @@
-import {readFile,writeFile,rename,lstat,readdir} from 'node:fs/promises';
+import {readFile,writeFile,rename,lstat,readdir,opendir} from 'node:fs/promises';
 import {homedir,tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -15,7 +15,8 @@ export function antivirusDirectory({platform=process.platform,env=process.env,ho
 export class AntivirusManager{
   constructor({directory=antivirusDirectory(),platform=process.platform,arch=process.arch,home=homedir(),temporary=tmpdir(),engine,store,run=antivirusProcess,scope,clock=Date.now}={}){
     this.directory=path.resolve(directory);this.platform=platform;this.arch=arch;this.clock=clock;this.run=run;
-    this.scope=[...new Set((scope||[path.join(home,'Downloads'),path.join(home,'Desktop'),path.join(home,'Documents'),temporary]).map(p=>path.resolve(p)))].filter(p=>!within(this.directory,p)&&p!==this.directory).slice(0,5);
+    this.scopeConfigured=!!scope;this.scopeDiscovered=false;this.walkCursor=null;this.completedPasses=0;this.skippedFiles=0;
+    this.scope=[...new Set((scope||(platform==='win32'?[path.parse(home).root]:[path.join(home,'Downloads'),path.join(home,'Desktop'),path.join(home,'Documents'),temporary])).map(p=>path.resolve(p)))].filter(p=>!within(this.directory,p)&&p!==this.directory).slice(0,26);
     this.engine=engine||new ClamEngine(path.join(this.directory,'runtime'),{platform,arch,run});this.store=store||new AntivirusStore(path.join(this.directory,'quarantine'),{platform,run});
     this.state={version:1,capable:true,installed:false,enabled:false,state:'missing',engineVersion:'',signatureVersion:'',signatureAt:0,lastScanAt:0,lastUpdateAt:0,scannedFiles:0,pendingFiles:0,errors:0,message:'Le moteur WolfGuard Antivirus n’est pas encore installé.',scope:this.scope,quarantine:[]};
     this.enabled=false;this.paused=false;this.policyConfirmed=false;this.monitorAllowed=true;this.loaded=false;this.loadFailed=false;this.busy=false;this.scanAbort=null;this.operationAbort=null;this.cache=new Map();this.events=new Map();this.timer=null;this.lastUpdateAttempt=0;this.lastInstallAttempt=0;
@@ -30,6 +31,10 @@ export class AntivirusManager{
     await privateDirectory(this.directory);
     if(this.platform==='win32')await this.run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./antivirus-windows.ps1',import.meta.url)),'-Operation','secure','-Directory',this.directory],{timeout:20000,maxBytes:16000});
     await this.store.prepare();
+    if(this.platform==='win32'&&!this.scopeConfigured&&!this.scopeDiscovered){
+      const raw=await this.run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-Command',"@(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | ForEach-Object { $_.DeviceID + '\\' }) | ConvertTo-Json -Compress"],{timeout:15000,maxBytes:4000});
+      if(raw.trim()){const drives=JSON.parse(raw);const roots=(Array.isArray(drives)?drives:[drives]).filter(value=>typeof value==='string'&&/^[a-z]:[\\/]$/i.test(value)).map(value=>path.resolve(value));if(roots.length){this.scope=[...new Set(roots)].slice(0,26);this.state.scope=this.scope;this.walkCursor=null;this.scopeDiscovered=true;}}
+    }
   }
   async persist(){
     const data={enabled:this.enabled,paused:this.paused,monitorAllowed:this.monitorAllowed,lastInstallAttempt:this.lastInstallAttempt,lastUpdateAttempt:this.lastUpdateAttempt,lastScanAt:this.state.lastScanAt,lastUpdateAt:this.state.lastUpdateAt,scannedFiles:this.state.scannedFiles,errors:this.state.errors};
@@ -60,34 +65,46 @@ export class AntivirusManager{
     this.state.enabled=this.enabled&&this.monitorAllowed;
     return antivirusSnapshot(this.state);
   }
-  async candidates({signal}={}){
-    const files=[];let visited=0,incomplete=false;
-    const walk=async (directory,depth)=>{
-      if(signal?.aborted)throw signal.reason;
-      if(depth>16||visited>=10000||files.length>=2000){incomplete=true;return;}
-      await safeAncestors(directory);let entries;
-      try{entries=await readdir(directory,{withFileTypes:true});}catch(error){if(error.code!=='ENOENT')this.state.errors++;return;}
-      for(const entry of entries){
-        if(signal?.aborted)throw signal.reason;if(++visited>10000||files.length>=2000){incomplete=true;break;}
-        const file=path.join(directory,entry.name);if(file===this.directory||within(file,this.directory)||entry.isSymbolicLink()||/[\u0000-\u001f]/.test(entry.name))continue;
-        if(entry.isDirectory()){await walk(file,depth+1);continue;}if(!entry.isFile())continue;
-        try{const info=await lstat(file),fingerprint=[info.dev,info.ino,info.size,info.mtimeMs,info.ctimeMs].join(':');
-          if(info.size>MAX_FILE_BYTES){this.state.errors++;continue;}
-          if(this.cache.get(file)!==fingerprint)files.push({file,fingerprint});
-        }catch{this.state.errors++;}
+  async *walkFiles(directory,depth=0){
+    this.scanAbort?.signal.throwIfAborted();
+    if(depth>64){this.skippedFiles++;return;}
+    let handle;
+    try{
+      await safeAncestors(directory);handle=await opendir(directory);
+      for await(const entry of handle){
+        this.scanAbort?.signal.throwIfAborted();
+        const file=path.join(directory,entry.name);
+        if(file===this.directory||within(file,this.directory))continue;
+        if(entry.isSymbolicLink()||/[\u0000-\u001f]/.test(entry.name)){this.skippedFiles++;continue;}
+        if(entry.isDirectory())yield* this.walkFiles(file,depth+1);
+        else if(entry.isFile())yield file;
       }
-    };
-    for(const root of this.scope)await walk(root,0);
-    if(incomplete)this.state.message='Périmètre partiellement parcouru : limite de fichiers ou de profondeur atteinte. Les fichiers non analysés ne sont pas déclarés sains.';
+    }catch(error){if(this.scanAbort?.signal.aborted)throw error;if(error.code!=='ENOENT')this.skippedFiles++;}
+  }
+  async *walkScope(){for(const root of this.scope)yield* this.walkFiles(root);}
+  async candidates({signal,limit=2000}={}){
+    const files=[];let visited=0,incomplete=false;
+    this.walkCursor??=this.walkScope();
+    while(visited++<10000&&files.length<limit){
+      signal?.throwIfAborted();const next=await this.walkCursor.next();
+      if(next.done){this.walkCursor=null;this.completedPasses++;break;}
+      try{const info=await lstat(next.value),fingerprint=[info.dev,info.ino,info.size,info.mtimeMs,info.ctimeMs].join(':');
+        if(info.size>MAX_FILE_BYTES||info.nlink!==1){this.skippedFiles++;continue;}
+        if(this.cache.get(next.value)!==fingerprint)files.push({file:next.value,fingerprint});
+      }catch{this.skippedFiles++;}
+    }
+    incomplete=!!this.walkCursor;
+    if(incomplete)this.state.message='Parcours système en cours : la prochaine passe reprend après les fichiers déjà examinés.';
+    this.state.skippedFiles=this.skippedFiles;this.state.completedPasses=this.completedPasses;
     return {files,incomplete};
   }
   async scan({signal,automatic=false}={}){
     await this.load();if(this.busy)throw new Error('Une opération antivirus est déjà en cours.');
     this.scanAbort=new AbortController();signal=AbortSignal.any([...(signal?[signal]:[]),this.scanAbort.signal,AbortSignal.timeout(600000)]);
-    this.busy=true;this.state.state='scanning';this.state.errors=0;this.state.scannedFiles=0;this.state.message='Analyse des dossiers couverts par WolfGuard.';
+    this.busy=true;this.state.state='scanning';this.state.errors=0;this.state.scannedFiles=0;this.state.message='Analyse progressive des disques couverts par WolfGuard.';
     try{
       if(!await this.engine.paths())throw new Error('Le moteur WolfGuard n’est pas installé.');
-      const {files,incomplete}=await this.candidates({signal});this.state.pendingFiles=files.length;
+      const {files,incomplete}=await this.candidates({signal,limit:automatic?100:2000});this.state.pendingFiles=files.length;
       for(let start=0;start<files.length;){
         if(signal?.aborted)throw signal.reason;const batch=[];let bytes=0;
         while(start<files.length&&batch.length<20){
@@ -111,7 +128,7 @@ export class AntivirusManager{
       this.state.state=this.enabled&&this.monitorAllowed?'ready':'paused';await this.persist();
       return {ok:true,message:this.state.message};
     }catch(error){this.state.state=!this.enabled||!this.monitorAllowed?'paused':'error';this.state.message=signal?.aborted?'Analyse antivirus interrompue.':text(error);throw error;}
-    finally{this.busy=false;this.scanAbort=null;this.state.pendingFiles=0;}
+    finally{if(signal.aborted){await this.walkCursor?.return();this.walkCursor=null;}this.busy=false;this.scanAbort=null;this.state.pendingFiles=0;}
   }
   async execute(value,{signal,automatic=false}={}){
     const command=antivirusCommand(value);if(!command)throw new Error('Action antivirus invalide.');
@@ -135,7 +152,7 @@ export class AntivirusManager{
         else if(command.action==='av-restore'){const record=await this.store.restore(command.id,this.scope);this.event(record);this.cache.delete(record.path);}
         else if(command.action==='av-delete'){const record=await this.store.remove(command.id);this.cache.delete(record.path);}
       }
-      await this.persist();this.state.state=this.enabled&&this.monitorAllowed?'ready':'paused';this.state.message='Action antivirus confirmée. La surveillance réactive couvre uniquement les dossiers indiqués.';
+      await this.persist();this.state.state=this.enabled&&this.monitorAllowed?'ready':'paused';this.state.message='Action antivirus confirmée. Le parcours progressif reprend sur les disques indiqués, selon les droits de l’agent.';
       return {ok:true,message:this.state.message};
     }catch(error){this.state.state=this.paused||!this.monitorAllowed?'paused':'error';this.state.message=text(error);if(!signal.aborted&&['av-install','av-update'].includes(command.action))this.maintenanceEvent(command.action==='av-install'?'Installation antivirus non confirmée':'Mise à jour des signatures non confirmée','failed',this.state.message);return {ok:false,code:'ANTIVIRUS_ACTION_FAILED',message:this.state.message};}
     finally{this.busy=false;this.operationAbort=null;}
@@ -159,7 +176,7 @@ export class AntivirusManager{
       try{await this.maintain({signal});}catch(error){if(!signal?.aborted){this.state.state='error';this.state.message=text(error);}}
       if(!signal?.aborted)this.timer=setTimeout(tick,30000);
     };
-    this.timer=setTimeout(tick,1000);signal?.addEventListener('abort',()=>{clearTimeout(this.timer);this.timer=null;this.scanAbort?.abort();this.operationAbort?.abort();},{once:true});
+    this.timer=setTimeout(tick,1000);signal?.addEventListener('abort',()=>{clearTimeout(this.timer);this.timer=null;this.scanAbort?.abort();this.operationAbort?.abort();if(!this.busy){this.walkCursor?.return().catch(()=>{});this.walkCursor=null;}},{once:true});
   }
 }
 let current;

@@ -82,3 +82,5 @@
 .edr-antivirus-quarantine article{padding:12px 0;border-top:1px solid var(--ui-border);overflow-wrap:anywhere}
 .edr-antivirus-quarantine small{color:var(--ui-muted)}
 @media(max-width:520px){.edr-antivirus{padding:12px}.edr-antivirus-actions button{max-width:100%;white-space:normal}}
+
+.edr-system-monitor{margin:24px 0;padding:20px;border:1px solid var(--ui-border);border-radius:12px}.edr-system-monitor>p{font-size:14px;line-height:1.7;color:var(--ui-muted)}.edr-event{padding:14px 16px!important;margin:0!important;border-radius:0!important;border-width:0 0 1px!important}.edr-event h3{font-size:14px!important;margin:8px 0 4px!important}.edr-event>p{font-size:13px;margin:4px 0}.edr-event header{gap:12px;flex-wrap:wrap}.edr-event time{font-variant-numeric:tabular-nums}.edr-event details{margin-top:8px}.edr-event details p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}#edrEvents{border:1px solid var(--ui-border);border-radius:10px;overflow:hidden}

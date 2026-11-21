@@ -31,7 +31,7 @@ const webScanAgent = (() => {
     const definition = scanInsights.definitions[kind], strategy = definition.strategy, token = generation, root = document.createElement('section');
     root.className = 'wgscan-agent'; root.setAttribute('aria-label', 'Exécution par l’agent commun');
     $('#wgScanAgentHost').append(root);
-    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">Agent utilisé</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentLaunchHint" class="scan-launch-hint" hidden></p><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div><details class="wgscan-agent-history"><summary>Derniers scans</summary><label><select id="wgAgentHistory" aria-label="Charger un scan exécuté par l’agent"><option value="">Aucun scan</option></select></label><small>Historique complet dans Paramètres → Historique</small></details>';
+    root.innerHTML = '<div class="wgscan-agent-top"><div><span class="wgscan-kicker">Agent utilisé</span><strong id="wgAgentName">Chargement…</strong><span id="wgAgentPresence"></span></div></div><div class="wgscan-agent-controls"><button type="button" id="wgAgentLaunch" class="wgscan-primary" disabled>' + workspaceSectionIcon('scan-' + kind) + definition.launchLabel + '</button><button type="button" id="wgAgentStop" disabled>Arrêter</button></div><p id="wgAgentLaunchHint" class="scan-launch-hint" hidden></p><p id="wgAgentStatus" role="status" aria-live="polite"></p><div id="wgAgentProgress" hidden><progress max="1" value="0" aria-label="Progression réelle du scan"></progress><span></span></div>';
     const live = () => token === generation && root.isConnected && !$('#app').classList.contains('hidden');
     const find = selector => root.querySelector(selector);
     let agent = null, jobs = [], busy = false, launching = false, actionRevision = 0, lastResult = '', current = null, running = null, selected = jobAgents[kind], refreshing = false, compatibilityIssue = false;
@@ -39,7 +39,7 @@ const webScanAgent = (() => {
     const status = (text, error = false) => { if (live()) { find('#wgAgentStatus').textContent = text; find('#wgAgentStatus').classList.toggle('is-error', error); } };
     function render() {
       if (!live()) return;
-      const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):kind==='map'?agent?.capabilities?.includes('network-auto-map-v1'):agent?.capabilities?.includes('network-scan-v3');
+      const compatible = kind==='vulnerability'?agent?.capabilities?.includes('security-audit-v1'):kind==='map'?agent?.capabilities?.includes('network-topology-v1'):agent?.capabilities?.includes('network-scan-v3');
       find('#wgAgentName').textContent = agent ? agent.name + ' · ' + workspaceAgents.platformName(agent.platform) : 'Aucun agent sélectionné';
       if (agent && !compatible) { compatibilityIssue=true; status('Mets à jour l’agent depuis la fenêtre Agents pour lancer '+(kind==='vulnerability'?'l’audit.':'les scans réseau.')); } else if(compatibilityIssue){compatibilityIssue=false;status('');}
       running = jobs.find(job => ['queued', 'running'].includes(job.status));
@@ -61,12 +61,9 @@ const webScanAgent = (() => {
       const hint=!agent?'Choisis un agent dans la fenêtre Agents pour lancer le scan.':!agent.online?'Démarre l’agent sur le poste choisi.':!validTarget?(kind==='map'?'Renseigne le réseau ou la plage à explorer.':'Renseigne l’adresse IP ou le nom d’hôte de la cible.'):'';
       find('#wgAgentLaunchHint').textContent=hint;find('#wgAgentLaunchHint').hidden=!hint||launching;
       if(hint)find('#wgAgentLaunch').setAttribute('aria-describedby','wgAgentLaunchHint');else find('#wgAgentLaunch').removeAttribute('aria-describedby');
-      find('#wgAgentHistory').disabled = launching || !!(running && !otherScan);
-      find('.wgscan-agent-history').hidden = !matching.length;
       if(launching)onExecution({status:'starting'});
       else if(current && ['queued','running'].includes(current.status))onExecution({status:current.status,completed:current.completed,total:current.total});
       else if(!current)onExecution({status:'ready'});
-      find('#wgAgentHistory').innerHTML = '<option value="" disabled '+(!current?'selected':'')+'>'+(matching.length?'Choisir un ancien scan…':'Aucun rapport : '+definition.short)+'</option>'+matching.map(job => '<option value="' + job.id + '" ' + (current?.id === job.id ? 'selected' : '') + '>' + new Date(job.createdAt).toLocaleString('fr-FR') + ' · ' + (labels[job.status] || job.status) + '</option>').join('');
       const progress = find('#wgAgentProgress'); progress.hidden = !current;
       if (current) { const bar = progress.querySelector('progress'); bar.max = Math.max(1, current.total); if (current.status === 'running' && !current.total) bar.removeAttribute('value'); else bar.value = current.completed; progress.querySelector('span').textContent = (labels[current.status] || current.status) + (current.total ? ' · ' + current.completed + ' / ' + current.total + (kind === 'vulnerability' ? ' contrôles' : kind === 'map' ? ' adresses' : ' tests') : ''); }
     }
@@ -110,7 +107,6 @@ const webScanAgent = (() => {
     }
     async function poll() { await refresh(); if (live()) timer = setTimeout(poll, 3000); }
     if(['active','passive','map'].includes(kind))$('#scanTarget').addEventListener('input',render);
-    find('#wgAgentHistory').onchange = async event => { values().preparing=false; jobIds[kind] = event.target.value; lastResult = ''; render(); try { await result(); } catch (error) { status(error.message, true); if(live())onExecution({status:'error',message:error.message}); } };
     find('#wgAgentLaunch').onclick = async () => {
       if (busy || !selected || !live()) return;
       busy = true; launching = true; actionRevision++; render();

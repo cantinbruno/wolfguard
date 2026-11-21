@@ -12,7 +12,7 @@ const agentsWorkspace = (() => {
     {id:'terminal', section:'remote', mode:'terminal', label:'Terminal', description:'Ouvrir un terminal sur ce poste.', capability:'remote-terminal-v1'},
     {id:'files', section:'remote', mode:'files', label:'Fichiers', description:'Parcourir et transférer les fichiers du poste.', capability:'remote-files-v1'}
   ];
-  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current?.dismissDetails(); current?.dismissTool(); current = null; }
+  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current?.dismissDetails(); current?.dismissTool(); current?.dismissReports(); current = null; }
   async function render() {
     if (current?.root.isConnected && current.key === state.vaultKey) return current.renderTool();
     reset();
@@ -41,9 +41,9 @@ const agentsWorkspace = (() => {
     mobileTable.addEventListener('change',tableKeyboard,{signal});
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE</span><h1>Sécurité des postes</h1></div></div>
-      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsReports">${settingsIcon('history')}Rapports des scans</button><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
     </header>
-    <div id="agentsMetrics" class="agents-metrics"></div><div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
+    <div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
     <div class="agents-console">
       <section class="agents-fleet" aria-label="Liste des agents">
         <div class="agents-fleet-filters">
@@ -66,7 +66,15 @@ const agentsWorkspace = (() => {
       <div class="agents-main">
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
       </div>
-    </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsJournal" aria-controls="agentRecord-journal">${settingsIcon('list')}<span>Journal</span></button><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
+    </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
+    const reports=document.createElement('dialog');reports.className='agents-tool-panel agents-reports-panel';reports.id='agentsReportsPanel';reports.setAttribute('aria-labelledby','agentsReportsTitle');
+    reports.innerHTML='<header class="agents-tool-heading"><h2 id="agentsReportsTitle">Rapports de tous les postes</h2><button type="button" id="agentsReportsClose">Fermer</button></header><div id="agentsReportsHost"></div>';
+    root.append(reports);
+    function dismissReports(){if(reports.open){reports.close();webScanHistory.unmount();}}
+    find('#agentsReports').onclick=()=>{reports.showModal();webScanHistory.mount(find('#agentsReportsHost'));};
+    find('#agentsReportsClose').onclick=dismissReports;
+    reports.addEventListener('close',()=>webScanHistory.unmount(),{signal});
+    reports.addEventListener('keydown',event=>event.stopPropagation(),{signal});
     find('#agentsManage').hidden = !can('agents.pair');
     find('#agentsUninstall').hidden = !can('agents.revoke');
     find('#agentsUninstall').onclick = () => openAgentRemovalInterface();
@@ -162,7 +170,7 @@ const agentsWorkspace = (() => {
     const displayedRows=()=>groups.view()==='flat'?filteredAgents():groups.buckets(filteredAgents()).flatMap(group=>groups.closed(group.id)?[]:group.rows);
     function groupHeading(group){
       const total=groups.buckets(agents).find(row=>row.id===group.id)?.rows.length||0;
-      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes de la section '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+'<div class="agents-group-actions">'+(group.id!=='ungrouped'?'<button type="button" data-group-duplicate="'+esc(group.id)+'">Dupliquer</button><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer la section '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer la section '+esc(group.name)+'">'+settingsIcon('x')+'</button>':'')+'</div></div></td></tr>';
+      return '<tr class="agents-group-heading" data-agent-group="'+esc(group.id)+'" tabindex="0" style="--section-color:'+(group.color||'transparent')+'"><td colspan="6"><div><input type="checkbox" data-group-check="'+esc(group.id)+'" aria-label="Sélectionner les postes de la section '+esc(group.name)+'"><button type="button" data-group-toggle="'+esc(group.id)+'" aria-expanded="'+!groups.closed(group.id)+'">'+settingsIcon(groups.closed(group.id)?'chevron-right':'chevron-down')+'<strong>'+esc(group.name)+'</strong><span>'+group.rows.length+(group.rows.length!==total?' / '+total:'')+' poste(s)</span></button>'+'<div class="agents-group-actions">'+(group.id!=='ungrouped'?'<button type="button" data-group-color="'+esc(group.id)+'">Couleur</button><button type="button" data-group-duplicate="'+esc(group.id)+'">Dupliquer</button><button type="button" data-group-rename="'+esc(group.id)+'" aria-label="Renommer la section '+esc(group.name)+'">Renommer</button><button type="button" data-group-remove="'+esc(group.id)+'" aria-label="Supprimer la section '+esc(group.name)+'">'+settingsIcon('x')+'</button>':'')+'</div></div></td></tr>';
     }
     function syncGroups(){
       root.dataset.grouped=String(groups.view()==='groups');find('#agentsView').value=groups.view();find('#agentsView').disabled=!groupsReady||groupsBusy||bulkBusy;
@@ -172,7 +180,7 @@ const agentsWorkspace = (() => {
         const rows=(groups.buckets(filteredAgents()).find(group=>group.id===input.dataset.groupCheck)?.rows||[]).filter(agent=>!agent.local),count=rows.filter(agent=>checked.has(agent.id)).length;
         input.checked=!!rows.length&&count===rows.length;input.indeterminate=count>0&&count<rows.length;input.disabled=!groupsReady||groupsBusy||bulkBusy||!rows.length;
       }
-      for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove],[data-group-duplicate]'))button.disabled=!groupsReady||groupsBusy||bulkBusy||(button.hasAttribute('data-group-toggle')?false:!groups.canManage());
+      for(const button of root.querySelectorAll('[data-group-toggle],[data-group-rename],[data-group-remove],[data-group-duplicate],[data-group-color]'))button.disabled=!groupsReady||groupsBusy||bulkBusy||(button.hasAttribute('data-group-toggle')?false:!groups.canManage());
     }
     async function groupChange(action,message='Sections enregistrées.'){
       if(!live()||!groupsReady||groupsBusy||bulkBusy)return;
@@ -190,6 +198,23 @@ const agentsWorkspace = (() => {
     async function renameGroup(id){
       const name=await appPrompt('Nouveau nom de la section',groups.name(id),{title:'Renommer la section',confirmLabel:'Renommer'});
       if(name!==null&&live())await groupChange(()=>groups.rename(id,name),'Section renommée.');
+    }
+    async function colorGroup(id){
+      const colors=['#80bfff','#77d6b0','#f5c779','#c7a0ef','#f29ca6'];
+      const dialog=document.createElement('dialog');dialog.className='app-dialog';
+      dialog.innerHTML='<form method="dialog"><h2>Couleur de la section</h2><p>'+esc(groups.name(id))+'</p><div class="agents-section-colors">'+colors.map(color=>'<button type="button" data-section-color="'+color+'" style="background:'+color+'" aria-label="Couleur '+color+'"></button>').join('')+'</div><label>Couleur personnalisée <input type="color" value="'+(groups.list().find(g=>g.id===id)?.color||colors[0])+'"></label><div class="app-dialog-actions"><button value="cancel">Annuler</button><button value="reset">Sans couleur</button><button value="save" class="primary">Enregistrer</button></div></form>';
+      dialog.querySelectorAll('[data-section-color]').forEach(button=>button.onclick=()=>{dialog.querySelector('input').value=button.dataset.sectionColor;});
+      dialog.addEventListener('close',()=>{const value=dialog.returnValue,color=dialog.querySelector('input').value;dialog.remove();if(value==='save'||value==='reset')groupChange(()=>groups.color(id,value==='reset'?null:color),'Couleur enregistrée.');},{once:true});
+      document.body.append(dialog);dialog.showModal();
+    }
+    function openSectionMenu(section,event){
+      if(!groupsReady||!groups.canManage()||groupsBusy||bulkBusy||section.dataset.agentGroup==='ungrouped')return;
+      closeMenu();const id=section.dataset.agentGroup,box=section.getBoundingClientRect();
+      menu=document.createElement('div');menu.className='context-menu agents-context-menu';menu.setAttribute('role','menu');menu.tabIndex=-1;
+      menu.innerHTML=[['rename','Renommer'],['color','Couleur de section'],['remove','Supprimer la section']].map(([action,label])=>'<button type="button" role="menuitem" data-section-action="'+action+'">'+label+'</button>').join('');
+      menu.style.left=Math.max(8,Math.min(event.clientX||box.left+24,innerWidth-260))+'px';menu.style.top=Math.max(8,Math.min(event.clientY||box.bottom,innerHeight-160))+'px';
+      menu.onclick=e=>{const action=e.target.closest('[data-section-action]')?.dataset.sectionAction;if(!action)return;closeMenu();({rename:renameGroup,color:colorGroup,remove:removeGroup})[action](id);};
+      document.body.append(menu);menu.style.left=Math.max(8,Math.min(event.clientX||box.left+24,innerWidth-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(event.clientY||box.bottom,innerHeight-menu.offsetHeight-8))+'px';menu.querySelector('button').focus();
     }
     async function removeGroup(id){
       if(!await appConfirm('Supprimer la section « '+groups.name(id)+' » ? Ses postes seront remis dans « Sans section » et recevront les droits définis par les groupes d’utilisateurs sur cette section. Aucun agent ne sera supprimé.',{title:'Supprimer cette section',confirmLabel:'Supprimer la section'})||!live())return;
@@ -306,7 +331,6 @@ const agentsWorkspace = (() => {
       const online = agents.filter(agent => agent.online).length;
       const protectionAvailable = !stale && !protectionStale && can('edr.read') && workspaceModules.allows('edr');
       root.dataset.stale = String(stale);
-      find('#agentsMetrics').innerHTML = [['Agents associés', agents.length, 'all', 'monitor'], ['Protégés confirmés', !protectionAvailable ? '—' : agents.filter(agent => protection(agent).health === 'protected').length, 'online', 'shield-check'], ['Alertes ouvertes', !protectionAvailable ? '—' : agents.reduce((total,agent) => total + (protection(agent).alerts || 0),0), 'attention', 'circle-alert'], ['Mises à jour disponibles', !publishedRelease || releaseStale || stale ? '—' : agents.filter(agent => updateInfo(agent).outdated).length, 'updates', 'refresh-cw']].map(([label, value, status, icon]) => '<article data-state="' + status + '"><span class="agents-metric-icon" aria-hidden="true">' + settingsIcon(icon) + '</span><div><span>' + label + '</span><strong>' + value + '</strong></div></article>').join('');
       const unknown = agents.filter(agent => protection(agent).health === 'unknown').length;
       find('#agentsFleetSummary').textContent = stale ? 'Disponibilité des postes à confirmer' : online + ' connecté' + (online === 1 ? '' : 's') + ' · ' + (agents.length - online) + ' hors ligne · ' + unknown + ' protection' + (unknown === 1 ? '' : 's') + ' à confirmer';
       const rows = filteredAgents();
@@ -332,7 +356,7 @@ const agentsWorkspace = (() => {
         const status = protection(agent), chosen = agent.id === selected?.id;
         return '<tr draggable="'+(groupsReady&&groups.canManage()&&!bulkBusy)+'" class="agents-fleet-row" data-agent-group-id="'+esc(groups.groupOf(agent.id))+'" data-agent-row="' + esc(agent.id) + '" data-selected="' + chosen + '"><td data-label="Poste"><div class="agents-post-cell"><input type="checkbox" class="agents-row-check" title="Maj + clic : sélectionner une plage" data-fleet-check="' + esc(agent.id) + '" aria-label="' + esc('Sélectionner ' + agent.name) + '" ' + (checked.has(agent.id) ? 'checked ' : '') + (bulkBusy ? 'disabled' : '') + '><button type="button" class="agents-endpoint" title="' + esc(agent.name) + '" data-fleet-agent="' + esc(agent.id) + '" aria-haspopup="dialog" aria-keyshortcuts="Shift+F10" aria-pressed="' + chosen + '" ' + (selecting ? 'disabled' : '') + '><span class="agents-row-selector" aria-hidden="true">' + (chosen ? '✓' : '') + '</span><span class="agents-device-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><span class="agents-endpoint-name"><strong>' + esc(agent.name) + '</strong><small>' + esc(workspaceAgents.platformName(agent.platform)) + (' · '+esc(groups.name(groups.groupOf(agent.id)))) + '</small></span><span class="agents-row-open" aria-hidden="true">↗</span></button></div></td><td data-label="Connexion"><span class="agents-presence" data-state="' + (stale ? 'unknown' : agent.online ? 'online' : 'offline') + '">' + (stale ? 'À vérifier' : agent.online ? 'Connecté' : 'Hors ligne') + '</span></td><td data-label="Protection">' + protectionHTML(agent) + '</td><td data-label="Alertes">' + alertsHTML(agent,status) + '</td><td data-label="Agent">' + updateHTML(agent) + '</td><td data-label="Dernier contact" class="agents-last-contact">' + contactHTML(agent.lastSeen) + '</td></tr>';
       }).join('');
-        find('#agentsList').innerHTML=groups.view()==='groups'&&agents.length&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans cette section. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
+        find('#agentsList').innerHTML=groups.view()==='groups'&&(agents.length||groups.list().length)&&(!hasFilters()||rows.length)?groups.buckets(rows).filter(group=>!hasFilters()||group.rows.length).map(group=>groupHeading(group)+(groups.closed(group.id)?'':renderRows(group.rows)||(hasFilters()?'':'<tr class="agents-group-empty"><td colspan="6">Aucun poste dans cette section. Utilise le clic droit pour y déplacer des postes.</td></tr>'))).join(''):renderRows(rows)||'<tr><td colspan="6"><div class="agents-empty"><span class="agents-empty-icon" aria-hidden="true">' + settingsIcon('monitor') + '</span><h2>' + (agents.length ? 'Aucun poste pour ces filtres' : 'Aucun agent associé') + '</h2><p>' + (agents.length ? 'Modifie ou efface les filtres pour retrouver tes postes.' : 'Ajoute un agent Windows, Linux ou macOS pour retrouver ce poste et ses actions ici.') + '</p></div></td></tr>';
       }
       root.querySelectorAll('[data-agent-column]').forEach(heading => {
         const active = heading.dataset.agentColumn === sort;
@@ -365,7 +389,7 @@ const agentsWorkspace = (() => {
       return '<button type="button" role="menuitem" data-fleet-action="'+esc(id)+'" '+(disabled?'disabled aria-disabled="true"':'')+' '+(danger?'class="agents-menu-danger"':'')+'><span class="agents-menu-icon" aria-hidden="true">'+(['terminal','files'].includes(icon)?workspaceNavigationIcon(icon):settingsIcon(icon))+'</span><span class="agents-menu-copy"><strong>'+esc(label)+'</strong>'+(help?'<small>'+esc(help)+'</small>':'')+'</span></button>';
     }
     function renderMenu() {
-      if(!menu)return;
+      if(!menu||menu.id!=='agentActions')return;
       const agent=agents.find(item=>item.id===menuAgentId),targets=menuTargets();
       if(!live()||!agent||!filteredAgents().some(item=>item.id===agent.id)){closeMenu();return;}
       const focused=menu.contains(document.activeElement),focusedAction=document.activeElement?.dataset.fleetAction,multiple=targets.length>1;
@@ -478,7 +502,6 @@ const agentsWorkspace = (() => {
       if (!agent) { dismissDetails(true); return; }
       const status = protection(agent);
       const edrAllowed = can('edr.read',agent) && workspaceModules.allows('edr');
-      find('#agentDetailsJournal').hidden=!edrAllowed||!!agent.local;
       const endpoint = edrAllowed && !protectionStale && !stale ? protections.get(agent.id) : null;
       const snapshot = status.snapshot, policy = endpoint?.policy;
       const checks = {enabled:'Activé',disabled:'Désactivé',passive:'Antivirus tiers',unsupported:'Non intégré',unknown:'À confirmer'};
@@ -533,7 +556,7 @@ const agentsWorkspace = (() => {
                 ${sectionHeading('shield-check','Protection du poste','<button type="button" class="agent-record-events" data-record-journal '+(reason(actions.find(a=>a.id==='edr'),agent)||selecting?'disabled':'')+'>'+settingsIcon('list')+'Voir le journal</button>')}
                 <div class="agent-record-section-label"><h4>Protection du système</h4><span>${esc(snapshot?.provider||'Fournisseur non confirmé')}</span></div>
                 <div class="agent-record-checks">
-                  ${[['Antivirus','antivirus'],['Temps réel','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><span>'+label+'</span><strong><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i>'+esc(field==='signatures'&&value==='disabled'?'À actualiser':checks[value])+'</strong></div>';}).join('')}
+                  ${[['Moteur WolfGuard','antivirus'],['Surveillance réactive','realtime'],['Pare-feu','firewall'],['Signatures','signatures']].map(([label,field])=>{const value=Object.hasOwn(checks,snapshot?.[field])?snapshot[field]:'unknown';return '<div data-check="'+value+'"><span>'+label+'</span><strong><i aria-hidden="true">'+(value==='enabled'?'✓':value==='disabled'?'!':'?')+'</i>'+esc(field==='signatures'&&value==='disabled'?'À actualiser':checks[value])+'</strong></div>';}).join('')}
                 </div>
                 <section class="agent-record-antivirus">
                   <div class="agent-record-section-label"><h4>WolfGuard Antivirus</h4><span>ClamAV</span></div>
@@ -543,7 +566,7 @@ const agentsWorkspace = (() => {
               </section>
               <section class="agent-record-card agent-record-general agent-record-maintenance">
                 ${sectionHeading('monitor','Poste et agent')}
-                ${fields([['Nom du poste',agent.name],['Système',workspaceAgents.platformName(agent.platform),'info'],['Version',agent.version?.slice(0,12)||'Non remontée','version'],['Mises à jour',agent.capabilities?.includes('auto-update-v1')?'Automatiques (5 min)':'Manuelles'],['Politique configurée',policy?policy.mode==='protect'?'Protection':'Observation':edrAllowed?'Non renseignée':'Accès non accordé',policy?'info':null],['Dernier contact',timestamp(agent.lastSeen)]])}
+                ${fields([['Nom du poste',snapshot?.inventory?.hostname||agent.name],['Utilisateur connecté',snapshot?.inventory?.username||'Aucune session interactive remontée'],['Compte de l’agent',snapshot?.inventory?.agentUser],['Domaine',snapshot?.inventory?.domain],['Système',snapshot?.inventory?.os||workspaceAgents.platformName(agent.platform),'info'],['Version',agent.version?.slice(0,12)||'Non remontée','version'],['Mises à jour',agent.capabilities?.includes('auto-update-v1')?'Automatiques (5 min)':'Manuelles'],['Politique configurée',policy?policy.mode==='protect'?'Protection':'Observation':edrAllowed?'Non renseignée':'Accès non accordé',policy?'info':null],['Dernier contact',timestamp(agent.lastSeen)]])}
                 ${updateHTML(agent,{record:true})}
               </section>
             </div>
@@ -559,13 +582,13 @@ const agentsWorkspace = (() => {
             <div class="agent-record-page-heading"><h3>Configuration et détails</h3></div>
             <details id="agentDetailsPolicy" class="agent-record-disclosure" ${policyOpen?'open':''}>
               <summary>Politique EDR configurée</summary>
-              ${fields([['Mode demandé',policy?policy.mode==='protect'?'Protéger et maintenir les protections':'Observer les protections existantes':edrAllowed?'Non renseigné':'Accès non accordé'],['Maintien du temps réel',policy?policy.realtime?'Demandé':'Non demandé':'Non renseigné'],['Maintien du pare-feu',policy?policy.firewall?'Demandé':'Non demandé':'Non renseigné'],['Révision demandée',count(endpoint?.revision)],['Révision appliquée confirmée',count(snapshot?.appliedRevision)]])}
+              ${fields([['Mode demandé',policy?policy.mode==='protect'?'Protéger et maintenir les protections':'Observer les protections existantes':edrAllowed?'Non renseigné':'Accès non accordé'],['Surveillance WolfGuard',policy?policy.realtime?'Demandé':'Non demandé':'Non renseigné'],['Maintien du pare-feu',policy?policy.firewall?'Demandé':'Non demandé':'Non renseigné'],['Révision demandée',count(endpoint?.revision)],['Révision appliquée confirmée',count(snapshot?.appliedRevision)]])}
               <p class="agent-record-caption">Les réglages demandés ne prouvent pas leur application par l’agent.</p>
             </details>
             <details id="agentDetailsTechnical" class="agent-record-disclosure" ${detailsOpen?'open':''}>
               <summary>Informations techniques et identifiants</summary>
               ${fields([['Identifiant du poste',agent.id],['Version installée',agent.version||'Non remontée'],['Version publiée',!releaseStale?publishedRelease?.version||'Indisponible':'Indisponible'],['Version des signatures',snapshot?.signatureVersion||'Non confirmée'],['Réception du relevé',timestamp(endpoint?.receivedAt)],['Actions sur les protections',snapshot?snapshot.canEnforce?'Prises en charge par le composant système':'Privilèges système nécessaires':'Non confirmées']])}
-              <p class="agent-record-caption">Les informations matérielles et les adresses réseau ne sont pas remontées par cet inventaire.</p>
+              ${fields([['Fabricant / modèle',[snapshot?.inventory?.manufacturer,snapshot?.inventory?.model].filter(Boolean).join(' ')],['Processeur',snapshot?.inventory?.cpu],['Processeurs logiques',snapshot?.inventory?.logicalProcessors],['Mémoire',snapshot?.inventory?.memoryBytes?(snapshot.inventory.memoryBytes/1073741824).toFixed(1)+' Go':null],['Version système',snapshot?.inventory?.osVersion],['Architecture',snapshot?.inventory?.architecture],['Adresses IP',snapshot?.inventory?.addresses?.join(' · ')],['Dernier démarrage',snapshot?.inventory?.bootTime?timestamp(snapshot.inventory.bootTime):null]])}
             </details>
             ${!agent.local&&can('agents.revoke',agent)?'<section class="agent-record-removal"><div><h3>Retirer ce poste</h3><p>Révoquer son accès arrête ses scans et ses partages en cours. Une nouvelle association sera nécessaire pour le reconnecter.</p></div><div class="agent-record-removal-actions"><button type="button" class="settings-btn" data-record-uninstall="'+esc(agent.id)+'">Désinstaller l’agent</button><button type="button" data-record-revoke="'+esc(agent.id)+'" '+(busy||stale||revoking?'disabled':'')+'>'+esc(revoking?'Révocation…':'Révoquer l’accès')+'</button></div>'+(revokeError?.id===agent.id?'<p class="access-error" role="alert">'+esc(revokeError.message)+'</p>':'')+'</section>':''}
           </section>
@@ -612,8 +635,9 @@ const agentsWorkspace = (() => {
           data.agents = [local]; data.selected = local;
         }
         const previous = selected?.id;
-        agents = data.agents; selected = data.selected; stale = false;
         if(groupsReady&&!groupsBusy)await groups.load();
+        if(!live())return;
+        agents = data.agents; selected = data.selected; stale = false;
         for(const id of checked)if(!agents.some(agent=>agent.id===id))checked.delete(id);
         if (previous !== selected?.id) await renderTool(true);
         find('#agentsStatus').textContent = selected?.local ? 'Les scans de ce PC sont disponibles localement.' : workspaceAgents.available() ? 'Liste actualisée à ' + new Date().toLocaleTimeString('fr-FR') : 'Connecte-toi au service pour retrouver tes agents associés.';
@@ -688,6 +712,7 @@ const agentsWorkspace = (() => {
     find('#agentsView').onchange=event=>{const view=event.target.value;groupChange(()=>groups.setView(view));};
     find('#agentsList').onclick = event => {
       const groupToggle=event.target.closest('[data-group-toggle]');if(groupToggle){groupChange(()=>groups.toggle(groupToggle.dataset.groupToggle));return;}
+      const color=event.target.closest('[data-group-color]');if(color){colorGroup(color.dataset.groupColor);return;}
       const rename=event.target.closest('[data-group-rename]');if(rename){renameGroup(rename.dataset.groupRename);return;}
       const remove=event.target.closest('[data-group-remove]');if(remove){removeGroup(remove.dataset.groupRemove);return;}
       const groupCheck=event.target.closest('[data-group-check]');if(groupCheck){if(!bulkBusy&&!groupsBusy){for(const agent of groups.buckets(filteredAgents()).find(group=>group.id===groupCheck.dataset.groupCheck)?.rows||[])if(!agent.local){if(groupCheck.checked)checked.add(agent.id);else checked.delete(agent.id);}syncSelection();}return;}
@@ -704,6 +729,8 @@ const agentsWorkspace = (() => {
       }
     };
     find('#agentsList').oncontextmenu = event => {
+      const section=event.target.closest('[data-agent-group]');
+      if(section&&!event.target.closest('[data-agent-row]')){event.preventDefault();event.stopPropagation();openSectionMenu(section,event);return;}
       const row = event.target.closest('[data-agent-row]');
       if (!row) return;
       event.preventDefault(); event.stopPropagation();
@@ -712,6 +739,8 @@ const agentsWorkspace = (() => {
     };
     find('#agentsList').onkeydown = event => {
       if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+      const section=event.target.closest('[data-agent-group]');
+      if(section&&!event.target.closest('[data-agent-row]')){event.preventDefault();event.stopPropagation();openSectionMenu(section,event);return;}
       const row = event.target.closest('[data-agent-row]');
       if (!row) return;
       event.preventDefault(); event.stopPropagation();
@@ -791,7 +820,6 @@ const agentsWorkspace = (() => {
       else if (state.section === 'remote') { remoteDesktopWorkspace.preferMode(remoteMode); await remoteDesktopWorkspace.render(host); }
     }
     find('#agentToolClose').onclick = closeTool;
-    find('#agentDetailsJournal').onclick=()=>openJournal(detailAgentId);
     find('#agentDetailsClose').onclick = () => dismissDetails(true);
     find('#agentDetailsRefresh').onclick = refresh;
     find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); dismissDetails(true); }, {signal});
@@ -829,7 +857,7 @@ const agentsWorkspace = (() => {
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Sections indisponibles : '+error.message;});
-    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails};
+    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails, dismissReports};
     // The fleet shell is usable immediately. Its server refresh must not hold
     // the shared navigation queue or prevent leaving the Security section.
     if(state.section==='security'){refresh().catch(console.error);return;}

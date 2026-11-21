@@ -18,6 +18,7 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | TOTP et remplacement de téléphone | `server/lib/wolfguard/otp.mjs` et `browser/adapter.js` |
 | Permissions communes | `server/lib/wolfguard/permissions.mjs`, `access-groups.mjs` et `permission-store.mjs` |
 | Filtrage des espaces et coffres personnels | `workspace-access.mjs`, `personal-vault.mjs`, `permission-store.mjs` dans `server/lib/wolfguard/` |
+| Répartition du stockage et conservation des journaux | `storage-usage.mjs`, `retention.mjs` dans `server/lib/wolfguard/` |
 | Protection des clés partagées | `server/lib/wolfguard/workspace-key.mjs` |
 | Association et autorisations des postes | `server/lib/wolfguard/agents.mjs`, `agent-access.mjs` |
 | Scans et réseau | `agent/network.mjs`, `agent/topology.mjs`, `agent/collect.ps1`, vues `app/js/views/scan-*` |

@@ -1,3 +1,4 @@
+import {retainRecentLogs} from './retention.mjs';
 import {fleetGroupAPI,fleetState} from './fleet-groups.mjs';
 import {accessibleAgent,administrator} from './agent-access.mjs';
 import {handleEndpointAPI} from './endpoints.mjs';
@@ -25,6 +26,7 @@ export async function handleAgentAPI(request,env,now,h){
   if(path.startsWith('/api/remote/')||path.startsWith('/api/agent/remote/'))return handleRemoteAPI(request,env,now,remoteHelpers);
   const changed=result=>Number(result?.meta?.changes||0)>0;
   async function expire(){
+    await retainRecentLogs(env,now);
     await env.DB.prepare("UPDATE scan_jobs SET status=CASE WHEN status='queued' THEN 'expired' ELSE 'lost' END,updated_at=?,revision=revision+1 WHERE (status='queued' AND expires_at<=?) OR (status='running' AND (lease_until<=? OR expires_at<=?))").bind(now,now,now,now).run();
     const scoped=await env.DB.prepare("SELECT j.*,u.id AS permission_user,u.role AS permission_role,u.permissions_cipher,u.disabled_at,u.credential_pending FROM scan_jobs j LEFT JOIN users u ON u.id=j.created_by WHERE j.created_by IS NOT NULL AND j.status IN ('queued','running')").all();
     for(const row of scoped.results){const user={id:row.permission_user,role:row.permission_role,permissions:row.permission_user?await userPolicy({id:row.permission_user,permissions_cipher:row.permissions_cipher},env):null},spec=await open(row.spec_cipher,row.id+':spec'),kind=spec.workspace||(spec.passiveScope==='security'?'vulnerability':row.strategy);if(!row.permission_user||row.disabled_at!==null||row.credential_pending||!await accessibleAgent(env,user,row.agent_id,now,'scan.'+kind+'.run')||!can(user,'scan.'+kind+'.run',now)||!can(user,'scan.'+kind+'.read',now))await env.DB.prepare("UPDATE scan_jobs SET status='cancelled',updated_at=?,revision=revision+1 WHERE id=? AND status IN ('queued','running')").bind(now,row.id).run();}
@@ -103,7 +105,7 @@ export async function handleAgentAPI(request,env,now,h){
   if(path==='/api/scans'&&request.method==='POST'){
     const data=await body();const requested=data.workspace||(data.strategy==='passive'?(data.passiveScope==='security'?'vulnerability':'passive'):'active');requirePermission(session.user,'scan.'+requested+'.write',fail,now);await permitAgent(data.agentId,'scan.'+requested+'.write');const agent=validId(data.agentId)?await env.DB.prepare('SELECT id,last_seen,name_cipher FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(data.agentId,session.generation).first():null;if(!agent)fail(404,'Choisis un agent associé.');if(agent.last_seen<=now-ONLINE_MS)fail(409,'L’agent est hors ligne. Démarre-le sur le poste à scanner.');
     let spec;try{spec=h.scanSpec(data);}catch(error){fail(400,error.message);}
-    if(spec.workspace==='map'&&spec.target==='auto'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-auto-map-v1'))fail(409,'Mets à jour l’agent depuis Agents pour la cartographie automatique.');
+    if(spec.workspace==='map'&&spec.target==='auto'&&!(await open(agent.name_cipher,agent.id+':name')).capabilities?.includes('network-topology-v1'))fail(409,'Mets à jour l’agent depuis Agents pour la cartographie automatique.');
     const workspace=spec.workspace||(spec.passiveScope==='security'?'vulnerability':spec.strategy);requirePermission(session.user,'scan.'+workspace+'.read',fail,now);requirePermission(session.user,'scan.'+workspace+'.write',fail,now);
     await expireRemote(env,now,remoteHelpers);
     if(await env.DB.prepare("SELECT id FROM remote_sessions WHERE agent_id=? AND status IN ('requested','preparing','active')").bind(agent.id).first())fail(409,'Une prise en main est en cours. Déconnecte-la avant de lancer un scan.');

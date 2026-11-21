@@ -14,7 +14,14 @@ window.WorkspaceSearch = class WorkspaceSearch {
     interfaces: 'interface',
     vlans: 'vlan',
     routes: 'route',
-    logs: 'log'
+    logs: 'log',
+    sauvegardes: 'backup',
+    sauvegarde: 'backup',
+    parefeu: 'firewall',
+    routage: 'routing',
+    commutateur: 'switch',
+    commutateurs: 'switch',
+    reseaux: 'reseau'
   };
   constructor(options) {
     this.options = options;
@@ -25,6 +32,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
     this.revision = 0;
     this.request = 0;
     this.cache = null;
+    this.resultCache = new Map();
     this.pending = null;
     this.rows = [];
     this.selected = -1;
@@ -109,6 +117,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
       .replace(/\befficient[ -]+ip\b/g, 'efficientip')
       .replace(/\btipping[ -]+point\b/g, 'tippingpoint')
       .replace(/\bcatalyst[ -]+center\b/g, 'dna')
+      .replace(/\bpare[ -]+feu\b/g, 'firewall')
       .replace(/\bwi[ -]+fi\b/g, 'wifi');
   }
 
@@ -142,11 +151,13 @@ window.WorkspaceSearch = class WorkspaceSearch {
   invalidate(store, item) {
     const existing = store === 'items' && item ? this.cache?.documents.get(item.id) : null;
     if (existing && existing.fingerprint === WorkspaceSearch.fingerprint(item)) {
+      this.resultCache.clear();
       existing.favorite = !!item.favorite;
       existing.updatedAt = item.updatedAt || item.createdAt || '';
       return;
     }
     this.revision++;
+    this.resultCache.clear();
     this.cache = null;
     this.hide();
   }
@@ -356,13 +367,15 @@ window.WorkspaceSearch = class WorkspaceSearch {
   }
 
   find(cache, parsed) {
+    const key=JSON.stringify([this.revision,this.scope,parsed]);
+    if(this.resultCache.has(key))return this.resultCache.get(key);
     const rows = parsed.terms.length ? cache.engine.search(parsed.terms.join(' ')) : [...cache.documents.keys()].map(id => ({
       id,
       score: 0,
       terms: []
     }));
     const phrase = WorkspaceSearch.canonical(parsed.text).trim();
-    return rows.map(row => {
+    const ranked=rows.map(row => {
       const document = cache.documents.get(row.id);
       const titleTerms = WorkspaceSearch.tokens(document.title).map(WorkspaceSearch.term);
       const pathTerms = WorkspaceSearch.tokens(document.path || '').map(WorkspaceSearch.term);
@@ -384,6 +397,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
         score
       };
     }).filter(row => this.matches(row.document, parsed)).sort((a, b) => b.score - a.score || Number(b.document.favorite) - Number(a.document.favorite) || a.document.title.localeCompare(b.document.title, 'fr'));
+    this.resultCache.set(key,ranked);if(this.resultCache.size>30)this.resultCache.delete(this.resultCache.keys().next().value);return ranked;
   }
 
   async search(query) {

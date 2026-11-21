@@ -193,6 +193,10 @@ async function folderContextMenu(e, id) {
       label: 'Créer un sous-dossier',
       run: () => newFolder(id)
     },
+    ...(folder.parentId&&folder.section!=='vault'?[{
+      id:'move-folder-root',label:'Déplacer à la racine',
+      run:async()=>{const current=await get('folders',id);if(!current||isDeleted(current))return;current.parentId=null;await put('folders',current);state.folder=id;await renderWorkspace();}
+    }]:[]),
     null, {
       id: 'delete-folder',
       label: 'Supprimer',

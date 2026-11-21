@@ -19,7 +19,7 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','network-auto-map-v1','security-audit-v1']}
+    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','security-audit-v1']}
     jobs=[{'id':f'{100+index:032x}','workspace':kind,'strategy':'active' if kind in ['active','map'] else 'passive',
            'target':'192.168.1.20' if kind!='vulnerability' else '', 'createdAt':int(time.time()*1000)-86400000,
            'status':'completed','revision':2,'completed':1,'total':1}
@@ -71,14 +71,13 @@ def run():
                 navigate(page,kind)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
                 expect(page.locator('.wgscan-tabs')).to_be_hidden();expect(page.locator('#wgScanMetrics')).to_be_hidden()
-                expect(page.locator('#wgAgentHistory option')).to_have_count(2,timeout=15000)
-                expect(page.locator('#wgAgentHistory')).to_have_value('')
+                expect(page.locator('#wgAgentHistory')).to_have_count(0)
                 page.wait_for_timeout(3200)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
                 assert old_ids[kind] not in result_requests
                 # The first archived row is still available through an explicit choice.
-                page.locator('.wgscan-agent-history summary').click()
-                page.locator('#wgAgentHistory').select_option(old_ids[kind])
+                page.locator('#wgScanShowHistory').click()
+                page.locator('[data-history-open="'+old_ids[kind]+'"]').click()
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
                 expect(page.locator('#wgScanReportStamp')).to_contain_text('192.168.1.20' if kind!='vulnerability' else 'Agent')
                 page.locator('#wgScanNew').click()
@@ -147,8 +146,7 @@ def run():
             page.reload();expect(page.locator('#app')).to_be_visible(timeout=30000)
             for kind in ['passive','active','map','vulnerability']:
                 navigate(page,kind)
-                expect(page.locator('#wgAgentHistory option')).not_to_have_count(1,timeout=10000)
-                expect(page.locator('#wgAgentHistory')).to_have_value('')
+                expect(page.locator('#wgAgentHistory')).to_have_count(0)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
                 expect(page.locator('.scan-setup')).to_be_visible()
             assert not errors,errors

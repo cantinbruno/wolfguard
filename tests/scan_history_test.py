@@ -115,7 +115,7 @@ def run():
                 assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
                 assert page.locator('#wgScanHistory').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
                 if width in [1440,390]:page.screenshot(path=str(ROOT/f'.cache/history-settings-{width}.png'),animations='disabled')
-            page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
+            page.locator('#agentToolClose').click();page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
             open_security(page);open_security_tool(page,'scan-passive');page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))");expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             state['fail_history']=True;page.locator('#wgHistoryRefresh').click()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique incomplet')

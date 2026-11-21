@@ -964,7 +964,7 @@
   padding: 12px 14px !important;
   background: #eef5ff !important;
   color: #102b46 !important;
-  font-size: 15px !important;
+  font-size: calc(15px * var(--reading-scale,1)) !important;
   font-weight: 600 !important;
   white-space: pre-wrap !important;
   overflow-wrap: anywhere !important;

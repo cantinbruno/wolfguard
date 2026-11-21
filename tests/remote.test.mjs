@@ -28,6 +28,16 @@ async function setup(){
 }
 const frame={width:10,height:10,jpeg:'/9j/2Q=='};
 
+test('a throttled background viewer survives ninety seconds while the agent remains alive',async()=>{
+  const s=await setup();try{
+    const agent=await s.pair(),session=await s.start(agent);
+    await s.exchange(agent,session);
+    for(let i=0;i<9;i++){s.advance(10000);assert.equal((await(await s.exchange(agent,session)).json()).status,'active');}
+    assert.equal((await(await s.api('remote/session?id='+session.id,undefined,s.user)).json()).status,'active');
+    for(let i=0;i<12;i++){s.advance(10000);const status=(await(await s.exchange(agent,session)).json()).status;assert.equal(status,i===11?'closed':'active');}
+  }finally{s.env.DB.db.close();}
+});
+
 test('remote input accepts only finite pointer, keyboard and text events',()=>{
   for(const value of [{type:'exec',command:'whoami'},{type:'key',key:'$(cmd)',down:true},{type:'move',x:Infinity,y:0},{type:'button',x:0,y:0,button:9,down:true},{type:'wheel',x:0,y:0,delta:50},{type:'text',text:'x\u0000y'}])assert.throws(()=>desktopInput(value));
   assert.deepEqual(desktopInput({type:'key',key:'KeyC',down:true,command:'ignored'}),{type:'key',key:'KeyC',down:true});

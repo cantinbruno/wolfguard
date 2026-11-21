@@ -295,6 +295,7 @@ async function changeAccessCode() {
 async function resetInterfaceSettings() {
   if (!await appConfirm('Réinitialiser uniquement les réglages d’interface ? Les données ne seront pas supprimées.')) return;
   localStorage.removeItem('itw-explorer-width');
+  localStorage.removeItem(interfacePreferenceKey());applyInterfacePreferences({});
   expandedFolders.clear();
   document.documentElement.style.setProperty('--explorer-width', '260px');
   closeModal();

@@ -1278,3 +1278,10 @@ button {
     grid-template-columns: 1fr
   }
 }
+
+:root[data-ui-theme="slate"]{--ui-page:#181c22;--ui-sidebar:#12161c;--ui-surface:#232931;--ui-raised:#303843;--ui-border:#4b596a}
+:root[data-ui-theme="contrast"]{--ui-page:#070c12;--ui-sidebar:#02060a;--ui-surface:#111c28;--ui-raised:#1b2b3d;--ui-border:#8599b2;--ui-text:#fff;--ui-muted:#e0e9f4;--ui-subtle:#c7d5e6}
+:root[data-ui-density="compact"] .agents-table td{padding-top:8px;padding-bottom:8px}
+:root[data-ui-density="comfortable"] .agents-table td{padding-top:16px;padding-bottom:16px}
+.library-editor #richEditor{font-size:calc(15px * var(--reading-scale,1))}
+:root[data-ui-motion="reduced"] *,:root[data-ui-motion="reduced"] *::before,:root[data-ui-motion="reduced"] *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}

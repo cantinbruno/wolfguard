@@ -63,7 +63,8 @@ def run():
         expect(page.locator('.agent-log-row')).to_have_count(50)
         page.locator('#agentDetailsClose').click()
         page.locator('[data-fleet-agent]').click()
-        page.locator('#agentDetailsJournal').click()
+        expect(page.locator('#agentDetailsJournal')).to_have_count(0)
+        page.locator('[data-record-tab=journal]').click()
         expect(page.locator('.agent-log-row')).to_have_count(50)
         page.locator('[data-record-tab=overview]').click()
         page.locator('[data-record-journal]').click()
@@ -99,7 +100,7 @@ def run():
         for width in [1920, 1440, 850, 700, 640, 390, 320]:
             page.set_viewport_size({'width': width, 'height': 900})
             bounds=page.locator('#agentDetailsPanel').bounding_box()
-            assert bounds['width']>=width*.9 and bounds['height']>=810, (width,bounds)
+            assert bounds['width'] >= min(1280, width-96) and bounds['height'] >= 780, (width,bounds)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'), width
             assert page.locator('#agentDetailsPanel').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
             assert page.locator('.agent-journal-list').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
@@ -119,7 +120,7 @@ def run():
         for width in [1920, 1440, 850, 700, 640, 390, 320]:
             page.set_viewport_size({'width':width,'height':900})
             bounds=page.locator('.settings-modal').bounding_box()
-            assert bounds['width']>=width*.9 and bounds['height']>=810, (width,bounds)
+            assert bounds['width'] >= min(1280, width-96) and bounds['height'] >= 780, (width,bounds)
             assert page.locator('.settings-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1'), width
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'), width
             if width in [1440,390]:

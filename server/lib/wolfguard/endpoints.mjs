@@ -3,6 +3,7 @@ import {can,canAgent,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {endpointSnapshot,endpointPolicy,endpointHealth,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMANDS} from './endpoint-spec.mjs';
 import {antivirusCommand} from './antivirus-spec.mjs';
+import {retainRecentLogs,LOG_RETENTION_MS} from './retention.mjs';
 
 const idOK=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);
 export const canReadEndpoints=(user,now)=>can(user,'edr.read',now)||(can(user,'agents.read',now)&&can(user,'scan.vulnerability.read',now));
@@ -52,7 +53,9 @@ export async function handleEndpointAPI(request,env,now,h){
       SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL)
       ON CONFLICT(agent_id) DO UPDATE SET generation=excluded.generation,collected_at=excluded.collected_at,received_at=excluded.received_at,snapshot_cipher=excluded.snapshot_cipher
       WHERE excluded.generation=endpoint_states.generation AND excluded.collected_at>endpoint_states.collected_at`).bind(agent.id,agent.generation,snapshot.collectedAt,now,cipher,agent.id,agent.generation)];
+    await retainRecentLogs(env,now);
     for(const event of snapshot.events){
+      if(event.occurredAt<now-LOG_RETENTION_MS)continue;
       const key=await digest(agent.id+':'+event.id),encrypted=await seal(event,agent.id+':endpoint-event:'+key);
       statements.push(env.DB.prepare(`INSERT INTO endpoint_events(agent_id,event_key,occurred_at,received_at,status,severity,event_cipher)
         SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL)
@@ -66,6 +69,7 @@ export async function handleEndpointAPI(request,env,now,h){
     return json({accepted:!!result[0]?.meta?.changes,...policy,command:claimed?.cancelled?null:claimed,...(claimed?.cancelled?{cancelCommand:claimed.cancelled}:{})});
   }
   const session=await authorize(request,env,now),user=session.user;
+  await retainRecentLogs(env,now);
   if(!canReadEndpoints(user,now))fail(403,'Ton compte ne peut pas consulter la protection des postes.',{code:'PERMISSION_DENIED'});
   const permit=async (id,action='agents.read')=>{
     if(!idOK(id))fail(400,'Poste invalide.');

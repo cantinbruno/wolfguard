@@ -19,7 +19,7 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    agent={'id':'a'*32,'name':'Poste terminal','platform':'win32','online':True,'capabilities':['remote-desktop-v1','remote-terminal-v1']}
+    agent={'id':'a'*32,'name':'Poste terminal','platform':'win32','online':True,'capabilities':['auto-update-v1','remote-desktop-v1','remote-terminal-v1']}
     control={'status':'requested','commands':[],'id':'1'*32,'sequence':0};started=[];stopped=[];cancelled=[]
     def route_api(route):
         path=urlsplit(route.request.url).path
@@ -42,15 +42,17 @@ def run():
             page.goto(origin+'/?sync-test&terminal-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
             def navigate(section):open_security(page);open_security_tool(page,section);page.wait_for_function('()=>!sectionTransition.active')
-            navigate('remote');expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste terminal',timeout=15000)
-            page.locator('[data-fleet-action=terminal]').click();expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
+            open_security(page);expect(page.locator('[data-fleet-agent]')).to_have_count(1)
+            page.locator('[data-fleet-agent]').click(button='right');page.locator('[data-fleet-action=tools]').click();page.locator('[data-fleet-action=terminal]').click()
+            expect(page.locator('#wgRemoteAgent')).to_contain_text('Poste terminal',timeout=15000)
+            expect(page.locator('#wgRemoteModeTerminal')).to_have_attribute('aria-pressed','true')
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteTerminal')).to_be_visible();expect(page.locator('#wgTerminalCommand')).to_be_disabled()
             assert started==[{'agentId':agent['id'],'mode':'terminal'}]
-            expect(page.locator('#wgRemoteModeDesktop')).to_be_disabled();expect(page.locator('#wgRemoteViewport')).to_be_hidden();expect(page.locator('#wgRemoteTextForm')).to_be_hidden()
+            expect(page.locator('#wgRemoteModeDesktop')).to_be_disabled();expect(page.locator('#wgRemoteViewport')).to_be_hidden();expect(page.locator('#wgRemoteTextForm')).to_have_count(0)
             control['status']='active';expect(page.locator('#wgTerminalCommand')).to_be_enabled(timeout=10000)
             page.locator('#wgTerminalCommand').fill('Write-Output "<img src=x onerror=alert(1)>"');page.locator('#wgTerminalCommand').press('Enter')
             expect(page.locator('#wgTerminalCommand')).to_be_disabled();expect(page.locator('#wgTerminalCancel')).to_be_enabled()
-            control['commands'][0].update(stdout='<script>window.terminalInjection=true</script>\nRésultat reçu é ✓',revision=2)
+            control['commands'][0].update(stdout='<script>window.terminalInjection=true</script>\n\x1b[32mRésultat reçu é ✓\x1b[0m',revision=2)
             expect(page.locator('#wgTerminalOutput')).to_contain_text('Résultat reçu é ✓',timeout=10000)
             assert page.locator('#wgTerminalOutput script,#wgTerminalOutput img').count()==0
             assert page.evaluate('window.terminalInjection===undefined')
@@ -62,10 +64,14 @@ def run():
             assert cancelled==[{'id':control['id'],'seq':1}]
             page.locator('#wgTerminalCommand').press('ArrowUp');expect(page.locator('#wgTerminalCommand')).to_have_value(control['commands'][0]['command'])
             page.locator('#wgRemoteDisconnect').click();expect(page.locator('#wgRemoteSession')).to_be_hidden();assert len(stopped)==1
-            agent['capabilities']=['remote-desktop-v1'];page.locator('#agentsRefresh').click()
+            page.locator('#agentToolClose').click()
+            agent['capabilities']=['auto-update-v1','remote-desktop-v1'];page.locator('#agentsRefresh').click()
+            page.locator('[data-fleet-agent]').click(button='right');page.locator('[data-fleet-action=tools]').click()
             expect(page.locator('[data-fleet-action=terminal]')).to_be_disabled()
             page.locator('[data-fleet-action=desktop]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
+            page.locator('#agentToolClose').click()
             agent['capabilities'].append('remote-terminal-v1');page.locator('#agentsRefresh').click()
+            page.locator('[data-fleet-agent]').click(button='right');page.locator('[data-fleet-action=tools]').click()
             expect(page.locator('[data-fleet-action=terminal]')).to_be_enabled()
             page.locator('[data-fleet-action=terminal]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()
             control['status']='requested';control['commands']=[];control['sequence']=0;page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible();navigate('library');page.wait_for_timeout(500);assert len(stopped)==2

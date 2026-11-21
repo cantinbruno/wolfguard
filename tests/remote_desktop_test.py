@@ -94,10 +94,11 @@ def run():
             assert any(value.get('button')==2 and value.get('down') for value in inputs[before:]),inputs[before:]
 
             assert all(0<=value['x']<=1 and 0<=value['y']<=1 for value in inputs if value['type'] in ['move','button','wheel'])
-            page.locator('#wgRemoteText').fill('Texte de test é\nseconde ligne');page.locator('#wgRemoteSendText').click();page.wait_for_timeout(200)
+            expect(page.locator('#wgRemoteTextForm')).to_have_count(0)
+            page.locator('#wgRemoteCanvas').evaluate("el=>{const data=new DataTransfer();data.setData('text/plain','Texte de test é\\nseconde ligne');el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));}");page.wait_for_timeout(200)
             assert any(value.get('text')=='Texte de test é\nseconde ligne' for value in inputs)
-            page.locator('#wgRemoteControl').click();expect(page.locator('#wgRemoteText')).to_be_disabled()
-            control['revision']+=1;page.wait_for_timeout(1000);expect(page.locator('#wgRemoteText')).to_be_disabled()
+            page.locator('#wgRemoteControl').click();expect(page.locator('#wgRemoteControl')).to_have_attribute('aria-pressed','false')
+            control['revision']+=1;page.wait_for_timeout(1000);expect(page.locator('#wgRemoteControl')).to_have_attribute('aria-pressed','false')
             page.locator('#wgRemoteControl').click();page.locator('#wgRemoteCanvas').focus();page.keyboard.press('Control+Alt+Escape')
             expect(page.locator('#wgRemoteDisconnect')).to_be_focused()
             page.locator('#wgRemoteFullscreen').click();page.wait_for_function('()=>!!document.fullscreenElement');page.evaluate('document.exitFullscreen()')
@@ -123,10 +124,12 @@ def run():
             expect(page.locator('#wgRemoteHint')).to_contain_text('Mets à jour')
             agent['capabilities']=['remote-desktop-v1'];page.wait_for_timeout(3600)
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
-            control['outage']=True;expect(page.locator('#wgRemoteSession')).to_be_hidden(timeout=15000)
-            expect(page.locator('#wgRemoteStatus')).to_contain_text('interrompue')
-            control['outage']=False
-            page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
+            control['outage']=True;expect(page.locator('#wgRemoteStatus')).to_contain_text('Reconnexion',timeout=10000)
+            expect(page.locator('#wgRemoteSession')).to_be_visible()
+            before_outage=len(stopped);page.evaluate("window.dispatchEvent(new Event('blur'))");page.wait_for_timeout(1000)
+            assert len(stopped)==before_outage
+            control['outage']=False;control['revision']+=1
+            expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             before=len(stopped);page.evaluate('lockApplication()');expect(page.locator('#keypad')).to_be_visible(timeout=10000)
             page.wait_for_timeout(200);assert len(stopped)==before+1
             assert not errors,errors

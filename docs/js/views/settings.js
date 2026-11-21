@@ -53,6 +53,17 @@ function changeWorkspaceFromSettings() {
   setConnectionStatus('');
 }
 
+function interfacePreferenceKey(){return 'wolfguard-interface:'+(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.id||'local':'local');}
+function applyInterfacePreferences(value){
+  if(!value){try{value=JSON.parse(localStorage.getItem(interfacePreferenceKey())||'{}');}catch{value={};}}
+  const allowed={theme:['midnight','slate','contrast'],density:['comfortable','compact'],text:['100','110','120'],motion:['system','reduced']};
+  const result={};for(const [key,values]of Object.entries(allowed))result[key]=values.includes(value[key])?value[key]:values[0];
+  const root=document.documentElement;root.dataset.uiTheme=result.theme;root.dataset.uiDensity=result.density;root.dataset.uiMotion=result.motion;root.style.setProperty('--reading-scale',Number(result.text)/100);
+  return result;
+}
+window.addEventListener('wolfguard-user-changed',()=>applyInterfacePreferences());
+applyInterfacePreferences();
+
 /* SETTINGS */
 const WOLFGUARD_APP_VERSION = '4.3.2';
 const SETTINGS_ICON_PATHS = {
@@ -130,6 +141,7 @@ async function setSettingsTab(name, focus = false) {
   workspaceAccess.unmount();
   workspaceUsers.unmount();
   workspaceGroups.unmount();
+  if(name==='data')loadSettingsStorageUsage(dialog);
   if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
   if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
@@ -153,7 +165,7 @@ async function openSettings(initialTab = 'security') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['security', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'security';
+  const tabName = ['account', 'security', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'security';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -161,6 +173,7 @@ async function openSettings(initialTab = 'security') {
       <aside class="settings-sidebar">
         <div class="settings-identity"><img class="wolf-logo" src="images/logo-loup.svg" alt="Logo loup" width="64" height="64"></div>
         <nav class="settings-tabs" role="tablist" aria-label="Catégories des paramètres" aria-orientation="${matchMedia('(max-width:640px)').matches?'horizontal':'vertical'}">
+          <button type="button" class="settings-tab" id="settings-tab-account" data-settings-tab="account" role="tab" aria-controls="settings-account" aria-selected="false" tabindex="-1">${settingsIcon('user')}<span>Mon compte</span></button>
           <button type="button" class="settings-tab" id="settings-tab-security" data-settings-tab="security" role="tab" aria-controls="settings-security" aria-selected="false" tabindex="-1">${settingsIcon('shield-check')}<span>Sécurité</span></button>
           <button type="button" class="settings-tab" id="settings-tab-data" data-settings-tab="data" role="tab" aria-controls="settings-data" aria-selected="false" tabindex="-1">${settingsIcon('database')}<span>Données</span></button>
           <button type="button" class="settings-tab" id="settings-tab-interface" data-settings-tab="interface" role="tab" aria-controls="settings-interface" aria-selected="false" tabindex="-1">${settingsIcon('sliders-horizontal')}<span>Interface</span></button>
@@ -177,6 +190,17 @@ async function openSettings(initialTab = 'security') {
         </div>
       </aside>
       <div class="settings-main">
+        <section class="settings-panel hidden" id="settings-account" data-settings-panel="account" role="tabpanel" aria-labelledby="settings-tab-account">
+          <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('user')}<h3>Mon compte</h3></div></header>
+          <dl class="settings-about-facts">
+            <div><dt>Adresse du compte</dt><dd>${esc(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.username||'Compte local':'Compte local')}</dd></div>
+            <div><dt>Rôle</dt><dd>${admin?'Administrateur':'Utilisateur'}</dd></div>
+            <div><dt>Groupes d’accès</dt><dd>${esc(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.permissions?.accessGroup?.names?.join(', ')||'Aucun groupe attribué':'Compte local')}</dd></div>
+            <div><dt>Coffre personnel</dt><dd>Isolé des autres comptes</dd></div>
+          </dl>
+          <div class="settings-row">${settingsIcon('key-round')}<div class="settings-row-copy"><div class="settings-row-title">Connexion et double authentification</div><p class="settings-row-desc">Code personnel, Authenticator et changement de téléphone.</p></div><button type="button" class="settings-btn" id="accountSecurityBtn">Gérer ma sécurité</button></div>
+          <div class="settings-row">${settingsIcon('database')}<div class="settings-row-copy"><div class="settings-row-title">Mon espace de stockage</div><p class="settings-row-desc">Volume du coffre et des dossiers partagés accessibles.</p></div><button type="button" class="settings-btn" id="accountStorageBtn">Voir mon espace</button></div>
+        </section>
         <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>
           <div class="settings-about-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="72" height="72"><div><h4>WolfGuard</h4><p>Documentation IT, coffre chiffré et sécurité des postes dans un même espace de travail.</p></div></div>
@@ -197,10 +221,10 @@ async function openSettings(initialTab = 'security') {
         
         <section class="settings-panel hidden" id="settings-security" data-settings-panel="security" role="tabpanel" aria-labelledby="settings-tab-security">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('shield-check')}<h3>Sécurité</h3></div><span class="settings-status">Session active</span></header>
-          <h4 class="settings-group-title">Mon code</h4>
+          <h4 class="settings-group-title">Mon code personnel</h4><p class="settings-row-desc">Ce code sert ? déverrouiller votre compte. Il est distinct du code Authenticator ? six chiffres.</p>
           <div class="settings-row">
             ${settingsIcon('key-round')}
-            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">8 chiffres · Protège l’espace</div></div>
+            <div class="settings-row-copy"><div class="settings-row-title">Code d’accès</div><div class="settings-row-desc">8 chiffres · Personnel à votre compte</div></div>
             <button type="button" class="settings-btn settings-control" id="changeCodeBtn">${settingsIcon('key-round')}Modifier</button>
           </div>
           <div id="changeCodeArea"></div>
@@ -226,7 +250,7 @@ async function openSettings(initialTab = 'security') {
             <div><strong>${esc(filename)}</strong><span class="settings-connection-state ${connectionClass}">${connectionLabel}</span></div>
           </div>
           ${multipleDatabases ? '<div class="settings-database-list">' + databaseFiles.map(file => '<div class="settings-database-file"><div><strong>' + esc(file.name) + '</strong><code>' + esc(file.path) + '</code><span>' + (file.id === 'main' ? 'Reglages partages' : file.itemCount.toLocaleString('fr-FR') + ' element(s)') + '</span></div><button type="button" class="settings-btn" data-storage-folder="' + esc(file.id) + '" aria-label="Afficher le dossier ' + esc(file.name) + '">' + settingsIcon('folder-open') + 'Dossier</button></div>').join('') + '</div>' : ''}
-          <dl class="settings-data-facts">
+          <section id="settingsStorageUsage" aria-live="polite"><p>Chargement de la répartition des espaces…</p></section><dl class="settings-data-facts">
             <div><dt>Éléments</dt><dd>${n.toLocaleString('fr-FR')}</dd></div>
             <div><dt>Données chiffrées</dt><dd>${esc(totalLabel)}</dd></div>
             <div><dt>Dépôt complet</dt><dd id="wgRepositorySize">Chargement…</dd></div>
@@ -249,10 +273,12 @@ async function openSettings(initialTab = 'security') {
               <button type="button" class="settings-btn settings-btn-icon" id="resetWidthBtn" title="Rétablir la largeur par défaut" aria-label="Rétablir la largeur par défaut">${settingsIcon('rotate-ccw')}</button>
             </div>
           </div>
+          <h4 class="settings-group-title">Personnalisation</h4>
+          ${[['theme','Ambiance',[['midnight','Bleu nuit'],['slate','Ardoise'],['contrast','Contraste renforcé']]],['density','Densité des tableaux',[['comfortable','Confortable'],['compact','Compacte']]],['text','Taille de lecture',[['100','Standard'],['110','110 %'],['120','120 %']]],['motion','Animations',[['system','Selon le système'],['reduced','Réduites']]]].map(([id,label,options])=>'<div class="settings-row"><label class="settings-row-title" for="interface-'+id+'">'+label+'</label><select class="settings-select settings-control" id="interface-'+id+'" data-interface-option="'+id+'">'+options.map(([value,text])=>'<option value="'+value+'">'+text+'</option>').join('')+'</select></div>').join('')}
           <h4 class="settings-group-title">Réinitialisation</h4>
           <div class="settings-row">
             ${settingsIcon('rotate-ccw')}
-            <div class="settings-row-copy"><div class="settings-row-title">Réglages d’interface</div><div class="settings-row-desc">Largeur et dossiers repliés</div></div>
+            <div class="settings-row-copy"><div class="settings-row-title">Réglages d’interface</div><div class="settings-row-desc">Ambiance, densité, lecture, animations, largeur et dossiers repliés</div></div>
             <button type="button" class="settings-btn settings-control" id="resetInterfaceBtn">${settingsIcon('rotate-ccw')}Réinitialiser</button>
           </div>
         </section>
@@ -316,6 +342,10 @@ async function openSettings(initialTab = 'security') {
       first?.focus()
     }
   };
+  $('#accountSecurityBtn').onclick=()=>setSettingsTab('security',true);
+  $('#accountStorageBtn').onclick=()=>setSettingsTab('data',true);
+  const preferences=applyInterfacePreferences();
+  for(const select of dialog.querySelectorAll('[data-interface-option]')){select.value=preferences[select.dataset.interfaceOption];select.onchange=()=>{preferences[select.dataset.interfaceOption]=select.value;applyInterfacePreferences(preferences);try{localStorage.setItem(interfacePreferenceKey(),JSON.stringify(preferences));}catch{}feedback('Préférences enregistrées sur cet appareil.');};}
   $('#changeCodeBtn').onclick = showChangeCodeForm;
   $('#lockNowBtn').onclick = lockApplication;
   $('#changeBaseBtn').onclick = changeWorkspaceFromSettings;
@@ -360,4 +390,14 @@ function showChangeCodeForm() {
       </div>
     </div>`;
   $('#oldAccessCode').focus();
+}
+
+async function loadSettingsStorageUsage(dialog){
+  const host=dialog.querySelector('#settingsStorageUsage');if(!host||host.dataset.loading||host.dataset.loaded)return;host.dataset.loading='true';
+  if(typeof WolfGuardCloud==='undefined'||!WolfGuardCloud.enabled){host.textContent='La répartition par compte est disponible avec le service partagé.';return;}
+  const format=value=>new Intl.NumberFormat('fr-FR',{style:'unit',unit:value>=1048576?'megabyte':'kilobyte',maximumFractionDigits:1}).format(value/(value>=1048576?1048576:1024));
+  try{const data=await WolfGuardCloud.agentRequest('storage/usage');if(!host.isConnected)return;
+    const rows=[...data.accounts.map(row=>[row.name,row.bytes,row.items+' fiche(s) · '+row.folders+' dossier(s)']),[data.shared.name,data.shared.bytes,data.shared.items+' fiche(s) · '+data.shared.folders+' dossier(s)'],...(data.administrator?[['Réglages partagés',data.metadataBytes,'Métadonnées']]:[])];
+    host.dataset.loaded='true';host.innerHTML='<h4 class="settings-group-title">'+(data.administrator?'Répartition de tous les comptes':'Mes espaces accessibles')+'</h4><div class="settings-storage-list">'+rows.map(([name,size,detail])=>'<div><span><strong>'+esc(name)+'</strong><small>'+esc(detail)+'</small></span><b>'+esc(format(size))+'</b></div>').join('')+'<div class="settings-storage-total"><strong>Total '+(data.administrator?'des espaces':'accessible')+'</strong><b>'+esc(format(data.totalBytes))+'</b></div></div><p class="settings-row-desc">Volume des fiches, pièces jointes chiffrées et dossiers enregistrés, hors surcoût des enveloppes de chiffrement. '+(data.administrator?'La vue globale est réservée aux administrateurs.':'Les coffres des autres comptes ne sont pas affichés.')+'</p>';
+  }catch(error){if(host.isConnected)host.textContent='Répartition indisponible : '+error.message;}finally{delete host.dataset.loading;}
 }

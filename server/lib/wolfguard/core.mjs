@@ -11,6 +11,7 @@ import {userPolicy} from './permission-store.mjs';
 import {handleChatAPI} from './chat-api.mjs';
 import {handleChatHistory} from './chat-history.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
+import {workspaceUsage} from './storage-usage.mjs';
 import {addVaultIdentity,allVaultHomes,withVaultHomes} from './personal-vault.mjs';
 import {SESSION_MS} from './session-policy.mjs';
 const encoder = new TextEncoder();
@@ -143,14 +144,18 @@ async function boundedJSON(stream,limit=SCOPED_MAX_BYTES){
   finally{reader.releaseLock();}
   try{const data=new Uint8Array(length);let offset=0;for(const part of parts){data.set(part,offset);offset+=part.length;}return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(data));}catch{fail(400,'Copie partagée invalide.');}
 }
-async function scopedSnapshot(row,env,user,now){
+async function canonicalSnapshot(row,env){
   const object=await env.BUCKET.get(row.object_key);if(!object?.body)fail(503,'Copie distante indisponible.');
   const stream=await decryptedStream(object,env);if(stream.length>SCOPED_MAX_BYTES){await stream.body.cancel();fail(413,'La copie partagée dépasse la limite autorisée de 46 Mo. Réduis les pièces jointes.');}
-  const envelope=await boundedJSON(stream.body),master=await canonicalMaterial(row,env),delivery=await deliveryMaterial(row,user,env);
+  const envelope=await boundedJSON(stream.body),master=await canonicalMaterial(row,env);
   let source;try{source=await openEnvelope(envelope,master);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
   source=withVaultHomes(source,await allVaultHomes(env));
+  return {source,master,revision:envelope.revision};
+}
+async function scopedSnapshot(row,env,user,now){
+  const {source,master,revision}=await canonicalSnapshot(row,env),delivery=await deliveryMaterial(row,user,env);
   let visible;try{visible=await projectWorkspace(source,user,master,delivery,now);}catch{fail(409,'Le propriétaire doit ouvrir et mettre à jour la copie partagée.');}
-  return {source,visible,master,delivery,revision:envelope.revision};
+  return {source,visible,master,delivery,revision};
 }
 async function putSnapshot(request,env,session,now) {
   const expected=Number(request.headers.get('X-WG-Version'));
@@ -299,6 +304,12 @@ export async function handleAPI(request,env,clock=Date.now) {
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();await stopRemoteOwners(env,[{token_hash:session.hash}],now);response=json({ok:true});}
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});
+        else if(path==='/api/storage/usage'&&request.method==='GET'){
+          const row=await state(env);
+          if(!row.users_enabled)fail(409,'Active les comptes pour consulter la répartition des espaces.');
+          if(!row.object_key)response=json(workspaceUsage({version:2,items:[],folders:await allVaultHomes(env),settings:[],activity:[]},session.user,now));
+          else {const snapshot=await canonicalSnapshot(row,env);response=json({...workspaceUsage(snapshot.source,session.user,now),version:row.version});}
+        }
         else if(path==='/api/vault'&&request.method==='GET'){
           const row=await state(env);if(!row.object_key)fail(404,'Ouvre d’abord WolfGuard sur ton appareil principal pour transférer tes données.');
           if(row.users_enabled){
