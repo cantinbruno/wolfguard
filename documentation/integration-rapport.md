@@ -28,7 +28,7 @@ Les demandes de `rapport.txt` sont traitées dans la version courante. Les modif
 | 22. Utilisateurs et groupes | Recherche des comptes par adresse ou groupe ; filtres de groupes automatiques par catégorie. Les commandes sont indisponibles pendant une modification pour éviter de viser le mauvais groupe. | `users_panes_test.py`, `fleet_groups_test.py` |
 | 23. Connexions | Recherche locale par compte, navigateur ou IP et filtres En ligne, Inactives et Cet onglet, avec conservation des contrôles de révocation et de blocage. | Contrôles Connexions existants |
 | 24. Recherche intelligente | Index local incrémental existant, synonymes techniques supplémentaires, cache de résultats borné à 30 requêtes et invalidé avec les données. Aucun appel de recherche au serveur. Réduction des reprogrammations du verrouillage lors des mouvements de souris. | `optimization_test.py`, `session_resume_test.py` |
-| 25. Poids et structure | Documentation centralisée, aucune duplication AGENTS.md à la racine. Nettoyage des anciens checkouts propres et des dépendances dupliquées ; préservation des travaux non intégrés lors de leur déplacement hors du dossier de version officielle. | Contrôle des chemins, états Git et compilation |
+| 25. Poids et structure | Documentation centralisée, aucune duplication AGENTS.md à la racine. Anciens checkouts et dépendances dupliquées déplacés hors de `myapp`. Les deux worktrees non intégrés restent enregistrés et leurs changements sont conservés. La suppression des dépendances a été refusée par le contrôle automatique d’exécution ; aucun espace disque n’a donc été libéré par ce déplacement. | Contrôle des chemins, états Git et compilation |
 
 ## Portée de la protection
 
@@ -39,3 +39,9 @@ La surveillance système dépend des privilèges et des journaux disponibles. Un
 Les volumes affichés additionnent les enregistrements sérialisés, y compris leurs pièces jointes chiffrées. Ils n’incluent pas le surcoût des enveloppes ni la facturation physique de D1/R2. Le calcul ne renvoie jamais le contenu ou les noms des coffres des autres comptes à un utilisateur classique.
 
 La mise en ligne du frontend GitHub Pages et le déploiement de l’API Sites sont deux opérations distinctes. Les corrections de l’agent deviennent effectives sur les postes après leur mise à jour ; les essais locaux ne valent pas validation de chaque poste du parc.
+
+## Validation et publication
+
+Le 21 novembre 2026, les tests ciblés de sécurité ont réussi (121 tests), ainsi que les contrôles complémentaires d’agents, antivirus, terminal, fichiers, permissions et rapports. Les 22 suites navigateur sélectionnées ont réussi, dont le nouveau parcours d’acceptation du rapport. La syntaxe PowerShell et l’application des ACL ont été vérifiées sans ouvrir de fenêtre ni utiliser les comptes réels.
+
+Le frontend a été poussé sur `main`. Les octets de sa page d’entrée et du manifeste public des agents ont été comparés à ceux de la version publiée. L’API existante a été déployée en version 55, avec maintien de son audience et de ses bindings ; son endpoint public de statut répond avec l’origine du frontend autorisé. Les anciens travaux et caches ont été conservés dans un dossier voisin du projet, identifiable avec `git worktree list`.
