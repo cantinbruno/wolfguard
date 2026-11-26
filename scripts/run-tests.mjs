@@ -100,12 +100,28 @@ if(!name||name==='--list'||!Object.hasOwn(suites,name)){
   console.log('Suites : '+Object.keys(suites).join(', '));
   process.exit(name&&name!=='--list'?1:0);
 }
+// In GitHub Actions, run every step and publish the end of each failing
+// step's output as an annotation (annotations are readable without the logs).
+const ci=process.env.GITHUB_ACTIONS==='true';
+const annotate=(title,text)=>{
+  const tail=text.split(/\r?\n/).filter(line=>line.trim()&&!/^\s+at /.test(line)).slice(-60).join('\n').slice(-12000);
+  const escape=value=>value.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A');
+  console.log('::error title='+escape(title).replace(/[:,]/g,' ')+'::'+escape(tail));
+};
+const failures=[];
 for(const [kind,value] of suites[name]){
   const [command,args]=kind==='publication'?[process.execPath,[path.join('scripts','check-publication.mjs')]]
     :kind==='node'?[process.execPath,['--test',...(typeof value==='function'?value():value).map(file=>path.join('tests',file))]]
     :[python,[path.join('tests',value)]];
+  const label=kind+(typeof value==='string'?' '+value:'');
   console.log('\n> '+[path.basename(command),...args].join(' '));
-  const result=spawnSync(command,args,{cwd:root,stdio:'inherit'});
-  if(result.status!==0){console.error('Échec : '+kind+' '+(typeof value==='string'?value:''));process.exit(result.status||1);}
+  const result=spawnSync(command,args,{cwd:root,stdio:ci?['inherit','pipe','pipe']:'inherit',encoding:'utf8',maxBuffer:256*1024*1024});
+  if(ci){process.stdout.write(result.stdout||'');process.stderr.write(result.stderr||'');}
+  if(result.status!==0){
+    console.error('Échec : '+label);
+    if(!ci)process.exit(result.status||1);
+    failures.push(label);annotate('Échec '+label,(result.stdout||'')+'\n'+(result.stderr||'')+(result.error?'\n'+result.error.message:''));
+  }
 }
+if(failures.length){console.error('\nÉtapes en échec : '+failures.join(', '));process.exit(1);}
 console.log('\nSuite '+name+' réussie.');
