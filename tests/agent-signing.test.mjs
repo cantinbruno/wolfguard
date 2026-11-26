@@ -7,7 +7,8 @@ const root=new URL('..',import.meta.url);
 const protectedFiles=['app/downloads/WolfGuard-Agent-Windows.exe','agent/windows-build.json','app/downloads/agent-release.json','docs/downloads/WolfGuard-Agent-Windows.exe'];
 const snapshot=()=>protectedFiles.map(name=>readFileSync(new URL(name,root)));
 const run=args=>{
-  const env={...process.env};delete env.WOLFGUARD_SIGNING_CERT_THUMBPRINT;
+  // Windows PowerShell 5.1 must not inherit PowerShell 7 module paths (CI shells).
+  const env={...process.env};delete env.WOLFGUARD_SIGNING_CERT_THUMBPRINT;delete env.PSModulePath;
   return spawnSync('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-File','scripts/sign-agent-windows.ps1',...args],{cwd:root,env,encoding:'utf8',windowsHide:true,timeout:30000});
 };
 

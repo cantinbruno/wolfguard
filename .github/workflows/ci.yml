@@ -42,9 +42,11 @@ jobs:
           python -m pip install -r tests/requirements.txt
           python -m playwright install chromium
 
-      - name: Clé de lien jetable
+      # Browser tests start the API fixture with the agent's private Node
+      # runtime path (%LOCALAPPDATA%\WolfGuardWeb\runtime\node.exe).
+      - name: Clé de lien jetable et runtime Node des tests navigateur
         shell: bash
-        run: node -e "const fs=require('fs'),path=require('path'),dir=path.join(process.env.RUNNER_TEMP,'wolfguard-private');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'site-access.json'),JSON.stringify({key:require('crypto').randomBytes(32).toString('hex')}));fs.appendFileSync(process.env.GITHUB_ENV,'WOLFGUARD_PRIVATE_DIR='+dir+'\n')"
+        run: node -e "const fs=require('fs'),path=require('path'),dir=path.join(process.env.RUNNER_TEMP,'wolfguard-private');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'site-access.json'),JSON.stringify({key:require('crypto').randomBytes(32).toString('hex')}));fs.appendFileSync(process.env.GITHUB_ENV,'WOLFGUARD_PRIVATE_DIR='+dir+'\n');const runtime=path.join(process.env.LOCALAPPDATA,'WolfGuardWeb','runtime');fs.mkdirSync(runtime,{recursive:true});fs.copyFileSync(process.execPath,path.join(runtime,'node.exe'))"
 
       - name: Compilation du site
         run: npm run build
