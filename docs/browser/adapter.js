@@ -730,8 +730,7 @@ const webWorkspace = (() => {
     const root=$('#webMFASettings');if(!root)return;const mfa=cloud.currentUser()?.mfa;
     root.dataset.state=mfa?.complete?'complete':'missing';
     root.querySelector('#webMFAState').textContent=mfa?.complete?'MFA activée':'MFA à terminer';
-    root.querySelector('#webMFADescription').textContent='Après ton code personnel à huit chiffres, utilise les six chiffres de l’application d’authentification configurée pour ce compte.';
-    const step=root.querySelector('#webMFAStepOTP');step.dataset.done=String(!!mfa?.authenticator);step.querySelector('span').textContent=mfa?.authenticator?'Activé':'À configurer';
+    root.querySelector('#webMFADescription').textContent=mfa?.authenticator?'À la connexion, saisis les 6 chiffres de ton application d’authentification après ton code personnel.':'Configure ton application d’authentification pour protéger la connexion à ton compte.';
   }
   async function mountOTPSettings(){
     const current=session,root=document.createElement('section');root.id='webOTPSettings';root.className='web-otp-settings';
@@ -746,6 +745,7 @@ const webWorkspace = (() => {
       message.querySelector('textarea').value=result.recoveryCodes.join('\n');root.append(message);
     }
     function showSetup(setup,initialCode,replacing=false){
+      root.dataset.mode='setup';
       let code=initialCode;
       const clear=()=>{code='';setup.secret='';setup.ticket='';setup.uri='';};
       root.innerHTML='<h4>'+(replacing?'Nouveau téléphone · Authenticator':'Configurer Authenticator · 6 chiffres')+'</h4><p>Sur '+(replacing?'le nouveau téléphone':'ton téléphone')+', ajoute un compte dans Authenticator et scanne ce QR code. Le compte sera nommé <strong>WolfGuard · '+esc(cloud.currentUser()?.username||'')+'</strong>.</p><canvas id="webOTPQR" role="img" aria-label="QR code à scanner dans Authenticator"></canvas><p class="access-help">Ce QR code est généré sur cet appareil. Tu peux aussi ajouter manuellement la clé ci-dessous comme clé temporelle (TOTP).</p><label>Clé à saisir dans Authenticator<input id="webOTPSecret" readonly spellcheck="false"></label><button type="button" class="settings-btn" id="webOTPCopy">Copier la clé</button><p>'+(replacing?'Ton ancien Authenticator reste actif jusqu’à la confirmation. Ce changement expire après dix minutes.':'Rien n’est activé avant la confirmation.')+'</p><form><label>Code de 6 chiffres '+(replacing?'du nouveau téléphone':'d’Authenticator')+'<input id="webOTPCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><div class="settings-form-actions"><button type="submit" class="settings-btn primary">'+(replacing?'Confirmer le nouveau téléphone':'Activer Authenticator')+'</button><button type="button" class="settings-btn" id="webOTPCancel">Annuler</button></div></form><p role="status"></p>';
@@ -774,6 +774,7 @@ const webWorkspace = (() => {
     }
     function changePhone(){
       if(!live()||pending)return;
+      root.dataset.mode='replace';
       root.innerHTML='<h4>Changer de téléphone · Authenticator</h4><p>Vérifie ton compte avant de configurer le nouveau téléphone. Ton Authenticator actuel reste actif pendant le changement.</p><form id="webOTPReplaceForm"><label>Code personnel actuel<input id="webOTPReplacePassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label><label>Code de l’ancien Authenticator ou code de secours<input id="webOTPReplaceCurrent" type="text" autocomplete="one-time-code" maxlength="16" required></label><p class="access-help">Si tu n’as plus l’ancien téléphone, utilise un de tes codes de secours.</p><div class="settings-form-actions"><button type="submit" class="settings-btn primary">Continuer</button><button type="button" class="settings-btn" id="webOTPReplaceCancel">Annuler</button></div></form><p role="status"></p>';
       root.querySelector('#webOTPReplaceCancel').onclick=()=>{if(!pending)render();};
       root.querySelector('form').onsubmit=async event=>{
@@ -788,10 +789,13 @@ const webWorkspace = (() => {
     }
     function render(){
       if(!live())return;
-      let html='<h4>Authenticator · Code à 6 chiffres</h4><p>'+(enabled?'Ton application Authenticator est activée. Utilise ses six chiffres après ton code personnel.':'Ajoute un code de 6 chiffres renouvelé toutes les 30 secondes avec Google, Microsoft Authenticator ou une application compatible.')+'</p>';
-      if(enabled&&canReplace)html+='<button type="button" class="settings-btn" id="webOTPChangePhone">'+settingsIcon('smartphone')+'Changer de téléphone</button>';
+      root.dataset.mode='summary';
+      let html='<div class="web-mfa-actions">';
+      if(enabled&&canReplace)html+='<button type="button" class="settings-btn" id="webOTPChangePhone">'+settingsIcon('refresh-cw')+'Changer de téléphone</button>';
+      if(enabled)html+='<p class="access-help">Conserve tes codes de secours en cas de perte du téléphone.</p>';
+      html+='</div>';
       if(enabled&&required){
-        root.innerHTML=html+'<p class="access-help">La MFA reste obligatoire. Conserve tes codes de secours pour récupérer ton accès.</p><p role="status"></p>';
+        root.innerHTML=html+'<p role="status"></p>';
       }else{
         root.innerHTML=html+'<form id="webOTPForm"><label>Code personnel actuel<input id="webOTPPassword" type="password" inputmode="numeric" pattern="[0-9]{8}" minlength="8" maxlength="8" autocomplete="current-password" required></label>'+(enabled?'<label>Code OTP ou code de secours<input id="webOTPCode" type="text" autocomplete="one-time-code" maxlength="16" required></label>':'')+'<button type="submit" class="settings-btn '+(enabled?'':'primary')+'">'+(enabled?'Désactiver Authenticator':'Configurer Authenticator')+'</button></form><p id="webOTPFeedback" role="status"></p>';
         root.querySelector('form').onsubmit=async event=>{
@@ -821,7 +825,7 @@ const webWorkspace = (() => {
     const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
-      mfa.innerHTML='<header><div><span>CONNEXION</span><h3>Authentification multi-facteur</h3></div><strong id="webMFAState" role="status">Vérification de la MFA…</strong></header><p id="webMFADescription"></p><ol class="web-mfa-progress"><li id="webMFAStepOTP"><strong>Authenticator · Code à 6 chiffres</strong><span>Vérification…</span></li></ol><div id="webMFASteps"></div>';
+      mfa.innerHTML='<header><div class="web-mfa-heading">'+settingsIcon('shield-check')+'<h3>Double authentification</h3></div><strong id="webMFAState" role="status">Vérification…</strong></header><p id="webMFADescription"></p><div id="webMFASteps"></div>';
       $('#accountAuthentication').append(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
     }
     $('#changeBaseBtn').remove();

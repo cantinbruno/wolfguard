@@ -22,6 +22,8 @@ Le remplacement Authenticator exige le code personnel et l’ancien OTP ou un co
 
 Le parcours web courant utilise Authenticator ; la présence de modules historiques Web Push ne signifie pas qu’une seconde validation push est requise dans l’interface.
 
+Dans Mon compte, un seul bloc « Double authentification » réunit le statut MFA, une phrase sur le code à six chiffres, le bouton « Changer de téléphone » et le rappel des codes de secours. Les étapes et titres répétés sont retirés de la vue courante. Les formulaires de configuration, de vérification et de remplacement restent accessibles dans ce bloc, avec les mêmes contrôles et confirmations.
+
 ## Données et clés
 
 L’espace enregistré dans le navigateur est chiffré avec AES-256-GCM ; la dérivation client emploie PBKDF2-HMAC-SHA-256 à 600 000 itérations. Les clés Web Crypto sont non extractibles. La reprise d’un rafraîchissement conserve temporairement une clé non extractible et le jeton du même onglet ; elle ne conserve pas le code personnel.

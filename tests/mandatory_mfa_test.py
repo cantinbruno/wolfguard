@@ -58,7 +58,7 @@ def run():
                     expect(page.locator('#webPhoneEnrollRegister')).to_be_visible();expect(page.locator('#app')).to_be_hidden();page.locator('#webPhoneEnrollRegister').click();approve_latest(page,origin,backend)
                 return secret
             enter(owner,CODE);owner_secret=enroll(owner)
-            owner.locator('#settingsBtn').click();expect(owner.locator('#webOTPSettings')).to_contain_text('Authenticator')
+            owner.locator('#settingsBtn').click();expect(owner.locator('#webMFASettings')).to_contain_text('Double authentification')
             if codes_only:
                 expect(owner.locator('#webMFADescription')).to_contain_text('application d’authentification')
                 expect(owner.locator('#webMFAStepPhone,#webDuoSettings')).to_have_count(0)
