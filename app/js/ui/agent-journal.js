@@ -3,7 +3,7 @@
 window.WolfGuardAgentJournal=(()=>{
   const statuses={alert:'Alerte',failed:'Échec',blocked:'Bloqué',quarantined:'Quarantaine',removed:'Supprimé',cleaned:'Nettoyé',info:'Information'};
   const severities={critical:'Critique',high:'Élevée',medium:'Moyenne',low:'Faible',info:'Info'};
-  function create({signal}){
+  function create({signal,can=()=>false}){
     let host=null,agent=null,events=[],next=null,error='',last=0,loading=false,paused=false,history=false,query='',filter='all',controller=null,revision=0,helpOpen=false;
     const live=()=>!signal.aborted&&host?.isConnected;
     const find=selector=>host?.querySelector(selector);
@@ -13,7 +13,7 @@ window.WolfGuardAgentJournal=(()=>{
       const list=find('.agent-journal-list'),top=list.scrollTop;
       const open=new Set([...list.querySelectorAll('details[open]')].map(row=>row.dataset.logKey));
       const focused=document.activeElement?.closest('[data-log-key]')?.dataset.logKey;
-      const html=visible.map(event=>'<article class="agent-log-row" data-log-status="'+esc(event.status)+'" data-severity="'+esc(event.severity)+'"><time datetime="'+new Date(event.occurredAt).toISOString()+'">'+esc(new Date(event.occurredAt).toLocaleString('fr-FR'))+'</time><span class="agent-log-level">'+esc(statuses[event.status]||event.status)+'<small>'+esc(severities[event.severity]||'')+'</small></span><div><strong>'+esc(event.title)+'</strong><span class="agent-log-provider">'+esc(event.provider)+'</span><details data-log-key="'+esc(event.key||event.id)+'" '+(open.has(event.key||event.id)?'open':'')+'><summary>Détails</summary>'+(event.resource?'<p>'+esc(event.resource)+'</p>':'')+'<p>'+esc(event.detail||'Aucun détail complémentaire.')+'</p>'+(event.acknowledgedAt?'<p>Acquitté le '+esc(new Date(event.acknowledgedAt).toLocaleString('fr-FR'))+'</p>':'')+'</details></div></article>').join('')||'<p class="agent-journal-empty">'+(loading?'Chargement du journal…':events.length?'Aucun événement pour ces filtres.':'Aucun événement remonté par ce poste.')+'</p>';
+      const html=visible.map(event=>'<article class="agent-log-row" data-log-status="'+esc(event.status)+'" data-severity="'+esc(event.severity)+'"><time datetime="'+new Date(event.occurredAt).toISOString()+'">'+esc(new Date(event.occurredAt).toLocaleString('fr-FR'))+'</time><span class="agent-log-level">'+esc(statuses[event.status]||event.status)+'<small>'+esc(severities[event.severity]||'')+'</small></span><div><strong>'+esc(event.title)+'</strong><span class="agent-log-provider">'+esc(event.provider)+'</span><details data-log-key="'+esc(event.key||event.id)+'" '+(open.has(event.key||event.id)?'open':'')+'><summary>Détails</summary>'+(event.resource?'<p>'+esc(event.resource)+'</p>':'')+'<p>'+esc(event.detail||'Aucun détail complémentaire.')+'</p>'+(event.acknowledgedAt?'<p>Acquitté le '+esc(new Date(event.acknowledgedAt).toLocaleString('fr-FR'))+'</p>':can('edr.acknowledge',agent)?'<button type="button" class="settings-btn" data-journal-ack="'+esc(event.key)+'" '+(loading?'disabled':'')+'>Acquitter</button>':'')+'</details></div></article>').join('')||'<p class="agent-journal-empty">'+(loading?'Chargement du journal…':events.length?'Aucun événement pour ces filtres.':'Aucun événement remonté par ce poste.')+'</p>';
       if(list.innerHTML!==html){list.innerHTML=html;list.scrollTop=top;if(focused)list.querySelector('[data-log-key="'+CSS.escape(focused)+'"] summary')?.focus({preventScroll:true});}
       find('[data-journal-status]').textContent=error?'Actualisation impossible : '+error+(events.length?' · Derniers événements conservés.':''):loading?'Chargement…':events.length+' événement(s) chargé(s)'+(paused?' · Actualisation en pause':history?' · Consultation de l’historique':last?' · Actualisé à '+new Date(last).toLocaleTimeString('fr-FR'):'');
       find('[data-journal-refresh]').disabled=loading;
@@ -42,6 +42,13 @@ window.WolfGuardAgentJournal=(()=>{
       if(target!==host){
         host=target;
         host.innerHTML='<details class="agent-journal-help" '+(helpOpen?'open':'')+'><summary>Quels logs sont remontés ?</summary><ul><li>Détections, blocages, quarantaines et restaurations signalés par les antivirus.</li><li>Protections désactivées, signatures à actualiser et rétablissements confirmés.</li><li>Installation de WolfGuard Antivirus et vérification des signatures : résultats et échecs.</li></ul><p>Chaque ligne indique la date, la gravité, le fournisseur et les détails reçus, avec le chemin concerné lorsqu’il est fourni.</p></details><div class="agent-journal-controls"><label>Rechercher<input type="search" data-journal-search placeholder="Événement, fichier, fournisseur…"></label><label>Afficher<select data-journal-filter><option value="all">Tous les événements</option><option value="alerts">Alertes et échecs</option><option value="info">Informations</option></select></label><button type="button" data-journal-pause aria-pressed="false">Pause</button><button type="button" data-journal-refresh>Actualiser</button></div><p data-journal-status role="status"></p><div class="agent-journal-list" role="log" aria-live="off" tabindex="0" aria-label="Journal horodaté remonté par l’agent"></div><button type="button" data-journal-more hidden>Événements plus anciens</button>';
+        host.onclick=async event=>{
+          const button=event.target.closest('[data-journal-ack]');if(!button||button.disabled||loading||!can('edr.acknowledge',agent))return;
+          const id=agent.id,key=button.dataset.journalAck,run=revision;loading=true;error='';draw();
+          try{await WolfGuardCloud.agentRequest('edr/acknowledge',{agentId:id,key},{signal});if(live()&&run===revision&&agent.id===id){const row=events.find(row=>row.key===key);if(row)row.acknowledgedAt=Date.now();}}
+          catch(problem){if(live()&&run===revision)error=problem.message;}
+          finally{if(run===revision){loading=false;draw();}}
+        };
         find('.agent-journal-help').ontoggle=event=>{helpOpen=event.target.open;};
         find('[data-journal-search]').value=query;find('[data-journal-search]').oninput=event=>{query=event.target.value.trim().toLocaleLowerCase();draw();};
         find('[data-journal-filter]').value=filter;find('[data-journal-filter]').onchange=event=>{filter=event.target.value;draw();};

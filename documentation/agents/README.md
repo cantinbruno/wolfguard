@@ -12,7 +12,7 @@ Windows utilise les lanceurs PowerShell/C# et les composants de capture. Linux e
 
 Pour le bureau Windows, les dépendances et composants natifs sont décrits dans `agent/remote-dependencies.json` et les modules `remote-*`. Le composant d’image doit être démarré depuis les ressources de la version courante.
 
-Le moteur libre ClamAV peut être installé depuis la vue EDR sur Windows x64. Il analyse les dossiers utilisateur indiqués et traite ses détections dans une quarantaine chiffrée locale. Cette surveillance réactive ne bloque pas l’exécution avant le verdict et laisse les protections natives actives. Voir [Antivirus : activation, droits et limites](../antivirus.md).
+Le moteur libre ClamAV peut être installé depuis la rubrique Protection de la fiche du poste sur Windows x64. Il analyse les dossiers utilisateur indiqués et traite ses détections dans une quarantaine chiffrée locale. Cette surveillance réactive ne bloque pas l’exécution avant le verdict et laisse les protections natives actives. Voir [Antivirus : activation, droits et limites](../antivirus.md).
 
 ## Association, droits et mise à jour
 
@@ -22,7 +22,7 @@ Les permissions sont réglables poste par poste et restent limitées par les dro
 
 Dans le parc, le bouton « Ajouter un poste » ouvre une fenêtre consacrée à l’association : choix Windows / Linux / macOS, installateur personnel ou lien à ouvrir sur un autre poste, puis confirmation automatique de son arrivée. Le lien est valable une heure pour un seul poste. Cette fenêtre ne présente ni liste de postes, ni sélecteur du poste utilisé, ni commande de révocation ou de désinstallation.
 
-Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Journal », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le raccourci « Désinstaller l’agent » ouvre la fenêtre de désinstallation en sélectionnant ce poste. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
+Le choix d’un poste se fait dans le parc. Sa fiche se répartit entre « Vue d’ensemble », « Protection », « Quarantaine », « Journal », « Outils » et « Détails » ; elle donne accès aux protections, aux diagnostics et à la mise à jour. La révocation se trouve uniquement dans « Détails → Retirer ce poste », avec une confirmation explicite. Une erreur conserve la fiche et permet de réessayer. Après succès, le poste disparaît du parc, son accès est refusé par l’API et une éventuelle sélection de ce poste est retirée. Le raccourci « Désinstaller l’agent » ouvre la fenêtre de désinstallation en sélectionnant ce poste. Le tableau s’adapte en cartes sur téléphone, avec les mêmes tris et filtres.
 
 Le tableau occupe la hauteur disponible de l’écran, même avec un seul poste. La molette et le défilement tactile restent dans la liste ; les filtres, les commandes et le pied du tableau restent accessibles et les titres des colonnes restent en place. Sur petit écran, la liste conserve son affichage en cartes et son défilement interne ; les métriques sont masquées lorsque la hauteur disponible est réduite ou pendant une sélection multiple.
 
@@ -63,3 +63,9 @@ Les tests Node des agents et contrats peuvent s’exécuter sur des données tem
 Le parcours ajout → installation → fiche → révocation est vérifié sans fenêtre avec `python tests/enrollment_workspace_test.py`. Les tests `tests/agent_workspace_test.py` et `tests/agents_console_test.py` couvrent aussi les installateurs Windows/Linux/macOS, le poste sélectionné, les outils et les écrans mobiles. `python tests/agents_bulk_test.py` vérifie la hauteur fixe, la molette, les sélections, les confirmations groupées, les erreurs partielles, les droits par poste, l’annulation de la file et l’export CSV sur des postes factices. `python tests/fleet_groups_test.py` couvre les sections nommées, la persistance, les affectations multiples, les replis, les erreurs d’enregistrement et la portée du menu contextuel.
 
 La procédure [Signature Windows](signature-windows.md) reste facultative et exige un certificat reconnu réellement disponible. L’utilisateur a abandonné l’achat du certificat ; ne pas le relancer automatiquement.
+
+## Protection depuis la fiche du poste
+
+L’ancienne page EDR et son raccourci sont supprimés. Les commandes antivirus et la politique sont dans Protection, les fichiers isolés dans Quarantaine, les événements et l’acquittement dans Journal. Les onglets appartiennent à la même fiche et conservent le poste ciblé. Une actualisation garde les champs en cours et le focus ; changer de poste ou fermer la fiche demande confirmation pour une politique modifiée. Les commandes ne passent jamais sur le poste sélectionné pour un autre outil.
+
+Contrôles sans fenêtre : `python tests/antivirus_workspace_test.py`, `python tests/edr_workspace_test.py`, `python tests/agent_journal_test.py` et `python tests/agents_console_test.py`, avec postes synthétiques uniquement.

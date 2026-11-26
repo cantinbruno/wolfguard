@@ -6,6 +6,7 @@ async function openSection(section, itemId = null, options = {}) {
   if (LIBRARY_SECTIONS.includes(section)) section = 'library';
   if (section === 'home') section = 'library';
   if (!workspaceModules.allows(section)) return false;
+  if(isSecurityWorkspace(state.section)&&section!==state.section&&!await agentsWorkspace.beforeLeave())return false;
   const crossing = primarySectionFor(section) !== primarySectionFor(state.section);
   if (!(crossing && state.section === 'library') && !await confirmDiscardChanges()) return false;
   if (section === 'library' && itemId && primaryWorkspaces.memo?.dirty && primaryWorkspaces.memo.state.item !== itemId && !await appConfirm('Quitter le mémo en cours sans enregistrer ses modifications ?')) return false;
@@ -29,7 +30,6 @@ async function openSection(section, itemId = null, options = {}) {
     if (options.resume?.section === 'tools') networkToolsView.tool = ['ip', 'hash', 'text'].includes(options.resume.tool) ? options.resume.tool : 'ip';
     if(isScanSection(state.section)&&state.section!==section)webScanHistory.unmount();
     if (isSecurityWorkspace(state.section) && !isSecurityWorkspace(section)) agentsWorkspace.reset();
-    if (state.section === 'edr' && section !== 'edr') edrWorkspace.reset();
     if (state.section === 'remote' && section !== 'remote') window.remoteDesktopWorkspace?.reset();
     state.section = section;
     state.folder = options.resume?.folder || (section==='vault'?window.WolfGuardAccess?.personalVaultHome()?.id:null) || null;

@@ -9,7 +9,7 @@ L’utilisateur a choisi un **moteur libre intégré**. L’agent Windows x64 in
 1. Installer ou mettre à jour l’agent Windows x64 depuis les fichiers publiés.
 2. Dès que l’agent associé reçoit sa politique « Protéger », il installe le moteur officiel et télécharge ses signatures, sans commande d’installation ni navigateur ouvert.
 3. La surveillance est activée seulement après confirmation de l’installation et des signatures. Les agents déjà associés bénéficient du même amorçage après leur mise à jour.
-4. Dans Sécurité → fiche du poste → EDR, vérifier les versions, les signatures, les dossiers couverts et les éventuelles erreurs. Le bouton « Réessayer l’installation maintenant » reste un recours immédiat après un échec.
+4. Dans Sécurité → fiche du poste → Protection, vérifier les versions, les signatures, les dossiers couverts et les éventuelles erreurs. Le bouton « Réessayer l’installation » reste un recours immédiat après un échec.
 
 L’installation automatique concerne Windows x64 en mode « Protéger ». Elle attend une politique reçue du relais authentifié ; un état ancien ou une absence de connexion ne suffit pas à démarrer une nouvelle installation. « Observer » empêche cet amorçage et suspend la surveillance. Une pause explicite est conservée après redémarrage, y compris les anciens états sauvegardés désactivés ; elle n’est pas annulée par l’automatisation. Les signatures d’un moteur installé restent entretenues pendant une pause, sans réactiver la surveillance. Les analyses manuelles restent possibles. Suspendre WolfGuard ne désactive jamais Defender ni le pare-feu.
 
@@ -38,6 +38,9 @@ L’EDR ajoute un inventaire système et des observations indépendantes des fic
 Le moteur analyse une copie privée des octets lus. Chaque verdict est associé au chemin exact de cette copie. Après détection, l’agent vérifie à nouveau l’identité et l’empreinte du fichier avant de le déplacer. Un fichier modifié, un lien, un fichier à liens multiples ou une action non confirmée n’est pas supprimé automatiquement.
 
 ## Quarantaine et droits
+
+Les commandes sont intégrées à la fiche du poste, sans page EDR séparée. **Protection** réunit installation, analyse, signatures, activation/suspension et politique. **Quarantaine** présente les fichiers isolés avec recherche, Restaurer et Supprimer la copie ; ces deux actions demandent confirmation. La restauration remet les octets au chemin d’origine sans remplacer un fichier existant. Un fichier restauré peut être détecté à nouveau. Le poste doit être connecté, ses relevés récents et les droits de gestion accordés pour envoyer une commande. Les résultats restent en attente jusqu’à leur confirmation par l’agent. Les alertes peuvent être acquittées depuis **Journal**.
+
 
 Le contenu et les métadonnées sont chiffrés avec AES-256-GCM, IV aléatoire et données authentifiées distinctes. La clé aléatoire est protégée par DPAPI pour le compte Windows de l’agent. Les ACL limitent le magasin au compte autorisé, aux administrateurs et à SYSTEM ; une exécution élevée protège aussi son écriture contre le jeton non élevé. Cela ne rend pas le magasin inaccessible à un administrateur ou à un compte d’agent compromis. Ne pas supprimer sa clé : elle est nécessaire à la restauration.
 

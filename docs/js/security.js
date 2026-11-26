@@ -145,7 +145,7 @@ function resetPinUI() {
 function lockApplication() {
   accessSessionKey = null; accessSessionDeadline = 0;
   window.remoteDesktopWorkspace?.reset();
-    if(typeof edrWorkspace!=='undefined')edrWorkspace.reset();if(typeof agentsWorkspace!=='undefined')agentsWorkspace.reset();
+    if(typeof agentsWorkspace!=='undefined')agentsWorkspace.reset();
   appMessages.dismiss();
   resetPrimaryWorkspaces();
   window.workspaceSearch?.reset();

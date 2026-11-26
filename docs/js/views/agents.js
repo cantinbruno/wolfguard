@@ -7,7 +7,7 @@ const agentsWorkspace = (() => {
     {id:'active', section:'scan-active', label:'Scan actif', description:'Identifier les ports et services d’une cible.', capability:'network-scan-v3'},
     {id:'map', section:'scan-map', label:'Cartographie', description:'Explorer les équipements et les liens du réseau.', capability:['network-topology-v1','network-auto-map-v1']},
     {id:'vulnerability', section:'scan-vulnerability', label:'Vulnérabilités', description:'Examiner les contrôles et les risques du poste.', capability:'security-audit-v1'},
-    {id:'edr', section:'edr', label:'Protection EDR', description:'Consulter les protections, alertes et événements.', capability:'endpoint-protection-v1', offline:true},
+    {id:'edr', section:'edr', label:'Protection du poste', description:'Gérer l’antivirus et la quarantaine dans la fiche du poste.', capability:'endpoint-protection-v1', offline:true},
     {id:'desktop', section:'remote', mode:'desktop', label:'Bureau distant', description:'Ouvrir la prise en main du bureau.', capability:'remote-desktop-v1'},
     {id:'terminal', section:'remote', mode:'terminal', label:'Terminal', description:'Ouvrir un terminal sur ce poste.', capability:'remote-terminal-v1'},
     {id:'files', section:'remote', mode:'files', label:'Fichiers', description:'Parcourir et transférer les fichiers du poste.', capability:'remote-files-v1'}
@@ -27,7 +27,8 @@ const agentsWorkspace = (() => {
     const can = (right,agent=null) => !window.WolfGuardAccess || WolfGuardAccess.can(right)&&(!agent||!WolfGuardAccess.canAgent||WolfGuardAccess.canAgent(agent.id,right));
     let agents = [], selected = null, query = '', filter = 'all', platform = 'all', protectionFilter = 'all', sort = 'name', descending = false, stale = false, busy = false, selecting = false, protections = new Map(), protectionStale = false, publishedRelease = null, releaseStale = false;
     let menu = null, menuAgentId = null, menuPoint = null, pressTimer = 0, touchStart = null, suppressClick = false;
-    const journal=WolfGuardAgentJournal.create({signal});
+    const journal=WolfGuardAgentJournal.create({signal,can});
+    const protectionControls=WolfGuardAgentProtection.create({signal,can,onRefresh:refresh});
     let detailAgentId = null, detailHTML = '', detailTab = 'overview';
     let revoking = false, revokeError = null;
     const groups=WolfGuardFleetGroups.create();let groupsReady=false,groupsBusy=false,menuPage='main';
@@ -50,7 +51,7 @@ const agentsWorkspace = (() => {
           <div class="agents-search-filter"><label for="agentsSearch">Rechercher</label><div class="agents-search">${settingsIcon('search')}<input id="agentsSearch" type="search" placeholder="Nom du poste, système, version…"></div></div>
           <div><label for="agentsFilter">Connexion</label><select id="agentsFilter"><option value="all">Toutes les connexions</option><option value="online">Connectés</option><option value="offline">Hors ligne</option></select></div>
           <div><label for="agentsPlatform">Système</label><select id="agentsPlatform"><option value="all">Tous les systèmes</option><option value="win32">Windows</option><option value="linux">Linux</option><option value="darwin">macOS</option></select></div>
-          <div><label for="agentsProtection">Protection EDR</label><select id="agentsProtection"><option value="all">Tous les états</option><option value="protected">Protégés</option><option value="attention">À protéger</option><option value="unknown">À confirmer</option><option value="unsupported">Non intégrée</option><option value="alerts">Avec alertes</option></select></div>
+          <div><label for="agentsProtection">Protection</label><select id="agentsProtection"><option value="all">Tous les états</option><option value="protected">Protégés</option><option value="attention">À protéger</option><option value="unknown">À confirmer</option><option value="unsupported">Non intégrée</option><option value="alerts">Avec alertes</option></select></div>
           <div class="agents-filter-actions"><button type="button" id="agentsRefresh" aria-label="Actualiser les agents" title="Actualiser les agents">${settingsIcon('refresh-cw')}</button><button type="button" id="agentsClearFilters" title="Effacer les filtres" aria-label="Effacer les filtres">${settingsIcon('x')}</button></div>
         </div>
         <div id="agentsActiveFilters" class="agents-active-filters" aria-label="Filtres appliqués" hidden></div>
@@ -322,9 +323,9 @@ const agentsWorkspace = (() => {
       const attributes='class="agents-alerts" data-alert="'+(status.alerts>0)+'"',count=status.alerts??'—';
       return !agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr')?'<button type="button" '+attributes+' data-open-agent-journal="'+esc(agent.id)+'" aria-label="Voir le journal de '+esc(agent.name)+'" title="Voir les logs de ce poste">'+count+'</button>':'<span '+attributes+'>'+count+'</span>';
     }
-    function openJournal(id){
+    async function openJournal(id){
       const agent=agents.find(row=>row.id===id);if(!agent||agent.local||!can('edr.read',agent)||!workspaceModules.allows('edr'))return;
-      openDetails(id);selectRecordTab('journal',true);
+      if(await openDetails(id))selectRecordTab('journal',true);
     }
     function draw(preserveRows = false) {
       if (!live()) return;
@@ -444,9 +445,11 @@ const agentsWorkspace = (() => {
       document.body.appendChild(menu);renderMenu();(menu?.querySelector('button:not(:disabled)')||menu)?.focus({preventScroll:true});
     }
     async function runAction(actionId, id) {
-      if (actionId === 'details') { openDetails(id); return; }
+      if (actionId === 'details') { await openDetails(id); return; }
       const action = actions.find(item => item.id === actionId), agent = agents.find(item => item.id === id);
       if (!live() || !action || !agent || selecting || bulkBusy || reason(action, agent)) return;
+      if(actionId==='edr'){await openDetails(id,'protection');return;}
+      if(!await protectionControls.beforeLeave())return;
       dismissDetails();
       closeMenu(); selecting = true; draw();
       try {
@@ -471,26 +474,33 @@ const agentsWorkspace = (() => {
     }
     function dismissDetails(restore = false) {
       const id = detailAgentId, panel = find('#agentDetailsPanel');
-      journal.close();detailAgentId = null; detailHTML = '';
+      journal.close();protectionControls.close();detailAgentId = null; detailHTML = '';
       if (panel.open) panel.close();
       panel.hidden = true; find('#agentDetailsBody').replaceChildren();
       if (restore && live()) (find('[data-fleet-agent="' + CSS.escape(id || '') + '"]') || find('#agentsSearch')).focus({preventScroll:true});
     }
-    function openDetails(id) {
-      if (!live() || !agents.some(agent => agent.id === id)) return;
+    async function openDetails(id,tab=null) {
+      if (!live() || !agents.some(agent => agent.id === id)) return false;
+      if(detailAgentId&&detailAgentId!==id&&!await protectionControls.beforeLeave())return false;
+      if(!live())return false;
       closeMenu();
       if(detailAgentId!==id)detailTab='overview';
-      detailAgentId = id; renderDetails();
+      if(detailAgentId!==id)protectionControls.close();
+      detailAgentId = id;if(tab)detailTab=tab;renderDetails();
       const panel = find('#agentDetailsPanel'); panel.hidden = false;
       if (!panel.open) panel.showModal();
-      find('#agentDetailsClose').focus({preventScroll:true});
+      find('#agentDetailsClose').focus({preventScroll:true});return true;
     }
     function selectRecordTab(id,focus=false){
       if(!find('[data-record-tab="'+id+'"]'))return;
       detailTab=id;
       for(const button of find('#agentDetailsBody').querySelectorAll('[data-record-tab]')){const active=button.dataset.recordTab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus({preventScroll:true});}
       for(const panel of find('#agentDetailsBody').querySelectorAll('[role="tabpanel"]'))panel.hidden=panel.id!=='agentRecord-'+id;
-      syncJournal();
+      syncJournal();syncProtection();
+    }
+    function syncProtection(){
+      const agent=agents.find(row=>row.id===detailAgentId);
+      if(agent&&!agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr')&&['protection','quarantine'].includes(detailTab))protectionControls.show(find(detailTab==='quarantine'?'[data-agent-quarantine]':'[data-agent-protection]'),{agent,endpoint:protections.get(agent.id),stale:stale||protectionStale},detailTab);else protectionControls.hide();
     }
     function syncJournal(){
       const agent=agents.find(item=>item.id===detailAgentId);
@@ -521,7 +531,7 @@ const agentsWorkspace = (() => {
       find('#agentDetailsTarget').textContent = agent.name;
       find('#agentDetailsTitle').textContent = agent.name;
       const tabs=[['overview','Vue d’ensemble','layout-dashboard'],['tools','Outils','wrench'],['details','Détails','sliders-horizontal']];
-      if(edrAllowed&&!agent.local)tabs.splice(1,0,['journal','Journal','list']);
+      if(edrAllowed&&!agent.local)tabs.splice(1,0,['protection','Protection','shield-check'],['quarantine','Quarantaine','lock'],['journal','Journal','list']);else protectionControls.close();
       if(!tabs.some(([id])=>id===detailTab)){detailTab='overview';journal.close();}
       const panel=name=>'id="agentRecord-'+name+'" role="tabpanel" aria-labelledby="agentRecordTab-'+name+'" '+(detailTab===name?'':'hidden');
       const sectionHeading=(icon,title,extra='')=>'<header><h3><span aria-hidden="true">'+settingsIcon(icon)+'</span>'+title+'</h3>'+extra+'</header>';
@@ -561,6 +571,7 @@ const agentsWorkspace = (() => {
                 <section class="agent-record-antivirus">
                   <div class="agent-record-section-label"><h4>WolfGuard Antivirus</h4><span>ClamAV</span></div>
                   <div class="agent-record-antivirus-state" data-av-state="${ownState}"><span aria-hidden="true">${settingsIcon('shield')}</span><strong>${esc(ownLabel)}</strong></div>
+                  ${edrAllowed&&!agent.local?'<div class="agent-protection-shortcuts"><button type="button" class="settings-btn" data-open-record-pane="protection">Gérer la protection</button><button type="button" class="settings-btn" data-open-record-pane="quarantine">Quarantaine ('+count(own?.quarantineTotal||own?.quarantine?.length||0)+')</button></div>':''}
                   ${fields([['Moteur',own?.installed?own.engineVersion||'Version non renseignée':own?'Non installé':'Non confirmé'],['Dernière analyse',own?.lastScanAt?timestamp(own.lastScanAt):'Non renseignée'],['Signatures mises à jour',own?.signatureAt?timestamp(own.signatureAt):'Non renseignées']])}
                 </section>
               </section>
@@ -572,11 +583,11 @@ const agentsWorkspace = (() => {
             </div>
             ${(snapshot?.warnings||[]).map(message=>'<p class="agent-record-notice">'+esc(message)+'</p>').join('')}
           </section>
-          ${edrAllowed&&!agent.local?'<section '+panel('journal')+'><div class="agent-record-page-heading"><h3>Journal de l’agent</h3><button type="button" class="agent-record-events" data-record-edr>Gérer dans EDR</button></div><div data-agent-journal></div></section>':''}
+          ${edrAllowed&&!agent.local?'<section '+panel('protection')+'><div class="agent-record-page-heading"><h3>Protection du poste</h3></div><div data-agent-protection></div></section><section '+panel('quarantine')+'><div class="agent-record-page-heading"><h3>Quarantaine</h3></div><div data-agent-quarantine></div></section><section '+panel('journal')+'><div class="agent-record-page-heading"><h3>Journal de l’agent</h3></div><div data-agent-journal></div></section>':''}
           <section ${panel('tools')} class="agent-record-tools">
             <div class="agent-record-page-heading"><h3>Outils et diagnostics</h3></div>
             <section class="agent-record-card">${sectionHeading('monitor','Accès à distance')}<div class="agent-details-actions">${actions.filter(a=>a.mode).map(tool).join('')}</div></section>
-            <section class="agent-record-card">${sectionHeading('scan','Analyse et protection')}<div class="agent-details-actions">${actions.filter(a=>!a.mode).map(tool).join('')}</div></section>
+            <section class="agent-record-card">${sectionHeading('scan','Analyse et protection')}<div class="agent-details-actions">${actions.filter(a=>!a.mode&&a.id!=='edr').map(tool).join('')}</div></section>
           </section>
           <section ${panel('details')} class="agent-record-details">
             <div class="agent-record-page-heading"><h3>Configuration et détails</h3></div>
@@ -595,17 +606,21 @@ const agentsWorkspace = (() => {
         </div>
       </div>`;
       if (html !== detailHTML) {
+        const preserved=[find('[data-agent-protection]'),find('[data-agent-quarantine]')].filter(Boolean);
+        const activeProtection=document.activeElement?.dataset.protectionField||document.activeElement?.dataset.protectionAction;
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
-        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, edr = focused?.hasAttribute('data-record-edr'), log = focused?.hasAttribute('data-record-journal'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
+        const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, log = focused?.hasAttribute('data-record-journal'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
+        for(const node of preserved){const selector=node.hasAttribute('data-agent-protection')?'[data-agent-protection]':'[data-agent-quarantine]';find(selector)?.replaceWith(node);}
+        if(activeProtection)find('[data-protection-field="'+CSS.escape(activeProtection)+'"],[data-protection-action="'+CSS.escape(activeProtection)+'"]')?.focus({preventScroll:true});
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
-        else if (update || edr || log) (find(log?'[data-record-journal]:not(:disabled)':edr?'[data-record-edr]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
+        else if (update || log) (find(log?'[data-record-journal]:not(:disabled)':'#agentRecord-overview [data-agent-install-update="'+CSS.escape(update)+'"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
         else if(revoke)find('[data-record-revoke="'+CSS.escape(revoke)+'"]:not(:disabled)')?.focus({preventScroll:true});
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
-      syncJournal();
+      syncJournal();syncProtection();
     }
     async function refresh() {
       if (!live() || busy || selecting || revoking || bulkBusy || groupsBusy || dragged.length) return;
@@ -798,6 +813,7 @@ const agentsWorkspace = (() => {
     }
     async function renderTool(force = false) {
       if (!live()) return;
+      if(state.section==='edr'){dismissTool();if(selected)await openDetails(selected.id,'protection');return;}
       const action = actions.find(item => item.section === state.section && (!item.mode || item.mode === remoteMode));
       const panel = find('#agentToolPanel'), host = find('#agentToolHost');
       root.dataset.activeAction = action?.id || '';
@@ -813,24 +829,21 @@ const agentsWorkspace = (() => {
       host.className = ''; host.replaceChildren();
       draw();
       if (isScanSection(state.section)) await renderScanWorkspace(host);
-      else if (state.section === 'edr') {
-        if (selected) await edrWorkspace.render(host, selected.id);
-        else host.textContent = 'Choisis un agent dans la liste pour consulter sa protection.';
-      }
       else if (state.section === 'remote') { remoteDesktopWorkspace.preferMode(remoteMode); await remoteDesktopWorkspace.render(host); }
     }
     find('#agentToolClose').onclick = closeTool;
-    find('#agentDetailsClose').onclick = () => dismissDetails(true);
-    find('#agentDetailsRefresh').onclick = refresh;
-    find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); dismissDetails(true); }, {signal});
+    const closeRecord=async()=>{if(await protectionControls.beforeLeave()&&live())dismissDetails(true);};
+    find('#agentDetailsClose').onclick = closeRecord;
+    find('#agentDetailsRefresh').onclick = async()=>{await refresh();await protectionControls.refresh();};
+    find('#agentDetailsPanel').addEventListener('cancel', event => { event.preventDefault(); closeRecord(); }, {signal});
     find('#agentDetailsPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
-    find('#agentDetailsBody').onclick = event => {
+    find('#agentDetailsBody').onclick = async event => {
       const tab=event.target.closest('[data-record-tab]');if(tab){selectRecordTab(tab.dataset.recordTab);return;}
       const log=event.target.closest('[data-record-journal]');if(log){if(!log.disabled)openJournal(detailAgentId);return;}
-      const edr=event.target.closest('[data-record-edr]');if(edr){if(!edr.disabled)runAction('edr',detailAgentId);return;}
+      const pane=event.target.closest('[data-open-record-pane]');if(pane){selectRecordTab(pane.dataset.openRecordPane);return;}
       const update = event.target.closest('[data-agent-install-update]');
       if(update){if(!update.disabled)updateAgent(update.dataset.agentInstallUpdate);return;}
-      const uninstall=event.target.closest('[data-record-uninstall]');if(uninstall){const id=uninstall.dataset.recordUninstall;dismissDetails();openAgentRemovalInterface({agentId:id,onClose:()=>{if(live())openDetails(id);}});return;}
+      const uninstall=event.target.closest('[data-record-uninstall]');if(uninstall){const id=uninstall.dataset.recordUninstall;if(!await protectionControls.beforeLeave())return;dismissDetails();openAgentRemovalInterface({agentId:id,onClose:()=>{if(live())openDetails(id);}});return;}
       const revoke=event.target.closest('[data-record-revoke]');if(revoke){if(!revoke.disabled)revokeAgent(revoke.dataset.recordRevoke);return;}
       const button = event.target.closest('[data-detail-action]');
       if (button && !button.disabled) runAction(button.dataset.detailAction,detailAgentId);
@@ -857,12 +870,12 @@ const agentsWorkspace = (() => {
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Sections indisponibles : '+error.message;});
-    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails, dismissReports};
+    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails, dismissReports,beforeLeave:protectionControls.beforeLeave};
     // The fleet shell is usable immediately. Its server refresh must not hold
     // the shared navigation queue or prevent leaving the Security section.
     if(state.section==='security'){refresh().catch(console.error);return;}
     await refresh();
     await renderTool();
   }
-  return {render, reset};
+  return {render, reset,beforeLeave:()=>current?.beforeLeave()??true};
 })();

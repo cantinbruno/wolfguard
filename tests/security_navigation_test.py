@@ -35,8 +35,12 @@ def run():
                 page.wait_for_function('() => !sectionTransition.active')
                 expect(page.locator('#app')).to_have_attribute('data-primary-section','security')
                 expect(group).to_have_attribute('aria-pressed','true')
-                expect(page.locator('#agentToolHost')).to_be_visible()
-                assert page.locator('#agentToolPanel').evaluate("el => el.matches(':modal')")
+                if section=='edr':
+                    expect(page.locator('#agentToolPanel')).to_be_hidden()
+                    expect(page.locator('#edrPostDetail')).to_have_count(0)
+                else:
+                    expect(page.locator('#agentToolHost')).to_be_visible()
+                    assert page.locator('#agentToolPanel').evaluate("el => el.matches(':modal')")
                 expect(page.locator('#agentsList')).to_be_visible()
                 assert page.evaluate('window.__securityRoot === document.querySelector(".agents-workspace")')
                 expect(page.locator('#securityNavigation')).to_have_count(0)

@@ -1,5 +1,9 @@
 # Décisions à conserver
 
+## 26 novembre 2026 — Protection dans la fiche du poste
+
+Supprimer la page séparée de gestion EDR et le bouton « Gérer dans EDR ». Toute la gestion de protection passe par la fiche du poste : Protection pour le moteur, les analyses, les signatures, la surveillance, la politique et le suivi des actions ; Quarantaine pour rechercher, restaurer et supprimer les copies chiffrées ; Journal pour les événements et leur acquittement. Les anciens accès EDR ouvrent directement la fiche sur Protection. Préserver les permissions `edr.*`, les droits par poste, les confirmations et les états hors ligne. Un brouillon de politique survit aux onglets et rafraîchissements et demande confirmation avant fermeture ou changement de poste.
+
 ## 26 novembre 2026 — Ergonomie et échanges de données
 
 Réparer la remontée réelle de protection du poste : publier les corrections PowerShell et de périmètre antivirus restées locales, puis vérifier la version installée et un relevé avec le runtime distribué. Une erreur de collecte Windows ne doit plus empêcher de transmettre l’état du moteur ni de recevoir sa politique ; une erreur antivirus ne doit plus masquer l’inventaire Windows. Conserver les états inconnus et les avertissements quand une source échoue, sans inventer une protection active.

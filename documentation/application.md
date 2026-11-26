@@ -40,9 +40,9 @@ Les rapports rapprochent les produits et versions observés des catalogues publi
 
 Les versions rétroportées, avis multi-produits, échecs réseau et limites de catalogue doivent rester visibles. Une absence de correspondance ne confirme pas l’absence de vulnérabilité. Les références et liens des bulletins sont conservés dans les rapports et exports disponibles.
 
-## EDR et prise en main
+## Protection du poste et prise en main
 
-L’EDR distingue WolfGuard Antivirus avec ClamAV et les protections natives. Il sépare protection active, état ancien, erreur de collecte et action confirmée. Les actions de protection nécessitent les droits correspondants. La [couverture antivirus actuelle](antivirus.md) reste réactive et limitée aux dossiers indiqués.
+Les rubriques Protection, Quarantaine et Journal de la fiche regroupent WolfGuard Antivirus avec ClamAV, la politique, les fichiers isolés et les événements. La page EDR séparée et le lien « Gérer dans EDR » sont supprimés. Les anciens accès ouvrent directement Protection dans la fiche. Il sépare protection active, état ancien, erreur de collecte et action confirmée. Les actions de protection nécessitent les droits correspondants. La [couverture antivirus actuelle](antivirus.md) reste réactive et limitée aux dossiers indiqués.
 
 Bureau, terminal et fichiers sont des modes distincts, contrôlés côté API. Un agent associé peut accepter une prise en main sans confirmation locale ; l’association et les droits sont donc déterminants. Les transferts sont limités au périmètre accepté par l’agent et ne doivent pas écraser silencieusement des fichiers.
 
