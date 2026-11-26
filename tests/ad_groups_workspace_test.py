@@ -5,22 +5,24 @@ from account_ui_fixture import account_ui,invite,activate,ROOT
 
 def run():
     with account_ui() as (owner,context,origin,errors):
+        owner.evaluate("()=>{window.groupRuntimeErrors=[];const notify=appNotify;appNotify=(message,options)=>{if(/Cannot read|is not defined/.test(message))groupRuntimeErrors.push(message);return notify(message,options);};}")
         invitation=invite(owner,'ad-team@example.test')
         member=context().new_page();activate(member,invitation,'ad-team@example.test')
         owner.locator('#wgUserInvitationClose').click();owner.locator('#settings-tab-groups').click()
         owner.locator('#wgGroupCreate').click();owner.locator('.app-dialog-input').fill('GG_Equipe_Support');owner.locator('.app-dialog-submit').click()
         expect(owner.locator('#wgGroupName')).to_have_text('GG_Equipe_Support')
-        owner.locator('#wgGroupMembers > summary').click();owner.locator('#wgGroupAddMember').select_option(label='ad-team@example.test');owner.locator('#wgGroupAssign').click()
+        owner.locator('#wgGroupAddMember').select_option(label='ad-team@example.test');owner.locator('#wgGroupAssign').click()
         expect(owner.locator('#wgGroupMemberList')).to_contain_text('ad-team@example.test')
-        owner.locator('#wgGroupNesting > summary').click();owner.locator('#wgGroupAddParent').select_option(label='GG_Acces_Memo_ecriture');owner.locator('#wgGroupJoin').click()
+        owner.locator('[data-group-pane=links]').click();owner.locator('#wgGroupAddParent').select_option(label='GG_Acces_Memo_ecriture');owner.locator('#wgGroupJoin').click()
         expect(owner.locator('#wgGroupParentList')).to_contain_text('GG_Acces_Memo_ecriture')
-        owner.locator('#wgPermissionActions > summary').click()
+        owner.locator('[data-group-pane=permissions]').click();owner.locator('#wgPermissionActions > summary').click()
         owner.locator('[data-action-rule="library.delete"]').select_option('deny');owner.locator('#wgPermissionSave').click()
         expect(owner.locator('[data-permission-save-notice]')).to_contain_text('Droits enregistrés')
-        owner.locator('#wgGroupEffective > summary').click();owner.locator('#wgGroupEffectiveUser').select_option(label='ad-team@example.test');owner.locator('#wgGroupCheckEffective').click()
+        owner.locator('[data-group-pane=effective]').click();owner.locator('#wgGroupEffectiveUser').select_option(label='ad-team@example.test');owner.locator('#wgGroupCheckEffective').click()
         expect(owner.locator('[data-effective-action="library.delete"]')).to_contain_text('Refus explicite')
         expect(owner.locator('[data-effective-action="library.edit"]')).to_contain_text('Autorisé')
         expect(owner.locator('#wgGroupEffectiveResult')).to_contain_text('GG_Acces_Memo_ecriture')
+        owner.locator('[data-group-pane=permissions]').click()
         owner.locator('#wgPermissionActionSearch').fill('Authenticator')
         expect(owner.locator('.permission-action-row:visible select')).to_have_count(1)
         owner.locator('#wgPermissionActionSearch').fill('')
@@ -40,6 +42,7 @@ def run():
         member.locator('#lock').focus();member.keyboard.type('12345678');expect(member.locator('#app')).to_be_visible(timeout=20000)
         member.wait_for_function('()=>!document.querySelector("#app").inert')
         assert member.evaluate("WolfGuardCloud.can('library.edit')&&!WolfGuardCloud.can('library.delete')")
+        assert not owner.evaluate('groupRuntimeErrors'),owner.evaluate('groupRuntimeErrors')
         assert not errors,errors
     print('PASS: nested business groups, action refusals, inherited membership, effective access and responsive settings')
 

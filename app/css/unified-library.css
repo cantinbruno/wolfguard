@@ -1459,7 +1459,7 @@
   color: #000 !important;
 }
 
-:is(.unified-reader .reader-rich-content, .library-editor #richEditor, #modalRoot .paper) :where(p, div, li, td, th, span, font, strong, b, em, i, u, s, small):not(font[color]) {
+:is(.unified-reader .reader-rich-content, .library-editor #richEditor, #modalRoot .paper) :where(p, div, li, td, th, span, font, strong, b, em, i, u, s, small):not(font[color]):not([style^="color:"]):not([style*="; color:"]):not([style*=";color:"]) {
   color: inherit !important;
 }
 
@@ -1617,3 +1617,10 @@
   .library-editor .library-command-editor {padding:12px}
   .library-command-editor-icon {display:none}
 }
+
+.editor-table-tools{flex-wrap:wrap;gap:6px}
+.editor-table-tools label{display:inline-flex;align-items:center;gap:6px;font-size:.875rem}
+.editor-table-tools input[type=color]{width:32px;height:30px;padding:2px}
+.editor-table-tools select{max-width:180px;padding:5px;font-size:.875rem}
+.library-editor #richEditor table{min-width:120px;max-width:100%;}
+.editor-table-tools .editor-table-hint{font-size:.875rem}

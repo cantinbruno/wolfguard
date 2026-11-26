@@ -1,5 +1,6 @@
 import {closeRemote} from './remote.mjs';
 import {can} from './permissions.mjs';
+import {threatList,threatMatch} from './threat-list.mjs';
 const encoder=new TextEncoder(),IDLE_MS=60*60000;
 const hex=value=>[...new Uint8Array(value)].map(n=>n.toString(16).padStart(2,'0')).join('');
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -51,7 +52,8 @@ function deviceName(request){
   return browser+(os?' · '+os:'');
 }
 export async function assertAddressAllowed(env,context,fail){
-  if(context.hash&&await env.DB.prepare('SELECT id FROM access_blocks WHERE ip_hash=?').bind(context.hash).first())fail(403,'Cette adresse IP est bloquée dans WolfGuard.',{code:'ACCESS_BLOCKED'});
+  if(context.hash&&await env.DB.prepare('SELECT id FROM access_blocks WHERE ip_hash=?').bind(context.hash).first())fail(404,'Adresse inconnue.');
+  if(context.ip&&threatMatch(await threatList(env,Date.now(),{refresh:!!env.ENTRY_LINK_HASH&&!env.LOCAL_TEST_ORIGIN}),context.ip))fail(404,'Adresse inconnue.');
 }
 export async function connectionStatement(env,request,tokenHash,now,context){
   return env.DB.prepare('INSERT INTO access_connections (token_hash,id,created_at,ip_hash,ip_cipher,device_cipher) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM sessions WHERE token_hash=?) ON CONFLICT(token_hash) DO UPDATE SET ip_hash=excluded.ip_hash,ip_cipher=excluded.ip_cipher,device_cipher=excluded.device_cipher')
@@ -66,8 +68,20 @@ export async function stopRemoteOwners(env,owners,now){
 }
 export async function handleAccessAPI(request,env,now,session,h){
   const path=new URL(request.url).pathname,{fail,json,body}=h;
-  const action=path.slice('/api/access/'.length),permission=request.method==='GET'?'access.read':'access.'+(['disconnect','block','unblock'].includes(action)?action:'manage');
+  const action=path.slice('/api/access/'.length),permission=request.method==='GET'?'access.read':action==='reputation/refresh'?'access.block':'access.'+(['disconnect','block','unblock'].includes(action)?action:'manage');
   if(!can(session.user,permission,now))fail(403,'Ton profil ne permet pas cette gestion des connexions.');
+  if(path==='/api/access/reputation'&&request.method==='GET'){
+    const list=await threatList(env,now),params=new URL(request.url).searchParams,query=(params.get('q')||'').slice(0,100).toLowerCase();
+    const all=list.sources.flatMap(source=>source.networks.map(row=>({...row,source:'Spamhaus DROP',timestamp:source.timestamp*1000,copyright:source.copyright}))),filtered=all.filter(row=>row.cidr.toLowerCase().includes(query)||row.sblid.toLowerCase().includes(query));
+    const pages=Math.max(1,Math.ceil(filtered.length/50)),page=Math.max(0,Math.min(pages-1,parseInt(params.get('page'))||0));
+    const blocked=await env.DB.prepare('SELECT * FROM access_blocks ORDER BY created_at DESC').all(),blocks=[];
+    for(const row of blocked.results)blocks.push({id:row.id,ip:await open(row.ip_cipher,'WolfGuard access v1:ip:'+row.ip_hash,env),createdAt:row.created_at});
+    return json({connections:[],blocks,currentIP:session.access.ip,reputation:{updatedAt:list.updatedAt,expired:list.expired,error:list.error,total:all.length,filtered:filtered.length,pages,page,entries:filtered.slice(page*50,(page+1)*50),sources:list.sources.map(({url,copyright,timestamp})=>({url,copyright,timestamp}))}});
+  }
+  if(path==='/api/access/reputation/refresh'&&request.method==='POST'){
+    const result=await threatList(env,now,{force:true});if(result.error)fail(503,result.error);
+    return json({ok:true,updatedAt:result.updatedAt});
+  }
   if(path==='/api/access'&&request.method==='GET'){
     await env.DB.prepare('DELETE FROM access_connections WHERE NOT EXISTS(SELECT 1 FROM sessions WHERE sessions.token_hash=access_connections.token_hash AND active_at IS NOT NULL)').run();
     const rows=await env.DB.prepare('SELECT s.token_hash,s.active_at,s.expires_at,c.id,c.created_at,c.ip_hash,c.ip_cipher,c.device_cipher,u.id AS user_id,u.name_cipher AS user_name,u.role AS user_role FROM sessions s LEFT JOIN access_connections c ON c.token_hash=s.token_hash LEFT JOIN users u ON u.id=s.user_id WHERE s.generation=? AND s.active_at IS NOT NULL AND (s.user_id IS NULL OR (u.disabled_at IS NULL AND u.code_version=s.user_version)) ORDER BY s.active_at DESC').bind(session.generation).all();

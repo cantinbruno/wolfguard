@@ -325,6 +325,9 @@ function libraryItemFromEditor(source) {
   });
 }
 async function saveLibraryItem(id) {
+  return saveEditor(()=>persistLibraryItem(id));
+}
+async function persistLibraryItem(id) {
   const key = state.vaultKey;
   if (!itemActionSessionValid(key) || state.item !== id) return;
   const source = structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);

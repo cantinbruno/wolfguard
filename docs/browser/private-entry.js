@@ -22,7 +22,8 @@
     const verification = await fetch('https://wolfguard-web-cantin.cantin-bruno.chatgpt.site/api/entry', {
       ...options, method: 'POST', headers: {Authorization: 'Bearer '+keyHex}
     });
-    if (verification.status !== 204) return missing();
+    if ([401,403,404].includes(verification.status)) return missing();
+    if (verification.status !== 204) throw new Error('Service unavailable');
     const response = await fetch('browser/site-entry.json', options);
     if (!response.ok) throw new Error('Entry unavailable');
     const envelope = await response.json();
@@ -49,8 +50,11 @@
       });
     }));
     document.getElementById('entry-styles-pending').remove();
-  } catch {
-    missing();
+  } catch (error) {
+    if(error.name==='OperationError'||error.name==='DataError')return missing();
+    const status=document.getElementById('entry-message'),retry=document.getElementById('entry-retry');
+    if(!status||!retry)return missing();
+    status.textContent='Connexion temporairement indisponible.';retry.hidden=false;retry.onclick=()=>location.reload();
   } finally {
     clearTimeout(timeout);
   }

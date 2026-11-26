@@ -31,6 +31,19 @@ function documentHTML(html) {
   })
 }
 
+async function saveEditor(operation) {
+  const host=$('#detailHost');
+  if(!host||host.dataset.saving==='true')return;
+  host.dataset.saving='true';host.setAttribute('aria-busy','true');
+  const controls=new Map([...host.querySelectorAll('button,input,textarea,select')].map(node=>[node,node.disabled]));
+  const editor=host.querySelector('#richEditor'),editable=editor?.contentEditable;
+  for(const node of controls.keys())node.disabled=true;
+  if(editor)editor.contentEditable='false';
+  try{return await operation();}
+  catch(error){if(host.isConnected)appNotify(error.message||'Enregistrement impossible. Votre brouillon reste ouvert.',{kind:'error'});}
+  finally{delete host.dataset.saving;host.removeAttribute('aria-busy');for(const [node,disabled]of controls)if(node.isConnected)node.disabled=disabled;if(editor?.isConnected)editor.contentEditable=editable;}
+}
+
 async function breadcrumbHTML(item) {
   try {
     const folders = (await readForDisplay('folders')).filter(folder => !isDeleted(folder) && !folder.consolidatedFolder);

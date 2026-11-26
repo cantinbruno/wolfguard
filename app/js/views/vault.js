@@ -117,7 +117,7 @@ async function renderVaultWorkspace({isCurrent=()=>true}={}) {
   if(home){const folders=await all('folders');if(!isCurrent())return false;const selected=folders.find(row=>row.id===state.folder);if(!selected||!WolfGuardPermissions.isInPersonalVault(WolfGuardCloud.currentUser(),selected,'folders',folders))state.folder=home.id;}
   if (await renderUnifiedExplorer('',isCurrent) === false || !isCurrent()) return false;
   if (state.item) {
-    const item = await get('items', state.item);
+    const item = await readForDisplay('items', state.item);
     if (!isCurrent()) return false;
     if (item) await renderVaultDetail(item,isCurrent);
   } else {
@@ -140,11 +140,11 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
         <div class="detail-title">${crumb}<h2>${esc(item.title||'Sans titre')}</h2><div class="muted">${esc(d.username||'Aucun identifiant')}</div></div>
         <div class="detail-actions">${itemActionsHTML(item)}</div>
       </div>
-      <div class="vault-view-body">
+      <div class="vault-view-body"><div class="info-box"><div class="label">Nom</div><div class="value secret-line"><span>${esc(item.title||'Sans titre')}</span><button type="button" id="copyVaultTitle" class="ghost" aria-label="Copier le nom">Copier</button></div></div>
         <div class="info-box"><div class="label">Identifiant</div><div class="value secret-line"><span>${esc(d.username||'—')}</span>${d.username?'<button type="button" id="copyUsername" class="ghost" aria-label="Copier l’identifiant">Copier</button>':''}</div></div>
         <div class="info-box"><div class="label">Mot de passe</div><div class="value secret-line"><span id="passMask" class="secret-mask">${password?'••••••••••••':'Aucun mot de passe'}</span><button type="button" id="showPassword" class="ghost" aria-label="Afficher le mot de passe" aria-controls="passMask" aria-pressed="false" ${password?'':'disabled'}>Afficher</button><button type="button" id="copyPassword" class="ghost" aria-label="Copier le mot de passe" ${password?'':'disabled'}>Copier</button></div></div>
         <div class="info-box"><div class="label">URL</div><div class="value secret-line"><span>${esc(d.url||'—')}</span>${d.url?'<button type="button" id="copyUrl" class="ghost" aria-label="Copier l’URL">Copier</button>':''}</div></div>
-        <div class="info-box"><div class="label">IP / Hostname</div><div class="value">${esc(d.host||'—')}</div></div>
+        <div class="info-box"><div class="label">IP / Hostname</div><div class="value secret-line"><span>${esc(d.host||'—')}</span>${d.host?'<button type="button" id="copyHost" class="ghost" aria-label="Copier l’hôte">Copier</button>':''}</div></div>
         ${(d.custom||[]).length?`<div class="custom-grid">${d.custom.map(c=>`<div class="info-box"><div class="label">${esc(c.k||'Champ')}</div><div class="value">${esc(c.v||'—')}</div></div>`).join('')}</div>`:''}
         <div class="info-box vault-notes"><div class="label">Notes</div><div class="value">${esc(d.notes||'Aucune note.')}</div></div>
         
@@ -187,6 +187,8 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
       }, 1800);
     });
   };
+  bindCopy($('#copyVaultTitle'), item.title);
+  bindCopy($('#copyHost'), d.host);
   bindCopy($('#copyUsername'), d.username);
   bindCopy($('#copyPassword'), password);
   bindCopy($('#copyUrl'), d.url);
@@ -228,6 +230,11 @@ function customRow(x = {
 window.addCustom = () => $('#customFields').insertAdjacentHTML('beforeend', customRow());
 
 async function saveVault(id) {
+  return saveEditor(()=>persistVault(id));
+}
+async function persistVault(id) {
+  const key=state.vaultKey;
+  if(!itemActionSessionValid(key)||state.item!==id)return;
   const base=structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);
   let x = structuredClone(base);
   await baseForm(x);
@@ -250,7 +257,9 @@ async function saveVault(id) {
   delete x.host;
   delete x.notes;
   delete x.custom;
+  if(!itemActionSessionValid(key)||state.item!==id)return;
   if(db?.saveEditedItem)await db.saveEditedItem(x,base);else await put('items', x);
+  if(!itemActionSessionValid(key)||state.item!==id)return;
   state.mode = 'view';
   await renderWorkspace();
 }

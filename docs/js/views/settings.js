@@ -143,7 +143,7 @@ async function setSettingsTab(name, focus = false) {
   workspaceUsers.unmount();
   workspaceGroups.unmount();
   if(name==='data')loadSettingsStorageUsage(dialog);
-  if (name === 'access') workspaceAccess.mount(dialog.querySelector('#settings-access'));
+  if (name === 'access' || name === 'blocking') workspaceAccess.mount(dialog.querySelector('#settings-'+name),name);
   if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
   if (focus) button.focus();
@@ -167,7 +167,7 @@ async function openSettings(initialTab = 'account') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['account', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:initialTab==='access'?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'account';
+  const tabName = ['account', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'blocking', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:['access','blocking'].includes(initialTab)?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'account';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -181,6 +181,7 @@ async function openSettings(initialTab = 'account') {
           <button type="button" class="settings-tab" id="settings-tab-users" data-settings-tab="users" role="tab" aria-controls="settings-users" aria-selected="false" tabindex="-1" ${canUsers?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('users')}<span>Utilisateurs et droits</span></button>
           <button type="button" class="settings-tab" id="settings-tab-groups" data-settings-tab="groups" role="tab" aria-controls="settings-groups" aria-selected="false" tabindex="-1" ${(typeof WolfGuardCloud!=='undefined'&&WolfGuardCloud.can('users.permissions'))?'':'disabled'}>${settingsIcon('users')}<span>Groupes</span></button>
           <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-blocking" data-settings-tab="blocking" role="tab" aria-controls="settings-blocking" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled'}>${settingsIcon('shield-alert')}<span>Blocage</span></button>
           
           <button type="button" class="settings-tab" id="settings-tab-about" data-settings-tab="about" role="tab" aria-controls="settings-about" aria-selected="false" tabindex="-1">${settingsIcon('info')}<span>À propos</span></button>
         </nav>
@@ -210,19 +211,11 @@ async function openSettings(initialTab = 'account') {
           <div id="accountAuthentication"></div>
           <h4 class="settings-group-title">Session</h4>
           <div class="settings-row">
-            ${settingsIcon('lock')}
-            <div class="settings-row-copy"><label class="settings-row-title" for="autoLockSelect">Délai d’inactivité</label><div class="settings-row-desc">Verrouillage après 4 heures sans activité</div></div>
-            <select id="autoLockSelect" class="settings-select settings-control" disabled>
-              <option value="240" selected>4 heures</option>
-            </select>
-          </div>
-          <div class="settings-row">
             ${settingsIcon('shield-check')}
-            <div class="settings-row-copy"><div class="settings-row-title">Session actuelle</div><div class="settings-row-desc">Accès déverrouillé</div></div>
+            <div class="settings-row-copy"><div class="settings-row-title">Session actuelle</div><div class="settings-row-desc">Verrouillage automatique après 4 heures sans activité</div></div>
             <button type="button" class="settings-btn settings-control" id="lockNowBtn">${settingsIcon('lock')}Verrouiller</button>
           </div>
           <div class="settings-security-note">${settingsIcon('circle-alert')}<div>Conservez votre code : il est nécessaire pour retrouver l’accès au coffre chiffré.</div></div>
-          <div class="settings-row">${settingsIcon('database')}<div class="settings-row-copy"><div class="settings-row-title">Mon espace de stockage</div><p class="settings-row-desc">Volume du coffre et des dossiers partagés accessibles.</p></div><button type="button" class="settings-btn" id="accountStorageBtn">Voir mon espace</button></div>
         </section>
         <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>
@@ -241,6 +234,7 @@ async function openSettings(initialTab = 'account') {
         <section class="settings-panel hidden" id="settings-groups" data-settings-panel="groups" role="tabpanel" aria-labelledby="settings-tab-groups"></section>
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
+        <section class="settings-panel hidden" id="settings-blocking" data-settings-panel="blocking" role="tabpanel" aria-labelledby="settings-tab-blocking"></section>
 
 
         <section class="settings-panel hidden" id="settings-data" data-settings-panel="data" role="tabpanel" aria-labelledby="settings-tab-data">
@@ -250,6 +244,7 @@ async function openSettings(initialTab = 'account') {
             <div><strong>${esc(filename)}</strong><span class="settings-connection-state ${connectionClass}">${connectionLabel}</span></div>
           </div>
           ${multipleDatabases ? '<div class="settings-database-list">' + databaseFiles.map(file => '<div class="settings-database-file"><div><strong>' + esc(file.name) + '</strong><code>' + esc(file.path) + '</code><span>' + (file.id === 'main' ? 'Reglages partages' : file.itemCount.toLocaleString('fr-FR') + ' element(s)') + '</span></div><button type="button" class="settings-btn" data-storage-folder="' + esc(file.id) + '" aria-label="Afficher le dossier ' + esc(file.name) + '">' + settingsIcon('folder-open') + 'Dossier</button></div>').join('') + '</div>' : ''}
+          <section class="settings-transfer" aria-labelledby="settingsTransferTitle"><h4 id="settingsTransferTitle">Importer et exporter</h4><p>Transférez vos mémos et accès autorisés dans un fichier chiffré avec un code de transfert. L’import ajoute des copies et conserve les fiches existantes.</p><div class="actions"><button type="button" class="settings-btn" id="exportDataBtn">${settingsIcon('download')}Exporter</button><button type="button" class="settings-btn" id="importDataBtn">${settingsIcon('upload')}Importer</button><input type="file" id="importDataFile" accept=".json,application/json" hidden></div><p id="dataTransferStatus" role="status" aria-live="polite"></p></section>
           <section id="settingsStorageUsage" aria-live="polite"><p>Chargement de la répartition des espaces…</p></section><dl class="settings-data-facts">
             <div><dt>Éléments</dt><dd>${n.toLocaleString('fr-FR')}</dd></div>
             <div><dt>Données chiffrées</dt><dd>${esc(totalLabel)}</dd></div>
@@ -342,9 +337,9 @@ async function openSettings(initialTab = 'account') {
       first?.focus()
     }
   };
-  $('#accountStorageBtn').onclick=()=>setSettingsTab('data',true);
   const preferences=applyInterfacePreferences();
   for(const select of dialog.querySelectorAll('[data-interface-option]')){select.value=preferences[select.dataset.interfaceOption];select.onchange=()=>{preferences[select.dataset.interfaceOption]=select.value;applyInterfacePreferences(preferences);try{localStorage.setItem(interfacePreferenceKey(),JSON.stringify(preferences));}catch{}feedback('Préférences enregistrées sur cet appareil.');};}
+  bindDataTransfer(dialog);
   $('#changeCodeBtn').onclick = showChangeCodeForm;
   $('#lockNowBtn').onclick = lockApplication;
   $('#changeBaseBtn').onclick = changeWorkspaceFromSettings;
@@ -373,6 +368,31 @@ async function openSettings(initialTab = 'account') {
   $('#resetWidthBtn').onclick = () => updateWidth(260);
   $('#resetInterfaceBtn').onclick = resetInterfaceSettings;
   setSettingsTab(tabName, true);
+}
+
+function bindDataTransfer(dialog) {
+  const exportButton=dialog.querySelector('#exportDataBtn'),importButton=dialog.querySelector('#importDataBtn'),picker=dialog.querySelector('#importDataFile'),status=dialog.querySelector('#dataTransferStatus');
+  const access=window.WolfGuardAccess;
+  exportButton.disabled=typeof webWorkspace==='undefined'||!!access&&!['library.export','vault.export'].some(key=>access.can(key));
+  importButton.disabled=typeof webWorkspace==='undefined'||!!access&&!['library.create','vault.create'].some(key=>access.can(key));
+  let working=false;
+  const run=async operation=>{
+    if(working)return;working=true;const disabled=[exportButton.disabled,importButton.disabled];exportButton.disabled=importButton.disabled=true;status.textContent='';
+    try{await operation();}catch(error){if(status.isConnected)status.textContent=error.name==='OperationError'?'Code de transfert incorrect ou fichier endommagé.':error.message;}
+    finally{working=false;picker.value='';if(dialog.isConnected){exportButton.disabled=disabled[0];importButton.disabled=disabled[1];}}
+  };
+  exportButton.onclick=()=>run(async()=>{
+    const code=await appPrompt('Choisissez un code de transfert de 8 chiffres. Il sera nécessaire pour importer le fichier.','',{title:'Exporter les données',inputType:'password',confirmLabel:'Continuer'});if(code===null)return;
+    const confirmation=await appPrompt('Confirmez le code de transfert.','',{title:'Confirmer le code',inputType:'password',confirmLabel:'Exporter'});if(confirmation===null)return;if(code!==confirmation)throw new Error('Les deux codes ne correspondent pas.');
+    status.textContent='Chiffrement de l’export…';const result=await webWorkspace.exportData(code);
+    const url=URL.createObjectURL(new Blob([JSON.stringify(result.envelope)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='wolfguard-donnees-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status.textContent=result.count+' fiche(s) exportée(s) dans le fichier chiffré.';
+  });
+  importButton.onclick=()=>picker.click();
+  picker.onchange=()=>run(async()=>{
+    const file=picker.files?.[0];if(!file)return;if(file.size>46*1024*1024)throw new Error('Fichier trop volumineux (46 Mo maximum).');
+    const encrypted=JSON.parse(await file.text());const code=await appPrompt('Code de transfert de 8 chiffres utilisé pour cet export.','',{title:'Importer les données',inputType:'password',confirmLabel:'Lire le fichier'});if(code===null)return;
+    status.textContent='Vérification du fichier…';const count=await webWorkspace.importData(encrypted,code);status.textContent=count?count+' fiche(s) importée(s).':'Import annulé.';
+  });
 }
 
 function showChangeCodeForm() {

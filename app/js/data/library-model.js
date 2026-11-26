@@ -66,8 +66,7 @@ function libraryDocument(item) {
   const metadata = [
     ['Environnement', item.platform],
     ['Éditeur / technologie', item.vendor],
-    ['Prérequis', item.prerequisites],
-    ['Mots clés', (item.tags || []).join(' · ')]
+    ['Prérequis', item.prerequisites]
   ].filter(([, value]) => value);
   const part = (key, title, body) => '<section class="library-document-part" data-library-part="' + key + '"><h2>' + title + '</h2>' + body + '</section>';
   const content = part('reference', 'Fiche · repères', (item.description ? '<p>' + esc(item.description) + '</p>' : '') + (metadata.length ? '<dl class="library-reference-grid">' + metadata.map(([label, value]) => '<div><dt>' + label + '</dt><dd>' + esc(value) + '</dd></div>').join('') + '</dl>' : '')) +

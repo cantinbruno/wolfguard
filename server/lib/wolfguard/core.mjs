@@ -222,9 +222,11 @@ export async function handleAPI(request,env,clock=Date.now) {
   const cors=origin && allowed.has(origin);
   let response;
   try {
+    if(request.method!=='OPTIONS'&&env.DB&&env.AUTH_PEPPER)await assertAddressAllowed(env,await addressContext(request,env),fail);
     if(origin && !cors)fail(403,'Origine non autorisée.');
     if(request.method==='OPTIONS')response=new Response(null,{status:204});
     else if(new URL(request.url).pathname==='/api/entry') {
+      if(env.DB&&env.AUTH_PEPPER)await assertAddressAllowed(env,await addressContext(request,env),fail);
       const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
       if(request.method!=='POST'||!token||!/^[a-f0-9]{64}$/.test(env.ENTRY_LINK_HASH||'')||!equal(await digest(token),env.ENTRY_LINK_HASH))fail(404,'Adresse inconnue.');
       response=new Response(null,{status:204});

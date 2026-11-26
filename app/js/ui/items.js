@@ -71,7 +71,6 @@ function normalFolder() {
 async function baseForm(item) {
   item.title = $('#fTitle')?.value.trim() || 'Sans titre';
   item.folderId = $('#fFolder')?.value || workspaceRootFolder(sectionForItem(item));
-  if ($('#fTags')) item.tags = $('#fTags').value.split(',').map(s => s.trim()).filter(Boolean);
   item.updatedAt = now();
   return item;
 }

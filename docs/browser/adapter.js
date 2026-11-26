@@ -825,9 +825,6 @@ const webWorkspace = (() => {
       $('#accountAuthentication').append(mfa);await Promise.all([mountOTPSettings(),refreshMFASettings()]);
     }
     $('#changeBaseBtn').remove();
-    const idle=$('#autoLockSelect');
-    idle.replaceChildren(new Option('4 heures','240',true,true));idle.disabled=true;
-    idle.closest('.settings-row').querySelector('.settings-row-desc').textContent='Verrouillage après 4 heures sans activité · Chaque interaction renouvelle ce délai';
   };
   window.openAccountMFA=async()=>{
     if(!session||!cloud?.hasUsers())return;
@@ -934,6 +931,55 @@ const webWorkspace = (() => {
     booting=false;renderKeypad();if(!resumed)$('#lock').focus({preventScroll:true});
     if(invited)await showAccountSetup();
   }
-  return {start,refreshShared,storageBytes:()=>session?new TextEncoder().encode(JSON.stringify(session.envelope||envelope||{})).length:0};
+  async function exportData(code) {
+    cryptography.checkPassword(code);assertFreshSession();await queue;
+    const current=session,generation=epoch,payload=current.payload,access=window.WolfGuardAccess;
+    const items=payload.items.filter(item=>!isDeleted(item)&&(!access||access.action(item,'export','items',payload.folders))&&(item.type!=='vault'||!item.secretsRestricted&&(!access||access.can('vault.secrets'))));
+    if(!items.length)throw new Error('Aucune fiche exportable avec vos droits actuels.');
+    const folderIds=new Set(),byId=new Map(payload.folders.map(row=>[row.id,row]));
+    for(const item of items){let id=item.folderId;while(id&&!folderIds.has(id)){folderIds.add(id);id=byId.get(id)?.parentId;}}
+    const transfer={version:2,transferVersion:1,items:structuredClone(items),folders:payload.folders.filter(row=>folderIds.has(row.id)),settings:[],activity:[]};
+    for(const item of transfer.items)if(item.type==='vault'){
+      // Inner vault blobs are bound to the current workspace key. Rewrap their
+      // contents with the transfer key, never carry an unreadable nested blob.
+      item.transferSecret=item.vaultBlobEnc?JSON.parse(await decSecret(item.vaultBlobEnc)):await vaultData(item,false);
+      for(const field of ['vaultBlobEnc','passwordEnc','username','password','url','host','notes','custom'])delete item[field];
+    }
+    const result=await cryptography.create(transfer,code);
+    if(session!==current||generation!==epoch)throw new Error('Session expirée.');assertFreshSession();
+    return {envelope:result.envelope,count:items.length};
+  }
+  async function importData(encrypted,code) {
+    cryptography.checkPassword(code);assertFreshSession();
+    const current=session,generation=epoch,result=await cryptography.open(encrypted,code),incoming=validate(result.payload);
+    if(incoming.transferVersion!==1)throw new Error('Choisissez un export de données WolfGuard.');
+    if(incoming.items.some(item=>isDeleted(item)))throw new Error('Le fichier contient des fiches supprimées.');
+    if(!incoming.items.length)throw new Error('Le fichier ne contient aucune fiche.');
+    const ids=new Map([...incoming.folders,...incoming.items].map(row=>[row.id,uid()]));
+    const home=window.WolfGuardAccess?.personalVaultHome()?.id||null;
+    const folders=incoming.folders.filter(folder=>!folder.systemVaultHome&&!/^vault-user-/.test(folder.id)).map(folder=>({id:ids.get(folder.id),name:folder.name,section:folder.section==='vault'?'vault':'library',parentId:null}));
+    const folderMap=new Map(folders.map(folder=>[folder.id,folder]));
+    for(const old of incoming.folders){const folder=folderMap.get(ids.get(old.id));if(folder){const parent=folderMap.get(ids.get(old.parentId));folder.parentId=parent?.section===folder.section?parent.id:folder.section==='vault'?home:null;}}
+    const items=[];
+    for(const old of incoming.items){
+      const item=structuredClone(old);item.id=ids.get(old.id);item.createdAt=item.updatedAt=now();
+      for(const field of ['ownerUserId','accessLevel','permissions','secretsRestricted','consolidatedInto','consolidatedGuideVersion','deletedAt','deleted'])delete item[field];
+      const folder=folderMap.get(ids.get(old.folderId));item.folderId=folder?.section===(item.type==='vault'?'vault':'library')?folder.id:item.type==='vault'?home:null;
+      item.linkedItemIds=(item.linkedItemIds||[]).filter(id=>incoming.items.some(row=>row.id===id)).map(id=>ids.get(id));
+      if(item.content)item.content=documentHTML(item.content);
+      if(item.type==='vault'){
+        if(!item.transferSecret||typeof item.transferSecret!=='object'||Array.isArray(item.transferSecret))throw new Error('Accès de coffre incomplet.');
+        item.vaultBlobEnc=await encSecret(JSON.stringify(item.transferSecret));item.encryptionVersion=2;
+        for(const field of ['passwordEnc','username','password','url','host','notes','custom'])delete item[field];
+      }
+      delete item.transferSecret;items.push(item);
+    }
+    if(session!==current||generation!==epoch)throw new Error('Session expirée.');assertFreshSession();
+    if(!await appConfirm('Ajouter '+items.length+' fiche(s) et '+folders.length+' dossier(s) en copie ? Les données existantes sont conservées.',{title:'Importer les données',confirmLabel:'Importer'}))return 0;
+    if(session!==current||generation!==epoch)throw new Error('Session expirée.');
+    await commit(payload=>{payload.folders.push(...folders);payload.items.push(...items);});
+    return items.length;
+  }
+  return {start,refreshShared,exportData,importData,storageBytes:()=>session?new TextEncoder().encode(JSON.stringify(session.envelope||envelope||{})).length:0};
 })();
 webWorkspace.start().catch(error => { $('#startupSplash')?.remove();$('#lock').classList.remove('hidden');$('#lockError').textContent=error.message; });

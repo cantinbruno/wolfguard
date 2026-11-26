@@ -28,3 +28,12 @@
 .access-error:empty,.access-feedback:empty {display:none}
 .access-empty {padding:18px 0;font-size:13px;color:var(--muted)}
 @media(max-width:420px){.access-card{padding:12px}.access-block-form>div{flex-wrap:wrap}.access-block-form input{flex-basis:100%}.access-presence{margin-left:0}}
+
+.access-section[hidden]{display:none}
+.reputation-search{display:flex;flex-direction:column;gap:8px;font-size:.875rem;margin:16px 0}
+.reputation-search input{padding:10px 12px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text);font-size:.875rem}
+.reputation-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border-bottom:1px solid var(--ui-border);font-size:.875rem}
+.reputation-row code{overflow-wrap:anywhere}.reputation-row>span{color:var(--ui-muted)}
+.reputation-row:nth-child(odd){background:var(--ui-sidebar)}.reputation-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:16px 0;font-size:.875rem}
+.reputation-section a{color:#8cbff0}.reputation-section .access-section-heading{gap:12px;flex-wrap:wrap}
+@media(max-width:480px){.reputation-row{grid-template-columns:minmax(0,1fr) auto}.reputation-row>span:nth-child(2){display:none}}

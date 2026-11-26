@@ -13,7 +13,7 @@ function richTextToolbar() {
     <div class="group"><button type="button" title="Aligner à gauche" data-wg-click="fmt('justifyLeft')">Gauche</button><button type="button" title="Centrer le texte" data-wg-click="fmt('justifyCenter')">Centrer</button><button type="button" title="Aligner à droite" data-wg-click="fmt('justifyRight')">Droite</button><button type="button" title="Justifier le texte" data-wg-click="fmt('justifyFull')">Justifier</button></div>
     <div class="group"><button type="button" title="Diminuer le retrait" data-wg-click="fmt('outdent')">− Retrait</button><button type="button" title="Augmenter le retrait" data-wg-click="fmt('indent')">+ Retrait</button><button type="button" data-wg-click="fmt('removeFormat')">Effacer le format</button></div>
   </div><div class="editor-table-tools" role="group" aria-label="Modifier le tableau" hidden data-wg-mousedown="if(event.target.closest('button'))event.preventDefault()">
-    <span>Tableau</span><button type="button" data-wg-click="editEditorTable('add-row')">+ Ligne</button><button type="button" data-wg-click="editEditorTable('add-column')">+ Colonne</button><button type="button" data-wg-click="editEditorTable('delete-row')">− Ligne</button><button type="button" data-wg-click="editEditorTable('delete-column')">− Colonne</button><button type="button" data-wg-click="editEditorTable('delete-table')">Retirer le tableau</button>
+    <span>Tableau</span><label>Fond<input id="editorCellColor" type="color" value="#dbeafe" aria-label="Couleur de fond des cellules" data-wg-pointerdown="syncRichEditorSelection()" data-wg-change="applyEditorCellColor(this.value)"></label><select id="editorColorScope" aria-label="Appliquer la couleur à"><option value="cell">Cellules sélectionnées</option><option value="row">Ligne</option><option value="table">Tableau entier</option></select><button type="button" data-wg-click="applyEditorCellColor('')">Sans couleur</button><button type="button" data-wg-click="editEditorTable('add-row')">+ Ligne</button><button type="button" data-wg-click="editEditorTable('add-column')">+ Colonne</button><button type="button" data-wg-click="editEditorTable('delete-row')">− Ligne</button><button type="button" data-wg-click="editEditorTable('delete-column')">− Colonne</button><button type="button" data-wg-click="editEditorTable('delete-table')">Retirer le tableau</button><span class="editor-table-hint">Glissez les bordures pour redimensionner.</span>
   </div>`;
 }
 
@@ -110,6 +110,95 @@ function editorTableContext() {
   const table = cell?.closest('table');
   return table && editor.contains(table) ? {editor, cell, table} : null;
 }
+
+function replaceEditorTable(table, copy) {
+  const editor = document.querySelector('#richEditor');
+  if (!editor?.contains(table)) return;
+  const index = [...editor.querySelectorAll('table')].indexOf(table);
+  const range = document.createRange();
+  range.selectNode(table);
+  editor.focus({preventScroll:true});
+  const selection = window.getSelection();
+  selection.removeAllRanges(); selection.addRange(range);
+  document.execCommand('insertHTML', false, copy.outerHTML);
+  const cell = editor.querySelectorAll('table')[index]?.querySelector('td,th');
+  if (cell) { range.selectNodeContents(cell); range.collapse(true); selection.removeAllRanges(); selection.addRange(range); }
+  editor.dispatchEvent(new Event('input', {bubbles:true}));
+  syncRichEditorSelection();
+}
+
+function applyEditorCellColor(color) {
+  if (color && !/^#[0-9a-f]{6}$/i.test(color)) return;
+  const context = editorTableContext();
+  if (!context) return;
+  const {editor,cell,table} = context, copy = table.cloneNode(true);
+  const cells = [...table.querySelectorAll('td,th')], scope = document.querySelector('#editorColorScope').value;
+  const range = editor.savedSelection;
+  const chosen = cells.filter(node => scope === 'table' || (scope === 'row' ? node.parentElement === cell.parentElement : range.collapsed ? node === cell : range.intersectsNode(node)));
+  for (const node of chosen) {
+    const target = copy.querySelectorAll('td,th')[cells.indexOf(node)];
+    target.removeAttribute('bgcolor'); target.style.removeProperty('background');
+    target.style.backgroundColor = color;
+    // Give newly filled cells a readable foreground, including pasted spans.
+    if (color) {
+      const rgb = color.slice(1).match(/../g).map(value=>parseInt(value,16));
+      target.style.color = rgb[0]*.299+rgb[1]*.587+rgb[2]*.114 > 150 ? '#111827' : '#ffffff';
+      target.querySelectorAll('[color],[style]').forEach(child=>{child.removeAttribute('color');child.style.removeProperty('color');});
+    } else target.style.removeProperty('color');
+  }
+  replaceEditorTable(table, copy);
+}
+
+// The cell edges act as handles; no editing controls enter the saved document.
+function editorResizeEdge(event) {
+  const cell = event.target.closest?.('#richEditor td,#richEditor th');
+  if (!cell) return null;
+  const rect = cell.getBoundingClientRect(), table = cell.closest('table');
+  const x = Math.abs(event.clientX-rect.right) <= 7, y = Math.abs(event.clientY-rect.bottom) <= 7;
+  return x || y ? {cell,table,x,y} : null;
+}
+document.addEventListener('pointermove', event => {
+  const editor = document.querySelector('#richEditor');
+  if (!editor || event.buttons) return;
+  const edge = editorResizeEdge(event);
+  editor.style.cursor = edge ? edge.x && edge.y ? 'nwse-resize' : edge.x ? 'col-resize' : 'row-resize' : '';
+});
+document.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  const edge = editorResizeEdge(event);
+  if (!edge) return;
+  const {cell,table,x,y} = edge, editor = table.closest('#richEditor');
+  event.preventDefault();
+  const original = table.cloneNode(true), row = cell.parentElement, startX = event.clientX, startY = event.clientY;
+  const width = table.getBoundingClientRect().width, height = row.getBoundingClientRect().height;
+  const column = cell.cellIndex, columnWidth = cell.getBoundingClientRect().width;
+  const simple = ![...table.querySelectorAll('td,th')].some(node=>node.colSpan>1||node.rowSpan>1);
+  const next = simple ? row.cells[column+1] : null, nextWidth=next?.getBoundingClientRect().width;
+  if (x && simple) for (const current of table.rows) for (const node of current.cells) node.style.width = node.getBoundingClientRect().width+'px';
+  let changed = false;
+  const drag = new AbortController();
+  const move = current => {
+    if (!editor.isConnected) return drag.abort();
+    const delta = Math.max(40-columnWidth, Math.min(next?nextWidth-40:editor.clientWidth-width, current.clientX-startX));
+    if (x) {
+      table.style.width = Math.max(120,width+(next?0:delta))+'px'; table.style.tableLayout = 'fixed';
+      if (simple) for (const currentRow of table.rows) {currentRow.cells[column].style.width = columnWidth+delta+'px';if(next)currentRow.cells[column+1].style.width=nextWidth-delta+'px';}
+    }
+    if (y) row.style.height = Math.max(28,height+current.clientY-startY)+'px';
+    changed = true;
+  };
+  const finish = current => {
+    drag.abort();
+    if (!editor.isConnected) return;
+    const copy = table.cloneNode(true);
+    table.replaceWith(original);
+    editor.style.cursor = '';
+    if (changed && current.type !== 'pointercancel') replaceEditorTable(original,copy);
+  };
+  document.addEventListener('pointermove',move,{signal:drag.signal});
+  document.addEventListener('pointerup',finish,{once:true,signal:drag.signal});
+  document.addEventListener('pointercancel',finish,{once:true,signal:drag.signal});
+});
 
 function editEditorTable(action) {
   const context = editorTableContext();

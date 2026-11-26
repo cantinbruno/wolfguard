@@ -78,8 +78,16 @@ def run():
             expect(page.locator('#app')).to_be_visible(timeout=30000)
             assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             missing('')
-            context.unroute(API+'/**');context.route(API+'/**',lambda route:route.abort())
-            missing('?access='+key)
+            retry_context=browser.new_context(reduced_motion='reduce')
+            retry_context.route(API+'/**',lambda route:route.abort())
+            retry=retry_context.new_page();retry.goto(url+'?access='+key)
+            expect(retry.locator('#entry-retry')).to_be_visible()
+            expect(retry.locator('#entry-message')).to_have_text('Connexion temporairement indisponible.')
+            assert retry.locator('#app,#keypad').count()==0
+            retry_context.unroute(API+'/**');retry_context.route(API+'/**',proxy)
+            retry.locator('#entry-retry').click()
+            expect(retry.locator('#keypad button').first).to_be_enabled(timeout=30000)
+            retry_context.close()
             assert calls and all(path=='/api/entry' for path in calls)
             assert not errors,errors
             assert not (ROOT/'docs/browser/not-found.html').exists()

@@ -73,6 +73,7 @@ function appHasUnsavedChanges() {
 }
 
 async function confirmDiscardChanges() {
+  if ($('#detailHost')?.dataset.saving === 'true') { appNotify('Enregistrement en cours. Patientez un instant.'); return false; }
   return !activeEditorHasUnsavedChanges() || await appConfirm('Quitter cette fiche sans enregistrer les modifications ?')
 }
 document.addEventListener('input', event => {

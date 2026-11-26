@@ -28,7 +28,7 @@ L’espace enregistré dans le navigateur est chiffré avec AES-256-GCM ; la dé
 
 Le stockage serveur ajoute son chiffrement aux objets R2. La clé partagée est enveloppée séparément avec `WORKSPACE_KEY_ENCRYPTION_KEY`, qui doit être distincte de `STORAGE_KEY` et `AUTH_PEPPER`. Cela réduit les conséquences d’un vol de la base ; **le serveur peut toujours déchiffrer et filtrer les espaces partagés**. Le fonctionnement n’est pas à connaissance nulle ni inaccessible à un hébergeur compromis.
 
-Les coffres personnels et le filtrage des documents restent contrôlés côté serveur. Voir [Droits](droits.md). Aucun export/import de sauvegarde utilisateur n’est proposé. Préserver les anciens fichiers et copies techniques nécessaires à la récupération.
+Les coffres personnels et le filtrage des documents restent contrôlés côté serveur. Voir [Droits](droits.md). Données permet un transfert de fiches chiffré par AES-GCM/PBKDF2 avec un code de transfert distinct de huit chiffres. Seules les fiches exportables sont incluses ; le coffre exige aussi la lecture des secrets. L’import crée de nouveaux identifiants et rechiffre les secrets pour l’espace courant, sans importer comptes, paramètres, droits ou journaux. Les permissions sont vérifiées sur la mutation complète. Préserver les anciens fichiers et copies techniques nécessaires à la récupération.
 
 ## Frontières à conserver
 
@@ -46,3 +46,11 @@ Le code à huit chiffres reste une limite face à des essais hors ligne sur d’
 WolfGuard intègre ClamAV sur Windows x64 : moteur épinglé et contrôlé par SHA-256, signatures officielles, quarantaine AES-256-GCM avec clé DPAPI, restauration sans écrasement et commandes autorisées poste par poste. La surveillance est réactive et limitée aux dossiers affichés ; elle ne remplace pas la prévention de Defender. Les limites, contrôles et procédures sont détaillés dans [Antivirus](antivirus.md).
 
 Voir [Développement](developpement.md) pour les suites ciblées. Les contrôles couvrent les permissions, sessions, MFA, stockage et modes distants. Ils ne constituent pas un audit indépendant ni une garantie d’absence de faille.
+
+## Réputation des IP
+
+L’API filtre l’adresse `CF-Connecting-IP` de l’edge, jamais un `X-Forwarded-For` client. Les blocages manuels et les réseaux [Spamhaus DROP](https://www.spamhaus.org/blocklists/do-not-route-or-peer/) retournent la même réponse 404 « Adresse inconnue. » que la mauvaise URL. La vérification `/api/entry` applique aussi ce filtre. Le navigateur de production rejoint ensuite la même destination introuvable.
+
+Un instantané IPv4/IPv6 avec dates et copyright est livré dans `threat-seed.mjs`. R2 conserve les mises à jour sous `security/spamhaus-drop-v1.json`. Les requêtes de production vérifient quotidiennement la source ; une mise à jour manuelle est limitée à une par heure, sous `access.block`. Les sources sont fixes, HTTPS, sans redirection, bornées à 2 Mo et 5 secondes par source. Une erreur conserve la dernière liste ; après 72 h la réputation automatique cesse de bloquer. Les blocages manuels persistent. Ce filtrage protège l’accès API, sans constituer un pare-feu sur les fichiers statiques publics.
+
+Vérifications : `node --test tests/threat-list.test.mjs tests/access.test.mjs` et `python tests/access_workspace_test.py`.

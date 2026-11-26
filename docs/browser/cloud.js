@@ -36,7 +36,9 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
-      error.code=response.status===409?'CLOUD_CONFLICT':response.status===401||response.status===403&&['ACCESS_BLOCKED','ACCOUNT_DISABLED'].includes(data.code)?'CLOUD_ACCESS':'CLOUD_ERROR';
+      const hiddenAddress=response.status===404&&data.error==='Adresse inconnue.';
+      if(hiddenAddress&&!local)location.replace('https://site-introuvable.invalid/');
+      error.code=response.status===409?'CLOUD_CONFLICT':hiddenAddress||response.status===401||response.status===403&&['ACCESS_BLOCKED','ACCOUNT_DISABLED'].includes(data.code)?'CLOUD_ACCESS':'CLOUD_ERROR';
       if(response.status===401&&data.retryAfter&&path.startsWith('users/otp/'))error.code='CLOUD_ERROR';
       if(error.code==='CLOUD_ACCESS'&&credential&&(credential!==token||changingFactor?.credential===credential&&path!=='users/otp/replace/confirm'))error.code='CLOUD_STALE_SESSION';
       if(data.retryAfter)error.retryAfter=Number(data.retryAfter);
@@ -120,7 +122,7 @@ export async function touch({activityAge}={}){
 }
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:storage\/usage|edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|groups(?:\/(?:bootstrap|prepare|create|duplicate|rename|remove|assign|unassign|memberships|policy|nest|unnest|effective))?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock))?|agents(?:\/(?:pair|revoke|restricted|groups(?:\/(?:bootstrap|create|duplicate|rename|remove|move|color))?))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:storage\/usage|edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|groups(?:\/(?:bootstrap|prepare|create|duplicate|rename|remove|assign|unassign|memberships|policy|nest|unnest|effective))?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock|reputation(?:\/refresh)?))?|agents(?:\/(?:pair|revoke|restricted|groups(?:\/(?:bootstrap|create|duplicate|rename|remove|move|color))?))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9%:.=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   const credential=token,replacement=path==='users/otp/replace/confirm'?{credential}:null;
   if(replacement)changingFactor=replacement;
   try{

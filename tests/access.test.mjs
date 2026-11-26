@@ -62,7 +62,7 @@ test('blocking IPv4/IPv6 cuts every matching session, prevents login, and unbloc
       const a=await s.login(ip),b=await s.login(ip);
       assert.equal((await s.api('access/block',{ip},s.owner.token)).status,200);
       for(const token of [a,b])assert.notEqual((await s.api('touch',{},token,ip)).status,200);
-      assert.equal((await s.api('login',{code:'07942685'},null,ip)).status,403);
+      assert.equal((await s.api('login',{code:'07942685'},null,ip)).status,404);
       assert.equal((await s.api('touch',{},a,'192.0.2.99')).status,401);
       const listed=await s.list();assert.equal(listed.blocks[0].ip,ip);assert.ok(!listed.connections.some(row=>row.ip===ip));
       assert.ok(!JSON.stringify(s.env.DB.db.prepare('SELECT * FROM access_blocks').all()).includes(ip));
@@ -107,7 +107,7 @@ test('a block racing with login cannot leave a usable token on a different IP',a
   const s=await setup();try{
     const batch=s.env.DB.batch.bind(s.env.DB);let intercept=true;
     s.env.DB.batch=async statements=>{if(intercept){intercept=false;assert.equal((await s.api('access/block',{ip:'192.0.2.8'},s.owner.token)).status,200);}return batch(statements);};
-    assert.equal((await s.api('login',{code:'07942685'},null,'192.0.2.8')).status,403);
+    assert.equal((await s.api('login',{code:'07942685'},null,'192.0.2.8')).status,404);
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM sessions').get().n,1);
   }finally{s.env.DB.db.close();}
 });

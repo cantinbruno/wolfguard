@@ -51,3 +51,15 @@ Bureau, terminal et fichiers sont des modes distincts, contrôlés côté API. U
 Un lien de téléchargement personnel peut associer un poste une seule fois pendant sa durée limitée. Les téléchargements Windows/Linux/macOS et le désinstalleur restent accessibles depuis les outils d’agents.
 
 Le travail local permet la mise à jour d’un poste depuis ses détails : téléchargement de la version publiée, contrôle SHA-256 et redémarrage avec conservation de l’association. Le succès exige le retour de la version attendue. Vérifier le module de mise à jour et les changements Git en attente avant de modifier ce flux ; une tâche en cours ou des droits insuffisants doivent bloquer l’action. Le composant de protection privilégié POSIX garde son installation distincte.
+
+## Rapport du 26 novembre 2026
+
+Le déplacement d’une fiche ou d’un dossier conserve le dossier consulté. Le coffre affiche le nom et l’URL avec commandes de copie dans le catalogue ; la fiche permet aussi de copier l’identifiant, le mot de passe et l’hôte.
+
+Dans les mémos, sélectionner une cellule affiche la barre Tableau : fond sur les cellules sélectionnées, la ligne ou le tableau, suppression du fond et ajout/retrait de lignes et colonnes. Glisser près du bord droit d’une cellule règle la largeur, près du bord inférieur la hauteur. Les modifications se sauvegardent et s’annulent. Les couleurs explicites gardent la priorité sur les couleurs par défaut, notamment pour la cellule Économie du mémo russe. Aucun contenu personnel n’est réécrit automatiquement pour cette correction d’affichage. Les champs de mots clés sont retirés de la présentation, avec conservation des anciennes métadonnées pour la recherche.
+
+Données propose Importer et Exporter. Un code de transfert de huit chiffres chiffre le fichier ; seuls les documents autorisés sont exportés. L’import demande ce code et une confirmation du nombre de fiches, puis ajoute des copies dans les dossiers importés. Les secrets du coffre sont rechiffrés avec la clé du nouvel espace. Les données existantes, comptes et groupes restent en place. Un fichier endommagé, un code erroné ou des droits insuffisants annulent l’opération complète.
+
+Les enregistrements multiples du même éditeur sont empêchés. Les erreurs conservent les formulaires ; les lectures du coffre affichent le dernier état confirmé pendant les écritures de fond. Une panne de connexion à l’ouverture du lien privé propose Réessayer.
+
+Vérification synthétique sans fenêtre : `python tests/rapport_improvements_test.py`. Groupes et Blocage : voir [Droits](droits.md) et [Sécurité](securite.md).

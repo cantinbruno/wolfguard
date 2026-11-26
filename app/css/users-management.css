@@ -284,3 +284,66 @@
 #wgGroupPermissionHost>p{padding:16px;margin:0;line-height:1.7}
 
 @media(max-width:480px){.user-access-group-list{grid-template-columns:minmax(0,1fr)}}
+
+/* Searchable membership assignment and effective rights. */
+.users-manager .users-account-row{border-radius:8px;margin-bottom:6px;padding:13px 12px;min-width:0}
+.users-manager .users-account-row[aria-pressed=true]{background:#3879b51c;border-color:#518cc7;box-shadow:inset 3px 0 #62a4e3}
+.users-manager .users-directory{background:var(--ui-sidebar);border-radius:10px;padding:14px;gap:14px}
+.users-manager .users-detail{border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-surface)}
+.users-manager .users-detail-heading{padding:20px}
+.users-manager .user-access-groups{border:0;margin:0;padding:18px}
+.user-access-groups legend{font-size:1rem;font-weight:650;padding-top:18px}
+.user-access-group-list{display:flex;flex-direction:column;gap:6px;max-height:290px;padding:4px 2px}
+.user-access-group-list label{align-items:center;padding:10px 12px;font-size:.875rem;background:var(--ui-sidebar);border-radius:7px}
+.user-access-group-list label[hidden]{display:none}
+.user-access-group-list label:has(input:checked){border-color:#568fbe;background:#4784bd18}
+.user-access-group-list label span{display:flex;flex-direction:column;gap:5px;min-width:0}
+.user-access-group-list label strong{font-weight:550;overflow-wrap:anywhere}
+.user-access-group-list label small{font-size:.875rem;color:var(--ui-muted)}
+.group-assignment-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;font-size:.875rem;color:var(--ui-muted)}
+.group-assignment-toolbar label{display:flex;align-items:center;gap:6px}
+.group-assignment-actions{display:flex;gap:8px;flex-wrap:wrap;padding:0 18px 18px}
+.user-effective-summary{border-top:1px solid var(--ui-border);padding:18px}
+.user-effective-summary h5{margin:0;font-size:1rem}
+.user-effective-summary>p{font-size:.875rem;line-height:1.6;color:var(--ui-muted)}
+.effective-section{border:1px solid var(--ui-border);border-radius:6px;margin:7px 0;overflow:hidden}
+.effective-section summary{display:flex;justify-content:space-between;gap:10px;cursor:pointer;padding:12px;background:var(--ui-sidebar);font-size:.875rem}
+.effective-section summary span{color:var(--ui-muted);text-align:right}
+.effective-right{display:flex;gap:12px;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--ui-border);font-size:.875rem}
+.effective-right>span{min-width:0}.effective-right small{display:block;margin-top:4px;color:var(--ui-muted);overflow-wrap:anywhere;font-size:.875rem}
+.effective-right b{font-size:.875rem;flex:none;color:var(--ui-muted)}
+.effective-right[data-allowed=true] b{color:#71d4ad}
+.group-owner-note{display:flex;gap:12px;margin:18px;padding:16px;background:#4389ba18;border:1px solid #4389ba55;border-radius:8px}.group-owner-note svg{width:24px;flex:none}.group-owner-note h5,.group-owner-note p{margin:0 0 5px}
+.group-overview{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 18px 18px;font-size:.875rem;color:var(--ui-muted)}
+.group-overview b{color:var(--ui-text)}.group-kind{border:1px solid var(--ui-border);border-radius:5px;padding:5px 8px}
+.access-group-heading{padding:18px;align-items:flex-start;gap:12px}.access-group-heading h4{font-size:1.125rem;overflow-wrap:anywhere;margin:0}
+.group-pane-tabs{display:flex;gap:4px;border-block:1px solid var(--ui-border);padding:8px 12px;background:var(--ui-sidebar);overflow:auto}
+.group-pane-tabs button{flex-shrink:0;border:0;border-radius:5px;padding:10px 12px;background:transparent;color:var(--ui-muted);font-size:.875rem}
+.group-pane-tabs button[aria-selected=true]{background:#4389ba24;color:var(--ui-text);box-shadow:inset 0 -2px #6ba7da}
+.groups-manager .access-group-members{border:0;margin:0;padding:18px}
+.groups-manager .access-group-members>summary{display:none}
+.groups-manager .access-group-members[hidden],.groups-manager #wgGroupPermissionHost[hidden]{display:none}
+.groups-manager .access-group-members>.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.groups-manager .access-group-members>.actions>.group-selector-search{grid-column:1/-1}
+.group-selector-search{min-width:0;width:100%;padding:10px 12px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text);font-size:.875rem}
+.groups-manager .access-group-member{padding:10px 0;border-bottom:1px solid var(--ui-border);gap:10px;font-size:.875rem}
+.groups-manager .access-group-member>span{overflow-wrap:anywhere;min-width:0}
+.groups-manager select{max-width:100%;min-width:0;font-size:.875rem}
+@media(max-width:640px){.group-pane-tabs{padding:6px}.group-pane-tabs button{padding:9px 8px}.group-overview{gap:9px}.effective-section summary{flex-direction:column}.effective-section summary span{text-align:left}.effective-right{flex-wrap:wrap}.groups-manager .access-group-members>.actions{grid-template-columns:minmax(0,1fr)}.groups-manager .settings-panel-head>.actions{flex-wrap:wrap}}
+
+/* Compact headers and readable labels in the management panes. */
+.groups-manager>.settings-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding-bottom:16px;margin-bottom:12px}
+.groups-manager>.settings-panel-head>div:first-child{flex:1;min-width:0}
+.groups-manager>.settings-panel-head p{font-size:.875rem;color:var(--ui-muted);line-height:1.6;margin:8px 0 0}
+.groups-manager>.settings-panel-head>.actions{flex:none;gap:6px}
+.users-manager .settings-btn{font-size:.875rem}
+.users-manager .users-search input,.users-manager .users-filter-label,.users-manager .users-filter-label select{font-size:.875rem}
+.users-manager .users-account-copy strong{font-size:.875rem;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+.users-manager .users-account-copy small{font-size:.875rem;line-height:1.5}
+.groups-manager .users-directory>label{font-size:.875rem}
+.groups-manager .users-directory>label select{padding:9px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text)}
+.groups-manager .users-account-row{padding:11px;min-height:0}
+.groups-manager .access-group-heading{position:sticky;top:0;z-index:3;background:var(--ui-surface)}
+.groups-manager .group-pane-tabs{position:sticky;top:var(--group-heading-height,100px);z-index:2}
+@media(min-width:851px){.access-groups-workspace{grid-template-columns:minmax(250px,30%) minmax(0,1fr)}}
+@media(max-width:1000px){.groups-manager>.settings-panel-head{flex-wrap:wrap}.groups-manager>.settings-panel-head>.actions{flex-wrap:wrap}}

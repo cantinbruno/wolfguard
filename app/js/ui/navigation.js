@@ -140,7 +140,7 @@ async function dropOnFolder(e, targetFolderId) {
       item.folderId = targetFolderId;
       item.updatedAt = now();
       await put('items', item);
-      state.folder = targetFolderId;
+      // Keep the current collection after a move.
     }
   } else if (payload.kind === 'folder') {
     if (payload.id === targetFolderId) return dragEnd(e);
@@ -152,7 +152,7 @@ async function dropOnFolder(e, targetFolderId) {
     if (folder) {
       folder.parentId = targetFolderId;
       await put('folders', folder);
-      state.folder = targetFolderId;
+      // Keep the current collection after a move.
     }
   }
 
@@ -190,7 +190,6 @@ async function dropOnRoot(e) {
     kind: null,
     id: null
   };
-  state.folder = root;
   await renderWorkspace();
 }
 

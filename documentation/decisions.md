@@ -1,5 +1,14 @@
 # Décisions à conserver
 
+## 26 novembre 2026 — Ergonomie et échanges de données
+
+Les déplacements de dossiers et de fiches conservent la collection affichée. Le coffre montre le nom et l’URL avec copie. Les tableaux des mémos proposent couleurs de fond par cellule, sélection, ligne ou tableau et redimensionnement par glissement des bordures, enregistrés et annulables. Les couleurs explicites sont conservées en lecture comme en édition ; les mots clés ne sont plus affichés comme champ de mémo. Les enregistrements concurrents du même éditeur sont bloqués et une erreur laisse le brouillon ouvert.
+
+Mon compte conserve identité, code, MFA et verrouillage ; retirer le raccourci stockage et le sélecteur du délai fixe. La nouvelle demande remplace l’ancienne interdiction d’import/export : Données propose un transfert chiffré des fiches autorisées avec un code distinct de huit chiffres, sans restauration des droits ni des comptes. L’import ajoute des copies, remappe les dossiers et rechiffre les secrets du coffre.
+
+Utilisateurs permet de rechercher les groupes, filtrer les appartenances et consulter les droits effectifs avec leurs sources. Groupes sépare Membres, Groupes liés, Autorisations et Vérifier un accès. Connexions et Blocage sont deux onglets. Blocage inclut Spamhaus DROP IPv4/IPv6, ses dates et son attribution, avec actualisation quotidienne à la demande entrante et cache R2 ; les données de plus de 72 h ne bloquent plus. Toute IP bloquée reçoit HTTP 404 « Adresse inconnue. », y compris sur la vérification du lien privé. Une panne réseau à l’ouverture offre Réessayer sans ouvrir les données.
+
+
 Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvelle demande les change explicitement, mettre à jour le code et cette page ensemble.
 
 ## 21 novembre 2026 — Intégration du rapport
@@ -20,7 +29,7 @@ Les bandeaux des sections de postes sont compacts : 32 px de contenu sur ordinat
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |
 | Sessions | 4 heures **d’inactivité**, pas 4 heures de durée totale. Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
 | MFA | Authenticator ; option « Changer de téléphone ». L’ancien facteur reste actif jusqu’à confirmation du nouveau. Les codes de secours restent nécessaires à la récupération MFA. |
-| Sauvegardes | Pas d’export/import de sauvegardes proposé dans l’interface. Ne pas supprimer les copies techniques de récupération ou les données existantes. |
+| Données | Import/export chiffré des fiches autorisées dans Données, avec code de transfert. Import par ajout de copies, sans remplacement des données, comptes ou droits. Préserver les copies techniques de récupération. |
 | Autorisations | Tous les droits sont configurés uniquement sur des groupes d’accès dans Paramètres → Groupes, sans surcharge individuelle ni raccourci depuis le parc. Un utilisateur peut cumuler plusieurs groupes. Chaque section ou paramètre reçoit automatiquement `GG_Acces_<Nom>_lecture` et `GG_Acces_<Nom>_ecriture` ; sans groupe correspondant, elle est invisible. `GG_Acces_Application_administrateur` donne l’accès complet. Les groupes des sections de postes suivent leur création, renommage et suppression. Le propriétaire reste protégé. |
 | Organisation du parc | Sections de postes personnalisées à nommer, repliables, avec sélection par poste ou par section et déplacement multiple. Le clic droit vise la sélection si le poste est coché, sinon le seul poste visé. Les actions distantes gardent leurs confirmations et leurs contrôles par poste. |
 | Antivirus | Moteur libre intégré choisi par l’utilisateur : ClamAV. Sur Windows x64, installation automatique après réception de la politique Protéger ; signatures vérifiées chaque heure, sans navigateur. Pauses explicites et mode Observer conservés. Le moteur validé évolue avec les mises à jour autonomes de l’agent. Analyse réactive de dossiers et quarantaine chiffrée ; sans blocage avant exécution ni remplacement complet de Defender. Protections natives conservées. Voir `documentation/antivirus.md`. |
