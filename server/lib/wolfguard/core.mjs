@@ -222,11 +222,12 @@ export async function handleAPI(request,env,clock=Date.now) {
   const cors=origin && allowed.has(origin);
   let response;
   try {
+    // Blocked and Spamhaus-listed addresses receive the unknown-path response on
+    // every route. Session issuance repeats this check around its own writes.
     if(request.method!=='OPTIONS'&&env.DB&&env.AUTH_PEPPER)await assertAddressAllowed(env,await addressContext(request,env),fail);
     if(origin && !cors)fail(403,'Origine non autorisée.');
     if(request.method==='OPTIONS')response=new Response(null,{status:204});
     else if(new URL(request.url).pathname==='/api/entry') {
-      if(env.DB&&env.AUTH_PEPPER)await assertAddressAllowed(env,await addressContext(request,env),fail);
       const token=/^Bearer ([a-f0-9]{64})$/.exec(request.headers.get('Authorization')||'')?.[1];
       if(request.method!=='POST'||!token||!/^[a-f0-9]{64}$/.test(env.ENTRY_LINK_HASH||'')||!equal(await digest(token),env.ENTRY_LINK_HASH))fail(404,'Adresse inconnue.');
       response=new Response(null,{status:204});
@@ -236,19 +237,15 @@ export async function handleAPI(request,env,clock=Date.now) {
       if(!path.startsWith('/api/agent/'))await ensureOwnerAccount(env,now);
       if(path==='/api/status'&&request.method==='GET'){await provisionOwnerAccount(env,now);response=json({initialized:!!(await state(env))});}
       else if(path.startsWith('/api/account/')){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
       }else if(path.startsWith('/api/duo/')){
         fail(410,'La connexion utilise maintenant le code MFA de ton Authenticator.');
       }else if(path.startsWith('/api/push/')){
         if(!browserPushEnabled(env))fail(410,'Les notifications du navigateur ont été retirées.');
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handlePushLogin(request,env,now,{fail,json,body:()=>smallJSON(request),finish:async(user,deviceId,generation)=>{const current=await state(env);if(current.generation!==generation)fail(401,'Ce compte a changé. Reconnecte-toi.');user.push_device_id=deviceId;return finishLogin(request,env,now,current,user);}});
       }else if(path.startsWith('/api/mfa/phone/')){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
         response=await handlePhoneEnrollment(request,env,now,{fail,json,body:()=>smallJSON(request)});
       }else if(path==='/api/setup'&&request.method==='POST'){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
         const activation=request.headers.get('X-WG-Activation')||'';
         if(!/^[a-f0-9]{64}$/.test(activation)||!equal(await digest(activation),env.BOOTSTRAP_HASH))fail(403,'Lien d’activation invalide.');
         const {code}=await smallJSON(request);if(!codeOK(code))fail(400,'Choisis un code de 8 chiffres.');
@@ -257,7 +254,6 @@ export async function handleAPI(request,env,clock=Date.now) {
         if(!inserted)fail(409,'Le partage est déjà activé. Saisis ton code habituel.');
         response=json({token:await issueSession(env,1,now,request),version:0,exists:false});
       }else if(path==='/api/login'&&request.method==='POST'){
-        await assertAddressAllowed(env,await addressContext(request,env),fail);
         const {code,username,otp}=await smallJSON(request),current=await state(env);
         if(current?.users_enabled||current?.owner_user_id){
 
@@ -342,6 +338,6 @@ export async function handleAPI(request,env,clock=Date.now) {
   headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
   if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
   if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
-  if(response.status===429||response.status===401){const data=await response.clone().json();if(data.retryAfter)headers.set('Retry-After',String(data.retryAfter));}
+  if(response.status===429||response.status===401){const data=await response.clone().json().catch(()=>null);if(Number.isSafeInteger(data?.retryAfter)&&data.retryAfter>0)headers.set('Retry-After',String(data.retryAfter));}
   return new Response(response.body,{status:response.status,headers});
 }

@@ -1,6 +1,6 @@
 # Développement et vérifications
 
-Exécuter les commandes depuis la racine du dépôt, sauf mention contraire. Le projet web utilise Node.js et les tests navigateur utilisent Python.
+Exécuter les commandes depuis la racine du dépôt, sauf mention contraire. Le projet web utilise Node.js (version 22.13 ou plus récente, `node:sqlite` est requis par les tests) et les tests navigateur utilisent Python avec Playwright.
 
 ## Préparer
 
@@ -20,9 +20,21 @@ npm run build
 npm run preview
 ```
 
-La prévisualisation écoute sur `http://127.0.0.1:4173`. Le build exige le fichier privé de lien déjà existant. S’il manque, retrouver la configuration privée ; ne pas créer une nouvelle clé pour contourner l’erreur.
+La prévisualisation écoute sur `http://127.0.0.1:4173`. Le build exige le fichier privé de lien déjà existant (`%LOCALAPPDATA%\WolfGuardWeb\private\site-access.json`, ou le dossier indiqué par `WOLFGUARD_PRIVATE_DIR`). S’il manque, retrouver la configuration privée ; ne pas créer une nouvelle clé pour contourner l’erreur.
 
 Les tests utilisent `.cache/site-document.html` et les sorties de compilation. Reconstruire avant un test navigateur après modification des sources.
+
+## Suites de tests
+
+| Commande | Contenu | Durée indicative |
+| --- | --- | --- |
+| `node --test tests/*.test.mjs` | Tous les tests Node : API sur D1 en mémoire, agents, permissions, publication | ~10 s |
+| `npm run test:security` | Contrôle de publication et tests de sécurité Node | ~10 s |
+| `npm run test:report` | Rapports, groupes, antivirus, outils distants, tests navigateur associés | quelques minutes |
+| `npm test` | Suite étendue Node puis Python | longue |
+| `node --test tests/security.test.mjs` dans `server/` | Contrôles propres au Worker | ~1 s |
+
+Les tests Python lancent Chromium **sans fenêtre** (`p.chromium.launch()`, mode headless par défaut) avec des profils temporaires et des comptes synthétiques.
 
 ## Choisir les tests utiles
 
@@ -31,17 +43,25 @@ Les tests utilisent `.cache/site-document.html` et les sorties de compilation. R
 | Documentation, liens et règles IA | Liens Markdown locaux, chemins cités, absence de secrets, `git diff --check` |
 | Connexion, MFA | `node --test tests/users.test.mjs tests/cloud.test.mjs` ; tests sans fenêtre `tests/otp_workspace_test.py`, `tests/mandatory_mfa_test.py` |
 | Inactivité et rafraîchissement | `node --test tests/users.test.mjs tests/cloud.test.mjs` ; `python tests/session_resume_test.py` |
+| Blocage d’IP et réputation | `node --test tests/threat-list.test.mjs tests/access.test.mjs` ; `python tests/access_workspace_test.py` |
 | Permissions par poste | `node --test tests/permissions.test.mjs tests/access.test.mjs` ; `python tests/security_permissions_test.py` |
 | Frontend et navigation Sécurité | `npm run test:agents-console` ; test navigateur de la vue concernée |
-| Sécurité et chiffrement | `npm run test:security` |
+| Sécurité et chiffrement | `npm run test:security` ; `python tests/security_test.py` |
 | Agent et mises à jour | `node --test tests/agent.test.mjs tests/agent-update.test.mjs tests/agent-posix.test.mjs` |
 | Antivirus intégré et quarantaine | `node --test tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs` ; `python tests/antivirus_workspace_test.py` |
-| Bureau, terminal et fichiers | `node --test tests/remote.test.mjs tests/terminal.test.mjs tests/files.test.mjs` |
+| Bureau, terminal et fichiers | `node --test tests/remote.test.mjs tests/terminal.test.mjs tests/files.test.mjs tests/hardening.test.mjs` |
 | Publication | `node scripts/check-publication.mjs` ; `node --test tests/publication.test.mjs` |
 
 Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de `package.json` sont la référence pour les commandes du dépôt. Le contrôle de publication vérifie aussi les archives d’agents et peut donc prendre du temps.
 
 `npm test` est la suite étendue. Ne pas la relancer entièrement après un changement de prose si les contrôles adaptés suffisent. Les tests natifs Windows, PowerShell de durée de vie de l’agent et `remote-windows-native.mjs` ne sont pas à lancer sur le bureau de l’utilisateur sans demande explicite.
+
+## Écrire un test
+
+- Un agent de test déclare les capacités qu’il simule lors de son premier `agent/poll`. Une session Bureau, Terminal ou Fichiers exige `remote-consent-v1` puis l’accord explicite `POST /api/agent/remote/consent` avec `status:'accepted'` avant tout échange (voir `remote()` dans `tests/hardening.test.mjs`).
+- Comparer les chemins Windows sous leur forme canonique (`fs.realpath`) : l’agent renvoie la lettre de lecteur dans sa casse réelle (`C:`), alors que le terminal de VS Code peut démarrer en `c:`.
+- `tests/publication.test.mjs` modifie temporairement `app/downloads/WolfGuard-Agent-Windows.exe` pour vérifier le refus. Ne pas l’exécuter en parallèle de `tests/agent-signing.test.mjs`, qui contrôle que ces fichiers restent inchangés ; lancer ce dernier seul.
+- Dans un test Playwright qui intercepte l’API avec `context.route`, appeler `context.unroute_all(behavior='wait')` avant `context.close()` pour laisser finir les requêtes en cours.
 
 ## Serveur
 

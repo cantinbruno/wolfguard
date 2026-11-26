@@ -106,7 +106,7 @@ test('combining an unrelated group preserves inherited folder restrictions witho
 test('remote modes, pairing and scan starts check precise actions instead of any write permission',async()=>{
   const s=await fixture();try{
     const ticket=await(await s.api('agents/pair',{},s.owner.token)).json(),agent=await(await s.api('agent/enroll',{code:ticket.code,name:'Permission fixture',platform:'win32'})).json();
-    await s.api('agent/poll',{capabilities:['remote-terminal-v1','remote-desktop-v1','remote-files-v1','network-scan-v3','network-target-v1']},null,{Authorization:'Agent '+agent.token});
+    await s.api('agent/poll',{capabilities:['remote-consent-v1','remote-terminal-v1','remote-desktop-v1','remote-files-v1','network-scan-v3','network-target-v1']},null,{Authorization:'Agent '+agent.token});
     const policy={...blank(),groupLevels:{ungrouped:'write'},actionRules:{'agents.read':'allow','agents.revoke':'allow','remote.read':'allow','remote.terminal':'allow','scan.active.read':'allow','scan.active.cancel':'allow'}};
     const group=await s.create('GG_Terminal_Seulement',policy);await s.change('memberships',{userId:s.member.user.id,groupIds:[group.id]});const auth=await s.loginMember();
     assert.equal((await s.api('agents/pair',{},auth.token)).status,403,'revoking an agent does not grant pairing');

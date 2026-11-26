@@ -1,6 +1,6 @@
 # Sécurité de l’application
 
-Référence de maintenance, à vérifier dans les sources et les tests lors d’un changement. Le dernier contrôle historique des dépendances était documenté au 12 novembre 2026 ; il ne décrit pas les alertes npm du jour.
+Référence de maintenance, à vérifier dans les sources et les tests lors d’un changement. Le dernier contrôle des dépendances date du 26 novembre 2026 (voir [Revue du 26 novembre 2026](#revue-du-26-novembre-2026)) ; il ne décrit pas les alertes npm ultérieures.
 
 ## Connexion et sessions
 
@@ -56,3 +56,21 @@ L’API filtre l’adresse `CF-Connecting-IP` de l’edge, jamais un `X-Forwarde
 Un instantané IPv4/IPv6 avec dates et copyright est livré dans `threat-seed.mjs`. R2 conserve les mises à jour sous `security/spamhaus-drop-v1.json`. Les requêtes de production vérifient quotidiennement la source ; une mise à jour manuelle est limitée à une par heure, sous `access.block`. Les sources sont fixes, HTTPS, sans redirection, bornées à 2 Mo et 5 secondes par source. Une erreur conserve la dernière liste ; après 72 h la réputation automatique cesse de bloquer. Les blocages manuels persistent. Ce filtrage protège l’accès API, sans constituer un pare-feu sur les fichiers statiques publics.
 
 Vérifications : `node --test tests/threat-list.test.mjs tests/access.test.mjs` et `python tests/access_workspace_test.py`.
+
+## Revue du 26 novembre 2026
+
+Revue ciblée du code par l’IA de développement, sans audit indépendant ni test d’intrusion.
+
+| Point contrôlé | Constat | Suite donnée |
+| --- | --- | --- |
+| Requêtes SQL du serveur | Toutes les valeurs passent par `bind()` ; les fragments concaténés sont des constantes internes | Aucun changement |
+| Comparaison des secrets | Empreintes comparées en temps constant (`equal`), jetons de 256 bits, codes PBKDF2 avec secret serveur | Aucun changement |
+| Droits des API utilisateurs, accès et postes | Permission précise vérifiée par action, puis droits par poste et périmètre du gestionnaire | Aucun changement |
+| Dépendances de production du serveur | `npm audit --omit=dev` : 0 vulnérabilité connue | À refaire avant chaque déploiement |
+| Contrôles d’IP en double | Jusqu’à cinq vérifications identiques (D1, HMAC, Spamhaus) dans une même requête de connexion | Contexte d’adresse calculé une fois par requête ; vérification générale unique, conservée autour de l’émission des sessions |
+| En-tête `Retry-After` | Une réponse 401/429 non JSON pouvait faire échouer la réponse entière | Lecture tolérante, seul un entier positif est recopié |
+| Tests de prise en main | Quatre tests ne déclaraient pas l’accord distant obligatoire depuis le 26 novembre | Tests alignés sur `remote-consent-v1` et l’accord explicite |
+
+Résultat après corrections : 338/338 tests Node, `npm run test:security`, `tests/security_test.py`, `tests/access_workspace_test.py`, `tests/session_resume_test.py` et `tests/private_entry_test.py` réussis. Les changements de `server/` ne sont en production qu’après un déploiement Sites.
+
+Pistes non traitées, à arbitrer : `expire()` relit à chaque `agent/poll` les scans actifs et les droits de leurs auteurs (coût proportionnel au nombre de postes, mais nécessaire à la révocation immédiate) ; une intégration continue GitHub Actions demanderait un jeton Git avec le droit `workflow` et une configuration sans la clé privée du lien.

@@ -215,6 +215,8 @@ def run():
             expect(first.locator('#app')).not_to_be_visible()
             assert first.evaluate("sessionStorage.getItem('wolfguard-tab-session-v1')") is None
             assert not errors, errors
+            # Let in-flight proxied refreshes finish before disposing their responses.
+            for context in [a, b]: context.unroute_all(behavior='wait')
             a.close(); b.close()
             check_network_sessions(browser, url, backend)
             browser.close()

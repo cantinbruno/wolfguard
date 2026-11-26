@@ -13,15 +13,19 @@ Le projet Sites est identifié dans `server/.openai/hosting.json` ; ses bindings
 | Domaine | Modules dans `server/lib/wolfguard/` |
 | --- | --- |
 | Entrée, connexion, sessions, snapshots | `core.mjs`, `request.mjs`, `session-policy.mjs` |
-| Comptes, invitations et réinitialisations | `users.mjs`, `access.mjs` |
+| Comptes, invitations et réinitialisations | `users.mjs` |
+| Connexions, blocage d’IP et réputation Spamhaus | `access.mjs`, `threat-list.mjs`, `threat-seed.mjs` |
 | TOTP et remplacement de téléphone | `otp.mjs` |
-| Modèle et stockage des droits | `permissions.mjs`, `permission-store.mjs` |
+| Modèle et stockage des droits | `permissions.mjs`, `permission-store.mjs`, `access-groups.mjs`, `group-membership.mjs` |
 | Espaces partagés et coffres personnels | `workspace-access.mjs`, `workspace-key.mjs`, `personal-vault.mjs` |
-| Postes et contrôle d’accès | `agents.mjs`, `agent-access.mjs` |
+| Postes, sections de postes et contrôle d’accès | `agents.mjs`, `agent-access.mjs`, `fleet-groups.mjs` |
 | Outils distants | `remote.mjs`, `terminal.mjs`, `files.mjs`, `endpoints.mjs` |
 | Rapprochement des avis publics | `certfr.mjs` |
+| Conservation des journaux et répartition du stockage | `retention.mjs`, `storage-usage.mjs` |
+| IA via un poste et discussion | `ai.mjs`, `ai-input.mjs`, `chat-api.mjs`, `chat-history.mjs` |
+| Notifications navigateur historiques (coupées par `MFA_BROWSER_PUSH_ENABLED=0`) | `push.mjs` |
 
-Les suffixes `*-spec.mjs` définissent des contrats et limites utilisés par les API et agents. Lire le contrat avant de changer un format de message ou les limites d’un transfert.
+L’ordre des contrôles d’une requête et la carte des routes sont décrits dans [Architecture](architecture.md#traitement-dune-requête-api). Les suffixes `*-spec.mjs` définissent des contrats et limites utilisés par les API et agents. Lire le contrat avant de changer un format de message ou les limites d’un transfert.
 
 ## Authentification et données
 

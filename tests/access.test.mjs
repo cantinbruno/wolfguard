@@ -4,7 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
-import {normalizeIP,requestIP} from '../server/lib/wolfguard/access.mjs';
+import {normalizeIP,requestIP,addressContext} from '../server/lib/wolfguard/access.mjs';
 
 class D1 {
   constructor(){this.db=new DatabaseSync(':memory:');for(const name of readdirSync(new URL('../server/drizzle/',import.meta.url)).filter(name=>name.endsWith('.sql')).sort())this.db.exec(readFileSync(new URL('../server/drizzle/'+name,import.meta.url),'utf8'));}
@@ -131,4 +131,15 @@ test('disconnecting or blocking an owner closes desktop sharing and deletes its 
       assert.equal((await s.api('remote/session?id='+session.id,undefined,viewer,'192.0.2.5')).status===200,false);
     }finally{s.env.DB.db.close();}
   }
+});
+
+test('the keyed address context is computed once per request and never shared between requests',async()=>{
+  const env={AUTH_PEPPER:'a'.repeat(64)};
+  const first=new Request('https://api.test/api/me',{headers:{'CF-Connecting-IP':'203.0.113.7'}});
+  const other=new Request('https://api.test/api/me',{headers:{'CF-Connecting-IP':'203.0.113.8'}});
+  const a=await addressContext(first,env),b=await addressContext(first,env),c=await addressContext(other,env);
+  assert.equal(a,b);
+  assert.equal(a.ip,'203.0.113.7');assert.match(a.hash,/^[a-f0-9]{64}$/);
+  assert.notEqual(a.hash,c.hash);
+  assert.deepEqual(await addressContext(new Request('https://api.test/api/me'),env),{ip:null,hash:null});
 });

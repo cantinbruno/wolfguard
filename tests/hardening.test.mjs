@@ -81,9 +81,11 @@ async function remote(s,mode){
   const ticket=await(await s.api('agents/pair',{},s.auth.token)).json();
   const agent=await(await s.api('agent/enroll',{code:ticket.code,name:'Synthetic '+mode,platform:'linux'})).json();
   const call=(path,value)=>s.api('agent/'+path,value,null,{Authorization:'Agent '+agent.token});
-  await call('poll',{capabilities:['remote-desktop-v1','remote-terminal-v1','remote-files-v1']});
+  await call('poll',{capabilities:['remote-consent-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1']});
   const response=await s.api('remote/start',{agentId:agent.id,mode},s.auth.token);assert.equal(response.status,201);
   const session=await response.json(),claim=(await(await call('poll',{})).json()).remote;
+  // The remote user's explicit approval is mandatory before any exchange.
+  assert.equal((await call('remote/consent',{id:session.id,lease:claim.lease,status:'accepted'})).status,200);
   return {agent,call,session,lease:claim.lease};
 }
 

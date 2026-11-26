@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,readdir,rm,symlink} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,readdir,rm,symlink,realpath} from 'node:fs/promises';
 import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createFileAccess,executeFileSession} from '../agent/files.mjs';
@@ -8,7 +8,8 @@ import {fileCommand,FILE_CHUNK} from '../server/lib/wolfguard/files-spec.mjs';
 import {automaticMap} from '../agent/network.mjs';
 import {setup} from './endpoint-fixture.mjs';
 const cache=path.resolve('.cache');
-async function temporary(run){await mkdir(cache,{recursive:true});const root=await mkdtemp(path.join(cache,'file-transfer-test-'));try{await run(root);}finally{const relative=path.relative(cache,root);assert.ok(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative));await rm(root,{recursive:true,force:true});}}
+// Canonical path: the agent reports Windows drive letters in their real case.
+async function temporary(run){await mkdir(cache,{recursive:true});const root=await realpath(await mkdtemp(path.join(cache,'file-transfer-test-')));try{await run(root);}finally{const relative=path.relative(cache,root);assert.ok(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative));await rm(root,{recursive:true,force:true});}}
 test('file protocol rejects traversal, invalid handles and oversized chunks; automatic mapping uses an actual private interface',()=>{
   for(const command of [{action:'list',path:'../private'},{action:'upload',path:'a/../../x',total:1},{action:'read',handle:'bad',offset:0},{action:'write',handle:'a'.repeat(32),offset:0,data:Buffer.alloc(FILE_CHUNK+1).toString('base64')}])assert.throws(()=>fileCommand(command));
   const scope=automaticMap({Ethernet:[{family:'IPv4',internal:false,address:'192.168.5.42',cidr:'192.168.5.42/24'}],Loopback:[{family:'IPv4',internal:true,address:'127.0.0.1'}]});assert.equal(scope.target,'192.168.5.0/24');assert.equal(scope.origin.address,'192.168.5.42');

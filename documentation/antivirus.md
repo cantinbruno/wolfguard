@@ -70,7 +70,7 @@ L’état technique `protection-connected` est écrit uniquement après récepti
 
 Vérification du 26 novembre après mise à jour sur le poste concerné : version `fb13c2e0bb96`, relevé accepté par l’API, santé `protected`, moteur ClamAV `1.5.5` installé et activé, surveillance et pare-feu activés, signatures à jour, disque `C:\` couvert, zéro erreur et aucun avertissement dans le relevé contrôlé. L’utilisateur interactif, le compte du processus et le domaine sont renseignés. Ce contrôle ponctuel confirme la réparation de ce poste ; il ne remplace pas le suivi des prochains relevés.
 
-Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/views/edr.js`.
+Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/ui/agent-protection.js`.
 
 ```powershell
 node --test tests/antivirus-startup.test.mjs tests/antivirus-auto.test.mjs tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs

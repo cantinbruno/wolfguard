@@ -54,7 +54,7 @@ test('machine sections create, rename and remove their read/write access groups'
 test('shared group CRUD and moves enforce access in direct APIs and cancel issued remote/scans',async()=>{
   const s=await setup();try{
     await s.initialize();s.owner=await s.login('cantin.bruno@gmx.fr','09876543');
-    const pair=async name=>{const ticket=await(await s.api('agents/pair',{},s.owner.token)).json();const result=await s.api('agent/enroll',{code:ticket.code,name,platform:'win32'});assert.equal(result.status,200);const agent=await result.json();await s.api('agent/poll',{capabilities:['network-scan-v3','network-target-v1','remote-terminal-v1','endpoint-protection-v1']},null,{Authorization:'Agent '+agent.token});return agent;};
+    const pair=async name=>{const ticket=await(await s.api('agents/pair',{},s.owner.token)).json();const result=await s.api('agent/enroll',{code:ticket.code,name,platform:'win32'});assert.equal(result.status,200);const agent=await result.json();await s.api('agent/poll',{capabilities:['remote-consent-v1','network-scan-v3','network-target-v1','remote-terminal-v1','endpoint-protection-v1']},null,{Authorization:'Agent '+agent.token});return agent;};
     const a=await pair('Synthetic A'),b=await pair('Synthetic B');
     const member=await s.createMember('group-reader@example.test','12345678',s.owner.token);
     const old={...profilePolicy('editor'),agents:[a.id],agentLevels:{[a.id]:'read'}};

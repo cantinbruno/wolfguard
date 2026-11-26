@@ -28,8 +28,17 @@ export function requestIP(request){
   // Cloudflare uses this shared placeholder for cross-zone Worker subrequests.
   return ip==='2a06:98c0:3600::103'?null:ip;
 }
-export async function addressContext(request,env){
-  const ip=requestIP(request);return {ip,hash:ip?await addressHash(ip,env):null};
+// One request has one edge address: compute its keyed hash once per request.
+const contexts=new WeakMap();
+export function addressContext(request,env){
+  let context=contexts.get(request);
+  if(!context){
+    const ip=requestIP(request);
+    context=(ip?addressHash(ip,env):Promise.resolve(null)).then(hash=>({ip,hash}));
+    context.catch(()=>contexts.delete(request));
+    contexts.set(request,context);
+  }
+  return context;
 }
 async function addressHash(ip,env){
   const key=await crypto.subtle.importKey('raw',bytes(env.AUTH_PEPPER),{name:'HMAC',hash:'SHA-256'},false,['sign']);
