@@ -66,6 +66,8 @@ def check_network_sessions(browser, url, backend):
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.clock.install()
     page.goto(url + '?sync-test'); ready(page)
+    # Focus the lock screen first: keystrokes sent before it is ready are lost.
+    page.locator('#lock').focus()
     with page.expect_response(API + '/api/touch'):
         page.keyboard.type(CODE); unlocked(page)
     credential = page.evaluate('WolfGuardCloud.sessionState().token')

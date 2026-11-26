@@ -23,7 +23,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     env:
-      WOLFGUARD_PRIVATE_DIR: ${{ runner.temp }}\wolfguard-private
       PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
@@ -44,12 +43,8 @@ jobs:
           python -m playwright install chromium
 
       - name: Clé de lien jetable
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force $env:WOLFGUARD_PRIVATE_DIR | Out-Null
-          $bytes = [byte[]]::new(32); [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-          @{ key = [Convert]::ToHexString($bytes).ToLower() } | ConvertTo-Json -Compress |
-            Set-Content -Encoding ascii (Join-Path $env:WOLFGUARD_PRIVATE_DIR 'site-access.json')
+        shell: bash
+        run: node -e "const fs=require('fs'),path=require('path'),dir=path.join(process.env.RUNNER_TEMP,'wolfguard-private');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'site-access.json'),JSON.stringify({key:require('crypto').randomBytes(32).toString('hex')}));fs.appendFileSync(process.env.GITHUB_ENV,'WOLFGUARD_PRIVATE_DIR='+dir+'\n')"
 
       - name: Compilation du site
         run: npm run build
