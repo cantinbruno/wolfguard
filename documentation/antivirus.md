@@ -65,6 +65,8 @@ La collecte Windows et l’état ClamAV sont désormais indépendants. Une défa
 
 L’état technique `protection-connected` est écrit uniquement après réception du relevé par l’API et lecture de sa politique. Il permet de distinguer la connexion générale de l’agent d’une remontée EDR effectivement acceptée, sans consigner de jeton ni de contenu de document.
 
+Vérification du 26 novembre après mise à jour sur le poste concerné : version `fb13c2e0bb96`, relevé accepté par l’API, santé `protected`, moteur ClamAV `1.5.5` installé et activé, surveillance et pare-feu activés, signatures à jour, disque `C:\` couvert, zéro erreur et aucun avertissement dans le relevé contrôlé. L’utilisateur interactif, le compte du processus et le domaine sont renseignés. Ce contrôle ponctuel confirme la réparation de ce poste ; il ne remplace pas le suivi des prochains relevés.
+
 Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/views/edr.js`.
 
 ```powershell
