@@ -21,8 +21,10 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    pixels=Image.new('RGB',(800,480),'#152638');ImageDraw.Draw(pixels).text((30,30),'Bureau distant - fixture de test',fill='white')
-    encoded=BytesIO();pixels.save(encoded,format='JPEG');frame={'width':800,'height':480,'jpeg':base64.b64encode(encoded.getvalue()).decode()}
+    pixels=Image.new('RGB',(1600,450),'#152638');draw=ImageDraw.Draw(pixels)
+    draw.rectangle((0,0,799,449),fill='#153050');draw.rectangle((800,0,1599,449),fill='#305015')
+    draw.text((30,30),'Ecran gauche - fixture de test',fill='white');draw.text((830,30),'Ecran droit - fixture de test',fill='white')
+    encoded=BytesIO();pixels.save(encoded,format='JPEG');frame={'width':1600,'height':450,'jpeg':base64.b64encode(encoded.getvalue()).decode()}
     agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['remote-desktop-v1']}
     control={'status':'requested','id':'','revision':1,'message':'','outage':False};started=[];stopped=[];inputs=[]
     def route_api(route):
@@ -68,6 +70,15 @@ def run():
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             expect(page.locator('#wgRemoteStatus')).to_contain_text('Connexion établie')
+            expect(page.locator('#wgRemoteImageInfo')).to_contain_text('Tous les écrans')
+            colors=page.locator('#wgRemoteCanvas').evaluate("el=>[100,1500].map(x=>Array.from(el.getContext('2d').getImageData(x,200,1,1).data))")
+            assert colors[0][2]>colors[0][1] and colors[1][1]>colors[1][2],colors
+            before=len(inputs)
+            box=page.locator('#wgRemoteCanvas').bounding_box()
+            for x in [.1,.9]:page.locator('#wgRemoteCanvas').click(position={'x':box['width']*x,'y':box['height']/2})
+            page.wait_for_timeout(200)
+            clicks=[v for v in inputs[before:] if v['type']=='button' and v['down']]
+            assert len(clicks)==2 and abs(clicks[0]['x']-.1)<.001 and abs(clicks[1]['x']-.9)<.001,clicks
             page.evaluate("""async()=>{const c=await import('./browser/crypto.js'),snapshot=await WolfGuardCloud.load(),identity=await WolfGuardCloud.me(true),material=await c.importWorkspaceMaterial(identity.workspace),opened=await c.openWithKey(snapshot,material.key,material.salt);opened.payload.items.push({id:'multiuser-remote-note',type:'memo',title:'Autre personne',content:'Test partagé'});await WolfGuardCloud.save(await c.seal(opened.payload,opened.key,opened.salt,snapshot.revision+1));await webWorkspace.refreshShared();}""")
             expect(page.locator('#wgRemoteCanvas')).to_be_visible();assert stopped==[]
             page.locator('#wgRemoteCanvas').click(position={'x':100,'y':80});page.keyboard.type('abc');page.keyboard.press('Control+c')
@@ -101,7 +112,13 @@ def run():
             control['revision']+=1;page.wait_for_timeout(1000);expect(page.locator('#wgRemoteControl')).to_have_attribute('aria-pressed','false')
             page.locator('#wgRemoteControl').click();page.locator('#wgRemoteCanvas').focus();page.keyboard.press('Control+Alt+Escape')
             expect(page.locator('#wgRemoteDisconnect')).to_be_focused()
-            page.locator('#wgRemoteFullscreen').click();page.wait_for_function('()=>!!document.fullscreenElement');page.evaluate('document.exitFullscreen()')
+            page.locator('#wgRemoteFullscreen').click();page.wait_for_function('()=>!!document.fullscreenElement')
+            page.locator('#wgRemoteScale').click();expect(page.locator('#wgRemoteScale')).to_have_attribute('aria-pressed','true')
+            assert page.locator('#wgRemoteCanvas').evaluate('el=>Math.abs(el.getBoundingClientRect().width-el.width)<1')
+            assert page.locator('#wgRemoteViewport').evaluate('el=>el.scrollWidth>el.clientWidth')
+            page.locator('#wgRemoteViewport').evaluate('el=>el.scrollLeft=el.scrollWidth')
+            assert page.locator('#wgRemoteViewport').evaluate('el=>el.scrollLeft>0')
+            page.locator('#wgRemoteScale').click();page.evaluate('document.exitFullscreen()')
             for width in [1440,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
@@ -134,7 +151,7 @@ def run():
             page.wait_for_timeout(200);assert len(stopped)==before+1
             assert not errors,errors
             browser.close()
-            print('PASS: explicit consent states, configured agent, desktop frames, normalized mouse, keyboard and text, read-only mode, keyboard escape, fullscreen, refusal, navigation cleanup, outage handling and 320px layout')
+            print('PASS: composite multi-monitor frame, both screen inputs, full-size fullscreen scrolling, consent, keyboard, read-only, reconnect, refusal, cleanup, outage and 320px layout')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

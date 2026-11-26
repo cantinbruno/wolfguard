@@ -12,6 +12,12 @@ Windows utilise les lanceurs PowerShell/C# et les composants de capture. Linux e
 
 Pour le bureau Windows, les dépendances et composants natifs sont décrits dans `agent/remote-dependencies.json` et les modules `remote-*`. Le composant d’image doit être démarré depuis les ressources de la version courante.
 
+La prise en main Windows affiche tous les écrans dans une image commune, selon leur disposition dans Windows, y compris à gauche ou au-dessus de l’écran principal. Les coordonnées de souris suivent ce bureau complet. « Taille réelle » permet de faire défiler l’image reçue, aussi en plein écran ; « Adapter à la fenêtre » revient à la vue complète. Les très grandes configurations sont réduites avant allocation de la capture, puis l’image transmise reste limitée à 1600 × 1000. Un changement de disposition ou de résolution pendant la session demande une reconnexion et bloque les actions sur l’ancienne géométrie. Aucun sélecteur d’écran individuel n’est ajouté.
+
+Le terminal Windows supprime les notifications de progression avant le premier chargement de modules PowerShell et convertit les autres flux en texte. Le XML technique `#< CLIXML` n’apparaît plus pour la préparation des modules ; résultats, avertissements, messages hôte, détails explicites et erreurs restent visibles en UTF-8. Les erreurs conservent leur code d’échec. Le texte explicitement produit par la commande n’est pas filtré.
+
+Contrôles : `node --test tests/terminal.test.mjs tests/remote.test.mjs`, puis `python tests/remote_desktop_test.py` et `python tests/remote_terminal_test.py` après compilation. Le shell est testé sans fenêtre ; les écrans multiples et les clics sont simulés, sans capturer ni piloter le bureau de l’utilisateur.
+
 Le moteur libre ClamAV peut être installé depuis la rubrique Protection de la fiche du poste sur Windows x64. Il analyse les dossiers utilisateur indiqués et traite ses détections dans une quarantaine chiffrée locale. Cette surveillance réactive ne bloque pas l’exécution avant le verdict et laisse les protections natives actives. Voir [Antivirus : activation, droits et limites](../antivirus.md).
 
 ## Association, droits et mise à jour

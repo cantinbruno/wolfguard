@@ -93,6 +93,26 @@ test('real background shell enforces cancellation, timeout and output bounds',as
   assert.equal(limit.reason,'output-limit');assert.equal(limit.stdout.length+limit.stderr.length,TERMINAL_OUTPUT);
 });
 
+test('Windows terminal keeps module progress out of stderr while preserving Unicode, warnings and command errors',{skip:process.platform!=='win32'},async()=>{
+  const value=await runTerminalCommand(`Import-Module Microsoft.PowerShell.Management
+Write-Progress -Activity 'Préparation des modules à la première utilisation.' -Completed
+Write-Output 'résultat-é-✓'
+Write-Output '#< CLIXML est ici du texte demandé'
+Write-Warning 'avertissement conservé'
+Write-Host 'message hôte conservé'
+Write-Verbose 'détail conservé' -Verbose
+Write-Error 'erreur-é-conservée'`);
+  assert.equal(value.status,'failed');assert.notEqual(value.exitCode,0);
+  assert.ok(value.stdout.includes('résultat-é-✓'),value.stdout);
+  assert.ok(value.stdout.includes('#< CLIXML est ici du texte demandé'),value.stdout);
+  assert.ok((value.stdout+value.stderr).includes('avertissement conservé'));
+  assert.ok(value.stdout.includes('message hôte conservé'));
+  assert.ok(value.stdout.includes('détail conservé'));
+  assert.ok(value.stderr.includes('erreur-é-conservée'),value.stderr);
+  assert.ok(!value.stderr.includes('#< CLIXML'),value.stderr);
+  assert.ok(!/Préparation des modules|<Objs|<Obj S="progress"/.test(value.stdout+value.stderr));
+});
+
 test('end-to-end authenticated terminal executes once, streams output and cancels the running process',async()=>{
   const s=await setup(),cancel=new AbortController(),states=[];let executions=0;
   const work=executeTerminalSession(s.client,s.session,{signal:cancel.signal,intervalMs:20,onStatus:(_message,value)=>states.push(value.state),runCommand:(command,options)=>{executions++;return runTerminalCommand(command,options);}});

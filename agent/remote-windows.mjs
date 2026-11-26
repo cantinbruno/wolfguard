@@ -9,12 +9,22 @@ function createDesktop({ffi,signal,encoder}){
   const user=ffi.load('user32.dll'),gdi=ffi.load('gdi32.dll');
   const metrics=user.func('int __stdcall GetSystemMetrics(int)'),getDC=user.func('void * __stdcall GetDC(void *)'),releaseDC=user.func('int __stdcall ReleaseDC(void *,void *)');
   try{user.func('void * __stdcall SetThreadDpiAwarenessContext(void *)')(-4);}catch{}
-  const width=metrics(0),height=metrics(1);if(width<1||height<1||width*height>32000000)throw new Error('Bureau interactif indisponible.');
+  // The virtual desktop includes every monitor, including negative origins
+  // when another screen is positioned to the left or above the primary one.
+  const left=metrics(76),top=metrics(77),desktopWidth=metrics(78),desktopHeight=metrics(79);
+  if(desktopWidth<1||desktopHeight<1)throw new Error('Bureau interactif indisponible.');
+  // Bound the native bitmap before allocation, even with several 4K displays.
+  const scale=Math.min(1,8192/desktopWidth,8192/desktopHeight,Math.sqrt(32000000/(desktopWidth*desktopHeight)));
+  const width=Math.max(1,Math.floor(desktopWidth*scale)),height=Math.max(1,Math.floor(desktopHeight*scale));
+  const scaled=width!==desktopWidth||height!==desktopHeight;
+  function checkDesktop(){if(closed||metrics(76)!==left||metrics(77)!==top||metrics(78)!==desktopWidth||metrics(79)!==desktopHeight)throw new Error('Le bureau Windows a changé ou n’est plus accessible. Reconnecte la session.');}
   const createDC=gdi.func('void * __stdcall CreateCompatibleDC(void *)'),deleteDC=gdi.func('bool __stdcall DeleteDC(void *)'),select=gdi.func('void * __stdcall SelectObject(void *,void *)'),deleteObject=gdi.func('bool __stdcall DeleteObject(void *)');
   const createBitmap=gdi.func('void * __stdcall CreateDIBSection(void *,const void *,uint32_t,_Out_ void **,void *,uint32_t)'),copy=gdi.func('bool __stdcall BitBlt(void *,int,int,int,int,void *,int,int,uint32_t)');
+  const stretch=gdi.func('bool __stdcall StretchBlt(void *,int,int,int,int,void *,int,int,int,int,uint32_t)');
   const info=Buffer.alloc(44);info.writeUInt32LE(40);info.writeInt32LE(width,4);info.writeInt32LE(-height,8);info.writeUInt16LE(1,12);info.writeUInt16LE(32,14);
   const screen=getDC(null),memory=createDC(screen),bits=[null],bitmap=createBitmap(screen,info,0,bits,null,0);if(!screen||!memory||!bitmap){if(bitmap)deleteObject(bitmap);if(memory)deleteDC(memory);if(screen)releaseDC(null,screen);throw new Error('Capture du bureau Windows indisponible.');}
   const previous=select(memory,bitmap),heldKeys=new Set(),heldButtons=new Set();let closed=false;
+  if(scaled)gdi.func('int __stdcall SetStretchBltMode(void *,int)')(memory,3);
   const setCursor=user.func('bool __stdcall SetCursorPos(int,int)');
   const send=user.func('uint32_t __stdcall SendInput(uint32_t,const void *,int)');
   const extended=new Set([33,34,35,36,37,38,39,40,45,46,91,93]);
@@ -24,8 +34,8 @@ function createDesktop({ffi,signal,encoder}){
   const code=key=>codes[key]??(/^Key[A-Z]$/.test(key)?key.charCodeAt(3):/^Digit[0-9]$/.test(key)?key.charCodeAt(5):/^F\d+$/.test(key)?111+Number(key.slice(1)):0);
   function release(){for(const value of heldKeys){try{keyboard(value,false);}catch{}}for(const value of heldButtons){try{mouse([4,64,16][value]);}catch{}}heldKeys.clear();heldButtons.clear();}
   return {
-    async capture(){signal?.throwIfAborted();if(closed||metrics(0)!==width||metrics(1)!==height||!copy(memory,0,0,width,height,screen,0,0,0x40cc0020))throw new Error('Le bureau Windows a changé ou n’est plus accessible. Reconnecte la session.');const bgra=Buffer.from(ffi.view(bits[0],width*height*4));return encoder.encode(bgra,width,height);},
-    async input(event){signal?.throwIfAborted();if(closed)throw new Error('Session fermée.');if(event.type==='release'){release();return;}if(event.type==='text'){for(let index=0;index<event.text.length;index++){const value=event.text.charCodeAt(index),special=value===10||value===9;keyboard(value===10?13:value,true,!special);keyboard(value===10?13:value,false,!special);}return;}if(event.type==='key'){const value=code(event.key);if(!value)throw new Error('Touche non prise en charge.');keyboard(value,event.down);event.down?heldKeys.add(value):heldKeys.delete(value);return;}if(!setCursor(Math.round(event.x*(width-1)),Math.round(event.y*(height-1))))throw new Error('Le bureau Windows ne permet pas de déplacer la souris.');if(event.type==='button'){mouse(event.down?[2,32,8][event.button]:[4,64,16][event.button]);event.down?heldButtons.add(event.button):heldButtons.delete(event.button);}else if(event.type==='wheel')mouse(0x800,-event.delta*120);},
+    async capture(){signal?.throwIfAborted();checkDesktop();const copied=scaled?stretch(memory,0,0,width,height,screen,left,top,desktopWidth,desktopHeight,0x40cc0020):copy(memory,0,0,width,height,screen,left,top,0x40cc0020);if(!copied)throw new Error('Le bureau Windows a changé ou n’est plus accessible. Reconnecte la session.');const bgra=Buffer.from(ffi.view(bits[0],width*height*4));return encoder.encode(bgra,width,height);},
+    async input(event){signal?.throwIfAborted();if(closed)throw new Error('Session fermée.');if(event.type==='release'){release();return;}checkDesktop();if(event.type==='text'){for(let index=0;index<event.text.length;index++){const value=event.text.charCodeAt(index),special=value===10||value===9;keyboard(value===10?13:value,true,!special);keyboard(value===10?13:value,false,!special);}return;}if(event.type==='key'){const value=code(event.key);if(!value)throw new Error('Touche non prise en charge.');keyboard(value,event.down);event.down?heldKeys.add(value):heldKeys.delete(value);return;}if(!setCursor(left+Math.round(event.x*(desktopWidth-1)),top+Math.round(event.y*(desktopHeight-1))))throw new Error('Le bureau Windows ne permet pas de déplacer la souris.');if(event.type==='button'){mouse(event.down?[2,32,8][event.button]:[4,64,16][event.button]);event.down?heldButtons.add(event.button):heldButtons.delete(event.button);}else if(event.type==='wheel')mouse(0x800,-event.delta*120);},
     async close(){if(closed)return;closed=true;try{release();select(memory,previous);deleteObject(bitmap);deleteDC(memory);releaseDC(null,screen);}finally{encoder.close();}}
   };
 }

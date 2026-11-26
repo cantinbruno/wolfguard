@@ -48,7 +48,7 @@ test('remote input accepts only finite pointer, keyboard and text events',()=>{
 test('Windows adapter uses native encoding, valid Win32 input layout and releases held keys and buttons',async()=>{
   let accepted=false,stopped=0,pixels;const sent=[],positions=[],bgra=Buffer.from([10,20,30,0,40,50,60,0]);
   const ffi={view:value=>value,load:()=>({func(signature){
-    if(signature.includes('GetSystemMetrics'))return dimension=>dimension===0?2:1;
+    if(signature.includes('GetSystemMetrics'))return dimension=>({76:0,77:0,78:2,79:1})[dimension];
     if(signature.includes('CreateDIBSection'))return (_screen,_info,_flags,out)=>{out[0]=bgra;return 1;};
     if(signature.includes('SendInput'))return (count,buffer,size)=>{assert.equal(size,40);sent.push(Buffer.from(buffer));return count;};
     if(signature.includes('SetCursorPos'))return (x,y)=>{positions.push([x,y]);return true;};
@@ -63,6 +63,49 @@ test('Windows adapter uses native encoding, valid Win32 input layout and release
   assert.ok(sent.some(value=>value.readUInt32LE(0)===1&&value.readUInt16LE(8)===13&&value.readUInt32LE(12)===0));
   assert.ok(sent.some(value=>value.readUInt32LE(0)===1&&value.readUInt16LE(8)===17&&value.readUInt32LE(12)===2));
   assert.ok(sent.some(value=>value.readUInt32LE(0)===0&&value.readUInt32LE(20)===4));
+});
+
+function virtualWindows(bounds){
+  const calls={copies:[],positions:[],bitmaps:[],views:[],encoded:[],closed:0};
+  const ffi={view(_bits,length){calls.views.push(length);return Buffer.alloc(8);},load:()=>({func(signature){
+    if(signature.includes('GetSystemMetrics'))return dimension=>bounds[dimension];
+    if(signature.includes('CreateDIBSection'))return (_screen,info,_flags,out)=>{calls.bitmaps.push([info.readInt32LE(4),-info.readInt32LE(8)]);out[0]=1;return 1;};
+    if(signature.includes('BitBlt(')||signature.includes('StretchBlt('))return (...args)=>{calls.copies.push({scaled:signature.includes('StretchBlt('),args});return true;};
+    if(signature.includes('SetCursorPos'))return (x,y)=>{calls.positions.push([x,y]);return true;};
+    return ()=>1;
+  }})};
+  return {calls,adapter:()=>windowsDesktop({ffi,encoderFactory:async()=>({encode(_bgra,width,height){calls.encoded.push([width,height]);return frame;},close(){calls.closed++;}})})};
+}
+
+test('Windows captures the whole virtual desktop and maps every corner including screens left and above the primary',async()=>{
+  for(const [left,top,width,height] of [[0,0,3840,1080],[-1920,-1080,3840,2160],[0,-1920,1080,3840]]){
+    const bounds={76:left,77:top,78:width,79:height},s=virtualWindows(bounds),adapter=await s.adapter();
+    try{
+      await adapter.capture();
+      assert.deepEqual(s.calls.bitmaps,[[width,height]]);assert.deepEqual(s.calls.encoded,[[width,height]]);
+      assert.deepEqual(s.calls.copies,[{scaled:false,args:[1,0,0,width,height,1,left,top,0x40cc0020]}]);
+      assert.deepEqual(s.calls.views,[width*height*4]);
+      for(const [x,y] of [[0,0],[1,0],[0,1],[1,1]])await adapter.input({type:'move',x,y});
+      assert.deepEqual(s.calls.positions,[[left,top],[left+width-1,top],[left,top+height-1],[left+width-1,top+height-1]]);
+      bounds[76]++; // Same resolution, changed monitor arrangement: stale input must stop.
+      await assert.rejects(adapter.capture(),/Reconnecte/);
+      await assert.rejects(adapter.input({type:'move',x:0,y:0}),/Reconnecte/);
+      await adapter.input({type:'release'});assert.equal(s.calls.positions.length,4);
+    }finally{await adapter.close();await adapter.close();assert.equal(s.calls.closed,1);}
+  }
+});
+
+test('Windows bounds very large multi-monitor bitmaps and keeps pointer coordinates in the original desktop',async()=>{
+  for(const [width,height] of [[20000,2160],[8000,8000]]){
+    const left=-3840,top=-2160,s=virtualWindows({76:left,77:top,78:width,79:height}),adapter=await s.adapter();
+    try{
+      await adapter.capture();const [w,h]=s.calls.bitmaps[0];
+      assert.ok(w<=8192&&h<=8192&&w*h<=32000000);assert.ok(w<width||h<height);
+      assert.deepEqual(s.calls.encoded,[[w,h]]);assert.deepEqual(s.calls.views,[w*h*4]);
+      assert.deepEqual(s.calls.copies,[{scaled:true,args:[1,0,0,w,h,1,left,top,width,height,0x40cc0020]}]);
+      await adapter.input({type:'move',x:1,y:1});assert.deepEqual(s.calls.positions,[[left+width-1,top+height-1]]);
+    }finally{await adapter.close();}
+  }
 });
 
 test('Windows closes the sharing indicator if setup fails or cancellation arrives during its launch',async()=>{

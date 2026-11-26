@@ -10,7 +10,10 @@ import {TERMINAL_OUTPUT,TERMINAL_TIMEOUT,terminalCommand} from '../server/lib/wo
 export async function runTerminalCommand(command,{cwd=homedir(),signal,onUpdate=()=>{},timeoutMs=TERMINAL_TIMEOUT,platform=process.platform,spawnProcess=spawn}={}){
   terminalCommand(command);signal?.throwIfAborted();
   const marker='WGT_'+randomBytes(16).toString('hex')+':';
-  const powershell=`[Console]::InputEncoding=New-Object System.Text.UTF8Encoding($false)
+  // Set this before any cmdlet can trigger first-use module preparation. With
+  // -EncodedCommand its progress stream otherwise leaks CLIXML into stderr.
+  const powershell=`$ProgressPreference='SilentlyContinue'
+[Console]::InputEncoding=New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding=New-Object System.Text.UTF8Encoding($false)
 $OutputEncoding=[Console]::OutputEncoding
 $payload=[Console]::In.ReadToEnd() | ConvertFrom-Json
@@ -18,7 +21,7 @@ $statusCode=0
 try {
   Set-Location -LiteralPath $payload.cwd -ErrorAction Stop
   $global:LASTEXITCODE=0
-  & ([scriptblock]::Create($payload.command)) 2>&1 | ForEach-Object {
+  & ([scriptblock]::Create($payload.command)) *>&1 | ForEach-Object {
     if ($_ -is [System.Management.Automation.ErrorRecord]) { [Console]::Error.WriteLine($_.ToString()); $statusCode=1 }
     else { [Console]::Out.WriteLine(($_ | Out-String -Width 240).TrimEnd([char[]]"\r\n")) }
   }
@@ -30,7 +33,7 @@ $meta=@{cwd=$nextCwd;exitCode=$statusCode} | ConvertTo-Json -Compress
 [Console]::Out.WriteLine("\`n${marker}"+$meta)
 exit $statusCode`;
   const shell=platform==='win32'?'powershell.exe':'/bin/sh';
-  const args=platform==='win32'?['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from(powershell,'utf16le').toString('base64')]:['-c','eval "$1"\nwg_terminal_status=$?\nprintf "\\n'+marker+'%s\\n" "$PWD"\nexit "$wg_terminal_status"','wolfguard',command];
+  const args=platform==='win32'?['-NoLogo','-NoProfile','-NonInteractive','-OutputFormat','Text','-ExecutionPolicy','Bypass','-EncodedCommand',Buffer.from(powershell,'utf16le').toString('base64')]:['-c','eval "$1"\nwg_terminal_status=$?\nprintf "\\n'+marker+'%s\\n" "$PWD"\nexit "$wg_terminal_status"','wolfguard',command];
   const child=spawnProcess(shell,args,{cwd,windowsHide:true,detached:platform!=='win32',stdio:['pipe','pipe','pipe']});
   let stdout='',stderr='',lineBuffer='',reason='',settled=false,killing=false,finalCwd=cwd,metadataExit=null;
   const snapshot=()=>({stdout,stderr,cwd:finalCwd,exitCode:null,reason,status:'running'});

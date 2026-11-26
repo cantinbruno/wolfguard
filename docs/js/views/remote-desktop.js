@@ -144,7 +144,7 @@ const remoteDesktopWorkspace=(()=>{
       drawing=true;let bitmap;
       try{const bytes=Uint8Array.from(atob(frame.jpeg),value=>value.charCodeAt(0));bitmap=await createImageBitmap(new Blob([bytes],{type:'image/jpeg'}));if(!live()||session?.id!==current)return;
         const canvas=find('#wgRemoteCanvas');if(canvas.width!==bitmap.width||canvas.height!==bitmap.height){canvas.width=bitmap.width;canvas.height=bitmap.height;}canvas.getContext('2d').drawImage(bitmap,0,0);canvas.hidden=false;find('#wgRemoteWaiting').hidden=true;
-        phase('active');enableInput(true);if(!lastImage){status('Connexion établie. Clique sur le bureau pour utiliser le clavier et la souris.');if(controlling)canvas.focus({preventScroll:true});}lastImage=Date.now();find('#wgRemoteImageInfo').textContent=bitmap.width+' × '+bitmap.height+' · Bureau reçu à '+new Date().toLocaleTimeString('fr-FR');
+        phase('active');enableInput(true);if(!lastImage){status('Connexion établie. Clique sur le bureau pour utiliser le clavier et la souris.');if(controlling)canvas.focus({preventScroll:true});}lastImage=Date.now();find('#wgRemoteImageInfo').textContent=bitmap.width+' × '+bitmap.height+' · '+(agent?.platform==='win32'?'Tous les écrans · ':'')+'Reçu à '+new Date().toLocaleTimeString('fr-FR');
       }finally{bitmap?.close();drawing=false;}
     }
     async function poll(){

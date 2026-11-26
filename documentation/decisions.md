@@ -1,5 +1,9 @@
 # Décisions à conserver
 
+## 26 novembre 2026 — Terminal et écrans multiples
+
+Le terminal ne doit pas afficher le CLIXML de progression PowerShell à la préparation des modules. Conserver les résultats et erreurs de commande, les avertissements et l’UTF-8. La prise en main Windows montre tous les écrans dans une vue commune, avec les coordonnées négatives et les grandes résolutions prises en charge. Conserver l’adaptation à la fenêtre, le défilement en taille réelle et le plein écran. Un changement de géométrie pendant la session exige une reconnexion avant toute nouvelle saisie.
+
 ## 26 novembre 2026 — Protection dans la fiche du poste
 
 Supprimer la page séparée de gestion EDR et le bouton « Gérer dans EDR ». Toute la gestion de protection passe par la fiche du poste : Protection pour le moteur, les analyses, les signatures, la surveillance, la politique et le suivi des actions ; Quarantaine pour rechercher, restaurer et supprimer les copies chiffrées ; Journal pour les événements et leur acquittement. Les anciens accès EDR ouvrent directement la fiche sur Protection. Préserver les permissions `edr.*`, les droits par poste, les confirmations et les états hors ligne. Un brouillon de politique survit aux onglets et rafraîchissements et demande confirmation avant fermeture ou changement de poste.
