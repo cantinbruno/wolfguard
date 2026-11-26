@@ -8,7 +8,8 @@ import {Readable} from 'node:stream';
 import {AgentClient,runAgent} from '../agent/agent.mjs';
 import {handleAPI} from '../server/lib/wolfguard/core.mjs';
 import {desktopInput,desktopFrame} from '../server/lib/wolfguard/remote-spec.mjs';
-import {executeRemoteSession} from '../agent/remote.mjs';
+import {executeRemoteSession,approveRemoteSession} from '../agent/remote.mjs';
+import {requestRemoteConsent} from '../agent/remote-native.mjs';
 import {openDesktop as windowsDesktop} from '../agent/remote-windows.mjs';
 
 class D1 {
@@ -21,12 +22,62 @@ async function setup(){
   const env={DB:new D1(),BUCKET:{async put(key,data){objects.set(key,String(data));},async get(key){return objects.has(key)?{text:async()=>objects.get(key)}:null;},async delete(key){objects.delete(key);}},AUTH_PEPPER:'1'.repeat(64),WORKSPACE_KEY_ENCRYPTION_KEY:'4'.repeat(64),STORAGE_KEY:'2'.repeat(64),BOOTSTRAP_HASH:createHash('sha256').update(activation).digest('hex')};
   const api=(route,body,credential,method=body===undefined?'GET':'POST',origin='https://wolfguard.wavetools.fr')=>handleAPI(new Request('https://test.invalid/api/'+route,{method,headers:{Origin:origin,'Content-Type':'application/json',...(credential?{Authorization:credential}:{}),'X-WG-Activation':activation},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   const user='Bearer '+(await (await api('setup',{code:'07942685'})).json()).token;
-  async function pair(capabilities=['remote-desktop-v1','network-scan-v3','network-target-v1']){const ticket=await (await api('agents/pair',{},user)).json(),agent=await (await api('agent/enroll',{code:ticket.code,name:'Poste test',platform:'win32'})).json();agent.auth='Agent '+agent.token;await api('agent/poll',{capabilities},agent.auth);return agent;}
-  async function start(agent){const response=await api('remote/start',{agentId:agent.id},user);assert.equal(response.status,201);const session=await response.json(),claim=await (await api('agent/poll',{},agent.auth)).json();assert.equal(claim.remote.id,session.id);return {...session,lease:claim.remote.lease};}
+  async function pair(capabilities=['remote-consent-v1','remote-desktop-v1','network-scan-v3','network-target-v1']){const ticket=await (await api('agents/pair',{},user)).json(),agent=await (await api('agent/enroll',{code:ticket.code,name:'Poste test',platform:'win32'})).json();agent.auth='Agent '+agent.token;await api('agent/poll',{capabilities},agent.auth);return agent;}
+  async function start(agent,{consent=true}={}){const response=await api('remote/start',{agentId:agent.id},user);assert.equal(response.status,201);const session=await response.json(),claim=await (await api('agent/poll',{},agent.auth)).json();assert.equal(claim.remote.id,session.id);if(consent)assert.equal((await api('agent/remote/consent',{id:session.id,lease:claim.remote.lease,status:'accepted'},agent.auth)).status,200);return {...session,lease:claim.remote.lease};}
   const exchange=(agent,session,change={})=>api('agent/remote/exchange',{id:session.id,lease:session.lease,status:'active',ack:0,...change},agent.auth);
   return {env,api,user,pair,start,exchange,objects,clock:()=>now,advance:value=>{now+=value;}};
 }
 const frame={width:10,height:10,jpeg:'/9j/2Q=='};
+
+test('all three remote modes fail closed before local approval, including refusal, missing UI and timeout',async()=>{
+  for(const mode of ['desktop','terminal','files'])for(const outcome of ['refuse','error','timeout']){
+    const calls=[];let resources=0;
+    const client={async post(route,data){calls.push({route,...data});return {status:data.status==='accepted'?'active':data.status};}};
+    await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),mode,expiresAt:Date.now()+10000},{consentTimeoutMs:10,consentIntervalMs:2,
+      requestConsent:async({signal})=>{if(outcome==='error')throw new Error('No interactive UI');if(outcome==='timeout')await new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}));return false;},
+      prepare:async()=>{resources++;},terminalRunner:async()=>{resources++;},fileRunner:async()=>{resources++;}});
+    assert.equal(resources,0);assert.ok(!calls.some(value=>value.status==='accepted'));assert.equal(calls.at(-1).status,'denied');
+  }
+});
+
+test('one explicit approval authorizes only the requested mode and remote cancellation closes the pending popup',async()=>{
+  for(const mode of ['terminal','files']){
+    const used=[],client={async post(_route,data){return {status:data.status==='accepted'?'active':'preparing'};}};
+    await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),mode},{requestConsent:async options=>{assert.equal(options.mode,mode);return true;},terminalRunner:async()=>used.push('terminal'),fileRunner:async()=>used.push('files')});
+    assert.deepEqual(used,[mode]);
+  }
+  let prompts=0;
+  assert.equal(await approveRemoteSession({async post(_route,data){return {status:++prompts===1?'preparing':'closed'};}},{id:'a'.repeat(32),lease:'b'.repeat(64)},{consentIntervalMs:1,requestConsent:({signal})=>new Promise((_,reject)=>signal.addEventListener('abort',()=>reject(signal.reason),{once:true}))}),false);
+});
+
+test('native consent selects a mode-specific popup with refusal as default and treats failures as denial',async()=>{
+  for(const platform of ['win32','darwin','linux'])for(const mode of ['desktop','terminal','files']){
+    const calls=[];
+    assert.equal(await requestRemoteConsent({platform,mode,find:async name=>name==='zenity'?'/usr/bin/zenity':null,run:async(file,args)=>{calls.push({file,args});return 'button returned:Autoriser';}}),true);
+    assert.equal(calls.length,1);
+    if(platform==='win32')assert.deepEqual(calls[0].args,['--remote-consent',mode]);
+    else assert.ok(calls[0].args.join(' ').includes('Refuser'));
+    await assert.rejects(requestRemoteConsent({platform,mode,find:async()=>null,run:async()=>{throw new Error('UI unavailable');}}),{code:'CONSENT_DENIED'});
+  }
+});
+
+test('server rejects older agents and every exchange or action before mandatory consent for the three modes',async()=>{
+  const s=await setup();try{
+    const old=await s.pair(['remote-desktop-v1','remote-terminal-v1','remote-files-v1']);
+    for(const mode of ['desktop','terminal','files'])assert.equal((await s.api('remote/start',{agentId:old.id,mode},s.user)).status,409);
+    const agent=await s.pair(['remote-consent-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1']);
+    for(const mode of ['desktop','terminal','files']){
+      const started=await(await s.api('remote/start',{agentId:agent.id,mode},s.user)).json(),session=(await(await s.api('agent/poll',{},agent.auth)).json()).remote;
+      const route=mode==='desktop'?'':mode+'/';
+      for(const status of [undefined,'preparing','active','closed','error'])assert.equal((await s.api('agent/remote/'+route+'exchange',{id:session.id,lease:session.lease,status,ack:0},agent.auth)).status,409);
+      const input=mode==='desktop'?['input',{seq:1,events:[{type:'move',x:0,y:0}]}]:mode==='terminal'?['terminal/command',{seq:1,command:'never-run'}]:['files/command',{command:{action:'list',path:''}}];
+      assert.equal((await s.api('remote/'+input[0],{id:session.id,...input[1]},s.user)).status,409);
+      assert.equal(s.objects.size,0);
+      await s.api('agent/remote/consent',{id:session.id,lease:session.lease,status:'denied'},agent.auth);
+      assert.equal((await(await s.api('remote/session?id='+started.id,undefined,s.user)).json()).status,'denied');
+    }
+  }finally{s.env.DB.db.close();}
+});
 
 test('a throttled background viewer survives ninety seconds while the agent remains alive',async()=>{
   const s=await setup();try{
@@ -168,22 +219,23 @@ test('stale viewers, input delays, refusal, revocation and logout end sharing an
 
 test('agent waits for local consent, validates ordered actions and closes the native adapter on cancellation',async()=>{
   const cancel=new AbortController(),calls=[],inputs=[],states=[];let ready=false,closed=0;
-  const client={async post(route,data){assert.equal(route,'remote/exchange');calls.push(data);if(data.status==='active'){assert.equal(ready,true);if(!inputs.length)return {status:'active',inputs:[{seq:1,events:[{type:'key',key:'Enter',down:true}]}]};cancel.abort();}return {status:data.status,inputs:[]};}};
-  await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{signal:cancel.signal,onStatus:(message,detail)=>states.push({message,...detail}),intervalMs:2,prepare:async()=>({}),openDesktop:async()=>{assert.equal(states.at(-1).state,'remote-preparing');await new Promise(resolve=>setTimeout(resolve,8));ready=true;return {capture:async()=>frame,input:async value=>inputs.push(value),close:async()=>closed++};}});
+  const client={async post(route,data){if(route==='remote/consent'){calls.push(data);return {status:data.status==='accepted'?'active':data.status};}assert.equal(route,'remote/exchange');calls.push(data);if(data.status==='active'&&data.frame){assert.equal(ready,true);if(!inputs.length)return {status:'active',inputs:[{seq:1,events:[{type:'key',key:'Enter',down:true}]}]};cancel.abort();}return {status:data.status,inputs:[]};}};
+  await executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{signal:cancel.signal,onStatus:(message,detail)=>states.push({message,...detail}),requestConsent:async()=>true,intervalMs:2,prepare:async()=>({}),openDesktop:async()=>{assert.equal(states.at(-1).state,'remote-preparing');await new Promise(resolve=>setTimeout(resolve,8));ready=true;return {capture:async()=>frame,input:async value=>inputs.push(value),close:async()=>closed++};}});
   assert.ok(calls.some(value=>value.status==='preparing'&&!value.frame));assert.equal(inputs.length,1);assert.equal(closed,1);assert.equal(calls.at(-1).status,'closed');assert.equal(calls.at(-1).ack,1);
-  assert.deepEqual(states.map(value=>value.state),['remote-preparing','remote','connected']);
+  assert.deepEqual(states.map(value=>value.state),['remote-consent','remote-preparing','remote','connected']);
 });
 
 test('a busy relay receives the freshest capture without queueing old desktop frames',async()=>{
   const cancel=new AbortController(),sent=[];let captures=0,release,closed=0;
   const blocked=new Promise(resolve=>{release=resolve;});
   const client={async post(_route,data){
+    if(_route==='remote/consent')return {status:data.status==='accepted'?'active':data.status};
     if(data.frame){sent.push(data.frame.width);if(sent.length===1)await blocked;else cancel.abort();}
     return {status:data.status,inputs:[]};
   }};
   const until=async predicate=>{const end=Date.now()+2000;while(!predicate()){if(Date.now()>end)throw new Error('Fresh frame timeout');await new Promise(resolve=>setTimeout(resolve,2));}};
   const work=executeRemoteSession(client,{id:'a'.repeat(32),lease:'b'.repeat(64),expiresAt:Date.now()+10000},{
-    signal:cancel.signal,intervalMs:1,captureIntervalMs:2,prepare:async()=>({}),
+    requestConsent:async()=>true,signal:cancel.signal,intervalMs:1,captureIntervalMs:2,prepare:async()=>({}),
     openDesktop:async()=>({capture:async()=>({...frame,width:++captures}),input:async()=>{},close:async()=>{closed++;}})
   });
   try{
@@ -203,7 +255,7 @@ test('real HTTP agent polling connects the desktop relay only after consent, del
   try{
     const agent=await s.pair(),client=new AgentClient('http://127.0.0.1:'+server.address().port,{allowLoopback:true});client.token=agent.token;
     const created=await (await s.api('remote/start',{agentId:agent.id},s.user)).json();
-    work=runAgent(client,{protectionRunner:async()=>{},signal:cancel.signal,pollMs:20,remoteRunner:(client,session,options)=>executeRemoteSession(client,session,{...options,intervalMs:20,prepare:async()=>({}),openDesktop:async()=>{requested=true;await consent;return {capture:async()=>frame,input:async event=>inputs.push(event),close:async()=>closed++};}})});
+    work=runAgent(client,{protectionRunner:async()=>{},signal:cancel.signal,pollMs:20,remoteRunner:(client,session,options)=>executeRemoteSession(client,session,{...options,requestConsent:async()=>{requested=true;await consent;return true;},intervalMs:20,prepare:async()=>({}),openDesktop:async()=>{return {capture:async()=>frame,input:async event=>inputs.push(event),close:async()=>closed++};}})});
     await until(()=>requested);assert.equal(s.objects.size,0);
     assert.equal((await (await s.api('remote/session?id='+created.id,undefined,s.user)).json()).status,'preparing');
     allow();await until(()=>s.objects.size===1);

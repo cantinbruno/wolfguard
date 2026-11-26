@@ -184,7 +184,7 @@ test('delegated account management cannot exceed its own section levels',async()
 async function enroll(s,name){
   const pairing=await(await s.api('agents/pair',{},s.owner.token)).json(),agent=await(await s.api('agent/enroll',{code:pairing.code,name,platform:'linux'})).json();
   const agentAPI=(path,data)=>s.api(path,data,null,'POST',{Authorization:'Agent '+agent.token});
-  assert.equal((await agentAPI('agent/poll',{capabilities:['network-scan-v3','network-target-v1','remote-desktop-v1','remote-terminal-v1','ai-chat-v1','endpoint-protection-v1']})).status,200);
+  assert.equal((await agentAPI('agent/poll',{capabilities:['network-scan-v3','network-target-v1','remote-consent-v1','remote-desktop-v1','remote-terminal-v1','ai-chat-v1','endpoint-protection-v1']})).status,200);
   return {...agent,api:agentAPI};
 }
 test('per-agent levels restrict section rights, survive normalization and bound delegated grants',()=>{

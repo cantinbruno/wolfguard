@@ -23,6 +23,10 @@ Pour l’associer de nouveau : sh Start-Agent.sh --pair
 Pour retirer son accès : Agents > Révoquer.
 L’agent ne demande jamais le code d’accès WolfGuard.
 
+Bureau, Terminal et Fichiers exigent chacun un accord par popup sur le poste.
+Sans acceptation explicite dans la minute, aucun accès distant ne démarre.
+Linux nécessite zenity, kdialog ou xmessage dans une session graphique.
+
 L’association est conservée en dehors de l’archive :
 Linux : ${XDG_CONFIG_HOME:-~/.config}/WolfGuardAgent/credential.json
 macOS : ~/Library/Application Support/WolfGuardAgent/credential.json

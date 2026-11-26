@@ -70,88 +70,38 @@ def run():
             for kind in ['passive','active','map','vulnerability']:
                 navigate(page,kind)
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
-                expect(page.locator('.wgscan-tabs')).to_be_hidden();expect(page.locator('#wgScanMetrics')).to_be_hidden()
-                expect(page.locator('#wgAgentHistory')).to_have_count(0)
-                page.wait_for_timeout(3200)
-                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
-                assert old_ids[kind] not in result_requests
-                # The first archived row is still available through an explicit choice.
-                page.locator('#wgScanShowHistory').click()
-                page.locator('[data-history-open="'+old_ids[kind]+'"]').click()
-                expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
-                expect(page.locator('#wgScanReportStamp')).to_contain_text('192.168.1.20' if kind!='vulnerability' else 'Agent')
-                page.locator('#wgScanNew').click()
-                expect(page.locator('.scan-setup')).to_be_visible()
-                page.wait_for_timeout(3200)
-                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
+                expect(page.locator('#wgScanExport,#wgScanOverview,.wgscan-tabs,#wgScanHistory')).to_have_count(0)
                 if kind in ['passive','active']:page.locator('#scanTarget').fill('192.168.1.10')
-                if kind=='map':expect(page.locator('#scanTarget')).to_have_value('auto')
                 expect(page.locator('#wgAgentLaunch')).to_be_enabled(timeout=15000)
-                with page.expect_request(lambda request:request.method=='POST' and request.url.endswith('/scans')):page.locator('#wgAgentLaunch').click()
+                page.locator('#wgAgentLaunch').click()
                 expect(page.locator('.wgscan')).to_have_attribute('data-phase','loading')
-                expect(page.locator('#wgScanExecution')).to_be_visible();expect(page.locator('.scan-setup')).to_be_hidden()
-                expect(page.locator('#wgScanExecution')).to_be_in_viewport()
-                expect(page.locator('#wgScanExecutionTitle')).to_contain_text('Lancement')
-                expect(page.locator('.wgscan-tabs')).to_be_hidden()
-                assert not page.locator('#wgScanExecutionProgress').evaluate('el=>el.hasAttribute("value")')
+                expect(page.locator('#wgScanExecution')).to_be_visible()
+                deadline=time.time()+3
+                while not held_create and time.time()<deadline:page.wait_for_timeout(20)
+                assert held_create,'Scan request was not received'
                 for route,job in held_create:route.fulfill(status=201,json={'id':job['id']})
                 held_create.clear();job=jobs[-1]
-                expect(page.locator('#wgScanExecutionTitle')).to_contain_text('En attente')
+                expect(page.locator('#wgScanExecutionTitle')).to_contain_text('En attente',timeout=10000)
                 job.update(status='running',completed=2,total=10,revision=1)
-                expect(page.locator('#wgScanExecutionTitle')).to_contain_text('Scan en cours',timeout=10000)
-                expect(page.locator('#wgScanExecutionProgress')).to_have_attribute('value','2')
+                expect(page.locator('#wgScanExecutionProgress')).to_have_attribute('value','2',timeout=10000)
                 expect(page.locator('#wgScanExecutionProgress')).to_have_attribute('max','10')
-                assert job['id'] not in result_requests
-                if kind!='vulnerability':expect(page.locator('#scanTarget')).to_be_disabled()
-                # Switching sections never reveals a partial report or another scan's loader.
-                if kind=='active':
-                    navigate(page,'passive');expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
-                    navigate(page,'active');expect(page.locator('#wgScanExecution')).to_be_visible()
-                for width in [1440,390]:
-                    page.set_viewport_size({'width':width,'height':1000 if width==1440 else 844})
-                    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),(kind,width)
-                    if kind=='active':
-                        page.locator('#wgScanExecution').scroll_into_view_if_needed()
-                        page.screenshot(path=str(ROOT/f'.cache/scan-loading-{width}.png'),animations='disabled')
-                options['hold_result']=True;job.update(status='completed',completed=10,revision=2)
-                expect(page.locator('#wgScanExecutionTitle')).to_contain_text('Préparation des résultats',timeout=10000)
-                expect(page.locator('.wgscan-tabs')).to_be_hidden();expect(page.locator('#wgScanExport')).to_be_disabled()
-                for route,finished in held_result:route.fulfill(json=report(finished))
-                held_result.clear();options['hold_result']=False
-                expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
-                expect(page.locator('#wgScanExecution')).to_be_hidden();expect(page.locator('.wgscan-tabs')).to_be_visible()
-                expect(page.locator('#wgScanMetrics')).to_be_visible();expect(page.locator('#wgScanExport')).to_be_enabled()
-                expect(page.locator('.scan-setup')).to_be_hidden();expect(page.locator('#wgScanNew')).to_be_visible()
+                expect(page.locator('#wgScanCancel')).to_be_enabled()
+                for width in [1440,390,320]:
+                    page.set_viewport_size({'width':width,'height':1000})
+                    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+                job.update(status='completed',completed=10,revision=2)
+                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready',timeout=10000)
+                expect(page.locator('#wgScanStatus')).to_contain_text('historique')
+                expect(page.locator('#wgScanExecution')).to_be_hidden()
+                expect(page.locator('#wgScanExport,#wgScanOverview,.wgscan-tabs,#wgScanHistory')).to_have_count(0)
+                assert not result_requests,'Report contents must be requested only from workstation PDF history'
                 page.set_viewport_size({'width':1440,'height':1000})
-            # Preparation persists through polling and navigation, preserving the chosen target.
-            page.locator('#wgScanNew').click();expect(page.locator('.scan-setup')).to_be_visible()
-            navigate(page,'passive');navigate(page,'vulnerability')
-            expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
-            expect(page.locator('.scan-output')).to_be_hidden();page.wait_for_timeout(3300)
-            expect(page.locator('.scan-setup')).to_be_visible()
-            # A failed new launch hides the previous results and leaves a usable form.
-            navigate(page,'active');expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
-            page.locator('#wgScanNew').click();expect(page.locator('#scanTarget')).to_have_value('192.168.1.10')
             options['fail_create']=True;page.locator('#wgAgentLaunch').click()
             expect(page.locator('.wgscan')).to_have_attribute('data-phase','error')
             expect(page.locator('#wgScanExecutionText')).to_contain_text('Relais indisponible')
-            expect(page.locator('.wgscan-tabs')).to_be_hidden();expect(page.locator('#scanTarget')).to_be_enabled()
-            options['fail_create']=False;options['hold_create']=False;page.locator('#wgAgentLaunch').click()
-            expect(page.locator('.wgscan')).to_have_attribute('data-phase','loading')
-            expect(page.locator('#wgScanExecutionTitle')).to_contain_text('En attente',timeout=10000)
-            jobs[-1].update(status='cancelled',revision=1)
-            expect(page.locator('.wgscan')).to_have_attribute('data-phase','results',timeout=10000)
-            expect(page.locator('#wgScanStatus')).to_contain_text('Scan arrêté')
-            # A fresh page with populated history still opens every scan at preparation.
-            page.reload();expect(page.locator('#app')).to_be_visible(timeout=30000)
-            for kind in ['passive','active','map','vulnerability']:
-                navigate(page,kind)
-                expect(page.locator('#wgAgentHistory')).to_have_count(0)
-                expect(page.locator('.wgscan')).to_have_attribute('data-phase','ready')
-                expect(page.locator('.scan-setup')).to_be_visible()
             assert not errors,errors
             browser.close()
-            print('PASS: all four scans prepare, show immediate loading with real progress, wait for the complete report, survive navigation and recover from failed/aborted runs without stale results')
+            print('PASS: four scan launchers, real progress, cancellation control, no report preview or direct export, mobile layout and launch failure')
     finally:
         server.shutdown();server.server_close();process.terminate();process.wait(timeout=10)
 

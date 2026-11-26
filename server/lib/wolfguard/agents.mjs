@@ -44,7 +44,7 @@ export async function handleAgentAPI(request,env,now,h){
     if(path==='/api/agent/poll'&&request.method==='POST'){
       const info=await body();
       if(Array.isArray(info.capabilities)){
-        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','ai-chat-v1','endpoint-protection-v1','auto-update-v1'].filter(value=>info.capabilities.includes(value));
+        const capabilities=['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','remote-consent-v1','ai-chat-v1','endpoint-protection-v1','auto-update-v1'].filter(value=>info.capabilities.includes(value));
         const metadata=await open(agent.name_cipher,agent.id+':name');
         const version=/^[a-f0-9]{64}$/.test(info.version||'')?info.version:null;
         if(JSON.stringify(metadata.capabilities)!==JSON.stringify(capabilities)||metadata.version!==version)await env.DB.prepare('UPDATE scan_agents SET name_cipher=? WHERE id=?').bind(await seal({...metadata,capabilities,version},agent.id+':name'),agent.id).run();
@@ -119,13 +119,15 @@ export async function handleAgentAPI(request,env,now,h){
   if(path==='/api/scans'&&request.method==='GET'){
     const params=new URL(request.url).searchParams;
     if(params.get('history')==='1'){
+      const agentId=params.get('agentId');
+      if(agentId!==null){if(!validId(agentId))fail(400,'Poste invalide.');await permitAgent(agentId);}
       const beforeAt=params.get('beforeAt'),beforeId=params.get('beforeId');
       if((beforeAt!==null||beforeId!==null)&&(!/^[0-9]{1,16}$/.test(beforeAt||'')||!Number.isSafeInteger(Number(beforeAt))||!validId(beforeId)))fail(400,'Position d’historique invalide.');
       const cursor=beforeAt===null?'':' AND (j.created_at<? OR (j.created_at=? AND j.id<?))';
-      const values=beforeAt===null?[session.generation]:[session.generation,Number(beforeAt),Number(beforeAt),beforeId];
+      const values=[session.generation,...(agentId?[agentId]:[]),...(beforeAt===null?[]:[Number(beforeAt),Number(beforeAt),beforeId])];
       // The singleton workspace keeps its history across PIN rotations and revoked agents.
       // Target and agent metadata remain encrypted at rest and are read only after authorization.
-      const rows=await env.DB.prepare('SELECT j.*,a.name_cipher AS agent_name_cipher FROM scan_jobs j LEFT JOIN scan_agents a ON a.id=j.agent_id WHERE j.generation<=?'+cursor+' ORDER BY j.created_at DESC,j.id DESC LIMIT 51').bind(...values).all();
+      const rows=await env.DB.prepare('SELECT j.*,a.name_cipher AS agent_name_cipher FROM scan_jobs j LEFT JOIN scan_agents a ON a.id=j.agent_id WHERE j.generation<=?'+(agentId?' AND j.agent_id=?':'')+cursor+' ORDER BY j.created_at DESC,j.id DESC LIMIT 51').bind(...values).all();
       const selected=rows.results.slice(0,50),jobs=[];
       for(const row of selected){if(!await jobAllowed(row))continue;const job=await publicJob(row,false,true),agent=row.agent_name_cipher?await open(row.agent_name_cipher,row.agent_id+':name'):{};jobs.push({...job,agentName:agent.name||'Ancien agent',platform:agent.platform||'',hasReport:!!row.result_cipher});}
       const last=selected.at(-1);return json({jobs,next:rows.results.length>50?{beforeAt:last.created_at,beforeId:last.id}:null});

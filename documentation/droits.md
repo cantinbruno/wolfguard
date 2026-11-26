@@ -77,3 +77,7 @@ Tests principaux : `tests/permissions.test.mjs`, `tests/access.test.mjs`, `tests
 Utilisateurs et droits présente une recherche de groupes par nom ou autorisation, un filtre des groupes déjà attribués et un compteur des appartenances. Le bouton Enregistrer les appartenances applique les changements ensemble. Les droits effectifs par section détaillent les actions autorisées ou refusées et leurs groupes sources. Ils reflètent les droits enregistrés et distinguent les changements en attente.
 
 Groupes conserve le même modèle d’accès et présente quatre rubriques : Membres, Groupes liés, Autorisations, Vérifier un accès. Chaque sélecteur de compte ou de groupe possède une recherche. Les groupes automatiques gardent leurs droits protégés. Connexions et Blocage possèdent deux onglets distincts avec les mêmes permissions `access.*` existantes.
+
+## Liste des groupes simplifiée
+
+Paramètres → Groupes affiche par défaut les groupes métier, avec leurs membres et leurs autorisations. Les groupes automatiques sont rangés dans les catégories avancées : administrateurs, droits par section, droits des postes et droits par action. Un compteur distingue les deux ensembles. Les groupes existants, leurs identifiants, leurs appartenances et leurs droits sont conservés. Une création ou duplication revient sur les groupes métier ; changer de catégorie conserve la confirmation des modifications non enregistrées.

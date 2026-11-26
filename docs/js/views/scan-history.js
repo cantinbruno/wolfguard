@@ -8,15 +8,15 @@ const webScanHistory = (() => {
   const partial=new Set(['cancelled','failed','expired','lost']);
   let generation=0,root=null,dispose=null;
   function unmount(){generation++;dispose?.();dispose=null;root?.replaceChildren();root=null;}
-  function mount(panel,{section=null,onOpen=null}={}){
-    unmount();if(!panel)return;root=panel;const token=generation,key=state.vaultKey;
+  function mount(panel,{section=null,agentId=null}={}){
+    unmount();if(!panel||!agentId)return;root=panel;const token=generation,key=state.vaultKey;
     const live=()=>token===generation&&panel.isConnected&&state.vaultKey===key&&!$('#app').classList.contains('hidden');
     const find=selector=>panel.querySelector(selector);
     const lifetime=new AbortController();let exportController=null;
     dispose=()=>{lifetime.abort();exportController?.abort();};
     let items=[],kind=section||'all',query='',stateFilter='all',from='',to='',sort='recent',page=0,loading=false,complete=false,busy=false;
     panel.innerHTML=`<header class="settings-panel-head scan-history-heading"><div class="settings-heading">${settingsIcon('history')}<h3>Historique des scans</h3></div><span class="settings-status" id="wgHistoryCount">Chargement…</span></header>
-      <p class="scan-history-intro">Retrouve les scans et les rapports PDF de tous les postes accessibles. Les rapports et les journaux sont conservés 30 jours.</p>
+      <p class="scan-history-intro">Retrouve les rapports PDF de ce poste. Les rapports et les journaux sont conservés 30 jours.</p>
       <div class="scan-history-toolbar"><label class="scan-history-search">${PROTOCOL_ICONS.search}<input id="wgHistorySearch" type="search" aria-label="Rechercher un ancien scan" placeholder="Cible, poste, nom du relevé…" autocomplete="off"></label><button type="button" class="settings-btn settings-btn-icon" id="wgHistoryRefresh" title="Actualiser l’historique" aria-label="Actualiser l’historique">${settingsIcon('refresh-cw')}</button><button type="button" class="settings-btn primary" id="wgHistoryExportAll" disabled>${settingsIcon('download')}Exporter tout</button></div>
       <div class="scan-history-filters" ${section?'hidden':''} role="group" aria-label="Type de scan">${[['all','Tous'],['passive','Passif'],['active','Actif'],['map','Cartographie'],['vulnerability','Vulnérabilités']].map(([value,label])=>'<button type="button" data-history-kind="'+value+'" aria-pressed="'+(value==='all')+'">'+label+'<span>0</span></button>').join('')}</div>
       <div class="scan-history-refine"><label>État<select id="wgHistoryState"><option value="all">Tous les états</option><option value="completed">Terminés</option><option value="progress">En attente / en cours</option><option value="partial">Interrompus / en échec</option><option value="saved">Anciens relevés enregistrés</option></select></label><label>Du<input id="wgHistoryFrom" type="date"></label><label>Au<input id="wgHistoryTo" type="date"></label><label>Ordre<select id="wgHistorySort"><option value="recent">Plus récents</option><option value="oldest">Plus anciens</option></select></label><button type="button" class="settings-btn" id="wgHistoryReset" hidden>Effacer les filtres</button></div>
@@ -48,10 +48,9 @@ const webScanHistory = (() => {
       find('#wgHistoryCount').textContent=items.filter(item=>!section||item.kind===section).length.toLocaleString('fr-FR')+' scan(s)';
       for(const button of panel.querySelectorAll('[data-history-kind]')){button.setAttribute('aria-pressed',String(kind===button.dataset.historyKind));button.querySelector('span').textContent=items.filter(item=>button.dataset.historyKind==='all'||item.kind===button.dataset.historyKind).length;}
       const focused=panel.contains(document.activeElement)?document.activeElement:null,focusId=focused?.id,exportId=focused?.dataset.historyExport,deleteId=focused?.dataset.historyDelete;
-      find('#wgHistoryList').innerHTML=rows.slice(page*20,page*20+20).map(item=>'<article class="scan-history-item" data-kind="'+item.kind+'"><span class="scan-history-icon" aria-hidden="true">'+workspaceSectionIcon('scan-'+item.kind)+'</span><div class="scan-history-copy"><div><strong>'+esc(scanInsights.definitions[item.kind].short)+'</strong><span class="scan-history-state" data-status="'+esc(item.status)+'">'+esc(statuses[item.status]||'État non fourni')+'</span></div><p>'+esc(item.target||(item.kind==='vulnerability'?'Poste de l’agent':'Cible non fournie'))+'</p><small>'+esc(item.agentName||item.name||'Source non fournie')+'</small></div><time datetime="'+esc(new Date(item.createdAt).toISOString())+'">'+esc(date(item.createdAt))+'</time><div class="scan-history-actions">'+(onOpen?'<button type="button" class="settings-btn" data-history-open="'+esc(item.id)+'">Ouvrir</button>':'')+'<button type="button" class="settings-btn" data-history-export="'+esc(item.id)+'" aria-label="Exporter le PDF '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+settingsIcon('download')+'Exporter PDF</button><button type="button" class="settings-btn scan-history-delete" data-history-delete="'+esc(item.id)+'" title="'+(['queued','running'].includes(item.status)?'Arr?ter le scan avant de le supprimer':'Supprimer ce scan')+'" aria-label="Supprimer '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+ITEM_ACTION_ICONS.delete+'Supprimer</button></div></article>').join('')||'<div class="scan-history-empty">'+settingsIcon('history')+'<h4>'+(loading?'Chargement des anciens scans…':items.length?'Aucun scan pour ces filtres':'Aucun ancien scan disponible')+'</h4><p>'+(items.length?'Efface ou ajuste les filtres pour retrouver un relevé.':'Les prochains scans apparaîtront ici. Les résultats supprimés avant l’activation de cet historique ne sont plus récupérables.')+'</p></div>';
+      find('#wgHistoryList').innerHTML=rows.slice(page*20,page*20+20).map(item=>'<article class="scan-history-item" data-kind="'+item.kind+'"><span class="scan-history-icon" aria-hidden="true">'+workspaceSectionIcon('scan-'+item.kind)+'</span><div class="scan-history-copy"><div><strong>'+esc(scanInsights.definitions[item.kind].short)+'</strong><span class="scan-history-state" data-status="'+esc(item.status)+'">'+esc(statuses[item.status]||'État non fourni')+'</span></div><p>'+esc(item.target||(item.kind==='vulnerability'?'Poste de l’agent':'Cible non fournie'))+'</p><small>'+esc(item.agentName||item.name||'Source non fournie')+'</small></div><time datetime="'+esc(new Date(item.createdAt).toISOString())+'">'+esc(date(item.createdAt))+'</time><div class="scan-history-actions"><button type="button" class="settings-btn" data-history-export="'+esc(item.id)+'" aria-label="Exporter le PDF '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+settingsIcon('download')+'Exporter PDF</button><button type="button" class="settings-btn scan-history-delete" data-history-delete="'+esc(item.id)+'" title="'+(['queued','running'].includes(item.status)?'Arr?ter le scan avant de le supprimer':'Supprimer ce scan')+'" aria-label="Supprimer '+esc(item.name)+' du '+esc(date(item.createdAt))+'">'+ITEM_ACTION_ICONS.delete+'Supprimer</button></div></article>').join('')||'<div class="scan-history-empty">'+settingsIcon('history')+'<h4>'+(loading?'Chargement des anciens scans…':items.length?'Aucun scan pour ces filtres':'Aucun ancien scan disponible')+'</h4><p>'+(items.length?'Efface ou ajuste les filtres pour retrouver un relevé.':'Les prochains scans apparaîtront ici. Les résultats supprimés avant l’activation de cet historique ne sont plus récupérables.')+'</p></div>';
       find('#wgHistoryPages').innerHTML=pages>1?'<span role="status" aria-live="polite">'+rows.length+' scan(s) · Page '+(page+1)+' sur '+pages+'</span><div><button type="button" class="settings-btn" id="wgHistoryPrev" '+(page===0?'disabled':'')+'>Précédente</button><button type="button" class="settings-btn" id="wgHistoryNext" '+(page+1===pages?'disabled':'')+'>Suivante</button></div>':'<span role="status" aria-live="polite">'+rows.length+' scan(s)'+(hasFilters()?' pour ces filtres':'')+'</span>';
       if(find('#wgHistoryPrev'))find('#wgHistoryPrev').onclick=()=>{page--;draw();find('#wgHistoryList').scrollIntoView({block:'start',behavior:'instant'});};if(find('#wgHistoryNext'))find('#wgHistoryNext').onclick=()=>{page++;draw();find('#wgHistoryList').scrollIntoView({block:'start',behavior:'instant'});};
-      for(const button of panel.querySelectorAll('[data-history-open]'))button.onclick=()=>onOpen(items.find(item=>item.id===button.dataset.historyOpen));
       for(const button of panel.querySelectorAll('[data-history-export]'))button.onclick=()=>exportRows([items.find(item=>item.id===button.dataset.historyExport)],false);
       for(const button of panel.querySelectorAll('[data-history-delete]'))button.onclick=()=>deleteRow(items.find(item=>item.id===button.dataset.historyDelete));
       controls();
@@ -72,13 +71,13 @@ const webScanHistory = (() => {
     async function refresh(){
       if(loading||busy||!live())return;loading=true;complete=false;const previous=items;let candidates=[];status('Chargement de l’historique…');draw();
       try{
-        const local=await legacy();if(!live())return;const {invalid,records}=local;candidates=records;
+        const local={invalid:0,records:[]};if(!live())return;const {invalid,records}=local;candidates=records;
         if(workspaceAgents.available()){
           let cursor=null;const seen=new Set(),jobs=new Map();
           do{
-            const response=await WolfGuardCloud.agentRequest('scans?history=1'+(cursor?'&beforeAt='+cursor.beforeAt+'&beforeId='+cursor.beforeId:''),undefined,{signal:lifetime.signal});if(!live())return;
+            const response=await WolfGuardCloud.agentRequest('scans?history=1&agentId='+encodeURIComponent(agentId)+(cursor?'&beforeAt='+cursor.beforeAt+'&beforeId='+cursor.beforeId:''),undefined,{signal:lifetime.signal});if(!live())return;
             if(!Array.isArray(response.jobs))throw new Error('La liste des anciens scans est invalide.');
-            for(const job of response.jobs){if(!kinds.includes(job.workspace)||!/^[a-f0-9]{32}$/.test(job.id)||!Number.isSafeInteger(job.createdAt)||Number.isNaN(new Date(job.createdAt).getTime()))throw new Error('Un ancien scan contient des métadonnées invalides.');jobs.set(job.id,indexItem({...job,kind:job.workspace,name:scanInsights.definitions[job.workspace].short+' · '+(job.agentName||'Poste non fourni')}));}
+            for(const job of response.jobs){if(job.agentId!==agentId)throw new Error('Le rapport appartient à un autre poste.');if(!kinds.includes(job.workspace)||!/^[a-f0-9]{32}$/.test(job.id)||!Number.isSafeInteger(job.createdAt)||Number.isNaN(new Date(job.createdAt).getTime()))throw new Error('Un ancien scan contient des métadonnées invalides.');jobs.set(job.id,indexItem({...job,kind:job.workspace,name:scanInsights.definitions[job.workspace].short+' · '+(job.agentName||'Poste non fourni')}));}
             candidates=[...records,...jobs.values()];if(!previous.length){items=[...candidates].sort((a,b)=>b.createdAt-a.createdAt);draw();}
             cursor=response.next;if(cursor){if(!Number.isSafeInteger(cursor.beforeAt)||!/^[a-f0-9]{32}$/.test(cursor.beforeId)||seen.has(cursor.beforeId))throw new Error('Le chargement des anciens scans a été interrompu.');seen.add(cursor.beforeId);status(items.length+' scans chargés · Recherche des relevés plus anciens…');}
           }while(cursor);
@@ -100,7 +99,7 @@ const webScanHistory = (() => {
           const reports=record?.value?.reports;
           if(!Array.isArray(reports)||JSON.stringify(reports[item.archivePosition])!==JSON.stringify(item.archive))throw new Error('Cette archive a changé. Actualise l’historique puis réessaie.');
           await put('settings',{...record,value:{...record.value,reports:reports.filter((_,index)=>index!==item.archivePosition)}});if(!live())return;
-          const local=await legacy();if(!live())return;
+          const local={invalid:0,records:[]};if(!live())return;
           items=[...items.filter(row=>row.status!=='saved'),...local.records].sort((a,b)=>b.createdAt-a.createdAt);
         }else{
           await WolfGuardCloud.agentRequest('scans/delete',{id:item.id},{signal:lifetime.signal});if(!live())return;
@@ -113,7 +112,7 @@ const webScanHistory = (() => {
     async function resolve(item,signal){
       if(item.report)return item.report;
       const data=await WolfGuardCloud.agentRequest('scans/result?id='+item.id,undefined,{signal});if(!live()||signal.aborted)return null;
-      if(data.id!==item.id||(data.workspace||data.spec?.workspace)!==item.kind)throw new Error('Le rapport reçu ne correspond pas au scan demandé.');
+      if(data.id!==item.id||data.agentId!==agentId||(data.workspace||data.spec?.workspace)!==item.kind)throw new Error('Le rapport reçu ne correspond pas au scan demandé.');
       return webScanAgent.fromJob({...data,agentName:item.agentName,platform:item.platform});
     }
     async function exportRows(rows,bulk){

@@ -141,6 +141,7 @@ namespace WolfGuard {
     [STAThread] public static int Main(string[] args){
       try{
         if(args.Length==1&&args[0]=="--desktop-encoder")return DesktopEncoder.Run();
+        if(args.Length==2&&args[0]=="--remote-consent")return RemoteConsent.Run(args[1]);
         if(args.Length==2&&args[0]=="--render-logo"){AgentWindow.SavePng(AgentWindow.LogoBitmap(256),args[1]);return 0;}
         if(args.Length==2&&args[0]=="--verify-extraction"){AgentWindow.VerifyExtraction(args[1]);return 0;}
         if(args.Length==1&&args[0]=="--stop")return Send("stop")?0:1;

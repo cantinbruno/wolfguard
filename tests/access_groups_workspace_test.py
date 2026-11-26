@@ -7,6 +7,10 @@ def run():
     with account_ui() as (owner,context,origin,errors):
         invitation=invite(owner,'team-member@example.test');viewer=context().new_page();activate(viewer,invitation,'team-member@example.test')
         owner.locator('#wgUserInvitationClose').click();owner.locator('#settings-tab-groups').click()
+        expect(owner.locator('#wgGroupCategory')).to_have_value('custom')
+        expect(owner.locator('#wgGroupsCount')).to_contain_text('automatique')
+        expect(owner.locator('#wgGroupsList')).not_to_contain_text('GG_Acces_Application_administrateur')
+        owner.locator('#wgGroupCategory').select_option('all')
         for name in ['GG_Acces_Application_administrateur','GG_Acces_Memo_lecture','GG_Acces_Memo_ecriture','GG_Acces_Coffre_fort_ecriture','GG_Acces_Sans_section_lecture']:
             expect(owner.locator('#wgGroupsList')).to_contain_text(name)
         for name in ['GG_Acces_Memo_lecture','GG_Acces_Coffre_fort_ecriture']:

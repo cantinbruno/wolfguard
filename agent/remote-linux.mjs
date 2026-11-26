@@ -1,8 +1,8 @@
 import {nativeCommand,nativeIndicator,executable,denied,encodeDesktop} from './remote-native.mjs';
-export async function linuxConsent(signal,onClose){
+export async function linuxConsent(signal,onClose,consentGranted=false){
   const zenity=await executable('zenity'),kdialog=await executable('kdialog'),xmessage=await executable('xmessage');
   const prompt='WolfGuard demande à afficher ce bureau et à utiliser la souris et le clavier. Autoriser cette session de 20 minutes maximum ?';
-  try{
+  if(!consentGranted)try{
     if(zenity)await nativeCommand(zenity,['--question','--title=WolfGuard · Prise en main','--text='+prompt,'--ok-label=Autoriser','--cancel-label=Refuser','--default-cancel','--timeout=60'],{signal});
     else if(kdialog){const response=await nativeCommand(kdialog,['--title','WolfGuard · Prise en main','--default','Refuser','--menu',prompt,'Refuser','Refuser','Autoriser','Autoriser cette session'],{signal});if(response.trim()!=='Autoriser')throw denied();}
     else if(xmessage){const response=await nativeCommand(xmessage,['-center','-print','-buttons','Refuser:1,Autoriser:0','-default','Refuser','-timeout','60',prompt],{signal});if(response.trim()!=='Autoriser')throw denied();}
@@ -19,7 +19,7 @@ export const characterSym=value=>value==='\n'?keysyms.Enter:value==='\t'?keysyms
 export async function openDesktop(options){
   if(process.env.WAYLAND_DISPLAY)return (await import('./remote-portal.mjs')).openDesktop(options);
   if(!process.env.DISPLAY)throw new Error('Ouvre une session graphique sur le poste Linux pour partager son bureau.');
-  const {ffi,jpeg,signal,onClose}=options,stop=await linuxConsent(signal,onClose);
+  const {ffi,jpeg,signal,onClose}=options,stop=await linuxConsent(signal,onClose,options.consentGranted);
   const x=ffi.load('libX11.so.6'),xt=ffi.load('libXtst.so.6'),open=x.func('void * XOpenDisplay(const char *)'),display=open(null);
   if(!display){stop();throw new Error('Session X11 inaccessible.');}
   const screen=x.func('int XDefaultScreen(void *)')(display),root=x.func('unsigned long XRootWindow(void *,int)')(display,screen);

@@ -70,24 +70,10 @@ const webScanAgent = (() => {
     async function result() {
       if (!current || ['queued','running'].includes(current.status) || lastResult === current.id + ':' + current.revision) return;
       if(values().preparing&&values().reportJob===current.id+':'+current.revision){lastResult=values().reportJob;return;}
-      onExecution({status:'receiving'});
-      const id = current.id, revision = current.revision, action = actionRevision, data = await request('scans/result?id=' + id);
-      if (!live() || launching || action !== actionRevision || current?.id !== id) return;
-      if(data.id!==id||(data.workspace||data.spec?.workspace)!==kind)throw new Error('Le rapport reçu ne correspond pas à cette rubrique de scan.');
-      if(['queued','running'].includes(data.status)){onExecution({status:data.status,completed:data.completed,total:data.total});return;}
-      const report=fromJob(data,agent||{});
-      if(!report.intelligence)report.intelligence={provider:'CERT-FR',status:'loading'};
-      // A new empty/failed job must replace the previous report rather than displaying old results.
-      onReport(report, data); lastResult = id + ':' + revision;
-      try{
-        const checked=await request('scans/intelligence',{id});
-        if(!live()||launching||action!==actionRevision||current?.id!==id)return;
-        if(checked.id!==id||checked.revision!==data.revision)throw new Error('Analyse CERT-FR incohérente avec le rapport.');
-        report.intelligence=scanInsights.certfrData(checked.intelligence)||{provider:'CERT-FR',status:'unavailable',message:'Aucune analyse CERT-FR reçue.'};
-      }catch(error){if(!live()||launching||action!==actionRevision||current?.id!==id)return;report.intelligence={provider:'CERT-FR',status:'unavailable',message:'La consultation CERT-FR est indisponible. Les observations du scan restent accessibles.'};}
-      onReport(report,data);
-      if (report.error) status(report.error, true);
-      else if (labels[data.status]) status(labels[data.status] + (['completed','cancelled'].includes(data.status)?' : ' + report.rows.length + ' observation(s) reçue(s).':'.'));
+      lastResult=current.id+':'+current.revision;
+      onExecution({status:current.status});
+      onReport(null,{...current,agentId:agent?.id});
+      if(labels[current.status])status(labels[current.status]+' · Rapport PDF dans l’historique du poste.');
     }
     async function refresh() {
       if (!live() || busy || refreshing) return;

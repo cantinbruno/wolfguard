@@ -12,7 +12,7 @@ from site_fixture import open_security
 
 ROOT = Path(__file__).resolve().parents[1]
 API = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
-CAPABILITIES = ['auto-update-v1', 'network-scan-v3', 'network-target-v1', 'network-auto-map-v1', 'network-topology-v1', 'security-audit-v1', 'endpoint-protection-v1', 'remote-desktop-v1', 'remote-terminal-v1', 'remote-files-v1']
+CAPABILITIES = ['auto-update-v1', 'network-scan-v3', 'network-target-v1', 'network-auto-map-v1', 'network-topology-v1', 'security-audit-v1', 'endpoint-protection-v1', 'remote-consent-v1','remote-desktop-v1', 'remote-terminal-v1', 'remote-files-v1']
 
 
 def run():
@@ -92,7 +92,7 @@ def run():
             page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             # The only fleet action opens enrollment, independently of existing posts.
-            expect(page.locator('.agents-heading-actions button')).to_have_count(3)
+            expect(page.locator('.agents-heading-actions button')).to_have_count(2)
             expect(page.locator('#agentsAdd')).to_have_count(0)
             page.locator('#agentsManage').click()
             expect(page.locator('#wgAgentManage,#wgAgentFleetPanel,[data-agent-revoke]')).to_have_count(0)

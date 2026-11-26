@@ -25,7 +25,7 @@ def run():
     draw.rectangle((0,0,799,449),fill='#153050');draw.rectangle((800,0,1599,449),fill='#305015')
     draw.text((30,30),'Ecran gauche - fixture de test',fill='white');draw.text((830,30),'Ecran droit - fixture de test',fill='white')
     encoded=BytesIO();pixels.save(encoded,format='JPEG');frame={'width':1600,'height':450,'jpeg':base64.b64encode(encoded.getvalue()).decode()}
-    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['remote-desktop-v1']}
+    agent={'id':'a'*32,'name':'Poste de test','platform':'win32','online':True,'capabilities':['remote-consent-v1','remote-desktop-v1']}
     control={'status':'requested','id':'','revision':1,'message':'','outage':False};started=[];stopped=[];inputs=[]
     def route_api(route):
         path=urlsplit(route.request.url).path
@@ -66,7 +66,7 @@ def run():
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteSession')).to_be_visible()
             assert started==[{'agentId':agent['id']}];expect(page.locator('#wgRemoteCanvas')).to_be_hidden();assert inputs==[]
             expect(page.locator('#wgRemoteWaiting')).to_contain_text('Connexion au poste')
-            control['status']='preparing';expect(page.locator('#wgRemoteSessionState')).to_contain_text('Préparation',timeout=10000)
+            control['status']='preparing';expect(page.locator('#wgRemoteSessionState')).to_contain_text('accord',timeout=10000)
             expect(page.locator('#wgRemoteCanvas')).to_be_hidden();control['status']='active'
             expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             expect(page.locator('#wgRemoteStatus')).to_contain_text('Connexion établie')
@@ -139,7 +139,7 @@ def run():
                 expect(page.locator('#wgRemoteAgent')).to_contain_text({'linux':'Linux','darwin':'macOS','win32':'Windows'}[platform])
             agent['capabilities']=[];page.wait_for_timeout(3600);expect(page.locator('#wgRemoteConnect')).to_be_disabled()
             expect(page.locator('#wgRemoteHint')).to_contain_text('Mets à jour')
-            agent['capabilities']=['remote-desktop-v1'];page.wait_for_timeout(3600)
+            agent['capabilities']=['remote-consent-v1','remote-desktop-v1'];page.wait_for_timeout(3600)
             page.locator('#wgRemoteConnect').click();expect(page.locator('#wgRemoteCanvas')).to_be_visible(timeout=10000)
             control['outage']=True;expect(page.locator('#wgRemoteStatus')).to_contain_text('Reconnexion',timeout=10000)
             expect(page.locator('#wgRemoteSession')).to_be_visible()

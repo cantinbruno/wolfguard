@@ -6,6 +6,8 @@ Les sources sont dans `agent/`. Les notices `LIRE-MOI.txt` et `LIRE-MOI-POSIX.tx
 
 ## Exécution
 
+Les trois accès Bureau, Terminal et Fichiers exigent un accord local pour chaque session. Le lanceur Windows affiche une popup native ; macOS utilise le dialogue système et Linux zenity, kdialog ou xmessage. Le refus est le choix par défaut et l’absence de réponse expire après 60 secondes. La capture, les commandes et l’accès aux fichiers ne sont ouverts qu’après acceptation, avec maintien du bail pendant l’attente. L’API exige `remote-consent-v1` et bloque les échanges avant l’accord. Un poste sans interface graphique ou sans outil de dialogue ne donne aucun accès distant. Les mises à jour et désinstallations déclenchées via le terminal suivent aussi cet accord ; les anciens agents restent actualisables par leur mise à jour autonome ou par un installateur local.
+
 Le moteur commun `agent.mjs` gère l’association et les échanges avec l’API. Les modules dédiés prennent en charge réseau, topologie, collecte, EDR, bureau, terminal et fichiers. Les opérations restent contrôlées côté serveur et par les règles de l’agent.
 
 Windows utilise les lanceurs PowerShell/C# et les composants de capture. Linux et macOS utilisent les lanceurs shell et services utilisateur. Le composant de protection privilégié a son installation et ses droits propres ; une mise à jour de l’agent utilisateur ne doit pas l’écraser.

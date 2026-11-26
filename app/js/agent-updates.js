@@ -26,7 +26,7 @@ globalThis.WolfGuardAgentUpdates=(()=>{
     if(!/^[a-f0-9]{32}$/.test(agent.id||''))throw new Error('Poste non associé.');
     if(!cloud.can('agents.write')||!cloud.can('remote.terminal')||!!globalThis.WolfGuardAccess?.canAgent&&(!WolfGuardAccess.canAgent(agent.id,'agents.write')||!WolfGuardAccess.canAgent(agent.id,'remote.terminal')))throw new Error('Les droits Agents et Prise en main en écriture sont nécessaires.');
     if(!agent.online)throw new Error('Démarre l’agent pour le mettre à jour.');
-    if(!agent.capabilities?.includes('remote-terminal-v1'))throw new Error('Installe une première fois l’agent récent sur ce poste.');
+    if(!agent.capabilities?.includes('remote-consent-v1')||!agent.capabilities?.includes('remote-terminal-v1'))throw new Error('Installe une première fois l’agent récent sur ce poste.');
     const value={running:true,status:'preparing',message:'Préparation de la mise à jour…'};states.set(agent.id,value);
     const change=(status,message)=>{Object.assign(value,{status,message});onChange(value);};let session=null;
     const request=(path,body)=>{
@@ -38,9 +38,9 @@ globalThis.WolfGuardAgentUpdates=(()=>{
       const target=await release(true);value.version=target.version;
       if(agent.version===target.version){change('completed','Agent déjà à jour.');return;}
       const script=command(agent.platform,target);if(script.length>8000)throw new Error('Installateur distant trop volumineux.');
-      change('preparing','Connexion au poste…');session=await request('remote/start',{agentId:agent.id,mode:'terminal'});
+      change('preparing','En attente de l’accord de l’utilisateur sur le poste…');session=await request('remote/start',{agentId:agent.id,mode:'terminal'});
       let ready=false;
-      for(let attempt=0;attempt<60;attempt++){
+      for(let attempt=0;attempt<100;attempt++){
         const remote=await request('remote/session?id='+session.id);
         if(remote.status==='active'){ready=true;break;}
         if(!['requested','preparing'].includes(remote.status))throw new Error(remote.message||'Le poste n’a pas accepté la mise à jour.');
@@ -83,7 +83,7 @@ globalThis.WolfGuardAgentUpdates=(()=>{
         if(!sameSession()||!allowed())return;
         if(globalThis.WolfGuardAccess?.canAgent&&!['agents.write','remote.terminal'].every(right=>WolfGuardAccess.canAgent(agent.id,right)))continue;
         const last=attempts.get(agent.id);
-        if(agent.local||!agent.online||agent.version===target.version||!Object.hasOwn(WolfGuardUpdateCommand.UPDATE_FILES,agent.platform)||!agent.capabilities?.includes('remote-terminal-v1')||agent.capabilities.includes('auto-update-v1')||states.get(agent.id)?.running||last?.version===target.version&&Date.now()-last.at<15*60000)continue;
+        if(agent.local||!agent.online||agent.version===target.version||!Object.hasOwn(WolfGuardUpdateCommand.UPDATE_FILES,agent.platform)||!agent.capabilities?.includes('remote-consent-v1')||!agent.capabilities?.includes('remote-terminal-v1')||agent.capabilities.includes('auto-update-v1')||states.get(agent.id)?.running||last?.version===target.version&&Date.now()-last.at<15*60000)continue;
         attempts.set(agent.id,{version:target.version,at:Date.now()});
         await start(agent,{onChange});
       }

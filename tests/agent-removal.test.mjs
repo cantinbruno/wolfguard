@@ -67,7 +67,7 @@ test('POSIX removal acts only on an isolated fixture and check-only leaves its f
   }
 });
 
-function setup({rights=true,perAgent=true,online=true,capabilities=['remote-terminal-v1'],lock=false,revoke=false,failed=false,lost=false,marker=true}={}){
+function setup({rights=true,perAgent=true,online=true,capabilities=['remote-consent-v1','remote-terminal-v1'],lock=false,revoke=false,failed=false,lost=false,marker=true}={}){
   let allowed=rights,submitted=false;const calls=[],state={vaultKey:{}},agent={id:'a'.repeat(32),name:'Poste test',platform:'win32',online,capabilities};
   const cloud={hasSession:()=>true,currentUser:()=>({id:'owner'}),can:()=>allowed,agentRequest:async(path,body)=>{
     calls.push({path,body});

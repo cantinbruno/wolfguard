@@ -148,7 +148,7 @@ namespace WolfGuard {
       };
       mainButton.Click += async delegate {
         if (child == null || child.HasExited) { await Prepare(); return; }
-        if (currentState == "remote" || currentState == "remote-preparing" || currentState == "terminal" || currentState == "terminal-preparing") {
+        if (currentState == "remote-consent" || currentState == "remote" || currentState == "remote-preparing" || currentState == "terminal" || currentState == "terminal-preparing") {
           if (Send(new { type = "stop-remote" })) { detail.Text = "Arrêt de la prise en main…"; mainButton.IsEnabled = false; }
           return;
         }
@@ -290,7 +290,7 @@ namespace WolfGuard {
       };
       statusTitle.Text = names.ContainsKey(state) ? names[state] : "Action nécessaire";
       if (tray != null) tray.Text = "WolfGuard Agent · " + statusTitle.Text;
-      bool remote = state == "remote" || state == "remote-preparing" || state == "terminal" || state == "terminal-preparing";
+      bool remote = state == "remote-consent" || state == "remote" || state == "remote-preparing" || state == "terminal" || state == "terminal-preparing";
       if (remoteStop != null) remoteStop.Enabled = remote;
       bool active = remote || state == "connected" || state == "scanning" || state == "completed" || state == "cancelled";
       detail.Text = message.Length > 500 ? message.Substring(0, 500) : message;
@@ -454,6 +454,33 @@ namespace WolfGuard {
     }
   }
 
+  public static class RemoteConsent {
+    public static int Run(string mode) {
+      string description;
+      switch(mode){
+        case "desktop":description="Afficher tous tes écrans et contrôler la souris et le clavier.";break;
+        case "terminal":description="Exécuter des commandes sur ce poste avec les droits de ton compte.";break;
+        case "files":description="Consulter tes dossiers et transférer des fichiers sur ce poste.";break;
+        default:return 1;
+      }
+      if(!Environment.UserInteractive)return 1;
+      bool accepted=false;
+      Window window=new Window{Title="WolfGuard · Accord obligatoire",Width=480,SizeToContent=SizeToContent.Height,WindowStartupLocation=WindowStartupLocation.CenterScreen,ResizeMode=ResizeMode.NoResize,Topmost=true,ShowInTaskbar=true,Background=new SolidColorBrush(Color.FromRgb(16,27,43)),Foreground=Brushes.White};
+      StackPanel body=new StackPanel{Margin=new Thickness(24)};
+      body.Children.Add(new TextBlock{Text="Autoriser cette assistance à distance ?",FontSize=19,FontWeight=FontWeights.SemiBold,TextWrapping=TextWrapping.Wrap});
+      body.Children.Add(new TextBlock{Text=description,FontSize=14,Margin=new Thickness(0,16,0,12),TextWrapping=TextWrapping.Wrap});
+      body.Children.Add(new TextBlock{Text="Cette autorisation vaut uniquement pour cette session, pendant 20 minutes maximum. Sans réponse sous une minute, l’accès est refusé.",FontSize=13,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,0,0,20)});
+      StackPanel actions=new StackPanel{Orientation=Orientation.Horizontal,HorizontalAlignment=HorizontalAlignment.Right};
+      Button refuse=new Button{Content="Refuser",Foreground=Brushes.Black,FontSize=14,Padding=new Thickness(18,10,18,10),Margin=new Thickness(0,0,10,0),IsDefault=true,IsCancel=true};
+      Button allow=new Button{Content="Autoriser cette session",Foreground=Brushes.Black,Background=new SolidColorBrush(Color.FromRgb(144,238,188)),FontSize=14,Padding=new Thickness(18,10,18,10)};
+      refuse.Click+=delegate{window.Close();};allow.Click+=delegate{accepted=true;window.Close();};
+      actions.Children.Add(refuse);actions.Children.Add(allow);body.Children.Add(actions);window.Content=body;
+      System.Windows.Threading.DispatcherTimer timer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromSeconds(60)};
+      timer.Tick+=delegate{window.Close();};window.Loaded+=delegate{refuse.Focus();timer.Start();};window.Closed+=delegate{timer.Stop();};
+      window.ShowDialog();return accepted?0:1;
+    }
+  }
+
   public static class Program {
     internal const int RestoreWindowMessage = 0x8000 + 71;
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr FindWindow(string className, string title);
@@ -473,6 +500,7 @@ namespace WolfGuard {
     [STAThread] public static int Main(string[] args) {
       try {
         if (args.Length == 1 && args[0] == "--desktop-encoder") return DesktopEncoder.Run();
+        if (args.Length == 2 && args[0] == "--remote-consent") return RemoteConsent.Run(args[1]);
         if (args.Length == 2 && args[0] == "--render-logo") { AgentWindow.SavePng(AgentWindow.LogoBitmap(256), args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--verify-extraction") { AgentWindow.VerifyExtraction(args[1]); return 0; }
         if (args.Length == 2 && args[0] == "--preview-dir") {

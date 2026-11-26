@@ -2,9 +2,8 @@ import {mkdtemp,readFile,unlink,rmdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {nativeCommand,nativeIndicator,encodeDesktop,denied} from './remote-native.mjs';
-export async function openDesktop({ffi,jpeg,signal,onClose}){
-  let consent;try{consent=await nativeCommand('/usr/bin/osascript',['-e','display dialog "WolfGuard demande à afficher ce bureau et à utiliser la souris et le clavier. Autoriser cette session de 20 minutes maximum ?" buttons {"Refuser", "Autoriser"} default button "Refuser" with title "WolfGuard · Prise en main" giving up after 60'],{signal});}catch{throw denied();}
-  if(!consent.includes('button returned:Autoriser'))throw denied();
+export async function openDesktop({ffi,jpeg,signal,onClose,consentGranted=false}){
+  if(!consentGranted){let consent;try{consent=await nativeCommand('/usr/bin/osascript',['-e','display dialog "WolfGuard demande à afficher ce bureau et à utiliser la souris et le clavier. Autoriser cette session de 20 minutes maximum ?" buttons {"Refuser", "Autoriser"} default button "Refuser" with title "WolfGuard · Prise en main" giving up after 60'],{signal});}catch{throw denied();}if(!consent.includes('button returned:Autoriser'))throw denied();}
   const core=ffi.load('/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices'),foundation=ffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation');
   const mutable=foundation.func('void * CFDictionaryCreateMutable(void *,int64_t,void *,void *)'),set=foundation.func('void CFDictionarySetValue(void *,void *,void *)'),release=foundation.func('void CFRelease(void *)');
   const trusted=core.func('bool AXIsProcessTrustedWithOptions(void *)'),dictionary=mutable(null,0,null,null);

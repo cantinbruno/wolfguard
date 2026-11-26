@@ -1,5 +1,9 @@
 # Décisions à conserver
 
+## 26 novembre 2026 — Accord distant, rapports par poste et groupes
+
+Bureau, Terminal et Fichiers nécessitent chacun un accord explicite de l’utilisateur du poste distant par popup, à chaque session. Refuser par défaut, après 60 secondes sans réponse ou si aucun dialogue ne peut être affiché. Bloquer toute action avant l’accord et les agents trop anciens. Les rapports ne sont proposés qu’en PDF dans l’Historique de la fiche du poste ; retirer les prévisualisations, exports directs et historique global. Pour les groupes de droits de Paramètres, privilégier les groupes métier et ranger les groupes automatiques dans une vue avancée, sans suppression ni modification des droits existants.
+
 ## 26 novembre 2026 — Terminal et écrans multiples
 
 Le terminal ne doit pas afficher le CLIXML de progression PowerShell à la préparation des modules. Conserver les résultats et erreurs de commande, les avertissements et l’UTF-8. La prise en main Windows montre tous les écrans dans une vue commune, avec les coordonnées négatives et les grandes résolutions prises en charge. Conserver l’adaptation à la fenêtre, le défilement en taille réelle et le plein écran. Un changement de géométrie pendant la session exige une reconnexion avant toute nouvelle saisie.

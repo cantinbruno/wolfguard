@@ -37,7 +37,7 @@ export async function handleRemoteAPI(request,env,now,h){
     requirePermission(auth.user,'remote.'+mode,fail,now);if(!await accessibleAgent(env,auth.user,agentId,now,'remote.'+mode))fail(403,'Ce poste ne fait pas partie de tes accès.');
     const agent=await env.DB.prepare('SELECT * FROM scan_agents WHERE id=? AND generation=? AND revoked_at IS NULL').bind(agentId,auth.generation).first();
     if(!agent)fail(404,'Poste introuvable.');if(agent.last_seen<=now-20000)fail(409,'Démarre l’agent sur le poste distant.');
-    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes(mode==='files'?'remote-files-v1':mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent depuis la fenêtre Agents pour utiliser cette prise en main.');
+    const metadata=await open(agent.name_cipher,agent.id+':name');if(!metadata.capabilities?.includes('remote-consent-v1')||!metadata.capabilities?.includes(mode==='files'?'remote-files-v1':mode==='terminal'?'remote-terminal-v1':'remote-desktop-v1'))fail(409,'Mets à jour l’agent pour demander l’accord obligatoire sur le poste distant.');
     const id=h.random(16);
     if(await env.DB.prepare("SELECT id FROM ai_jobs WHERE agent_id=? AND status IN ('queued','running') AND expires_at>?").bind(agent.id,now).first())fail(409,'Une réponse IA est en cours sur ce poste. Attends sa fin.');
     const inserted=await env.DB.prepare("INSERT INTO remote_sessions(id,agent_id,generation,owner_hash,status,created_at,expires_at,viewer_until,agent_until,mode,transfer_seq) SELECT ?,?,?,?,'requested',?,?,?,0,?,0 WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE agent_id=? AND status IN ('queued','running')) ON CONFLICT DO NOTHING RETURNING id").bind(id,agent.id,auth.generation,auth.hash,now,now+20*60000,now+120000,mode,agent.id).first();
@@ -60,6 +60,15 @@ export async function handleRemoteAPI(request,env,now,h){
   if(path==='/api/remote/stop'&&request.method==='POST'){
     await closeRemote(env,row.id,'closed',now,'Session terminée depuis WolfGuard.',h);return json({ok:true});
   }
+  if(path==='/api/agent/remote/consent'&&request.method==='POST'){
+    if(!['preparing','accepted','denied'].includes(data.status))fail(400,'Accord invalide.');
+    if(row.status!=='preparing')return json({status:row.status});
+    if(data.status==='denied'){await closeRemote(env,row.id,'denied',now,'L’utilisateur du poste a refusé la demande ou n’a pas répondu.',h);return json({status:'denied'});}
+    const status=data.status==='accepted'?'active':'preparing';
+    const updated=await env.DB.prepare("UPDATE remote_sessions SET status=?,agent_until=? WHERE id=? AND status='preparing' AND viewer_until>? AND expires_at>? RETURNING status").bind(status,now+15000,row.id,now,now).first();
+    return json({status:updated?.status||'closed'});
+  }
+  if(agentRoute&&row.status==='preparing'&&path.endsWith('/exchange'))fail(409,'L’accord de l’utilisateur du poste est obligatoire.');
   if(path.includes('/terminal/')&&request.method==='POST')return handleTerminalAPI(path,data,env,row,now,{...h,closeRemote});
   if(path.includes('/remote/files/'))return handleFileAPI(path,data,env,row,now,h);
   if(row.mode!=='desktop')fail(409,'Ouvre une session Bureau pour utiliser le contrôle du bureau.');

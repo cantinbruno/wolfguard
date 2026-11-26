@@ -21,10 +21,10 @@ async function setup(){
   const api=(route,body,credential)=>handleAPI(new Request('https://test.invalid/api/'+route,{method:body===undefined?'GET':'POST',headers:{Origin:'https://wolfguard.wavetools.fr','Content-Type':'application/json',...(credential?{Authorization:credential}:{}),'X-WG-Activation':activation},...(body===undefined?{}:{body:JSON.stringify(body)})}),env,()=>now);
   const user='Bearer '+(await (await api('setup',{code:'07942685'})).json()).token;
   const ticket=await (await api('agents/pair',{},user)).json(),agent=await (await api('agent/enroll',{code:ticket.code,name:'Synthetic terminal',platform:process.platform})).json();agent.auth='Agent '+agent.token;
-  await api('agent/poll',{capabilities:['remote-terminal-v1','remote-desktop-v1']},agent.auth);
+  await api('agent/poll',{capabilities:['remote-consent-v1','remote-terminal-v1','remote-desktop-v1']},agent.auth);
   const client={origin:'https://test.invalid',token:agent.token,async post(route,data){const response=await api('agent/'+route,data,agent.auth);const value=await response.json();if(!response.ok){const error=new Error(value.error);error.status=response.status;throw error;}return value;}};
   const created=await api('remote/start',{agentId:agent.id,mode:'terminal'},user);assert.equal(created.status,201);
-  const session=await created.json(),claim=await client.post('poll',{});Object.assign(session,claim.remote);
+  const session=await created.json(),claim=await client.post('poll',{});Object.assign(session,claim.remote);await client.post('remote/consent',{id:session.id,lease:session.lease,status:'accepted'});
   const exchange=(change={})=>api('agent/remote/terminal/exchange',{id:session.id,lease:session.lease,status:'active',...change},agent.auth);
   const view=async()=>await (await api('remote/session?id='+session.id,undefined,user)).json();
   return {env,api,user,agent,client,session,exchange,view,advance:value=>{now+=value;}};
@@ -71,7 +71,7 @@ test('terminal expires on viewer loss and refuses an old agent capability',async
     await s.exchange();await s.api('remote/terminal/command',{id:s.session.id,seq:1,command:'never-execute'},s.user);s.advance(16000);
     assert.equal((await (await s.exchange()).json()).status,'closed');
     assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM terminal_commands').get().n,0);
-    await s.client.post('poll',{capabilities:['remote-desktop-v1']});
+    await s.client.post('poll',{capabilities:['remote-consent-v1','remote-desktop-v1']});
     assert.equal((await s.api('remote/start',{agentId:s.agent.id,mode:'terminal'},s.user)).status,409);
   }finally{s.env.DB.db.close();}
 });

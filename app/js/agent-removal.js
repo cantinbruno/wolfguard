@@ -10,7 +10,7 @@ globalThis.WolfGuardAgentRemoval=(()=>{
     if(!['agents.write','agents.revoke','remote.terminal'].every(right=>cloud.can(right)&&(!globalThis.WolfGuardAccess||WolfGuardAccess.can(right)&&WolfGuardAccess.canAgent(agent.id,right))))return 'Droits d’écriture requis sur Agents et Prise en main pour ce poste.';
     if(!['win32','linux','darwin'].includes(agent.platform))return 'Système non pris en charge.';
     if(!agent.online)return 'Le poste doit être connecté pour recevoir la commande.';
-    if(!agent.capabilities?.includes('remote-terminal-v1'))return 'Mets l’agent à jour pour autoriser la désinstallation à distance.';
+    if(!agent.capabilities?.includes('remote-consent-v1')||!agent.capabilities?.includes('remote-terminal-v1'))return 'Mets l’agent à jour pour autoriser la désinstallation à distance.';
     if(states.get(agent.id)?.status==='launched')return 'Une désinstallation a déjà été lancée. Vérifie son résultat sur le poste.';
     if(states.get(agent.id)?.status==='unknown')return 'Vérifie le résultat sur le poste avant de recharger cette page pour réessayer.';
     if(states.get(agent.id)?.running)return 'Une désinstallation est déjà en cours.';
@@ -32,12 +32,12 @@ globalThis.WolfGuardAgentRemoval=(()=>{
     };
     try{
       const current=(await request('agents')).agents?.find(item=>item.id===agent.id);
-      if(!current?.online||!current.capabilities?.includes('remote-terminal-v1')||current.platform!==agent.platform)throw new Error('Le poste n’est plus disponible pour cette désinstallation.');
+      if(!current?.online||!current.capabilities?.includes('remote-consent-v1')||!current.capabilities?.includes('remote-terminal-v1')||current.platform!==agent.platform)throw new Error('Le poste n’est plus disponible pour cette désinstallation.');
       const command=WolfGuardUninstallCommand.command(current.platform,location.href);
       if(command.length>8000)throw new Error('Commande de désinstallation trop volumineuse.');
-      session=await request('remote/start',{agentId:agent.id,mode:'terminal'});
+      session=await request('remote/start',{agentId:agent.id,mode:'terminal'});change('preparing','En attente de l’accord de l’utilisateur sur le poste…');
       let ready=false;
-      for(let attempt=0;attempt<60;attempt++){
+      for(let attempt=0;attempt<100;attempt++){
         const remote=await request('remote/session?id='+session.id);
         if(remote.status==='active'){ready=true;break;}
         if(!['requested','preparing'].includes(remote.status))throw new Error(remote.message||'Le poste n’a pas accepté la connexion.');

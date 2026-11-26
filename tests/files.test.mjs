@@ -34,9 +34,9 @@ test('authenticated file session relays encrypted bytes to the real agent and re
   try{
     await s.initialize();const owner=await s.login('cantin.bruno@gmx.fr','09876543'),ticket=await(await s.api('agents/pair',{},owner.token)).json(),agent=await(await s.api('agent/enroll',{code:ticket.code,name:'Transferts test',platform:'win32'})).json();
     const agentAPI=async(route,data)=>{const response=await s.api('agent/'+route,data,null,{Authorization:'Agent '+agent.token});assert.equal(response.status,200,await response.clone().text());return response.json();};
-    await agentAPI('poll',{capabilities:['remote-files-v1']});
+    await agentAPI('poll',{capabilities:['remote-consent-v1','remote-files-v1']});
     const started=await s.api('remote/start',{agentId:agent.id,mode:'files'},owner.token);assert.equal(started.status,201);const session=await started.json(),claim=(await agentAPI('poll',{})).remote;
-    assert.equal(claim.mode,'files');work=executeFileSession({post:agentAPI},claim,{signal:controller.signal,intervalMs:1,accessFactory:()=>createFileAccess({root})});
+    assert.equal(claim.mode,'files');await agentAPI('remote/consent',{id:claim.id,lease:claim.lease,status:'accepted'});work=executeFileSession({post:agentAPI},claim,{signal:controller.signal,intervalMs:1,accessFactory:()=>createFileAccess({root})});
     for(let i=0;i<100;i++){const view=await(await s.api('remote/session?id='+session.id,undefined,owner.token)).json();if(view.status==='active')break;await delay(2);}
     const command=async spec=>{
       const response=await s.api('remote/files/command',{id:session.id,command:spec},owner.token);assert.equal(response.status,201,await response.clone().text());const {seq}=await response.json();

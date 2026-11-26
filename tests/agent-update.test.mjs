@@ -47,7 +47,7 @@ function updateFixture({lock=false,revoke=false,confirm=false,rights=true}={}){
   const fixture=vm.createContext({URL,AbortSignal,state,WolfGuardCloud:cloud,Date:class extends Date{static now(){return clock;}},location:{href:'https://example.invalid/'},setTimeout:callback=>{queueMicrotask(callback);return 0;},fetch:async()=>({ok:true,json:async()=>release})});
   vm.runInContext(updateCommands,fixture);
   vm.runInContext(readFileSync(new URL('../app/js/agent-updates.js',import.meta.url),'utf8'),fixture);
-  return {fixture,calls,advance:ms=>{clock+=ms;},agent:{id:'a'.repeat(32),platform:'win32',online:true,version:'0'.repeat(64),capabilities:['remote-terminal-v1']}};
+  return {fixture,calls,advance:ms=>{clock+=ms;},agent:{id:'a'.repeat(32),platform:'win32',online:true,version:'0'.repeat(64),capabilities:['remote-consent-v1','remote-terminal-v1']}};
 }
 
 test('installer readiness is not success until that same agent reports the published version',async()=>{
@@ -80,7 +80,7 @@ test('legacy agents upgrade automatically once, with retries bounded after failu
 
 test('automatic bootstrap skips current, autonomous, offline and unsupported agents; reconnect triggers it',async()=>{
   const {fixture,calls,agent}=updateFixture({confirm:true});
-  for(const change of [{version:release.version},{online:false},{local:true},{platform:'unsupported'},{capabilities:[]},{capabilities:['remote-terminal-v1','auto-update-v1']}]){
+  for(const change of [{version:release.version},{online:false},{local:true},{platform:'unsupported'},{capabilities:[]},{capabilities:['remote-consent-v1','remote-terminal-v1','auto-update-v1']}]){
     await fixture.WolfGuardAgentUpdates.automatic([{...agent,...change}]);
   }
   assert.equal(calls.length,0);

@@ -57,6 +57,7 @@ def run():
                     route.fulfill(json=result(job));return
                 route.fallback()
             context.route(API+'/api/scans**',scans)
+            context.route(API+'/api/agents',lambda route:route.fulfill(json={'agents':[{'id':'a'*32,'name':'Poste Nord','platform':'win32','online':True,'capabilities':[]}]}))
             page=context.new_page();errors=[];downloads=[]
             page.on('pageerror',lambda error:errors.append(str(error)));page.on('download',lambda download:downloads.append(download))
             page.goto(origin+'/?sync-test');expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
@@ -65,9 +66,15 @@ def run():
               const result=await c.create({version:2,items:[],folders:[],settings:[{key:'scan-web-passive-reports-v1',value:{version:1,reports:[report]}}],activity:[]},'07942685');await s.write(result.envelope,0)}""",archive)
             page.goto(origin+'/?sync-test&history-test#activate='+('b'*64));expect(page.locator('#keypad button').first).to_be_enabled(timeout=15000)
             page.keyboard.type('07942685');expect(page.locator('#app')).to_be_visible(timeout=30000);page.wait_for_function('()=>!document.querySelector("#app").inert')
-            open_security(page);open_security_tool(page,'scan-passive');page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();expect(page.locator('.scan-history-item')).to_have_count(15);page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))")
+            def open_history():
+                open_security(page)
+                page.locator('[data-fleet-agent="'+('a'*32)+'"]').click()
+                page.locator('[data-record-tab=history]').click()
+            open_history()
+            expect(page.locator('#agentsReports,#wgScanHistory,[data-history-open]')).to_have_count(0)
             expect(page.locator('#wgHistoryExportAll')).to_be_enabled(timeout=15000)
-            expect(page.locator('#wgHistoryCount')).to_contain_text('56')
+            expect(page.locator('#wgHistoryCount')).to_contain_text('55')
+            assert all(query.get('agentId')==['a'*32] for query in history_requests)
             assert len(history_requests)>=2 and any('beforeAt' in query for query in history_requests)
             expect(page.locator('.scan-history-item')).to_have_count(20)
             expect(page.locator('#wgHistoryPages')).to_contain_text('Page 1 sur 3')
@@ -80,11 +87,10 @@ def run():
             page.locator('#wgHistoryReset').click()
             expect(page.locator('#wgHistorySearch')).to_be_focused()
             page.locator('#wgHistoryFrom').fill('2026-10-01');page.locator('#wgHistoryTo').fill('2026-10-01')
-            expect(page.locator('.scan-history-item')).to_have_count(1)
-            expect(page.locator('.scan-history-copy p')).to_have_text('192.168.1.1')
+            expect(page.locator('.scan-history-item')).to_have_count(0)
             page.locator('#wgHistoryReset').click()
             page.locator('#wgHistorySort').select_option('oldest')
-            expect(page.locator('.scan-history-copy p').first).to_have_text('192.168.1.1')
+            expect(page.locator('.scan-history-copy p').first).to_have_text('192.168.20.55')
             page.locator('#wgHistorySort').select_option('recent')
             expect(page.locator('.scan-history-copy p').first).to_have_text('192.168.20.1')
             page.locator('#wgHistorySearch').fill('vulnerabilites')
@@ -99,29 +105,31 @@ def run():
             with page.expect_download(timeout=30000) as downloaded:page.locator('#wgHistoryExportAll').click()
             assert downloaded.value.suggested_filename.endswith('.zip')
             with zipfile.ZipFile(downloaded.value.path()) as bundle:
-                assert len(bundle.namelist())==56 and bundle.testzip() is None
+                assert len(bundle.namelist())==55 and bundle.testzip() is None
                 assert all(name.endswith('.pdf') for name in bundle.namelist())
                 reports=[pdf_text(bundle.read(name)) for name in bundle.namelist()]
                 assert all('WolfGuard' in report and 'Synthèse' in report for report in reports)
-                assert any('Relevé sauvegardé avant historique' in report for report in reports)
+                assert not any('Relevé sauvegardé avant historique' in report for report in reports)
                 assert any('Agent indisponible' in report and 'Aucune observation' in report for report in reports)
                 assert any('Activer la protection' in report for report in reports)
                 assert any('<img src=x' in report for report in reports)  # Literal report data, never executable markup.
-            print('PASS: all 56 scans load across server pages, all four kinds and legacy archives export as valid complete ZIP archives containing real PDF reports')
+            print('PASS: all 55 workstation scans load across server pages and all four kinds export as valid complete ZIP archives containing real PDF reports')
             assert page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value.reports[0]")==archive
             for width in [1440,900,640,390,320]:
                 page.set_viewport_size({'width':width,'height':1000 if width>640 else 844})
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
-                assert page.locator('.wgscan').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
-                assert page.locator('#wgScanHistory').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
+                assert page.locator('#agentRecord-history').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
+                assert page.locator('[data-agent-history]').evaluate('el=>el.scrollWidth<=el.clientWidth+1'),width
+                assert page.locator('#wgHistoryExportAll').bounding_box()['height']<=64,width
+                assert page.locator('#wgHistoryExportAll svg').bounding_box()['width']<=24,width
                 if width in [1440,390]:page.screenshot(path=str(ROOT/f'.cache/history-settings-{width}.png'),animations='disabled')
-            page.locator('#agentToolClose').click();page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
-            open_security(page);open_security_tool(page,'scan-passive');page.wait_for_function('()=>!sectionTransition.active');page.locator('#wgScanShowHistory').click();page.evaluate("webScanHistory.mount(document.querySelector('#wgScanHistory'))");expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
+            page.locator('#agentDetailsClose').click();page.locator('.workspace-section-button[data-section=tools]').click();page.wait_for_function('()=>!sectionTransition.active');expect(page.locator('#wgHistoryList')).to_have_count(0)
+            open_history();expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             state['fail_history']=True;page.locator('#wgHistoryRefresh').click()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique incomplet')
             expect(page.locator('#wgHistoryExportAll')).to_be_disabled()
             expect(page.locator('.scan-history-item')).to_have_count(20)
-            expect(page.locator('#wgHistoryCount')).to_contain_text('56')
+            expect(page.locator('#wgHistoryCount')).to_contain_text('55')
             state['fail_history']=False;page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryExportAll')).to_be_enabled()
             page.locator('#wgHistorySearch').fill('192.168.20.1');state['fail_result']=True
             page.locator('[data-history-export]').first.click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Export impossible')
@@ -165,33 +173,22 @@ def run():
             page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryExportAll')).to_be_disabled()
             expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
             expect(page.locator('.scan-history-item')).to_have_count(0)
-            expect(page.locator('#wgHistoryCount')).to_contain_text('55')
-            # Two archives in the same setting keep correct identities after the first is removed.
-            page.evaluate("""async archive=>{await put('settings',{key:'scan-web-passive-reports-v1',value:{version:1,reports:[archive,{...archive,name:'Autre archive',target:'192.168.1.2'}]}})}""",archive)
-            page.locator('#wgHistorySearch').fill('192.168.1.')
-            page.locator('#wgHistoryRefresh').click();expect(page.locator('[data-history-delete]')).to_have_count(2)
-            expect(page.locator('[data-history-delete]').first).to_be_enabled()
-            for count in [1,0]:
-                page.locator('[data-history-delete]').first.click();page.locator('.app-dialog-submit').click()
-                expect(page.locator('#wgHistoryStatus')).to_contain_text('Scan supprimé')
-                expect(page.locator('.scan-history-item')).to_have_count(count)
-            assert page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value.reports")==[]
-            page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
-            expect(page.locator('.scan-history-item')).to_have_count(0)
+            expect(page.locator('#wgHistoryCount')).to_contain_text('54')
+            assert page.evaluate("async()=>(await get('settings','scan-web-passive-reports-v1')).value.reports[0]")==archive
             # Running jobs can be exported but cannot be deleted.
             jobs[0]['status']='running';page.locator('#wgHistorySearch').fill('192.168.20.1')
             page.locator('#wgHistoryRefresh').click();expect(page.locator('#wgHistoryStatus')).to_contain_text('Historique à jour')
             expect(page.locator('[data-history-delete]').first).to_be_disabled()
-            print('PASS: row deletion confirms, cancels, preserves reports on failure, persists after refresh, reindexes local archives and protects running scans')
+            print('PASS: row deletion confirms, cancels, preserves reports on failure, persists after refresh, preserves unassigned legacy archives and protects running scans')
             page.locator('#wgHistorySearch').fill('192.168.20.55');state['hold']=True
             with page.expect_request(lambda request:'/scans/result?' in request.url):page.locator('[data-history-export]').click()
             page.evaluate('lockApplication()');expect(page.locator('#lock')).to_be_visible()
             for route,data in pending:route.fulfill(json=data)
             page.wait_for_timeout(150)
             assert len(downloads)==before
-            expect(page.locator('#wgScanHistory')).to_have_count(0)
+            expect(page.locator('[data-agent-history]')).to_have_count(0)
             assert not errors,errors
-            print('PASS: accent-insensitive search, state/date filters, sort, keyboard pagination, 320px layout, refresh preserves 56 reports on outage, and explicit cancel/lock abort exports without downloads')
+            print('PASS: accent-insensitive search, state/date filters, sort, keyboard pagination, 320px layout, refresh preserves workstation reports on outage, and explicit cancel/lock abort exports without downloads')
             browser.close()
     finally:
         backend_process.terminate();backend_process.wait(timeout=10);server.shutdown();server.server_close()

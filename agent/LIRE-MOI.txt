@@ -60,7 +60,9 @@ Le terminal necessite cette nouvelle version de l agent.
 PRISE EN MAIN DU BUREAU
 Dans WolfGuard, ouvre Prise en main puis Demander la connexion.
 Le poste utilise toujours l agent choisi dans Agents.
-Sous Windows, un poste deja associe se connecte sans confirmation locale.
+Bureau, Terminal et Fichiers demandent chacun un accord par popup sur le poste.
+Clique sur Autoriser cette session pour donner cet acces. Refuser, fermer la
+popup ou ne pas repondre pendant une minute bloque toute connexion distante.
 Sous Linux et macOS, les autorisations du bureau peuvent etre necessaires.
 Un bouton local permet de terminer le partage ; Arreter l agent le termine aussi.
 La session expire apres 20 minutes, a la fermeture de la rubrique ou si la liaison est perdue.

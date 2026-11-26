@@ -233,6 +233,11 @@ test('global history paginates all scan kinds across agents and retains encrypte
       const report={strategy:spec.strategy,workspace,target:spec.target,results:[{address:'127.0.0.1',transport:workspace==='vulnerability'?'AUDIT':'ARP',checkId:workspace==='vulnerability'?'firewall':undefined,status:workspace==='vulnerability'?'passed':'observed'}],warnings:[]};
       const updated=await s.api('agent/update',{id,lease:job.lease,revision:job.revision+1,status:'completed',completed:1,total:1,report},agent.auth);assert.equal(updated.status,200);
     }
+    for(const agent of [a,b]){
+      const history=await(await s.api('scans?history=1&agentId='+agent.id,undefined,s.user)).json();
+      assert.equal(history.jobs.length,32);assert.equal(history.next,null);assert.ok(history.jobs.every(job=>job.agentId===agent.id));
+    }
+    assert.equal((await s.api('scans?history=1&agentId=invalid',undefined,s.user)).status,400);
     await s.api('agents/revoke',{id:b.id},s.user);
     assert.equal((await s.api('scans?history=1')).status,401);
     assert.equal((await s.api('scans?history=1',undefined,a.auth)).status,401);

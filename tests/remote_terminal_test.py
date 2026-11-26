@@ -19,7 +19,7 @@ def run():
     node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
-    agent={'id':'a'*32,'name':'Poste terminal','platform':'win32','online':True,'capabilities':['auto-update-v1','remote-desktop-v1','remote-terminal-v1']}
+    agent={'id':'a'*32,'name':'Poste terminal','platform':'win32','online':True,'capabilities':['auto-update-v1','remote-consent-v1','remote-desktop-v1','remote-terminal-v1']}
     control={'status':'requested','commands':[],'id':'1'*32,'sequence':0};started=[];stopped=[];cancelled=[]
     def route_api(route):
         path=urlsplit(route.request.url).path
@@ -65,7 +65,7 @@ def run():
             page.locator('#wgTerminalCommand').press('ArrowUp');expect(page.locator('#wgTerminalCommand')).to_have_value(control['commands'][0]['command'])
             page.locator('#wgRemoteDisconnect').click();expect(page.locator('#wgRemoteSession')).to_be_hidden();assert len(stopped)==1
             page.locator('#agentToolClose').click()
-            agent['capabilities']=['auto-update-v1','remote-desktop-v1'];page.locator('#agentsRefresh').click()
+            agent['capabilities']=['auto-update-v1','remote-consent-v1','remote-desktop-v1'];page.locator('#agentsRefresh').click()
             page.locator('[data-fleet-agent]').click(button='right');page.locator('[data-fleet-action=tools]').click()
             expect(page.locator('[data-fleet-action=terminal]')).to_be_disabled()
             page.locator('[data-fleet-action=desktop]').click();expect(page.locator('#wgRemoteConnect')).to_be_enabled()

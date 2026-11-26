@@ -28,13 +28,15 @@ L’enregistrement partagé envoie directement la copie chiffrée avec la versio
 
 ## Scans et cartographie
 
-Les quatre scans conservent leurs cibles, réglages, filtres, résultats et références de comparaison séparément pendant la session. Le poste choisi peut être commun. L’état occupé appartient au poste ; arrêter une rubrique ne doit pas arrêter arbitrairement une autre opération.
+Les quatre scans conservent leurs cibles et réglages séparément pendant la session. Les écrans servent uniquement au lancement, à la progression et à l’arrêt ; aucune prévisualisation du rapport ni export direct ne s’y affiche. Le poste choisi peut être commun. L’état occupé appartient au poste ; arrêter une rubrique ne doit pas arrêter arbitrairement une autre opération.
 
 La cartographie représente des observations réseau, pas un schéma de câblage. Les noms doivent venir des observations DNS, les hôtes de réponses effectives, les sauts de parcours d’une réponse réelle de traçage. Ne pas inventer un nom, un saut ou une liaison physique.
 
 Le travail local sur la cartographie prévoit jusqu’à 2 048 adresses par relevé, avec priorité aux passerelles et voisins connus et indication des grands réseaux partiellement explorés. Des changements de scans peuvent rester en attente dans Git : vérifier le diff et les tests avant d’annoncer leur disponibilité en production.
 
 ## Rapports et CERT-FR
+
+Les rapports PDF se téléchargent uniquement dans la fiche du poste, onglet Historique. Cet historique couvre les quatre types de scan, filtre côté serveur par identifiant de poste, propose recherche, dates, état, pagination, PDF individuel et ZIP de PDF. Le bouton global « Rapports des scans », les historiques par outil et les boutons « Ouvrir » sont retirés. Les archives locales sans identifiant de poste restent stockées, sans attribution arbitraire à une machine. La fermeture ou le changement de poste annule les téléchargements en préparation.
 
 Les rapports rapprochent les produits et versions observés des catalogues publics officiels CERT-FR. Le serveur ne transmet pas les IP ou noms de postes pour cette consultation. Les résultats distinguent correspondance de version, applicabilité à vérifier, produit non identifiable et absence de résultat.
 
@@ -44,7 +46,7 @@ Les versions rétroportées, avis multi-produits, échecs réseau et limites de 
 
 Les rubriques Protection, Quarantaine et Journal de la fiche regroupent WolfGuard Antivirus avec ClamAV, la politique, les fichiers isolés et les événements. La page EDR séparée et le lien « Gérer dans EDR » sont supprimés. Les anciens accès ouvrent directement Protection dans la fiche. Il sépare protection active, état ancien, erreur de collecte et action confirmée. Les actions de protection nécessitent les droits correspondants. La [couverture antivirus actuelle](antivirus.md) reste réactive et limitée aux dossiers indiqués.
 
-Bureau, terminal et fichiers sont des modes distincts, contrôlés côté API. Un agent associé peut accepter une prise en main sans confirmation locale ; l’association et les droits sont donc déterminants. Les transferts sont limités au périmètre accepté par l’agent et ne doivent pas écraser silencieusement des fichiers.
+Bureau, terminal et fichiers sont des modes distincts, contrôlés côté API. Chaque nouvelle session exige une popup sur le poste distant, avec « Autoriser cette session » et « Refuser ». Aucun accès ne démarre sans accord explicite, y compris pour le terminal et les fichiers. Après une minute sans réponse, en cas de fermeture, de refus ou de popup indisponible, la demande est refusée. L’API bloque les actions avant cet accord et refuse les agents trop anciens ; les permissions et l’association restent nécessaires. Les transferts sont limités au périmètre accepté par l’agent et ne doivent pas écraser silencieusement des fichiers.
 
 ## Installation et mise à jour
 

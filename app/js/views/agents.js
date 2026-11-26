@@ -12,7 +12,7 @@ const agentsWorkspace = (() => {
     {id:'terminal', section:'remote', mode:'terminal', label:'Terminal', description:'Ouvrir un terminal sur ce poste.', capability:'remote-terminal-v1'},
     {id:'files', section:'remote', mode:'files', label:'Fichiers', description:'Parcourir et transférer les fichiers du poste.', capability:'remote-files-v1'}
   ];
-  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current?.dismissDetails(); current?.dismissTool(); current?.dismissReports(); current = null; }
+  function reset() { generation++; clearTimeout(timer); controller?.abort(); current?.closeMenu(); current?.dismissDetails(); current?.dismissTool();  current = null; }
   async function render() {
     if (current?.root.isConnected && current.key === state.vaultKey) return current.renderTool();
     reset();
@@ -42,7 +42,7 @@ const agentsWorkspace = (() => {
     mobileTable.addEventListener('change',tableKeyboard,{signal});
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE</span><h1>Sécurité des postes</h1></div></div>
-      <div class="agents-heading-actions"><button type="button" id="agentsReports">${settingsIcon('history')}Rapports des scans</button><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
     </header>
     <div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
     <div class="agents-console">
@@ -68,14 +68,6 @@ const agentsWorkspace = (() => {
         <dialog id="agentToolPanel" class="agents-tool-panel" aria-labelledby="agentToolTitle" aria-describedby="agentToolTarget" hidden><header class="agents-tool-heading"><div><span class="agents-eyebrow" id="agentToolTarget"></span><h2 id="agentToolTitle"></h2></div><button type="button" id="agentToolClose" autofocus>${settingsIcon('x')}Retour aux postes</button></header><div id="agentToolHost"></div></dialog>
       </div>
     </div><dialog id="agentDetailsPanel" class="agents-tool-panel agent-details-panel" aria-labelledby="agentDetailsTitle" aria-describedby="agentDetailsTarget" hidden><header class="agents-tool-heading agent-record-heading"><span class="agent-record-heading-icon" aria-hidden="true">${settingsIcon('monitor')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE / FICHE DU POSTE</span><span class="agents-visually-hidden" id="agentDetailsTarget"></span><h2 id="agentDetailsTitle"></h2></div><div class="agent-record-heading-actions"><button type="button" id="agentDetailsRefresh">${settingsIcon('refresh-cw')}<span>Actualiser</span></button><button type="button" id="agentDetailsClose" autofocus>${settingsIcon('x')}<span>Retour aux postes</span></button></div></header><div id="agentDetailsBody" class="agent-details-body"></div></dialog>`;
-    const reports=document.createElement('dialog');reports.className='agents-tool-panel agents-reports-panel';reports.id='agentsReportsPanel';reports.setAttribute('aria-labelledby','agentsReportsTitle');
-    reports.innerHTML='<header class="agents-tool-heading"><h2 id="agentsReportsTitle">Rapports de tous les postes</h2><button type="button" id="agentsReportsClose">Fermer</button></header><div id="agentsReportsHost"></div>';
-    root.append(reports);
-    function dismissReports(){if(reports.open){reports.close();webScanHistory.unmount();}}
-    find('#agentsReports').onclick=()=>{reports.showModal();webScanHistory.mount(find('#agentsReportsHost'));};
-    find('#agentsReportsClose').onclick=dismissReports;
-    reports.addEventListener('close',()=>webScanHistory.unmount(),{signal});
-    reports.addEventListener('keydown',event=>event.stopPropagation(),{signal});
     find('#agentsManage').hidden = !can('agents.pair');
     find('#agentsUninstall').hidden = !can('agents.revoke');
     find('#agentsUninstall').onclick = () => openAgentRemovalInterface();
@@ -101,14 +93,14 @@ const agentsWorkspace = (() => {
     }
     function updateInfo(agent) {
       const task = WolfGuardAgentUpdates.state(agent.id), current = !stale && !releaseStale && !!publishedRelease && agent.version === publishedRelease.version;
-      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write',agent) || !can('remote.terminal',agent) ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : !agent.capabilities?.includes('remote-terminal-v1') ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
+      const reason = stale ? 'Connexion au service à vérifier' : !can('agents.write',agent) || !can('remote.terminal',agent) ? 'Droits Agents et Prise en main en écriture nécessaires' : !publishedRelease || releaseStale ? 'Version publiée indisponible' : !agent.online ? 'Le poste doit être connecté' : (!agent.capabilities?.includes('remote-consent-v1')||!agent.capabilities?.includes('remote-terminal-v1')) ? 'Installer une première fois un agent récent sur ce poste' : !['win32','linux','darwin'].includes(agent.platform) ? 'Système non pris en charge' : '';
       return {task,current,reason,canUpdate:!reason && !current && !task?.running, outdated:!!publishedRelease && !releaseStale && !stale && !!agent.version && agent.version!==publishedRelease.version};
     }
     function updateHTML(agent,{record=false}={}) {
       const info = updateInfo(agent);
       const label = info.task?.running ? 'Mise à jour…' : info.current ? 'À jour' : 'Mettre à jour';
       const message = info.task?.running || info.task?.status === 'failed' && !info.current ? info.task.message : info.current ? 'Version confirmée par le poste' : info.reason || 'Mise à jour automatique dès que le poste est disponible';
-      const manual = agent.online && !agent.capabilities?.includes('remote-terminal-v1') && ['win32','linux','darwin'].includes(agent.platform);
+      const manual = agent.online && (!agent.capabilities?.includes('remote-consent-v1')||!agent.capabilities?.includes('remote-terminal-v1')) && ['win32','linux','darwin'].includes(agent.platform);
       const file = {win32:'WolfGuard-Agent-Windows.exe',linux:'WolfGuard-Agent-Linux.zip',darwin:'WolfGuard-Agent-macOS.zip'}[agent.platform];
       const control=manual ? '<a class="agents-update-button" href="downloads/' + file + '" download title="Télécharger l’agent récent à installer sur ce poste">Installer</a>' : '<button type="button" class="agents-update-button" data-agent-install-update="' + esc(agent.id) + '" data-current="' + info.current + '" ' + (!info.canUpdate ? 'disabled' : '') + ' title="' + esc(message) + '">' + label + '</button>';
       const feedback='<small class="agents-update-status" data-agent-update-status="' + esc(agent.id) + '" data-state="' + (info.current ? 'completed' : info.task?.status || 'idle') + '" title="' + esc(message) + '" role="status">' + esc(message) + '</small>';
@@ -154,6 +146,7 @@ const agentsWorkspace = (() => {
       if (!action.offline && !agent.online) return 'Le poste doit être connecté';
       if (agent.local && !['active','passive'].includes(action.id)) return 'Associe un agent pour utiliser cet outil';
       const capabilities = Array.isArray(action.capability) ? action.capability : [action.capability];
+      if(action.mode&&!agent.capabilities?.includes('remote-consent-v1'))return 'Mise à jour nécessaire pour demander l’accord sur le poste';
       if (!capabilities.some(value => agent.capabilities?.includes(value))) return 'Mise à jour de l’agent nécessaire';
       return '';
     }
@@ -474,7 +467,7 @@ const agentsWorkspace = (() => {
     }
     function dismissDetails(restore = false) {
       const id = detailAgentId, panel = find('#agentDetailsPanel');
-      journal.close();protectionControls.close();detailAgentId = null; detailHTML = '';
+      journal.close();protectionControls.close();webScanHistory.unmount();historyAgent=null;detailAgentId = null; detailHTML = '';
       if (panel.open) panel.close();
       panel.hidden = true; find('#agentDetailsBody').replaceChildren();
       if (restore && live()) (find('[data-fleet-agent="' + CSS.escape(id || '') + '"]') || find('#agentsSearch')).focus({preventScroll:true});
@@ -496,8 +489,15 @@ const agentsWorkspace = (() => {
       detailTab=id;
       for(const button of find('#agentDetailsBody').querySelectorAll('[data-record-tab]')){const active=button.dataset.recordTab===id;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;if(active&&focus)button.focus({preventScroll:true});}
       for(const panel of find('#agentDetailsBody').querySelectorAll('[role="tabpanel"]'))panel.hidden=panel.id!=='agentRecord-'+id;
-      syncJournal();syncProtection();
+      syncJournal();syncProtection();syncHistory();
     }
+    let historyAgent=null;
+    function syncHistory(){
+      const host=find('[data-agent-history]');
+      if(detailTab==='history'&&detailAgentId&&host){if(historyAgent!==detailAgentId||!host.hasChildNodes()){webScanHistory.mount(host,{agentId:detailAgentId});host.dataset.mounted='true';historyAgent=detailAgentId;}}
+      else if(historyAgent){webScanHistory.unmount();historyAgent=null;}
+    }
+    async function openHistory(id){dismissTool();if(await openDetails(id,'history'))selectRecordTab('history',true);}
     function syncProtection(){
       const agent=agents.find(row=>row.id===detailAgentId);
       if(agent&&!agent.local&&can('edr.read',agent)&&workspaceModules.allows('edr')&&['protection','quarantine'].includes(detailTab))protectionControls.show(find(detailTab==='quarantine'?'[data-agent-quarantine]':'[data-agent-protection]'),{agent,endpoint:protections.get(agent.id),stale:stale||protectionStale},detailTab);else protectionControls.hide();
@@ -530,7 +530,7 @@ const agentsWorkspace = (() => {
       const detailsOpen = find('#agentDetailsTechnical')?.open, policyOpen = find('#agentDetailsPolicy')?.open;
       find('#agentDetailsTarget').textContent = agent.name;
       find('#agentDetailsTitle').textContent = agent.name;
-      const tabs=[['overview','Vue d’ensemble','layout-dashboard'],['tools','Outils','wrench'],['details','Détails','sliders-horizontal']];
+      const tabs=[['overview','Vue d’ensemble','layout-dashboard'],['history','Historique','history'],['tools','Outils','wrench'],['details','Détails','sliders-horizontal']];
       if(edrAllowed&&!agent.local)tabs.splice(1,0,['protection','Protection','shield-check'],['quarantine','Quarantaine','lock'],['journal','Journal','list']);else protectionControls.close();
       if(!tabs.some(([id])=>id===detailTab)){detailTab='overview';journal.close();}
       const panel=name=>'id="agentRecord-'+name+'" role="tabpanel" aria-labelledby="agentRecordTab-'+name+'" '+(detailTab===name?'':'hidden');
@@ -584,6 +584,7 @@ const agentsWorkspace = (() => {
             ${(snapshot?.warnings||[]).map(message=>'<p class="agent-record-notice">'+esc(message)+'</p>').join('')}
           </section>
           ${edrAllowed&&!agent.local?'<section '+panel('protection')+'><div class="agent-record-page-heading"><h3>Protection du poste</h3></div><div data-agent-protection></div></section><section '+panel('quarantine')+'><div class="agent-record-page-heading"><h3>Quarantaine</h3></div><div data-agent-quarantine></div></section><section '+panel('journal')+'><div class="agent-record-page-heading"><h3>Journal de l’agent</h3></div><div data-agent-journal></div></section>':''}
+          <section ${panel('history')}><div data-agent-history></div></section>
           <section ${panel('tools')} class="agent-record-tools">
             <div class="agent-record-page-heading"><h3>Outils et diagnostics</h3></div>
             <section class="agent-record-card">${sectionHeading('monitor','Accès à distance')}<div class="agent-details-actions">${actions.filter(a=>a.mode).map(tool).join('')}</div></section>
@@ -606,12 +607,12 @@ const agentsWorkspace = (() => {
         </div>
       </div>`;
       if (html !== detailHTML) {
-        const preserved=[find('[data-agent-protection]'),find('[data-agent-quarantine]')].filter(Boolean);
+        const preserved=[find('[data-agent-protection]'),find('[data-agent-quarantine]'),find('[data-agent-history]')].filter(Boolean);
         const activeProtection=document.activeElement?.dataset.protectionField||document.activeElement?.dataset.protectionAction;
         const scrollTop=find('.agent-record-content')?.scrollTop||0;
         const focused = document.activeElement, action = focused?.dataset.detailAction, update = focused?.dataset.agentInstallUpdate, tab = focused?.dataset.recordTab, log = focused?.hasAttribute('data-record-journal'), revoke = focused?.dataset.recordRevoke, disclosure = focused?.tagName==='SUMMARY'&&focused.parentElement?.id;
         find('#agentDetailsBody').innerHTML = html; detailHTML = html;
-        for(const node of preserved){const selector=node.hasAttribute('data-agent-protection')?'[data-agent-protection]':'[data-agent-quarantine]';find(selector)?.replaceWith(node);}
+        for(const node of preserved){const selector=node.hasAttribute('data-agent-protection')?'[data-agent-protection]':node.hasAttribute('data-agent-quarantine')?'[data-agent-quarantine]':'[data-agent-history]';find(selector)?.replaceWith(node);}
         if(activeProtection)find('[data-protection-field="'+CSS.escape(activeProtection)+'"],[data-protection-action="'+CSS.escape(activeProtection)+'"]')?.focus({preventScroll:true});
         find('.agent-record-content').scrollTop=scrollTop;
         if (action) (find('[data-detail-action="' + CSS.escape(action) + '"]:not(:disabled)') || find('#agentDetailsClose')).focus({preventScroll:true});
@@ -620,7 +621,7 @@ const agentsWorkspace = (() => {
         else if(tab)find('[data-record-tab="'+CSS.escape(tab)+'"]')?.focus({preventScroll:true});
         else if(disclosure)find('#'+CSS.escape(disclosure)+' summary')?.focus({preventScroll:true});
       }
-      syncJournal();syncProtection();
+      syncJournal();syncProtection();syncHistory();
     }
     async function refresh() {
       if (!live() || busy || selecting || revoking || bulkBusy || groupsBusy || dragged.length) return;
@@ -870,12 +871,12 @@ const agentsWorkspace = (() => {
     find('#agentToolPanel').addEventListener('cancel', event => { event.preventDefault(); closeTool(); }, {signal});
     find('#agentToolPanel').addEventListener('keydown', event => event.stopPropagation(), {signal});
     groups.load().then(()=>{if(live()){groupsReady=true;draw();}}).catch(error=>{if(live())find('#agentsStatus').textContent='Sections indisponibles : '+error.message;});
-    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails, dismissReports,beforeLeave:protectionControls.beforeLeave};
+    current = {root, key, renderTool, closeMenu, dismissTool, dismissDetails,openHistory,beforeLeave:protectionControls.beforeLeave};
     // The fleet shell is usable immediately. Its server refresh must not hold
     // the shared navigation queue or prevent leaving the Security section.
     if(state.section==='security'){refresh().catch(console.error);return;}
     await refresh();
     await renderTool();
   }
-  return {render, reset,beforeLeave:()=>current?.beforeLeave()??true};
+  return {render, reset,openHistory:id=>current?.openHistory(id),beforeLeave:()=>current?.beforeLeave()??true};
 })();

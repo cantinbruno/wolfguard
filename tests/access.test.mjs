@@ -119,9 +119,9 @@ test('disconnecting or blocking an owner closes desktop sharing and deletes its 
       const pair=await (await s.api('agents/pair',{},s.owner.token)).json();
       const agent=await (await s.api('agent/enroll',{code:pair.code,name:'Test',platform:'win32'})).json();
       const agentCall=(path,body)=>s.api('agent/'+path,body,null,'198.51.100.2',{Authorization:'Agent '+agent.token});
-      await agentCall('poll',{capabilities:['remote-desktop-v1']});
+      await agentCall('poll',{capabilities:['remote-consent-v1','remote-desktop-v1']});
       const session=await (await s.api('remote/start',{agentId:agent.id},viewer,'192.0.2.5')).json();
-      const claim=await (await agentCall('poll',{})).json();
+      const claim=await (await agentCall('poll',{})).json();await agentCall('remote/consent',{id:session.id,lease:claim.remote.lease,status:'accepted'});
       assert.equal((await agentCall('remote/exchange',{id:session.id,lease:claim.remote.lease,status:'active',ack:0,frame:{width:10,height:10,jpeg:'/9j/2Q=='}})).status,200);
       assert.equal(s.objects.size,1);
       const connection=(await s.list()).connections.find(row=>row.ip==='192.0.2.5');
