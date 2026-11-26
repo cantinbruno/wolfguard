@@ -71,6 +71,8 @@ Revue ciblée du code par l’IA de développement, sans audit indépendant ni t
 | En-tête `Retry-After` | Une réponse 401/429 non JSON pouvait faire échouer la réponse entière | Lecture tolérante, seul un entier positif est recopié |
 | Tests de prise en main | Quatre tests ne déclaraient pas l’accord distant obligatoire depuis le 26 novembre | Tests alignés sur `remote-consent-v1` et l’accord explicite |
 
+Compléments du même jour : intégration continue GitHub Actions sans la clé réelle du lien (voir [Publication](publication.md#intégration-continue)), avec `npm audit` des dépendances de production à chaque push ; suppression du gabarit d’interface inutilisé du serveur et de ses 19 dépendances npm, ce qui réduit la surface d’attaque de la chaîne d’approvisionnement.
+
 Résultat après corrections : 338/338 tests Node, `npm run test:security`, `tests/security_test.py`, `tests/access_workspace_test.py`, `tests/session_resume_test.py` et `tests/private_entry_test.py` réussis. Les changements de `server/` ne sont en production qu’après un déploiement Sites.
 
-Pistes non traitées, à arbitrer : `expire()` relit à chaque `agent/poll` les scans actifs et les droits de leurs auteurs (coût proportionnel au nombre de postes, mais nécessaire à la révocation immédiate) ; une intégration continue GitHub Actions demanderait un jeton Git avec le droit `workflow` et une configuration sans la clé privée du lien.
+Pistes non traitées, à arbitrer : `expire()` relit à chaque `agent/poll` les scans actifs et les droits de leurs auteurs (coût proportionnel au nombre de postes, mais nécessaire à la révocation immédiate) .

@@ -12,11 +12,11 @@ Mettre à jour le guide concerné après un changement de comportement. Reconstr
 
 # Publication du dépôt
 
-La synchronisation automatique du dossier est désactivée à la demande de l’utilisateur.
-Ne pas réactiver la tâche Windows `WolfGuard-Web-AutoPublish` ni lancer `scripts/watch-myapp.ps1`.
+La synchronisation automatique du dossier est désactivée à la demande de l’utilisateur ; ses scripts (`watch-myapp.ps1`, `sync-myapp.ps1`) ont été supprimés le 26 novembre 2026.
+Ne pas réactiver la tâche Windows `WolfGuard-Web-AutoPublish` ni recréer une surveillance du dossier.
 
 Après chaque changement terminé, effectuer les vérifications adaptées, créer un commit puis exécuter explicitement `git push origin main` depuis ce dépôt.
-Utiliser directement les commandes Git pour cette publication, sans passer par `scripts/sync-myapp.ps1`.
+Utiliser directement les commandes Git pour cette publication. GitHub Actions (`.github/workflows/ci.yml`) vérifie ensuite chaque push ; consulter son résultat avant d’annoncer une publication saine.
 
 # Nettoyage après chaque modification
 

@@ -31,7 +31,7 @@ Un dépôt sale n’est pas un motif pour abandonner. Utiliser si nécessaire un
 6. Depuis le dépôt principal, exécuter **`git push origin main`**. En cas d’échec, conserver le commit et annoncer que la publication reste à faire.
 7. Nettoyer seulement les fichiers temporaires devenus inutiles après intégration et publication.
 
-Cette séquence est le « push automatique » attendu en fin de tâche de l’IA. Elle ne réactive pas la surveillance du dossier. Ne pas lancer `scripts/watch-myapp.ps1` ou `scripts/sync-myapp.ps1`, ni la tâche Windows `WolfGuard-Web-AutoPublish`.
+Cette séquence est le « push automatique » attendu en fin de tâche de l’IA. Elle ne réactive pas la surveillance du dossier. Ne pas recréer de surveillance du dossier ni réactiver la tâche Windows `WolfGuard-Web-AutoPublish`. Après le push, l’intégration continue GitHub Actions relance la compilation et les tests ; voir [Publication](publication.md).
 
 Le push GitHub ne déploie pas l’API Sites. Une tâche sur le serveur exige aussi son déploiement distinct si l’objectif comprend la mise en production.
 

@@ -1,0 +1,111 @@
+// Single source for the repository test suites, used by npm scripts and CI.
+// Usage: node scripts/run-tests.mjs <suite>   (node scripts/run-tests.mjs --list)
+// Steps run in order and stop at the first failure, like the former "a && b" chains.
+import {spawnSync} from 'node:child_process';
+import {readdirSync} from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const tests=path.join(root,'tests');
+const python=process.env.PYTHON||'python';
+
+// Every Node test file, except agent-signing which must run alone: the
+// publication test temporarily alters the agent executable it watches.
+const allNode=()=>readdirSync(tests).filter(name=>name.endsWith('.test.mjs')&&name!=='agent-signing.test.mjs').sort();
+
+const suites={
+  'all': [
+    ['publication'],
+    ['node',['migration.test.mjs', 'cloud.test.mjs', 'phone.test.mjs', 'ai.test.mjs', 'browser-ai.test.mjs', 'access.test.mjs', 'users.test.mjs', 'permissions.test.mjs', 'shared-workspace.test.mjs', 'security.test.mjs', 'hardening.test.mjs', 'publication.test.mjs', 'server.test.mjs', 'organization.test.mjs', 'mail_cleanup.test.mjs', 'form_cleanup.test.mjs', 'memo-references.test.mjs', 'agent.test.mjs', 'topology.test.mjs', 'agent-update.test.mjs', 'scan-report.test.mjs', 'certfr.test.mjs', 'agent-posix.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'files.test.mjs', 'terminal.test.mjs', 'private-entry.test.mjs', 'report-integration.test.mjs', 'fleet-groups.test.mjs', 'antivirus.test.mjs', 'antivirus-api.test.mjs', 'antivirus-auto.test.mjs']],
+    ['python','private_entry_test.py'],
+    ['python','startup_render_test.py'],
+    ['python','session_resume_test.py'],
+    ['python','optimization_test.py'],
+    ['python','agent_window_test.py'],
+    ['python','remote_desktop_test.py'],
+    ['python','remote_terminal_test.py'],
+    ['python','remote_files_test.py'],
+    ['python','procedure_organization_test.py'],
+    ['python','keyboard_test.py'],
+    ['python','original_app_test.py'],
+    ['python','vault_workspace_test.py'],
+    ['python','animations_test.py'],
+    ['python','editor_layout_test.py'],
+    ['python','command_reader_test.py'],
+    ['python','memo_references_test.py'],
+    ['python','scan_workspace_test.py'],
+    ['python','scan_interfaces_test.py'],
+    ['python','scan_lifecycle_test.py'],
+    ['python','scan_report_test.py'],
+    ['python','certfr_workspace_test.py'],
+    ['python','scan_history_test.py'],
+    ['python','timeout_test.py'],
+    ['python','security_test.py'],
+    ['python','shared_workspace_test.py'],
+    ['python','multiuser_test.py'],
+    ['python','access_workspace_test.py'],
+    ['python','users_workspace_test.py'],
+    ['python','permissions_workspace_test.py'],
+    ['python','otp_workspace_test.py'],
+    ['python','mandatory_mfa_test.py'],
+    ['python','phone_workspace_test.py'],
+    ['python','agent_workspace_test.py'],
+    ['python','agent_updates_test.py'],
+    ['python','edr_workspace_test.py']
+  ],
+  'security': [
+    ['publication'],
+    ['node',['hardening.test.mjs', 'security.test.mjs', 'permissions.test.mjs', 'access.test.mjs', 'server.test.mjs', 'users.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'terminal.test.mjs', 'files.test.mjs']]
+  ],
+  'report': [
+    ['node',['report-integration.test.mjs', 'fleet-groups.test.mjs', 'fleet-group-access.test.mjs', 'access-groups.test.mjs', 'antivirus.test.mjs', 'antivirus-api.test.mjs', 'antivirus-auto.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'terminal.test.mjs', 'files.test.mjs']],
+    ['python','report_workspace_test.py'],
+    ['python','remote_desktop_test.py'],
+    ['python','remote_terminal_test.py'],
+    ['python','fleet_groups_test.py']
+  ],
+  'improvements': [
+    ['node',['threat-list.test.mjs', 'access.test.mjs', 'cloud.test.mjs', 'ad-groups.test.mjs']],
+    ['python','rapport_improvements_test.py'],
+    ['python','users_panes_test.py'],
+    ['python','ad_groups_workspace_test.py'],
+    ['python','access_workspace_test.py']
+  ],
+  'cloud': [
+    ['node',['cloud.test.mjs']]
+  ],
+  'agents-console': [
+    ['python','security_navigation_test.py'],
+    ['python','agents_console_test.py']
+  ],
+  // Every Node test, the signing check on its own, then headless browser
+  // checks of the private entry, sessions, access control and the CSP/SRI.
+  'ci': [
+    ['publication'],
+    ['node', allNode],
+    ['node', ['agent-signing.test.mjs']],
+    ['python','private_entry_test.py'],
+    ['python','security_test.py'],
+    ['python','session_resume_test.py'],
+    ['python','access_workspace_test.py']
+  ],
+  'node': [
+    ['node', allNode]
+  ]
+};
+
+const name=process.argv[2];
+if(!name||name==='--list'||!Object.hasOwn(suites,name)){
+  console.log('Suites : '+Object.keys(suites).join(', '));
+  process.exit(name&&name!=='--list'?1:0);
+}
+for(const [kind,value] of suites[name]){
+  const [command,args]=kind==='publication'?[process.execPath,[path.join('scripts','check-publication.mjs')]]
+    :kind==='node'?[process.execPath,['--test',...(typeof value==='function'?value():value).map(file=>path.join('tests',file))]]
+    :[python,[path.join('tests',value)]];
+  console.log('\n> '+[path.basename(command),...args].join(' '));
+  const result=spawnSync(command,args,{cwd:root,stdio:'inherit'});
+  if(result.status!==0){console.error('Échec : '+kind+' '+(typeof value==='string'?value:''));process.exit(result.status||1);}
+}
+console.log('\nSuite '+name+' réussie.');

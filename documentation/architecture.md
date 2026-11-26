@@ -117,4 +117,6 @@ Les 25 fiches de civilisations AoE IV et leurs ouvertures terrestres sont défin
 
 ## Arborescence conservée
 
-Les dossiers de code n’ont pas été renommés : le build, les imports, le packaging et les tests utilisent leurs chemins actuels. La documentation est rassemblée dans `documentation/`, avec des points d’entrée courts, et les sorties générées restent hors du contexte automatique de Continue.
+Les dossiers de code n’ont pas été renommés : GitHub Pages publie `main:/docs`, et le build, les imports, le packaging, les agents installés (mises à jour depuis `docs/downloads/`) et les tests utilisent leurs chemins actuels. Un renommage casserait le site public ou les agents déjà déployés sans bénéfice fonctionnel.
+
+Nettoyage du 26 novembre 2026 : retrait de sept catalogues de `app/js/data/` qui n’étaient plus chargés par aucune page (`command-basics*`, `coverage-catalog`, `fex-catalog`, `procedure-catalog*`, `protocol-catalog`), des scripts de surveillance et de synchronisation désactivés, d’outils visant un dossier d’anciennes versions disparu, d’une copie de `migrate-desktop.mjs` dans `server/scripts/`, et du gabarit d’interface du serveur (`components/`, `hooks/`, `examples/`, `components.json`, `lib/utils.ts`, `app/chatgpt-auth.ts`) avec ses dépendances npm. L’historique Git conserve ces fichiers. La documentation est rassemblée dans `documentation/`, avec des points d’entrée courts, et les sorties générées restent hors du contexte automatique de Continue.

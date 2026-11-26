@@ -31,9 +31,10 @@ flowchart LR
 | `browser/` | Liaison avec l’API, chiffrement Web Crypto, reprise d’onglet |
 | `server/` | API Worker, autorisations, stockage D1/R2, migrations |
 | `agent/` | Agent installé sur les postes : scans, protection, bureau, terminal, fichiers |
-| `scripts/` | Compilation du site, packaging des agents, contrôles de publication |
+| `scripts/` | Compilation du site, packaging des agents, contrôles de publication, suites de tests (`run-tests.mjs`) |
 | `tests/` | Tests Node (API, agents) et tests navigateur Playwright sans fenêtre |
 | `docs/` | Sortie de `npm run build` : ne jamais modifier à la main |
+| `.github/workflows/` | Intégration continue : compilation et tests à chaque push |
 
 ## Démarrage rapide
 
@@ -41,11 +42,11 @@ flowchart LR
 python -m pip install -r tests/requirements.txt
 python -m playwright install chromium
 npm run build          # exige la clé privée du lien, hors du dépôt
-node --test tests/*.test.mjs
+npm run test:node      # tous les tests Node, ~10 s
 npm run preview        # http://127.0.0.1:4173
 ```
 
-Le détail des contrôles par sujet est dans [Développement](developpement.md). La fin de chaque tâche (commit puis `git push origin main`) est décrite dans [Publication](publication.md).
+Le détail des contrôles par sujet est dans [Développement](developpement.md). La fin de chaque tâche (commit puis `git push origin main`) et l’intégration continue GitHub Actions sont décrites dans [Publication](publication.md).
 
 ## Parcours de reprise
 

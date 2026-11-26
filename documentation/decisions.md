@@ -11,7 +11,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Sujet | Décision |
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |
-| Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. Surveillance Windows désactivée. |
+| Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. GitHub Actions recompile et teste chaque push, sans la clé réelle du lien. Surveillance Windows désactivée et ses scripts supprimés. |
 | Documentation | Guides et consignes uniquement dans `documentation/`, sans README ni AGENTS.md à la racine et sans README dans `server/`. Les règles Continue renvoient directement aux consignes centralisées. |
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |
 | Sessions | 4 heures **d’inactivité**, pas 4 heures de durée totale. Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
@@ -29,6 +29,10 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Rapports | Uniquement en PDF dans l’Historique de la fiche du poste, sans prévisualisation, export direct ni historique global. |
 
 ## Historique des demandes
+
+### 26 novembre 2026 — Intégration continue et nettoyage
+
+Mettre en place une vérification automatique GitHub Actions à chaque push. Supprimer ce qui est inutile et restructurer librement, à condition de ne modifier aucune fonctionnalité. Seuls les fichiers prouvés inutilisés sont retirés (aucune référence, compilation, lint et tests verts) ; les dossiers publiés ou utilisés par les agents installés ne sont pas renommés. Voir [Architecture](architecture.md#arborescence-conservée).
 
 ### 26 novembre 2026 — Accord distant, rapports par poste et groupes
 

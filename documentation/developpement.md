@@ -26,13 +26,18 @@ Les tests utilisent `.cache/site-document.html` et les sorties de compilation. R
 
 ## Suites de tests
 
+Les listes de tests sont définies une seule fois dans `scripts/run-tests.mjs` ; les scripts npm l’appellent (`node scripts/run-tests.mjs --list` affiche les suites). Les étapes s’exécutent dans l’ordre et s’arrêtent au premier échec.
+
 | Commande | Contenu | Durée indicative |
 | --- | --- | --- |
-| `node --test tests/*.test.mjs` | Tous les tests Node : API sur D1 en mémoire, agents, permissions, publication | ~10 s |
+| `npm run test:node` | Tous les tests Node (sauf `agent-signing`, à lancer seul) : API sur D1 en mémoire, agents, permissions, publication | ~10 s |
+| `npm run test:ci` | Ce que lance GitHub Actions : publication, tous les tests Node, signature, tests navigateur clés | quelques minutes |
 | `npm run test:security` | Contrôle de publication et tests de sécurité Node | ~10 s |
 | `npm run test:report` | Rapports, groupes, antivirus, outils distants, tests navigateur associés | quelques minutes |
 | `npm test` | Suite étendue Node puis Python | longue |
 | `node --test tests/security.test.mjs` dans `server/` | Contrôles propres au Worker | ~1 s |
+
+Pour ajouter un test à une suite, modifier uniquement `scripts/run-tests.mjs`. Un nouveau fichier `tests/*.test.mjs` est inclus automatiquement dans `test:node` et `test:ci`.
 
 Les tests Python lancent Chromium **sans fenêtre** (`p.chromium.launch()`, mode headless par défaut) avec des profils temporaires et des comptes synthétiques.
 
@@ -62,6 +67,10 @@ Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de 
 - Comparer les chemins Windows sous leur forme canonique (`fs.realpath`) : l’agent renvoie la lettre de lecteur dans sa casse réelle (`C:`), alors que le terminal de VS Code peut démarrer en `c:`.
 - `tests/publication.test.mjs` modifie temporairement `app/downloads/WolfGuard-Agent-Windows.exe` pour vérifier le refus. Ne pas l’exécuter en parallèle de `tests/agent-signing.test.mjs`, qui contrôle que ces fichiers restent inchangés ; lancer ce dernier seul.
 - Dans un test Playwright qui intercepte l’API avec `context.route`, appeler `context.unroute_all(behavior='wait')` avant `context.close()` pour laisser finir les requêtes en cours.
+
+## Tests connus en échec
+
+`tests/optimization_test.py` (suite `npm test`) attend encore un export direct des rapports de scan, retiré par la décision du 26 novembre 2026 (rapports uniquement en PDF dans l’Historique de la fiche du poste). L’échec existait avant le nettoyage ; il ne fait pas partie de `test:ci`. Le mettre à jour selon le nouveau parcours avant de l’y ajouter.
 
 ## Serveur
 

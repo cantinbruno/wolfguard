@@ -12,7 +12,7 @@ Respecter les décisions de documentation/decisions.md, notamment les 4 heures d
 
 Après chaque changement terminé : vérifications adaptées, documentation à jour, commit des seuls fichiers concernés, puis exécuter explicitement git push origin main depuis le dépôt principal.
 Reconstruire docs/ si les sources de l’application ou de l’agent distribué changent.
-Ne pas lancer scripts/watch-myapp.ps1, scripts/sync-myapp.ps1 ou la tâche Windows WolfGuard-Web-AutoPublish.
+Ne pas recréer de surveillance du dossier ni réactiver la tâche Windows WolfGuard-Web-AutoPublish. GitHub Actions vérifie chaque push (.github/workflows/ci.yml).
 Le push GitHub ne déploie pas l’API Sites ; ne pas annoncer un déploiement qui n’a pas été réalisé.
 
 Aucun test ouvrant une fenêtre ou injectant clavier/souris sur le poste sans demande explicite.

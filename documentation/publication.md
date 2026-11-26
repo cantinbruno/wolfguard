@@ -4,7 +4,20 @@
 
 L’IA doit terminer chaque changement autorisé par les vérifications adaptées, un commit et un **push Git explicite**. GitHub Pages publie ensuite le dossier `docs/` de `main`.
 
-La tâche Windows `WolfGuard-Web-AutoPublish` est désactivée. **Ne pas la réactiver**, ne pas lancer `scripts/watch-myapp.ps1` et ne pas passer par `scripts/sync-myapp.ps1`. Le « push auto » de fin de tâche ne signifie pas surveiller et publier tout le dossier en continu.
+La tâche Windows `WolfGuard-Web-AutoPublish` est désactivée et ses scripts de surveillance ont été supprimés. **Ne pas la réactiver** ni recréer de surveillance. Le « push auto » de fin de tâche ne signifie pas surveiller et publier tout le dossier en continu.
+
+## Intégration continue
+
+Chaque push et chaque pull request vers `main` déclenchent `.github/workflows/ci.yml` (lancement manuel possible depuis l’onglet Actions) :
+
+| Tâche | Machine | Contrôles |
+| --- | --- | --- |
+| Site, agents et API | Windows | `npm run build` avec une clé de lien **jetable**, puis `npm run test:ci` : contrôle de publication, tous les tests Node, signature, et tests navigateur sans fenêtre (entrée privée, CSP/SRI, sessions, blocage d’IP) |
+| Serveur | Ubuntu | `npm ci`, `npm audit --omit=dev --audit-level=high`, TypeScript, ESLint, `server/tests/security.test.mjs`, `npm run build` |
+
+La clé réelle du lien privé et les secrets Sites ne sont jamais fournis à GitHub. Le build de CI est jeté : GitHub Pages continue de servir le `docs/` commité. Un échec de CI ne bloque pas Pages ; corriger puis pousser un nouveau commit. Le résultat se lit dans l’onglet **Actions** du dépôt ou par l’API publique `https://api.github.com/repos/cantinbruno/wolfguard/actions/runs`.
+
+Un fichier de `.github/workflows/` ne peut être poussé qu’avec un identifiant Git ayant le droit `workflow`.
 
 ## Vérifier puis publier
 
