@@ -103,6 +103,24 @@ test('POSIX providers preserve native dispositions, disclose incomplete evidence
     if(file.endsWith('journalctl'))return JSON.stringify({MESSAGE:'FixtureVirus FOUND',__REALTIME_TIMESTAMP:String(now*1000),__CURSOR:'one'})+'\n'+JSON.stringify({MESSAGE:'access denied: FixtureVirus',__REALTIME_TIMESTAMP:String(now*1000),__CURSOR:'two'});missing();
   }});assert.equal(clam.realtime,'enabled');assert.deepEqual(clam.events.map(row=>row.status),['alert','blocked']);assert.ok(clam.warnings.some(row=>row.includes('chemins')));
 });
+
+test('a failed Windows collector still reports antivirus evidence and receives its protection policy',async()=>{
+  const now=Date.now(),controller=new AbortController(),reports=[],policies=[];
+  const own=snapshot(now).wolfguardAntivirus;
+  const antivirus={events:new Map(),start(){},snapshot:async()=>own,setPolicy:async mode=>policies.push(mode)};
+  const collect=options=>collectEndpoint({...options,platform:'win32',run:async()=>{throw new Error('Synthetic PowerShell parser failure');}});
+  const report=await collect({antivirus});assert.equal(report.wolfguardAntivirus.installed,true);assert.equal(report.antivirus,'enabled');assert.equal(report.firewall,'unknown');assert.equal(report.canEnforce,false);assert.ok(report.inventory.hostname);assert.match(report.warnings.join(' '),/Collecte Windows indisponible/);assert.notEqual(endpointHealth(report),'protected');
+  await runEndpointProtection({post:async(path,body)=>{assert.equal(path,'edr/report');reports.push(body);controller.abort();return {revision:1,policy:{mode:'protect',realtime:true,firewall:true}};}},{signal:controller.signal,collect,antivirus,intervalMs:1});
+  assert.equal(reports.length,1);assert.deepEqual(policies,['protect']);
+});
+
+test('an unavailable antivirus component preserves Windows inventory and exposes the incomplete state',async()=>{
+  const value=snapshot(Date.now(),{inventory:{hostname:'Synthetic-PC',username:'DOMAIN\\interactive',agentUser:'DOMAIN\\agent'}});
+  delete value.wolfguardAntivirus;
+  const report=await collectEndpoint({platform:'win32',run:async()=>JSON.stringify(value),antivirus:{events:new Map(),snapshot:async()=>{throw new Error('Synthetic store unavailable');}}});
+  assert.equal(report.inventory.hostname,'Synthetic-PC');assert.equal(report.inventory.username,'DOMAIN\\interactive');assert.equal(report.firewall,'enabled');assert.equal(report.antivirus,'unknown');assert.match(report.warnings.join(' '),/moteur WolfGuard indisponible/);
+  const controller=new AbortController();controller.abort();await assert.rejects(collectEndpoint({platform:'win32',signal:controller.signal,run:async()=>JSON.stringify(value),antivirus:{snapshot:async()=>{throw new Error('cancelled');}}}),{name:'AbortError'});
+});
 test('background reporting sends event deltas and keeps the protection loop cancellable',async()=>{
   const controller=new AbortController(),reports=[],event={id:'id',occurredAt:Date.now(),status:'alert',title:'Detection'};let actions=0;
   const client={async post(path,body){assert.equal(path,'edr/report');reports.push(body);if(reports.length===2)controller.abort();return {revision:1,policy:{mode:'observe',realtime:true,firewall:true}};}};

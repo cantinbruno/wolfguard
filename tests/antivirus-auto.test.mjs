@@ -11,7 +11,7 @@ async function fixture(){
   const engine={paths:async()=>installed?{version:'fixture'}:null,signatures:async()=>({version:'fresh',at:now}),
     async install(){calls.push('install');if(installFail)throw new Error('Synthetic engine offline');installed=true;},
     async update(){calls.push('update');if(updateFail)throw new Error('Synthetic signature outage');return {version:'fresh',at:now};}};
-  const options={directory:path.join(root,'antivirus'),platform:'win32',arch:'x64',engine,store:{prepare:async()=>{},list:async()=>[]},run:async()=>'',clock:()=>now,scope:[]};
+  const options={directory:path.join(root,'antivirus'),platform:'win32',arch:'x64',engine,store:{prepare:async()=>{},list:async()=>[]},run:async()=>'',clock:()=>now,scope:[path.join(root,'targets')]};
   function manager(extra={}){const value=new AntivirusManager({...options,...extra});value.scan=async()=>{calls.push('scan');return {ok:true};};return value;}
   return {root,calls,engine,options,manager,advance:ms=>{now+=ms;},setInstalled:value=>{installed=value;},failInstall:value=>{installFail=value;},failUpdate:value=>{updateFail=value;},async close(){assert.ok(root.startsWith(parent+path.sep));await rm(root,{recursive:true,force:true});}};
 }

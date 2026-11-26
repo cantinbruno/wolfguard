@@ -49,10 +49,27 @@ Toutes les commandes passent par les droits `edr.manage` et les restrictions **p
 
 ## Maintenance et validation
 
+### Incident de collecte Windows du 21 novembre 2026
+
+Sur le poste associé, le moteur ClamAV 1.5.5 et les bases étaient présents, mais la version distribuée de `endpoint.ps1` échouait avant toute remontée EDR. Les apostrophes typographiques dans deux chaînes entre apostrophes simples étaient reconnues comme délimiteurs par PowerShell lorsque le fichier empaqueté était décodé correctement en UTF-8 avec BOM. Un essai du seul fichier source sans BOM ne reproduisait pas cet échec. Les messages concernés et ceux du désinstalleur utilisent maintenant des formulations sans délimiteur ambigu.
+
+Le packaging Windows analyse désormais la syntaxe de tous les fichiers PowerShell avec les octets et l’encodage de l’archive avant de produire une distribution. `tests/agent_powershell_package_test.py` vérifie aussi le refus d’un exemple cassé et exécute uniquement la collecte du fichier empaqueté, sans modification des protections du système.
+
+Deux autres défauts au redémarrage ont été corrigés : le disque parent contenant le magasin antivirus était retiré du périmètre initial, et un moteur présent avec des signatures valides conservait parfois le message initial « pas encore installé ». Le disque système est maintenant surveillé dès le démarrage ; seul le contenu du magasin privé est exclu pendant le parcours. Un périmètre réellement vide n’est jamais déclaré prêt et une analyse vide ne confirme pas une protection.
+
+### Reprise du poste du 26 novembre 2026
+
+Le poste installé en version `0c0456a1e3a4` restait connecté mais échouait à chaque collecte EDR : l’analyse syntaxique de son `endpoint.ps1` distribuait cinq erreurs, dont un jeton inattendu à la ligne 54. Les corrections locales ci-dessus n’avaient pas encore été publiées. La nouvelle distribution les intègre et vérifie le fichier réellement empaqueté avant publication.
+
+La collecte Windows et l’état ClamAV sont désormais indépendants. Une défaillance de PowerShell conserve la remontée antivirus et la réception de sa politique ; une défaillance du magasin antivirus conserve l’inventaire Windows et le pare-feu. Le relevé précise les éléments non confirmés et ne déclare pas le poste protégé à partir d’un état partiel. Le nom du poste et le compte du processus peuvent être fournis directement par Node ; le compte du processus n’est jamais présenté comme l’utilisateur interactif. L’annulation de l’agent annule aussi ce relevé partiel.
+
+L’état technique `protection-connected` est écrit uniquement après réception du relevé par l’API et lecture de sa politique. Il permet de distinguer la connexion générale de l’agent d’une remontée EDR effectivement acceptée, sans consigner de jeton ni de contenu de document.
+
 Sources : `agent/antivirus.mjs`, `antivirus-engine.mjs`, `antivirus-store.mjs`, `antivirus-windows.ps1`, `agent/endpoint.mjs`, `server/lib/wolfguard/antivirus-spec.mjs`, `endpoints.mjs`, `app/js/views/edr.js`.
 
 ```powershell
-node --test tests/antivirus-auto.test.mjs tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs
+node --test tests/antivirus-startup.test.mjs tests/antivirus-auto.test.mjs tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs
+python tests/agent_powershell_package_test.py
 python tests/antivirus_workspace_test.py
 python scripts/package-agent.py --check
 ```

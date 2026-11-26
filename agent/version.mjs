@@ -1,2 +1,2 @@
 // Generated from the packaged agent sources.
-export const AGENT_VERSION='0c0456a1e3a462b06a9065266eb7ed4ed850060e2f526b480a1eaff2a9229e7c';
+export const AGENT_VERSION='fb13c2e0bb9618dfdab4a1b75ab56d815147f6925dc57315a11643c968a0302e';

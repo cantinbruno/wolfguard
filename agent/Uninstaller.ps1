@@ -4,7 +4,7 @@ $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $isAdmin = (New-Object Security.Principal.WindowsPrincipal($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 $taskName = 'WolfGuard-Endpoint-' + $identity.User.Value
 $endpoint = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-if ($endpoint -and -not $isAdmin) { throw 'Relance le désinstalleur en tant qu’administrateur pour retirer le composant de protection.' }
+if ($endpoint -and -not $isAdmin) { throw 'Relance le désinstalleur avec les droits administrateur pour retirer le composant de protection.' }
 $targets = @(
   [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'WolfGuardAgent')),
   [IO.Path]::GetFullPath((Join-Path $env:ProgramData ('WolfGuardAgent\' + $identity.User.Value)))
@@ -23,7 +23,7 @@ foreach ($target in $targets) {
   }
   if (Test-Path -LiteralPath $target) {
     foreach ($entry in Get-ChildItem -LiteralPath $target -Recurse -Force) {
-      if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Un dossier de l’agent contient un lien ou une jonction.' }
+      if (($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Un dossier du programme contient un lien ou une jonction.' }
     }
   }
 }

@@ -51,11 +51,11 @@ foreach($log in @(@{Name='System';Ids=@(7045,7040,104)},@{Name='Security';Ids=@(
     if(@($logErrors|Where-Object{$_.FullyQualifiedErrorId -notlike 'NoMatchingEventsFound*'}).Count){throw 'LOG_UNAVAILABLE'}
     $report.systemMonitor.eventLogs+= $log.Name
     foreach($row in $rows){
-      $title=switch($row.Id){7045{'Nouveau service système installé'}7040{'Mode de démarrage d’un service modifié'}104{'Journal système effacé'}1102{'Journal de sécurité effacé'}4720{'Compte utilisateur créé'}4732{'Membre ajouté à un groupe local'}4625{'Échec de connexion au système'}default{'Événement système'}}
+      $title=switch($row.Id){7045{'Nouveau service système installé'}7040{'Mode de démarrage du service modifié'}104{'Journal système effacé'}1102{'Journal de sécurité effacé'}4720{'Compte utilisateur créé'}4732{'Membre ajouté à un groupe local'}4625{'Échec de connexion au système'}default{'Événement système'}}
       $important=$row.Id -in @(104,1102,4625)
       $report.events+=@{id='wolfguard-log:'+$log.Name+':'+$row.RecordId+':'+$row.TimeCreated.ToUniversalTime().ToString('o');occurredAt=$row.TimeCreated.ToUniversalTime().ToString('o');provider='WolfGuard · journal '+$log.Name;title=$title;resource='';detail=([string]$row.Message).Substring(0,[Math]::Min(1600,([string]$row.Message).Length));status=if($important){'alert'}else{'info'};severity=if($important){'medium'}else{'info'}}
     }
-  }catch{$report.systemMonitor.limitations+='Journal '+$log.Name+' inaccessible avec les droits de l’agent.'}
+  }catch{$report.systemMonitor.limitations+='Journal '+$log.Name+' inaccessible avec les droits du compte de service.'}
 }
 $report.events=@($report.events|Select-Object -First 100)
 $report|ConvertTo-Json -Depth 8 -Compress

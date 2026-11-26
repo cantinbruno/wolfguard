@@ -2,6 +2,8 @@
 
 ## 26 novembre 2026 — Ergonomie et échanges de données
 
+Réparer la remontée réelle de protection du poste : publier les corrections PowerShell et de périmètre antivirus restées locales, puis vérifier la version installée et un relevé avec le runtime distribué. Une erreur de collecte Windows ne doit plus empêcher de transmettre l’état du moteur ni de recevoir sa politique ; une erreur antivirus ne doit plus masquer l’inventaire Windows. Conserver les états inconnus et les avertissements quand une source échoue, sans inventer une protection active.
+
 Les déplacements de dossiers et de fiches conservent la collection affichée. Le coffre montre le nom et l’URL avec copie. Les tableaux des mémos proposent couleurs de fond par cellule, sélection, ligne ou tableau et redimensionnement par glissement des bordures, enregistrés et annulables. Les couleurs explicites sont conservées en lecture comme en édition ; les mots clés ne sont plus affichés comme champ de mémo. Les enregistrements concurrents du même éditeur sont bloqués et une erreur laisse le brouillon ouvert.
 
 Mon compte conserve identité, code, MFA et verrouillage ; retirer le raccourci stockage et le sélecteur du délai fixe. La nouvelle demande remplace l’ancienne interdiction d’import/export : Données propose un transfert chiffré des fiches autorisées avec un code distinct de huit chiffres, sans restauration des droits ni des comptes. L’import ajoute des copies, remappe les dossiers et rechiffre les secrets du coffre.
@@ -12,6 +14,8 @@ Utilisateurs permet de rechercher les groupes, filtrer les appartenances et cons
 Ces règles reprennent les choix fonctionnels de l’utilisateur. Si une nouvelle demande les change explicitement, mettre à jour le code et cette page ensemble.
 
 ## 21 novembre 2026 — Intégration du rapport
+
+Incident antivirus reproduit sur le poste installé : tester les fichiers PowerShell distribués en UTF-8/BOM avec le runtime de l’agent, pas uniquement les sources du dépôt. Le packaging doit refuser toute erreur de syntaxe des scripts Windows. Le périmètre antivirus conserve le disque parent du magasin privé et exclut seulement ce magasin pendant le parcours. Un périmètre vide ne confirme pas la protection. Les messages d’état doivent être reconstruits à partir du moteur et des signatures après redémarrage.
 
 Reprise des 25 critères après les écarts signalés : vérifier le résultat visible, pas seulement l’état interne ou la présence du code. Ne pas présenter les essais synthétiques comme une validation sur tout le parc. La conservation du journal des droits est définie par 30 jours sans plafond destructif de nombre d’événements. Les anciens relevés Defender ne confirment pas la protection WolfGuard Windows. Les cartographies conservent les absences de réponse et erreurs pour les tableaux, compteurs et exports ; leur carte reste limitée aux réponses observées. Garder les checkouts de déploiement et leurs dépendances hors de `myapp` après publication.
 

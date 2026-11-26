@@ -62,6 +62,24 @@ def source_archive(files=FILES):
             archive.writestr(info,data.encode(encoding))
     return buffer.getvalue()
 
+def validate_windows_scripts(payload):
+    if os.name!='nt':return
+    # Parse the actual UTF-8/BOM bytes from the archive. Reading the source as
+    # ANSI can hide syntax errors caused by PowerShell's smart quote handling.
+    parser=r'''
+$ErrorActionPreference='Stop'
+Add-Type -AssemblyName System.IO.Compression
+$memory=New-Object IO.MemoryStream(,[Convert]::FromBase64String([Console]::In.ReadToEnd()))
+$archive=New-Object IO.Compression.ZipArchive($memory,[IO.Compression.ZipArchiveMode]::Read)
+$failed=$false
+try{foreach($entry in $archive.Entries){if(-not $entry.FullName.EndsWith('.ps1')){continue};$reader=New-Object IO.StreamReader($entry.Open(),[Text.Encoding]::UTF8,$true);try{$code=$reader.ReadToEnd()}finally{$reader.Dispose()};$tokens=$null;$errors=$null;$null=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors);foreach($failure in $errors){$failed=$true;[Console]::Error.WriteLine($entry.FullName+':'+$failure.Extent.StartLineNumber+': '+$failure.Message)}}}finally{$archive.Dispose();$memory.Dispose()}
+if($failed){exit 1}
+'''
+    import base64
+    command=base64.b64encode(parser.encode('utf-16le')).decode('ascii')
+    result=subprocess.run(['powershell.exe','-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',command],input=base64.b64encode(payload),stdout=subprocess.PIPE,stderr=subprocess.PIPE,creationflags=subprocess.CREATE_NO_WINDOW,timeout=30)
+    if result.returncode:raise ValueError('Packaged PowerShell syntax invalid: '+result.stderr.decode('utf-8',errors='replace')[:4000])
+
 def executable(payload,check=False):
     digest=hashlib.sha256(payload)
     for name in ['agent/AgentWindow.cs','agent/BackgroundAgent.cs','agent/DesktopEncoder.cs','agent/windows.manifest','app/images/logo-loup.svg','scripts/package-agent.py']:
@@ -107,6 +125,7 @@ def package():
         if not version_file.exists() or version_file.read_text(encoding='utf8')!=version_source:raise ValueError('Version agent differente des sources autorisees')
     else:version_file.write_text(version_source,encoding='utf8')
     payload=source_archive()
+    validate_windows_scripts(payload)
     binary=executable(payload,'--check' in sys.argv)
     buffer=io.BytesIO()
     with ZipFile(io.BytesIO(payload)) as source,ZipFile(buffer,'w',compression=ZIP_DEFLATED,compresslevel=9) as archive:

@@ -16,7 +16,7 @@ export class AntivirusManager{
   constructor({directory=antivirusDirectory(),platform=process.platform,arch=process.arch,home=homedir(),temporary=tmpdir(),engine,store,run=antivirusProcess,scope,clock=Date.now}={}){
     this.directory=path.resolve(directory);this.platform=platform;this.arch=arch;this.clock=clock;this.run=run;
     this.scopeConfigured=!!scope;this.scopeDiscovered=false;this.walkCursor=null;this.completedPasses=0;this.skippedFiles=0;
-    this.scope=[...new Set((scope||(platform==='win32'?[path.parse(home).root]:[path.join(home,'Downloads'),path.join(home,'Desktop'),path.join(home,'Documents'),temporary])).map(p=>path.resolve(p)))].filter(p=>!within(this.directory,p)&&p!==this.directory).slice(0,26);
+    this.scope=[...new Set((scope||(platform==='win32'?[path.parse(home).root]:[path.join(home,'Downloads'),path.join(home,'Desktop'),path.join(home,'Documents'),temporary])).map(p=>path.resolve(p)))].filter(p=>!within(p,this.directory)&&p!==this.directory).slice(0,26);
     this.engine=engine||new ClamEngine(path.join(this.directory,'runtime'),{platform,arch,run});this.store=store||new AntivirusStore(path.join(this.directory,'quarantine'),{platform,run});
     this.state={version:1,capable:true,installed:false,enabled:false,state:'missing',engineVersion:'',signatureVersion:'',signatureAt:0,lastScanAt:0,lastUpdateAt:0,scannedFiles:0,pendingFiles:0,errors:0,message:'Le moteur WolfGuard Antivirus n’est pas encore installé.',scope:this.scope,quarantine:[]};
     this.enabled=false;this.paused=false;this.policyConfirmed=false;this.monitorAllowed=true;this.loaded=false;this.loadFailed=false;this.busy=false;this.scanAbort=null;this.operationAbort=null;this.cache=new Map();this.events=new Map();this.timer=null;this.lastUpdateAttempt=0;this.lastInstallAttempt=0;
@@ -58,8 +58,13 @@ export class AntivirusManager{
       if(engine){const signatures=await this.engine.signatures();this.state.signatureAt=signatures.at;this.state.signatureVersion=signatures.version;this.state.quarantine=(await this.store.list()).sort((a,b)=>b.detectedAt-a.detectedAt);for(const row of this.state.quarantine)this.event(row);}
       if(!this.busy&&this.state.state!=='error'){
         const fresh=this.state.signatureAt&&this.clock()-this.state.signatureAt<=2*86400000;
-        this.state.state=!engine?'missing':!this.enabled||!this.monitorAllowed?'paused':fresh?'ready':'error';
-        if(engine&&this.enabled&&this.monitorAllowed&&!fresh)this.state.message='Signatures absentes ou trop anciennes ; actualisation automatique en attente. Les fichiers ne sont pas déclarés sains.';
+        this.state.state=!engine?'missing':!this.enabled||!this.monitorAllowed?'paused':fresh&&this.scope.length?'ready':'error';
+        if(!engine)this.state.message='Le moteur WolfGuard Antivirus n’est pas encore installé.';
+        else if(!this.enabled||!this.monitorAllowed)this.state.message=this.paused?'Surveillance WolfGuard suspendue par le compte.':'Surveillance WolfGuard suspendue par la politique du poste.';
+        else if(!this.scope.length)this.state.message='Aucun disque ou dossier à surveiller : la protection des fichiers ne peut pas être confirmée.';
+        else if(!fresh)this.state.message='Signatures absentes ou trop anciennes ; actualisation automatique en attente. Les fichiers ne sont pas déclarés sains.';
+        else if(!this.state.lastScanAt)this.state.message='Moteur ClamAV installé et signatures à jour. Le premier passage de surveillance est en attente.';
+        else if(this.state.message==='Le moteur WolfGuard Antivirus n’est pas encore installé.')this.state.message='Moteur ClamAV installé et signatures à jour. Surveillance périodique sur les disques indiqués.';
       }
     }catch(error){this.state.state='error';this.state.message=text(error);}
     this.state.enabled=this.enabled&&this.monitorAllowed;
@@ -104,6 +109,7 @@ export class AntivirusManager{
     this.busy=true;this.state.state='scanning';this.state.errors=0;this.state.scannedFiles=0;this.state.message='Analyse progressive des disques couverts par WolfGuard.';
     try{
       if(!await this.engine.paths())throw new Error('Le moteur WolfGuard n’est pas installé.');
+      if(!this.scope.length)throw new Error('Aucun disque ou dossier à surveiller.');
       const {files,incomplete}=await this.candidates({signal,limit:automatic?100:2000});this.state.pendingFiles=files.length;
       for(let start=0;start<files.length;){
         if(signal?.aborted)throw signal.reason;const batch=[];let bytes=0;

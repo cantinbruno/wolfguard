@@ -7,13 +7,29 @@ import {fixedProcess} from './network.mjs';
 import {endpointPolicy,endpointSnapshot,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMANDS} from '../server/lib/wolfguard/endpoint-spec.mjs';
 import {antivirusCommand} from '../server/lib/wolfguard/antivirus-spec.mjs';
 import {getAntivirusManager} from './antivirus.mjs';
+import {hostname,userInfo} from 'node:os';
 
 export async function collectEndpoint({platform=process.platform,run=fixedProcess,signal,antivirus}={}){
   if(platform!=='win32')return endpointSnapshot(await collectPosixEndpoint({platform,run,signal}));
-  const value=JSON.parse(await run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./endpoint.ps1',import.meta.url)),'-Operation','collect'],{signal,timeout:25000,maxBytes:250000}));
-  const events=(Array.isArray(value.events)?value.events:[]).map(row=>({...row,id:createHash('sha256').update(row.id).digest('hex'),occurredAt:Date.parse(row.occurredAt)}));
-  const manager=antivirus||getAntivirusManager(),own=await manager.snapshot();
-  return endpointSnapshot({...value,wolfguardAntivirus:own,collectedAt:Date.now(),platform,activeThreats:own.quarantine.filter(row=>row.status==='detected').length,events:[...events,...manager.events.values()].slice(-100)});
+  const manager=antivirus||getAntivirusManager();
+  const [native,antivirusState]=await Promise.allSettled([
+    Promise.resolve().then(async()=>{
+      const output=await run('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',fileURLToPath(new URL('./endpoint.ps1',import.meta.url)),'-Operation','collect'],{signal,timeout:25000,maxBytes:250000});
+      const value=JSON.parse(output.replace(/^\uFEFF/,''));
+      if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid native report');
+      return value;
+    }),
+    Promise.resolve().then(()=>manager.snapshot())
+  ]);
+  signal?.throwIfAborted();
+  const value=native.status==='fulfilled'?native.value:{supported:true,provider:'WolfGuard Antivirus / ClamAV',canEnforce:false,firewall:'unknown',events:[],warnings:[]};
+  const warnings=[...(Array.isArray(value.warnings)?value.warnings:[])];
+  if(native.status==='rejected')warnings.unshift('Collecte Windows indisponible : inventaire, pare-feu et surveillance système non confirmés. Nouvelle tentative automatique.');
+  if(antivirusState.status==='rejected')warnings.unshift('État du moteur WolfGuard indisponible. Les informations Windows restent transmises.');
+  const own=antivirusState.status==='fulfilled'?antivirusState.value:null;
+  const events=(Array.isArray(value.events)?value.events:[]).filter(row=>typeof row?.id==='string'&&Number.isFinite(Date.parse(row.occurredAt))).map(row=>({...row,id:createHash('sha256').update(row.id).digest('hex'),occurredAt:Date.parse(row.occurredAt)}));
+  let fallbackUser='';try{fallbackUser=(process.env.USERDOMAIN?process.env.USERDOMAIN+'\\':'')+userInfo().username;}catch{}
+  return endpointSnapshot({...value,inventory:{hostname:hostname(),agentUser:fallbackUser,...value.inventory},warnings,...(own?{wolfguardAntivirus:own}:{}),collectedAt:Date.now(),platform,activeThreats:own?own.quarantine.filter(row=>row.status==='detected').length:value.activeThreats,events:[...events,...(manager.events?.values()||[])].slice(-100)});
 }
 export async function executeEndpointAction(action,policy=DEFAULT_ENDPOINT_POLICY,{platform=process.platform,run=fixedProcess,signal,antivirus}={}){
   if(antivirusCommand(action)){
@@ -80,6 +96,7 @@ export async function runEndpointProtection(client,{signal,onStatus=()=>{},colle
       await onReport();
       policy=endpointPolicy(response.policy);revision=response.revision;
       await antivirus?.setPolicy(policy.mode==='protect'&&policy.realtime?'protect':'observe');
+      onStatus('Relevé de protection reçu par WolfGuard.',{state:'protection-connected'});
       if(response.cancelCommand&&pending?.id===response.cancelCommand)pending.controller.abort();
       if(response.command){
         const command=response.command;
