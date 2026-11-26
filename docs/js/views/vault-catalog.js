@@ -37,17 +37,21 @@ async function renderVaultCatalog(isCurrent=()=>true) {
     node.dataset.workspaceItem = item.id;
     node.draggable = true;
     node.innerHTML = vaultCatalogItemHTML(entry) + '<div class="workspace-item-actions">' + itemActionsHTML(item) + '</div>';
-    const values=document.createElement('div');values.className='vault-catalog-values';
-    const addValue=(label,value)=>{
-      const line=document.createElement('div'),text=document.createElement('span'),button=document.createElement('button');
-      line.className='vault-catalog-value';text.textContent=value||'Non renseigné';text.title=value||'';
-      button.type='button';button.className='secondary';button.textContent='Copier';button.setAttribute('aria-label','Copier '+label);button.disabled=!value;
+    const copyButton=(label,value)=>{
+      const button=document.createElement('button');
+      button.type='button';button.className='secondary vault-catalog-copy';button.textContent='Copier';button.setAttribute('aria-label','Copier '+label);button.disabled=!value;
       button.onclick=async event=>{event.stopPropagation();if(!itemActionSessionValid(key)||!node.isConnected)return;const copied=await copySecret(value);if(button.isConnected){button.textContent=copied?'Copié':'Réessayer';setTimeout(()=>{if(button.isConnected)button.textContent='Copier';},1800);}};
-      line.append(text,button);values.append(line);
+      return button;
     };
-    addValue('le nom',item.title);
-    node.append(values);
-    if(!item.secretsRestricted)vaultData(item,false).then(data=>{if(node.isConnected&&isCurrent()&&itemActionSessionValid(key))addValue('l’URL',data.url);}).catch(()=>{});
+    node.querySelector('.catalog-vault-name').append(copyButton('le nom',item.title));
+    const values=document.createElement('div');values.className='vault-catalog-values';
+    node.querySelector('.catalog-vault-name').after(values);
+    if(!item.secretsRestricted)vaultData(item,false).then(data=>{
+      if(!node.isConnected||!isCurrent()||!itemActionSessionValid(key)||!data.url)return;
+      const line=document.createElement('div'),text=document.createElement('span');
+      line.className='vault-catalog-value';text.textContent=data.url;text.title=data.url;
+      line.append(text,copyButton('l’URL',data.url));values.append(line);
+    }).catch(()=>{});
     node.querySelector('.workspace-item-title').onclick = () => {
       if (!itemActionSessionValid(key)) return;
       view.focusId = item.id;

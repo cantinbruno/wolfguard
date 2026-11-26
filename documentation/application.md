@@ -54,7 +54,7 @@ Le travail local permet la mise à jour d’un poste depuis ses détails : tél�
 
 ## Rapport du 26 novembre 2026
 
-Le déplacement d’une fiche ou d’un dossier conserve le dossier consulté. Le coffre affiche le nom et l’URL avec commandes de copie dans le catalogue ; la fiche permet aussi de copier l’identifiant, le mot de passe et l’hôte.
+Le déplacement d’une fiche ou d’un dossier conserve le dossier consulté. Le coffre regroupe le titre et l’URL dans la colonne Accès, avec une commande de copie juste à côté de chaque valeur et sans répéter le nom. Les colonnes Dossier, Protection et Actions restent alignées, même sans dossier. Les longs titres se replient sur petit écran ; les URL restent sur une ligne avec une ellipse, leur valeur complète étant disponible au survol et à la copie. La fiche permet aussi de copier l’identifiant, le mot de passe et l’hôte.
 
 Dans les mémos, sélectionner une cellule affiche la barre Tableau : fond sur les cellules sélectionnées, la ligne ou le tableau, suppression du fond et ajout/retrait de lignes et colonnes. Glisser près du bord droit d’une cellule règle la largeur, près du bord inférieur la hauteur. Les modifications se sauvegardent et s’annulent. Les couleurs explicites gardent la priorité sur les couleurs par défaut, notamment pour la cellule Économie du mémo russe. Aucun contenu personnel n’est réécrit automatiquement pour cette correction d’affichage. Les champs de mots clés sont retirés de la présentation, avec conservation des anciennes métadonnées pour la recherche.
 

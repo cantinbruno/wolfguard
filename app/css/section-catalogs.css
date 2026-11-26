@@ -247,6 +247,8 @@
 
 .catalog-vault-security {
   display: flex;
+  grid-column: 3;
+  grid-row: 1;
   align-items: center;
   gap: 9px;
   min-width: 0;
@@ -350,8 +352,12 @@
   }
 }
 
-.vault-catalog-values{display:flex;flex-direction:column;gap:6px;min-width:0;grid-column:1/-1}
-.vault-catalog-value{display:flex;align-items:center;gap:10px;min-width:0;font-size:.875rem}
-.vault-catalog-value span{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--ui-muted)}
-.vault-catalog-value button{flex:none;padding:4px 9px;font-size:.875rem}
-.catalog-vault .is-list .workspace-catalog-item{row-gap:8px}
+.catalog-vault-name,.vault-catalog-value{display:flex;align-items:center;gap:8px;min-width:0}
+.catalog-vault-name .workspace-item-title{flex:0 1 auto;min-width:0;width:auto;text-align:left;overflow-wrap:anywhere}
+.vault-catalog-values{min-width:0}
+.vault-catalog-values:empty{display:none}
+.vault-catalog-value{font-size:12px}
+.vault-catalog-value span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-muted)}
+.catalog-vault .vault-catalog-copy{flex:none;min-height:26px;padding:3px 6px;font-size:11px;line-height:18px;color:var(--ui-muted);background:transparent;border-color:transparent;border-radius:4px}
+.catalog-vault .vault-catalog-copy:hover:enabled{color:var(--section-accent);background:var(--ui-raised);border-color:var(--ui-border)}
+.catalog-vault .is-list .workspace-catalog-item{padding-block:12px}

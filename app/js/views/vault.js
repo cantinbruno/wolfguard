@@ -109,8 +109,8 @@ function openPasswordGenerator() {
 }
 
 function vaultCatalogItemHTML(entry) {
-  return '<div class="workspace-item-heading"><span class="workspace-item-icon catalog-vault-icon" aria-hidden="true">' + workspaceSectionIcon('vault') + '</span><div class="catalog-vault-title"><button type="button" class="workspace-item-title">' + esc(entry.item.title || 'Sans titre') + '</button>' + workspaceCatalogDateHTML(entry.item) + '</div></div>' +
-    workspaceCatalogMetaHTML(entry) + '<div class="catalog-vault-security">' + settingsIcon('lock') + '<code aria-label="Mot de passe masqu\u00e9">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</code></div>';
+  return '<div class="workspace-item-heading"><span class="workspace-item-icon catalog-vault-icon" aria-hidden="true">' + workspaceSectionIcon('vault') + '</span><div class="catalog-vault-title"><div class="catalog-vault-name"><button type="button" class="workspace-item-title">' + esc(entry.item.title || 'Sans titre') + '</button></div>' + workspaceCatalogDateHTML(entry.item) + '</div></div>' +
+    (workspaceCatalogMetaHTML(entry) || '<div class="workspace-item-meta">—</div>') + '<div class="catalog-vault-security">' + settingsIcon('lock') + '<code aria-label="Mot de passe masqu\u00e9">\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022</code></div>';
 }
 async function renderVaultWorkspace({isCurrent=()=>true}={}) {
   const home=window.WolfGuardAccess?.personalVaultHome();
