@@ -8,7 +8,7 @@
   color: #cbd5e4;
   border-radius: 10px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: .75rem;
   cursor: pointer;
   white-space: nowrap
 }
@@ -40,7 +40,7 @@
   padding: 12px 13px;
   color: #9eacc0;
   line-height: 1.5;
-  font-size: 12px;
+  font-size: .75rem;
   margin-bottom: 14px
 }
 
@@ -129,7 +129,7 @@
   gap: 6px;
   flex-wrap: wrap;
   color: #7f8ba0;
-  font-size: 11px;
+  font-size: .6875rem;
   margin-bottom: 5px
 }
 
@@ -168,7 +168,7 @@
   padding: 9px 10px;
   border-radius: 7px;
   text-align: left;
-  font-size: 12px;
+  font-size: .75rem;
   white-space: normal;
   overflow-wrap: anywhere;
   letter-spacing: 0
@@ -227,7 +227,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .generated-password {
@@ -264,7 +264,7 @@
 
 .procedure-toc h4 {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: .75rem;
   text-transform: uppercase;
   letter-spacing: .07em;
   color: #8a98ad
@@ -276,7 +276,7 @@
   text-decoration: none;
   padding: 6px 7px;
   border-radius: 7px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .procedure-toc a:hover {
@@ -290,7 +290,7 @@
 
 .procedure-toc a.h3 {
   padding-left: 30px;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .procedure-body-wrap {
@@ -366,7 +366,7 @@
 }
 
 .attachment-icon {
-  font-size: 22px;
+  font-size: 1.375rem;
   flex: 0 0 auto
 }
 
@@ -376,7 +376,7 @@
 }
 
 .attachment-name {
-  font-size: 12px;
+  font-size: .75rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -384,7 +384,7 @@
 }
 
 .attachment-meta {
-  font-size: 10px;
+  font-size: .625rem;
   color: #748299;
   margin-top: 3px
 }
@@ -396,7 +396,7 @@
 
 .attachment-actions button {
   padding: 5px 7px;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .dashboard-recent {
@@ -421,7 +421,7 @@
 }
 
 .dashboard-recent-row .meta {
-  font-size: 10px;
+  font-size: .625rem;
   color: #718097;
   white-space: nowrap
 }
@@ -446,7 +446,7 @@
   place-items: center;
   background: #202a39;
   color: #8eabff;
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 800
 }
 
@@ -458,7 +458,7 @@
 
 .rank-value {
   color: #8b99ad;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .activity-30 {
@@ -614,7 +614,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: .75rem;
 }
 
 .folder-access-state .dot {
@@ -651,7 +651,7 @@
 
 .folder-menu-note {
   color: #8896aa;
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.5;
 }
 
@@ -676,7 +676,7 @@
   }
 
   .brand {
-    font-size: 14px
+    font-size: .875rem
   }
 
   .topbar .search-wrap {
@@ -788,7 +788,7 @@
   }
 
   .topbar .brand {
-    font-size: 14px
+    font-size: .875rem
   }
 
   .global-tabs button {
@@ -865,7 +865,7 @@
   word-break: break-word;
   color: #f3f7ff;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 14px;
+  font-size: .875rem;
   line-height: 1.55
 }
 
@@ -891,7 +891,7 @@
 
 .command-meta-card .label {
   color: #7f8ca2;
-  font-size: 10px;
+  font-size: .625rem;
   text-transform: uppercase;
   letter-spacing: .07em;
   margin-bottom: 5px
@@ -954,7 +954,7 @@
   background: #1a2330;
   color: #9fb7dd;
   font-family: Consolas, monospace;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 @media(max-width:760px) {
@@ -1044,7 +1044,7 @@
 
 .memo-editor-help {
   color: #7f8ca2;
-  font-size: 11px;
+  font-size: .6875rem;
   margin-top: 6px;
 }
 
@@ -1096,14 +1096,14 @@
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.45;
-  font-size: 12px;
+  font-size: .75rem;
 }
 
 .command-sheet-desc {
   padding: 11px 12px;
   color: #c3cedd;
   line-height: 1.5;
-  font-size: 12px;
+  font-size: .75rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1112,7 +1112,7 @@
 .command-sheet-desc .ctx {
   margin-top: 5px;
   color: #738198;
-  font-size: 10px;
+  font-size: .625rem;
 }
 
 .command-sheet-action {
@@ -1150,7 +1150,7 @@
 
 .search-result .search-snippet {
   color: #7f8da2;
-  font-size: 11px;
+  font-size: .6875rem;
   margin-top: 4px;
   white-space: nowrap;
   overflow: hidden;
@@ -1210,7 +1210,7 @@
   color: #e5edf8;
   border-radius: 7px;
   padding: 0 9px;
-  font-size: 12px;
+  font-size: .75rem;
 }
 
 .word-toolbar button:hover,
@@ -1254,19 +1254,19 @@
 }
 
 .word-page h1 {
-  font-size: 28px;
+  font-size: 1.75rem;
   margin: 0 0 18px;
   color: #111827
 }
 
 .word-page h2 {
-  font-size: 22px;
+  font-size: 1.375rem;
   margin: 24px 0 12px;
   color: #111827
 }
 
 .word-page h3 {
-  font-size: 18px;
+  font-size: 1.125rem;
   margin: 20px 0 10px;
   color: #111827
 }
@@ -1336,7 +1336,7 @@
   background: #111720;
   border-top: 1px solid #303b4d;
   color: #7f8da2;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .word-editor-shell.fullscreen-editor {
@@ -1422,7 +1422,7 @@
   display: grid;
   place-items: center;
   color: #7d8ca3;
-  font-size: 10px;
+  font-size: .625rem;
   cursor: pointer;
   transition: transform .12s, color .12s;
   pointer-events: auto !important;
@@ -1442,11 +1442,11 @@
 .tree-icon {
   width: 19px;
   flex: 0 0 19px;
-  font-size: 14px;
+  font-size: .875rem;
 }
 
 .tree-label {
-  font-size: 12.5px;
+  font-size: .7813rem;
 }
 
 .tree-actions {
@@ -1476,7 +1476,7 @@
 }
 
 .command-tech-head h2 {
-  font-size: 21px;
+  font-size: 1.3125rem;
   margin-bottom: 3px;
 }
 
@@ -1505,7 +1505,7 @@
 }
 
 .command-sheet-command code {
-  font-size: 12.5px;
+  font-size: .7813rem;
   color: #eff4fb;
 }
 
@@ -1514,7 +1514,7 @@
 }
 
 .command-sheet-desc b {
-  font-size: 12px;
+  font-size: .75rem;
   margin-bottom: 3px;
   color: #f0f4fa;
 }
@@ -1536,7 +1536,7 @@
 .command-sheet-action button {
   min-width: 62px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: .6875rem;
 }
 
 .command-search-local {
@@ -1625,20 +1625,20 @@
 }
 
 .tree-label {
-  font-size: 12px !important;
+  font-size: .75rem !important;
   line-height: 1.2 !important;
 }
 
 .tree-icon {
   width: 17px !important;
   flex: 0 0 17px !important;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
 }
 
 .tree-caret {
   width: 15px !important;
   flex: 0 0 15px !important;
-  font-size: 9px !important;
+  font-size: .5625rem !important;
 }
 
 .tree-actions {

@@ -6,21 +6,21 @@
 button.agents-alerts{padding:3px 8px;border:1px solid var(--agents-line);border-radius:4px;background:transparent;color:var(--agents-accent);font:inherit;cursor:pointer}
 button.agents-alerts:hover{border-color:var(--agents-accent)}
 button.agents-alerts:focus-visible{outline:2px solid var(--agents-accent);outline-offset:2px}
-.agent-journal-help{margin:0 0 12px;font-size:12px;color:var(--ui-muted);line-height:1.7}
+.agent-journal-help{margin:0 0 12px;font-size:.75rem;color:var(--ui-muted);line-height:1.7}
 .agent-journal-help summary{cursor:pointer;width:fit-content}
 .agent-journal-help ul{margin:8px 0;padding-left:20px}
 .agent-journal-controls{display:flex;align-items:end;flex-wrap:wrap;gap:8px}
-.agent-journal-controls label{display:grid;gap:6px;flex:1;min-width:140px;font-size:11px;color:var(--ui-muted)}
-.agent-journal-controls :is(input,select,button),[data-journal-more]{box-sizing:border-box;min-height:36px;padding:8px 10px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text);font:inherit;font-size:11px}
+.agent-journal-controls label{display:grid;gap:6px;flex:1;min-width:140px;font-size:.6875rem;color:var(--ui-muted)}
+.agent-journal-controls :is(input,select,button),[data-journal-more]{box-sizing:border-box;min-height:36px;padding:8px 10px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-sidebar);color:var(--ui-text);font:inherit;font-size:.6875rem}
 .agent-journal-controls input{width:100%;min-width:0}
 .agent-journal-controls button,[data-journal-more]{cursor:pointer}
 .agent-journal-controls button[aria-pressed=true]{border-color:var(--agents-accent);color:var(--agents-accent)}
-[data-journal-status]{margin:12px 0;color:var(--ui-muted);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
-.agent-journal-list{flex:1;min-height:160px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-code);font-family:ui-monospace,Consolas,monospace;font-size:11px}
+[data-journal-status]{margin:12px 0;color:var(--ui-muted);font-size:.6875rem;line-height:1.6;overflow-wrap:anywhere}
+.agent-journal-list{flex:1;min-height:160px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;border:1px solid var(--ui-border);border-radius:7px;background:var(--ui-code);font-family:ui-monospace,Consolas,monospace;font-size:.6875rem}
 .agent-log-row{display:grid;grid-template-columns:135px 90px minmax(0,1fr);gap:12px;padding:12px;border-bottom:1px solid var(--ui-border);line-height:1.7;overflow-wrap:anywhere}
 .agent-log-row>time{color:var(--ui-muted);font-variant-numeric:tabular-nums}
 .agent-log-level{color:#a6cbea}
-.agent-log-level small,.agent-log-provider{display:block;color:var(--ui-muted);font-size:10px;font-weight:400}
+.agent-log-level small,.agent-log-provider{display:block;color:var(--ui-muted);font-size:.625rem;font-weight:400}
 .agent-log-row[data-log-status=alert] .agent-log-level,.agent-log-row[data-log-status=failed] .agent-log-level{color:#efcd9a}
 .agent-log-row[data-severity=critical] .agent-log-level{color:#f2b5b5}
 .agent-log-row[data-log-status=blocked] .agent-log-level,.agent-log-row[data-log-status=quarantined] .agent-log-level{color:#9de3c4}
@@ -32,7 +32,7 @@ button.agents-alerts:focus-visible{outline:2px solid var(--agents-accent);outlin
 [data-journal-more]{margin-top:12px}
 @media(max-width:700px){
   .agent-record-tabs:has([data-record-tab=journal]){display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
-  .agent-record-tabs button{min-width:0;padding:8px 4px;gap:4px;font-size:11px}
+  .agent-record-tabs button{min-width:0;padding:8px 4px;gap:4px;font-size:.6875rem}
   .agent-journal-controls label{flex-basis:100%}
   .agent-journal-controls button{flex:1}
   .agent-log-row{grid-template-columns:minmax(0,1fr) auto;gap:5px 12px}

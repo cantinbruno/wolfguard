@@ -32,7 +32,7 @@
 }
 
 .matrix-eyebrow {
-  font-size: 9px;
+  font-size: .5625rem;
   text-transform: uppercase;
   letter-spacing: .14em;
   color: var(--workspace-tools);
@@ -40,7 +40,7 @@
 }
 
 .matrix-title h1 {
-  font-size: 30px;
+  font-size: 1.875rem;
   font-weight: 650;
   letter-spacing: -.8px;
   color: #f0f4fb
@@ -51,7 +51,7 @@
 }
 
 .matrix-title p {
-  font-size: 12px;
+  font-size: .75rem;
   color: #8fa6bf;
   margin-top: 7px;
   line-height: 1.6
@@ -65,7 +65,7 @@
 .matrix-actions .protocol-button {
   background: var(--ui-sidebar);
   border-color: var(--ui-border);
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .matrix-actions .protocol-button:hover {
@@ -79,7 +79,7 @@
   gap: 7px;
   margin-right: 10px;
   color: #9eb7af;
-  font-size: 10px;
+  font-size: .625rem;
   white-space: nowrap
 }
 
@@ -102,7 +102,7 @@
 }
 
 .matrix-filters>label {
-  font-size: 9px;
+  font-size: .5625rem;
   gap: 7px;
   color: #98afc8
 }
@@ -112,7 +112,7 @@
   border-color: var(--ui-border);
   background: var(--ui-page);
   border-radius: 5px;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .matrix-filters .matrix-search {
@@ -120,7 +120,7 @@
 }
 
 .matrix-search input {
-  font-size: 12px;
+  font-size: .75rem;
   letter-spacing: 0
 }
 
@@ -132,7 +132,7 @@
   padding-bottom: 12px;
   gap: 12px;
   flex: none;
-  font-size: 10px;
+  font-size: .625rem;
   color: #9ab0ca
 }
 
@@ -145,14 +145,14 @@
 }
 
 .matrix-quick-label {
-  font-size: 10px;
+  font-size: .625rem;
   color: #8da4bf
 }
 
 .matrix-quick-label select {
   background: var(--ui-sidebar);
   border-color: var(--ui-border);
-  font-size: 10px
+  font-size: .625rem
 }
 
 .matrix-search-help {
@@ -163,7 +163,7 @@
   background: none;
   border: 0;
   color: #a4bad4;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .matrix-search-help:hover {
@@ -186,7 +186,7 @@
   padding: 12px 14px;
   margin: 0 0 12px;
   flex: none;
-  font-size: 10px;
+  font-size: .625rem;
   color: #acbfd6
 }
 
@@ -201,7 +201,7 @@
   color: #bdcedf;
   border-radius: 4px;
   padding: 5px 7px;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .matrix-search-examples button:hover {
@@ -226,7 +226,7 @@
 
 .matrix-table {
   min-width: 1100px;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .matrix-table col:nth-child(1) {
@@ -258,7 +258,7 @@
   color: #b6c7da;
   border-color: var(--ui-border);
   height: 42px;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .matrix-table td {
@@ -283,20 +283,20 @@
 }
 
 .matrix-table .matrix-port {
-  font-size: 17px;
+  font-size: 1.0625rem;
   color: var(--workspace-tools);
   letter-spacing: -.4px
 }
 
 .matrix-table .protocol-service {
-  font-size: 12px;
+  font-size: .75rem;
   font-weight: 600;
   line-height: 1.6
 }
 
 .matrix-service-context {
   display: block;
-  font-size: 9px;
+  font-size: .5625rem;
   color: #758ea9;
   margin-top: 4px;
   line-height: 1.5
@@ -309,12 +309,12 @@
   overflow: hidden;
   white-space: pre-line;
   color: #aebfd2;
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.6
 }
 
 .matrix-table .matrix-flow {
-  font-size: 9px;
+  font-size: .5625rem;
   color: #7e9ab7;
   margin-top: 6px;
   display: -webkit-box;
@@ -324,7 +324,7 @@
 }
 
 .matrix-protection {
-  font-size: 9px;
+  font-size: .5625rem;
   padding: 4px 7px;
   border: 1px solid #9cb8ce16;
   border-radius: 4px;
@@ -332,27 +332,27 @@
 }
 
 .matrix-table .protocol-transport {
-  font-size: 9px;
+  font-size: .5625rem;
   border-radius: 4px
 }
 
 .matrix-sources a {
-  font-size: 9px;
+  font-size: .5625rem;
   color: #8fb9d8
 }
 
 .matrix-footer {
-  font-size: 10px;
+  font-size: .625rem;
   min-height: 49px
 }
 
 .matrix-reference-date {
-  font-size: 10px;
+  font-size: .625rem;
   color: #829bb8
 }
 
 .matrix-footer .collection-pagination {
-  font-size: 10px
+  font-size: .625rem
 }
 
 .protocol-matrix :is(button, input, select):focus-visible {
@@ -370,7 +370,7 @@
 }
 
 .protocol-reference-modal>h2 {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: -.4px;
@@ -389,7 +389,7 @@
 
 .reference-endpoint-number>span {
   display: block;
-  font-size: 9px;
+  font-size: .5625rem;
   text-transform: uppercase;
   letter-spacing: .09em;
   color: #a6a792;
@@ -397,7 +397,7 @@
 }
 
 .reference-endpoint-number>strong {
-  font-size: 38px;
+  font-size: 2.375rem;
   line-height: 1.2;
   font-family: Consolas, monospace;
   font-weight: 500;
@@ -415,7 +415,7 @@
 
 .reference-endpoint-transport small {
   width: 100%;
-  font-size: 10px;
+  font-size: .625rem;
   color: #8fa7c1;
   margin-top: 4px
 }
@@ -437,7 +437,7 @@
 }
 
 .reference-profile-label {
-  font-size: 9px;
+  font-size: .5625rem;
   text-transform: uppercase;
   letter-spacing: .08em;
   color: var(--workspace-tools);
@@ -445,7 +445,7 @@
 }
 
 .reference-variant h3 {
-  font-size: 19px;
+  font-size: 1.1875rem;
   line-height: 1.5;
   margin-bottom: 9px;
   color: #e4edf9
@@ -457,7 +457,7 @@
 }
 
 .reference-profile-usage {
-  font-size: 13px;
+  font-size: .8125rem;
   color: #9fb6cf;
   margin: 12px 0 20px;
   line-height: 1.8
@@ -500,13 +500,13 @@
 }
 
 .reference-flow-card h4 {
-  font-size: 10px;
+  font-size: .625rem;
   margin: 0 0 6px !important;
   color: #a0b8d4
 }
 
 .reference-flow-card p {
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.8;
   margin: 0;
   color: #d1dff0;
@@ -521,19 +521,19 @@
 }
 
 .reference-knowledge .reference-facts dt {
-  font-size: 10px;
+  font-size: .625rem;
   color: #9ab0ca;
   margin: 14px 0 6px
 }
 
 .reference-knowledge .reference-facts dd {
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.85;
   color: #bbcbdf
 }
 
 .reference-profile-sources {
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.7
 }
 
@@ -569,7 +569,7 @@
 .diagnostic-heading span {
   display: block;
   color: #83b9a8;
-  font-size: 9px;
+  font-size: .5625rem;
   text-transform: uppercase;
   letter-spacing: .09em;
   margin-bottom: 4px
@@ -577,14 +577,14 @@
 
 .diagnostic-heading h4 {
   margin: 0 !important;
-  font-size: 15px !important;
+  font-size: .9375rem !important;
   color: #d8eee5 !important;
   font-weight: 600;
   line-height: 1.5
 }
 
 .reference-diagnostics h5 {
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.6;
   color: #d3e9e0;
   margin: 0 0 6px;
@@ -602,7 +602,7 @@
 .diagnostic-symptoms ul {
   margin: 5px 0 0;
   padding-left: 15px;
-  font-size: 11px;
+  font-size: .6875rem;
   color: #bad2c7;
   line-height: 1.8
 }
@@ -625,7 +625,7 @@
 
 .diagnostic-step-title>span {
   font-family: Consolas, monospace;
-  font-size: 11px;
+  font-size: .6875rem;
   color: #84bfa9
 }
 
@@ -634,7 +634,7 @@
 }
 
 .diagnostic-platform {
-  font-size: 9px;
+  font-size: .5625rem;
   line-height: 1.6;
   color: #8cbaa7;
   margin: 5px 0 9px
@@ -658,7 +658,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   line-height: 1.8;
-  font-size: 11px;
+  font-size: .6875rem;
   max-height: 210px;
   overflow: auto
 }
@@ -687,7 +687,7 @@
 }
 
 .diagnostic-expected {
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.85;
   color: #b7d8c9;
   margin: 10px 0 5px
@@ -695,14 +695,14 @@
 
 .diagnostic-expected strong {
   display: block;
-  font-size: 9px;
+  font-size: .5625rem;
   color: #8fc6ae;
   font-weight: 600;
   margin-bottom: 3px
 }
 
 .diagnostic-interpretation {
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.85;
   margin: 5px 0 0;
   color: #8eb5a5
@@ -715,14 +715,14 @@
 }
 
 .diagnostic-checks summary {
-  font-size: 11px;
+  font-size: .6875rem;
   color: #c4dfd1;
   cursor: pointer;
   line-height: 1.7
 }
 
 .diagnostic-checks ul {
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.85;
   color: #afd0bd;
   padding-left: 17px;
@@ -738,7 +738,7 @@
   flex-direction: column;
   gap: 6px;
   margin-top: 14px;
-  font-size: 9px;
+  font-size: .5625rem;
   line-height: 1.7
 }
 
@@ -747,13 +747,13 @@
 }
 
 .diagnostic-sources>span {
-  font-size: 9px;
+  font-size: .5625rem;
   color: #7ba18e;
   margin-top: 4px
 }
 
 .reference-section>h3 {
-  font-size: 13px;
+  font-size: .8125rem;
   color: #d3dfef
 }
 
@@ -765,7 +765,7 @@
 }
 
 .reference-checked {
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.8;
   color: #8ca2be
 }
@@ -802,7 +802,7 @@
 
 @media(max-width:1000px) {
   .matrix-title h1 {
-    font-size: 26px
+    font-size: 1.625rem
   }
 
   .matrix-symbol {
@@ -846,16 +846,16 @@
   }
 
   .matrix-title h1 {
-    font-size: 25px
+    font-size: 1.5625rem
   }
 
   .matrix-title p {
-    font-size: 10px;
+    font-size: .625rem;
     max-width: 350px
   }
 
   .matrix-eyebrow {
-    font-size: 8px
+    font-size: .5rem
   }
 
   .matrix-symbol {
@@ -916,17 +916,17 @@
   }
 
   .matrix-title h1 {
-    font-size: 26px
+    font-size: 1.625rem
   }
 
   .matrix-actions .protocol-button {
     height: 31px;
-    font-size: 10px;
+    font-size: .625rem;
     padding: 0 9px
   }
 
   .matrix-offline {
-    font-size: 9px
+    font-size: .5625rem
   }
 
   .matrix-filters {
@@ -938,11 +938,11 @@
 
   .matrix-filters :is(input, select) {
     height: 35px;
-    font-size: 10px
+    font-size: .625rem
   }
 
   .matrix-filters input {
-    font-size: 11px
+    font-size: .6875rem
   }
 
   .matrix-search>svg {
@@ -965,7 +965,7 @@
 
   .matrix-quick-label select {
     width: 100%;
-    font-size: 10px
+    font-size: .625rem
   }
 
   .matrix-result-bar {
@@ -1033,7 +1033,7 @@
   .matrix-table .matrix-port {
     grid-column: 1;
     grid-row: 1/span 2;
-    font-size: 20px;
+    font-size: 1.25rem;
     align-self: center;
     line-height: 1.3
   }
@@ -1076,25 +1076,25 @@
   }
 
   .matrix-service-context {
-    font-size: 9px;
+    font-size: .5625rem;
     margin: 2px 0
   }
 
   .matrix-table .protocol-service {
-    font-size: 12px
+    font-size: .75rem
   }
 
   .matrix-usage-text {
-    font-size: 11px;
+    font-size: .6875rem;
     -webkit-line-clamp: 3
   }
 
   .matrix-protection {
-    font-size: 9px
+    font-size: .5625rem
   }
 
   .matrix-table .matrix-flow {
-    font-size: 9px
+    font-size: .5625rem
   }
 
   .matrix-footer {
@@ -1108,7 +1108,7 @@
   }
 
   .protocol-reference-modal>h2 {
-    font-size: 20px
+    font-size: 1.25rem
   }
 
   .protocol-reference-endpoint {
@@ -1118,11 +1118,11 @@
   }
 
   .reference-endpoint-number>strong {
-    font-size: 31px
+    font-size: 1.9375rem
   }
 
   .reference-endpoint-number>span {
-    font-size: 8px
+    font-size: .5rem
   }
 
   .reference-endpoint-icon {
@@ -1130,7 +1130,7 @@
   }
 
   .reference-variant h3 {
-    font-size: 17px
+    font-size: 1.0625rem
   }
 
   .reference-diagnostics {
@@ -1153,7 +1153,7 @@
   }
 
   .matrix-title h1 {
-    font-size: 25px
+    font-size: 1.5625rem
   }
 
   .matrix-eyebrow {

@@ -28,7 +28,7 @@
   background: transparent;
   color: var(--muted);
   text-align: left;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .network-tool-navigation button svg {
@@ -83,14 +83,14 @@
 
 .network-tool-heading h2 {
   margin: 0;
-  font-size: 21px;
+  font-size: 1.3125rem;
   line-height: 1.4;
   overflow-wrap: anywhere
 }
 
 .network-tool-heading p {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted)
 }
 
@@ -110,7 +110,7 @@
 
 .network-error {
   color: #ffa7ad;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.6;
   margin: 10px 0;
   overflow-wrap: anywhere
@@ -135,7 +135,7 @@
 }
 
 .network-tool-results h3 {
-  font-size: 14px;
+  font-size: .875rem;
   margin: 0
 }
 
@@ -160,7 +160,7 @@
 .network-primary-fields input {
   width: 100%;
   font-family: Consolas, monospace;
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .network-advanced {
@@ -176,7 +176,7 @@
   min-height: 42px;
   cursor: pointer;
   color: var(--text);
-  font-size: 12px;
+  font-size: .75rem;
   list-style: none
 }
 
@@ -187,7 +187,7 @@
 .network-advanced>summary>span {
   flex: 1;
   color: var(--muted);
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .network-advanced>summary>svg {
@@ -222,7 +222,7 @@
 }
 
 .network-field label span {
-  font-size: 10px;
+  font-size: .625rem;
   font-weight: 400;
   color: var(--muted)
 }
@@ -236,7 +236,7 @@
   width: 100%;
   min-width: 0;
   font-family: Consolas, monospace;
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .network-unified-fields textarea {
@@ -264,7 +264,7 @@
 .network-unified-results>header p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .hash-primary-fields {
@@ -374,7 +374,7 @@
 
 .hash-file-picker strong {
   display: block;
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -383,7 +383,7 @@
 
 .hash-file-picker small {
   display: block;
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 400;
   color: var(--muted);
   margin-top: 6px
@@ -455,7 +455,7 @@
   max-height: 180px;
   resize: vertical;
   font-family: Consolas, monospace;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.7;
   border-radius: 6px
 }
@@ -464,7 +464,7 @@
   margin: 7px 0 0;
   min-height: 16px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.5;
   overflow-wrap: anywhere
 }
@@ -491,14 +491,14 @@
 
 .hash-digest-panel span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: .625rem;
   text-transform: uppercase
 }
 
 .hash-digest-panel code {
   display: block;
   font-family: Consolas, monospace;
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.7;
   color: #a1ebf4;
   overflow-wrap: anywhere;
@@ -518,7 +518,7 @@
   align-items: center;
   gap: 8px;
   padding: 12px 0 18px;
-  font-size: 13px;
+  font-size: .8125rem;
   border-top: 1px solid var(--line)
 }
 
@@ -552,7 +552,7 @@
   justify-content: center;
   gap: 12px;
   min-height: 108px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .hash-empty svg {
@@ -574,7 +574,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .hash-progress strong {
@@ -583,7 +583,7 @@
 
 .hash-progress>span {
   color: var(--muted);
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .hash-progress progress {
@@ -632,7 +632,7 @@
 
 .network-summary-card span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: .625rem;
   text-transform: uppercase
 }
 
@@ -659,7 +659,7 @@
   min-height: 46px;
   cursor: pointer;
   list-style: none;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .network-result-detail>summary::-webkit-details-marker {
@@ -726,7 +726,7 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;
-  font-size: 11px;
+  font-size: .6875rem;
   color: var(--muted)
 }
 
@@ -758,7 +758,7 @@
   gap: 12px;
   padding: 11px 0;
   border-bottom: 1px solid var(--ui-border);
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.6
 }
 
@@ -780,7 +780,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 0 18px;
-  font-size: 16px
+  font-size: 1rem
 }
 
 .network-membership svg {
@@ -802,12 +802,12 @@
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
-  font-size: 14px;
+  font-size: .875rem;
   margin-bottom: 16px
 }
 
 .network-overlap-summary>span {
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted)
 }
 
@@ -815,7 +815,7 @@
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.6
 }
 
@@ -841,14 +841,14 @@
 .network-overlap-table small {
   display: block;
   color: var(--muted);
-  font-size: 10px
+  font-size: .625rem
 }
 
 .network-no-overlap {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: .8125rem;
   color: #84d7a8;
   padding: 16px 0
 }
@@ -864,7 +864,7 @@
   justify-content: flex-end;
   gap: 10px;
   margin-top: 14px;
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted)
 }
 
@@ -912,7 +912,7 @@
   }
 
   .network-tool-heading h2 {
-    font-size: 18px
+    font-size: 1.125rem
   }
 
   .network-tool-results {
@@ -970,7 +970,7 @@
   .network-result-detail>summary>span {
     grid-column: 2;
     text-align: left;
-    font-size: 10px;
+    font-size: .625rem;
     margin-top: -7px;
     padding-bottom: 7px
   }
@@ -1009,6 +1009,6 @@
     content: attr(data-label);
     display: block;
     color: var(--muted);
-    font-size: 11px
+    font-size: .6875rem
   }
 }

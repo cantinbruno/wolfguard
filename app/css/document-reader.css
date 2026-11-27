@@ -70,7 +70,7 @@
 
 .reader-breadcrumb .breadcrumb {
   margin: 0;
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.7;
   overflow-wrap: anywhere
 }
@@ -98,7 +98,7 @@
   width: 30px;
   height: 30px;
   padding: 0;
-  font-size: 12px;
+  font-size: .75rem;
   background: transparent;
   border-color: transparent;
   color: #c3cedd
@@ -112,7 +112,7 @@
 .reader-font-tools>span {
   min-width: 39px;
   text-align: center;
-  font-size: 10px;
+  font-size: .625rem;
   color: #8ea1b9
 }
 
@@ -204,7 +204,7 @@
   flex-wrap: wrap;
   gap: 8px;
   color: var(--reader-accent);
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 600
 }
 
@@ -222,7 +222,7 @@
 .document-reader .reader-document-heading h1 {
   margin: 14px 0 12px;
   font-family: inherit;
-  font-size: 28px;
+  font-size: 1.75rem;
   line-height: 1.3;
   letter-spacing: -.5px;
   color: var(--ui-text);
@@ -233,7 +233,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
-  font-size: 11px;
+  font-size: .6875rem;
   color: var(--reader-muted);
   line-height: 1.7
 }
@@ -282,23 +282,23 @@
 }
 
 .document-reader .reader-rich-content h1 {
-  font-size: 25px;
+  font-size: 1.5625rem;
   margin: 32px 0 14px
 }
 
 .document-reader .reader-rich-content h2 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 32px 0 14px;
   padding-top: 4px
 }
 
 .document-reader .reader-rich-content h3 {
-  font-size: 16px;
+  font-size: 1rem;
   margin: 24px 0 10px
 }
 
 .document-reader .reader-rich-content h4 {
-  font-size: 15px;
+  font-size: .9375rem;
   margin: 20px 0 8px
 }
 
@@ -346,7 +346,7 @@
 }
 
 .reader-image-dialog>h2 {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.5;
   margin: 0 0 16px;
   overflow-wrap: anywhere
@@ -425,7 +425,7 @@
   background: #16253a;
   border-bottom: 1px solid #2b3a50;
   font-family: inherit;
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.5;
   color: #a7bbd4
 }
@@ -439,7 +439,7 @@
   border-radius: 3px;
   background: transparent;
   color: #c6d9ef;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .reader-code figcaption button:hover {
@@ -460,7 +460,7 @@
   background: #0c1727 !important;
   color: #d4e2f3 !important;
   font-family: Consolas, "Cascadia Code", monospace !important;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
   line-height: 1.7 !important;
   max-width: 100%;
   overflow: auto;
@@ -542,7 +542,7 @@
 .reader-outline summary {
   padding: 4px 0 14px;
   color: #d8e4f4;
-  font-size: 12px;
+  font-size: .75rem;
   font-weight: 600;
   cursor: pointer
 }
@@ -551,7 +551,7 @@
 .reader-note-outline summary>span {
   float: right;
   color: #8299b5;
-  font-size: 10px;
+  font-size: .625rem;
   font-weight: 400
 }
 
@@ -561,7 +561,7 @@
   gap: 9px;
   padding: 8px 9px;
   margin: 1px 0;
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.6;
   color: #a6b9d2;
   text-decoration: none;
@@ -573,7 +573,7 @@
 .reader-outline a.h3,
 .reader-outline a.h4 {
   padding-left: 18px;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .document-reader .reader-outline a:hover {
@@ -589,7 +589,7 @@
 
 .reader-outline-number {
   font-family: Consolas, monospace;
-  font-size: 10px;
+  font-size: .625rem;
   color: #7896c1;
   flex: none
 }
@@ -597,7 +597,7 @@
 .reader-extras {
   margin-top: 30px;
   color: var(--reader-ink);
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.7
 }
 
@@ -609,13 +609,13 @@
 
 .document-reader .reader-extras h2 {
   margin: 0 0 14px;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.4;
   color: #263a56
 }
 
 .reader-extras h2>span {
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--reader-muted);
   font-weight: 400
 }
@@ -660,13 +660,13 @@
 
 .reader-file strong {
   display: block;
-  font-size: 12px;
+  font-size: .75rem;
   overflow-wrap: anywhere
 }
 
 .reader-file small {
   display: block;
-  font-size: 10px;
+  font-size: .625rem;
   color: var(--reader-muted);
   overflow-wrap: anywhere
 }
@@ -675,7 +675,7 @@
   background: white;
   border-color: var(--ui-muted);
   color: #37557c;
-  font-size: 11px;
+  font-size: .6875rem;
   padding: 6px 8px;
   flex: none
 }
@@ -693,7 +693,7 @@
   margin-top: 28px;
   padding-top: 16px;
   color: var(--reader-muted);
-  font-size: 10px
+  font-size: .625rem
 }
 
 .reader-extras .item-relations {
@@ -701,7 +701,7 @@
 }
 
 .reader-extras .item-relations h3 {
-  font-size: 14px;
+  font-size: .875rem;
   color: #2a405f
 }
 
@@ -739,7 +739,7 @@
   --reader-muted: #837a80;
   --reader-border: #e5ded8;
   --reader-accent: #9a5f79;
-  --reader-font-size: 16px
+  --reader-font-size: 1rem
 }
 
 .note-reader .reader-scroll {
@@ -759,7 +759,7 @@
 
 .note-reader .reader-document-heading h1 {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 32px;
+  font-size: 2rem;
   line-height: 1.35;
   font-weight: 600;
   color: #372e39;
@@ -775,7 +775,7 @@
 }
 
 .note-reader .reader-rich-content h2 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin-top: 30px
 }
 
@@ -800,7 +800,7 @@
   border: 1px solid #e5dad8;
   border-radius: 5px;
   background: #f6efeb;
-  font-size: 12px;
+  font-size: .75rem;
   color: #8d6177
 }
 
@@ -822,7 +822,7 @@
   align-items: baseline;
   gap: 6px;
   color: #885973;
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.6;
   text-decoration: none
 }
@@ -907,15 +907,15 @@
   }
 
   .document-reader .reader-document-heading h1 {
-    font-size: 24px
+    font-size: 1.5rem
   }
 
   .note-reader .reader-document-heading h1 {
-    font-size: 27px
+    font-size: 1.6875rem
   }
 
   .reader-metadata {
-    font-size: 10px;
+    font-size: .625rem;
     gap: 3px 10px
   }
 

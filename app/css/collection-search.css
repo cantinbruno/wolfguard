@@ -104,19 +104,19 @@
 .command-tech-empty {
   padding: 24px 16px;
   color: var(--muted);
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .workspace-tree-empty {
   margin: 0;
   padding: 14px 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.6
 }
 
 .command-tech-head #commandResultsCount {
-  font-size: 12px;
+  font-size: .75rem;
   margin-top: 4px
 }
 

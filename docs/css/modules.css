@@ -7,12 +7,12 @@
 
 .workspace-modules h2 {
   margin: 0 0 12px;
-  font-size: 23px;
+  font-size: 1.4375rem;
 }
 
 .workspace-modules p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.7;
 }
 
@@ -35,12 +35,12 @@
 }
 
 .workspace-module-option strong {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 
 .workspace-module-option span {
   color: var(--module-accent);
-  font-size: 12px;
+  font-size: .75rem;
   margin-top: auto;
 }
 

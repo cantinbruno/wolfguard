@@ -20,14 +20,14 @@
 
 .app-dialog h2 {
   margin: 0 0 10px;
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: 1.4;
 }
 
 .app-dialog p {
   margin: 0;
   color: #bbc7d8;
-  font-size: 14px;
+  font-size: .875rem;
   line-height: 1.6;
   overflow-wrap: anywhere;
   white-space: pre-line;
@@ -58,7 +58,7 @@
   border-radius: 5px;
   background: transparent;
   color: #bbc7d8;
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 600;
 }
 
@@ -123,7 +123,7 @@
   min-width: 0;
   margin: 0;
   padding: 1px 0;
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
   white-space: pre-line;

@@ -157,7 +157,7 @@ button {
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 22px
+  font-size: 1.375rem
 }
 
 .lock-sub {
@@ -197,7 +197,7 @@ button {
   border-radius: 14px;
   background: var(--panel2);
   color: var(--text);
-  font-size: 20px
+  font-size: 1.25rem
 }
 
 .key:hover:not(:disabled) {
@@ -215,7 +215,7 @@ button {
   color: #ff8994;
   min-height: 40px;
   line-height: 20px;
-  font-size: 13px;
+  font-size: .8125rem;
   margin-top: 12px
 }
 
@@ -241,7 +241,7 @@ button {
 }
 
 .brand {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap
@@ -342,14 +342,14 @@ button {
 }
 
 .side-title strong {
-  font-size: 14px;
+  font-size: .875rem;
   text-transform: uppercase;
   letter-spacing: .07em;
   color: #c7d0de
 }
 
 .side-section {
-  font-size: 11px;
+  font-size: .6875rem;
   color: #718096;
   text-transform: uppercase;
   letter-spacing: .08em;
@@ -375,7 +375,7 @@ button {
 
 .navrow span:last-child {
   color: #758299;
-  font-size: 12px
+  font-size: .75rem
 }
 
 /* HOME */
@@ -389,7 +389,7 @@ button {
 }
 
 .hero h1 {
-  font-size: 27px;
+  font-size: 1.6875rem;
   margin: 0 0 7px
 }
 
@@ -408,7 +408,7 @@ button {
 
 .card h3 {
   margin: 0 0 14px;
-  font-size: 15px
+  font-size: .9375rem
 }
 
 .scratch {
@@ -508,7 +508,7 @@ button {
 }
 
 .list-item-sub {
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted);
   margin-top: 5px;
   display: flex;
@@ -522,7 +522,7 @@ button {
   border-radius: 999px;
   background: #253149;
   color: #c5d6ff;
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .empty {
@@ -542,7 +542,7 @@ button {
 
 .detail-title h2 {
   margin: 0 0 7px;
-  font-size: 24px
+  font-size: 1.5rem
 }
 
 .detail-actions {
@@ -570,7 +570,7 @@ button {
 }
 
 .info-box .label {
-  font-size: 11px;
+  font-size: .6875rem;
   text-transform: uppercase;
   letter-spacing: .06em;
   color: #7f8ba0;
@@ -578,7 +578,7 @@ button {
 }
 
 .info-box .value {
-  font-size: 14px;
+  font-size: .875rem;
   word-break: break-word
 }
 
@@ -646,7 +646,7 @@ button {
   border-radius: 13px;
   padding: 18px;
   font-family: Consolas, monospace;
-  font-size: 14px;
+  font-size: .875rem;
   white-space: pre-wrap;
   position: relative
 }
@@ -702,7 +702,7 @@ button {
 
 .field label {
   display: block;
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted);
   margin-bottom: 6px
 }
@@ -806,7 +806,7 @@ button {
 }
 
 .template-card .type {
-  font-size: 11px;
+  font-size: .6875rem;
   text-transform: uppercase;
   color: #86a6ff;
   margin-bottom: 8px
@@ -895,7 +895,7 @@ button {
   padding: 8px 10px;
   margin: 5px 0 8px;
   color: #8e9bb0;
-  font-size: 12px;
+  font-size: .75rem;
   transition: .15s
 }
 
@@ -928,7 +928,7 @@ button {
 }
 
 .drag-hint {
-  font-size: 11px;
+  font-size: .6875rem;
   color: #6f7d92;
   margin: 6px 7px 12px
 }
@@ -1034,7 +1034,7 @@ button {
   background: #0c1016;
   color: #7d8aa0;
   padding: 0 8px;
-  font-size: 10px
+  font-size: .625rem
 }
 
 .paper img {
@@ -1061,7 +1061,7 @@ button {
 }
 
 .template-help {
-  font-size: 11px;
+  font-size: .6875rem;
   color: #77869c;
   line-height: 1.45;
   margin-top: 10px
@@ -1110,7 +1110,7 @@ button {
 .sidebar-empty {
   padding: 10px;
   color: #738198;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.5
 }
 
@@ -1285,3 +1285,11 @@ button {
 :root[data-ui-density="comfortable"] .agents-table td{padding-top:16px;padding-bottom:16px}
 .library-editor #richEditor{font-size:calc(15px * var(--reading-scale,1))}
 :root[data-ui-motion="reduced"] *,:root[data-ui-motion="reduced"] *::before,:root[data-ui-motion="reduced"] *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+
+/* Keyboard focus is always visible, including where a design removed the
+   outline; mouse clicks do not trigger :focus-visible. The rich editor keeps
+   its own page frame. */
+:is(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):not([contenteditable]):focus-visible {
+  outline: 2px solid var(--ui-accent, #9edcff) !important;
+  outline-offset: 2px !important
+}

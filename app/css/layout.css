@@ -14,7 +14,7 @@
 
 .topbar .brand {
   grid-area: brand !important;
-  font-size: 16px !important;
+  font-size: 1rem !important;
   font-weight: 800 !important;
   letter-spacing: -.02em;
   padding: 0 2px !important;
@@ -28,7 +28,7 @@
   background: #0a0f16 !important;
   border: 1px solid #2c3748 !important;
   padding: 0 14px !important;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
 }
 
 .topbar .search:focus {
@@ -62,7 +62,7 @@
   border: 1px solid #2a3546 !important;
   background: #111823 !important;
   color: #d7e0ec !important;
-  font-size: 12.5px !important;
+  font-size: .7813rem !important;
   transition: .15s ease !important;
 }
 
@@ -105,7 +105,7 @@
   padding: 0 10px !important;
   background: #111823 !important;
   border: 1px solid #2a3546 !important;
-  font-size: 11px !important;
+  font-size: .6875rem !important;
 }
 
 .data-status:hover {
@@ -290,7 +290,7 @@
 
 .topbar .brand {
   grid-area: brand !important;
-  font-size: 15px !important;
+  font-size: .9375rem !important;
   font-weight: 800 !important;
   letter-spacing: -.02em;
   white-space: nowrap;
@@ -316,7 +316,7 @@
 .topbar .search::before {
   content: "⌕";
   color: #6f7e93;
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin-left: 11px;
   flex: 0 0 auto;
 }
@@ -329,7 +329,7 @@
   background: transparent !important;
   color: #e5edf7 !important;
   padding: 0 10px 0 0 !important;
-  font-size: 12.5px !important;
+  font-size: .7813rem !important;
 }
 
 .topbar .search:focus-within {
@@ -363,7 +363,7 @@
   border-radius: 8px !important;
   background: transparent !important;
   color: #95a4b8 !important;
-  font-size: 12px !important;
+  font-size: .75rem !important;
   font-weight: 600 !important;
 }
 
@@ -400,7 +400,7 @@
   background: #101721 !important;
   border: 1px solid #263142 !important;
   color: #9dacbf !important;
-  font-size: 10.5px !important;
+  font-size: .6563rem !important;
 }
 
 .data-status:hover {
@@ -431,7 +431,7 @@
   background: #0b1017;
   border: 1px solid #35445a;
   color: #c8d3e3;
-  font-size: 10px;
+  font-size: .625rem;
   box-shadow: 0 8px 20px rgba(0, 0, 0, .28);
 }
 

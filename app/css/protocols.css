@@ -44,14 +44,14 @@
 
 .protocol-navigation-heading h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.4;
   overflow-wrap: anywhere
 }
 
 .protocol-navigation-heading p {
   margin: 4px 0 0;
-  font-size: 11px;
+  font-size: .6875rem;
   color: var(--muted)
 }
 
@@ -130,13 +130,13 @@
 }
 
 .protocol-heading h1 {
-  font-size: 21px;
+  font-size: 1.3125rem;
   margin: 0 0 4px
 }
 
 .protocol-heading p {
   margin: 0;
-  font-size: 12px;
+  font-size: .75rem;
   color: var(--muted)
 }
 
@@ -155,7 +155,7 @@
   gap: 7px;
   border-radius: 6px;
   min-height: 34px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .protocol-button svg,
@@ -221,7 +221,7 @@
   border: 0;
   border-radius: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: .75rem;
   text-align: left;
   white-space: normal
 }
@@ -255,7 +255,7 @@
 }
 
 .protocol-family-count {
-  font-size: 10px;
+  font-size: .625rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   min-width: 14px;
@@ -303,7 +303,7 @@
   align-items: center;
   gap: 7px;
   color: var(--family-color, var(--muted));
-  font-size: 11px;
+  font-size: .6875rem;
   min-width: 0;
   line-height: 1.4
 }
@@ -332,7 +332,7 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 11px;
+  font-size: .6875rem;
   color: var(--muted);
   min-width: 0
 }
@@ -347,7 +347,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0 10px;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .protocol-search-field {
@@ -454,7 +454,7 @@
 
 .protocol-card-port .label {
   display: block;
-  font-size: 9px;
+  font-size: .5625rem;
   color: var(--muted);
   margin-bottom: 3px
 }
@@ -463,7 +463,7 @@
   display: block;
   color: var(--text);
   font-family: Consolas, monospace;
-  font-size: 26px;
+  font-size: 1.625rem;
   line-height: 1.1;
   font-weight: 700;
   font-variant-numeric: tabular-nums
@@ -479,12 +479,12 @@
 .protocol-card h2 {
   margin: 0;
   min-width: 0;
-  font-size: 15px;
+  font-size: .9375rem;
   line-height: 20px
 }
 
 .protocol-card .protocol-service {
-  font-size: 15px;
+  font-size: .9375rem;
   line-height: 20px;
   padding: 0;
   width: 100%;
@@ -495,7 +495,7 @@
 }
 
 .protocol-card-usage {
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 16px;
   color: #a9b4c0;
   margin: 0;
@@ -537,7 +537,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 12px
+  font-size: .75rem
 }
 
 .protocol-table col:nth-child(1) {
@@ -563,7 +563,7 @@
   z-index: 1;
   background: #101720;
   color: var(--muted);
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 600
 }
 
@@ -599,7 +599,7 @@
 
 .protocol-table td:first-child {
   font-family: Consolas, monospace;
-  font-size: 13px;
+  font-size: .8125rem;
   color: var(--protocol)
 }
 
@@ -615,7 +615,7 @@
   text-align: left;
   color: var(--text);
   font-weight: 600;
-  font-size: 12px;
+  font-size: .75rem;
   cursor: pointer;
   line-height: 1.5;
   max-width: 100%;
@@ -646,7 +646,7 @@
 }
 
 .protocol-transport {
-  font-size: 10px;
+  font-size: .625rem;
   padding: 4px 7px;
   border-radius: 4px;
   background: #25302e;
@@ -681,7 +681,7 @@
   padding: 48px 14px;
   text-align: center;
   color: var(--muted);
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .protocol-empty>svg {
@@ -692,7 +692,7 @@
 }
 
 .protocol-empty h2 {
-  font-size: 15px;
+  font-size: .9375rem;
   color: var(--text);
   margin: 0 0 18px
 }
@@ -713,7 +713,7 @@
 }
 
 .protocol-detail-position {
-  font-size: 11px;
+  font-size: .6875rem;
   color: var(--muted);
   padding: 0 6px;
   white-space: nowrap
@@ -732,7 +732,7 @@
 }
 
 .protocol-workspace .detail-head h2 {
-  font-size: 22px
+  font-size: 1.375rem
 }
 
 .protocol-facts {
@@ -745,13 +745,13 @@
 }
 
 .protocol-facts .label {
-  font-size: 10px;
+  font-size: .625rem;
   color: var(--muted);
   margin-bottom: 6px
 }
 
 .protocol-facts .value {
-  font-size: 12px;
+  font-size: .75rem;
   overflow-wrap: anywhere;
   line-height: 1.6
 }
@@ -767,7 +767,7 @@
 }
 
 .protocol-detail-port code {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.2;
   min-width: 0;
@@ -775,11 +775,11 @@
 }
 
 .protocol-detail-port.has-no-port code {
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .protocol-facts .protocol-family-caption {
-  font-size: 12px;
+  font-size: .75rem;
   min-height: 25px
 }
 
@@ -804,14 +804,14 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  font-size: 13px
+  font-size: .8125rem
 }
 
 .protocol-workspace .memo-paper h1,
 .protocol-workspace .memo-paper h2,
 .protocol-workspace .memo-paper h3 {
   color: var(--text);
-  font-size: 15px;
+  font-size: .9375rem;
   line-height: 1.4;
   margin: 22px 0 10px
 }
@@ -828,7 +828,7 @@
 
 .protocol-workspace .memo-paper table {
   width: 100%;
-  font-size: 12px;
+  font-size: .75rem;
   background: transparent
 }
 
@@ -854,7 +854,7 @@
   color: #dce7f2;
   border-color: var(--line);
   border-radius: 6px;
-  font-size: 12px;
+  font-size: .75rem;
   padding: 12px
 }
 
@@ -976,11 +976,11 @@
   }
 
   .protocol-heading h1 {
-    font-size: 18px
+    font-size: 1.125rem
   }
 
   .protocol-heading p {
-    font-size: 11px
+    font-size: .6875rem
   }
 
   .protocol-heading .actions {
@@ -1077,7 +1077,7 @@
   .protocol-table td:nth-child(4) {
     grid-column: 2/-1;
     grid-row: 3;
-    font-size: 11px;
+    font-size: .6875rem;
     margin: 2px 0 4px
   }
 
@@ -1130,11 +1130,11 @@
   }
 
   .protocol-heading h1 {
-    font-size: 18px
+    font-size: 1.125rem
   }
 
   .protocol-heading p {
-    font-size: 11px
+    font-size: .6875rem
   }
 
   .protocol-heading .actions {
@@ -1222,7 +1222,7 @@
   .protocol-table td:nth-child(4) {
     grid-column: 2/-1;
     grid-row: 3;
-    font-size: 11px;
+    font-size: .6875rem;
     margin: 2px 0 4px
   }
 
@@ -1287,7 +1287,7 @@
   }
 
   .protocol-detail-port code {
-    font-size: 25px
+    font-size: 1.5625rem
   }
 }
 

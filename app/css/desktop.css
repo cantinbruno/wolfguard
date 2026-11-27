@@ -19,7 +19,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 14px 2px;
-  font-size: 11px;
+  font-size: .6875rem;
   color: #a4b8d2;
   min-height: 60px
 }
@@ -60,7 +60,7 @@
   border-radius: 6px;
   background: #351d2a;
   color: #ffe4ed;
-  font-size: 13px;
+  font-size: .8125rem;
   line-height: 1.5;
   box-shadow: 0 8px 24px #0008
 }

@@ -64,7 +64,7 @@
 
 .workspace-navigation-heading h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.4;
   overflow-wrap: anywhere
 }
@@ -72,7 +72,7 @@
 .workspace-navigation-heading p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 16px
 }
 
@@ -123,7 +123,7 @@
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: .75rem;
   outline: none
 }
 
@@ -144,7 +144,7 @@
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   color: var(--muted);
-  font-size: 11px
+  font-size: .6875rem
 }
 
 .tree-root-drop>svg {
@@ -181,7 +181,7 @@
   border-radius: 4px;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.4
 }
 
@@ -270,7 +270,7 @@
 .tree-folder-count {
   min-width: 18px;
   text-align: right;
-  font-size: 10px;
+  font-size: .625rem;
   line-height: 1.4;
   color: var(--muted);
   font-variant-numeric: tabular-nums;

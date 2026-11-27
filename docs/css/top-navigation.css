@@ -152,7 +152,7 @@
 .topbar .search input {
   height: 36px !important;
   color: var(--ui-text) !important;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
 }
 
 .topbar .search input::placeholder {
@@ -293,7 +293,7 @@
   background: color-mix(in srgb, var(--button-accent) 7%, transparent) !important;
   color: var(--button-accent) !important;
   font-weight: 600;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
   white-space: nowrap;
   box-shadow: none !important;
   cursor: pointer;
@@ -404,7 +404,7 @@
   .topbar .section-navigation .workspace-section-button {
     min-width: 0;
     padding: 0 5px !important;
-    font-size: 12px !important;
+    font-size: .75rem !important;
   }
 
   .workspace-section-icon {

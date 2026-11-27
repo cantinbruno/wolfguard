@@ -31,6 +31,11 @@ def run():
             page.locator('#closeSettingsBtn').click()
             search('interface','library');expect(page.locator('.search-result').first).to_be_visible(timeout=10000);expect(page.locator('.search-result .search-result-meta',has_text='Paramètre')).to_have_count(0)
             search('procédure','settings');expect(page.locator('.search-result')).to_have_count(0,timeout=10000)
+            # Keyboard focus is visible everywhere (A1), and font sizes follow the browser setting (rem).
+            page.keyboard.press('Escape');page.locator('body').click(position={'x':5,'y':500});page.keyboard.press('Tab')
+            style=page.evaluate("(()=>{const s=getComputedStyle(document.activeElement);return [s.outlineStyle,s.outlineWidth]})()")
+            assert style==['solid','2px'],style
+            assert page.evaluate("[...document.styleSheets].some(sheet=>{try{return [...sheet.cssRules].some(rule=>/font-size: *[0-9.]+rem/.test(rule.cssText))}catch{return false}})")
             assert not errors,errors
             browser.close()
     finally:server.shutdown();server.server_close()

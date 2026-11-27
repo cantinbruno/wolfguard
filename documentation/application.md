@@ -90,3 +90,9 @@ Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemb
 ## Recherche globale
 
 `Ctrl+K` (ou `Cmd+K`) ouvre la recherche sur les fiches du Mémo, les outils, le Coffre-fort et les onglets des Paramètres. Le filtre propose Tout, Mes fiches, Coffre-fort, Outils et Paramètres. Le coffre n’est indexé que par son titre, son dossier et ses étiquettes : un identifiant, un mot de passe ou une note n’est jamais recherché. Les onglets de paramètres proposés suivent les droits du compte ; choisir un résultat ouvre l’onglet. Sources : `app/js/search/engine.js`, `controller.js`, test `tests/global_search_test.py`.
+
+## Accessibilité
+
+- Le focus clavier est toujours visible (contour de 2 px de la couleur d’accent) sur les liens, boutons, champs et éléments focalisables, même là où un style retirait le contour ; un clic à la souris n’affiche pas ce contour (`:focus-visible`, fin de `app/css/base.css`).
+- Les tailles de texte sont exprimées en `rem` : à réglage par défaut du navigateur, le rendu est identique, et une taille de texte plus grande choisie dans le navigateur s’applique à toute l’application, en plus du réglage « Taille du texte » de l’onglet Interface.
+- Les couleurs principales des trois ambiances (texte, texte secondaire, texte discret et accent sur les fonds) dépassent le seuil WCAG AA de 4,5:1 (5,5:1 au minimum). Les couleurs fixées dans certains composants ne sont pas toutes vérifiées.

@@ -26,7 +26,7 @@
   min-width: 0;
   height: 40px !important;
   padding: 0 !important;
-  font-size: 13px !important;
+  font-size: .8125rem !important;
 }
 
 .topbar .search input::-webkit-search-cancel-button {
@@ -99,7 +99,7 @@
 
 .search-toolbar>span {
   color: #a5b4c4;
-  font-size: 12px;
+  font-size: .75rem;
   white-space: nowrap;
 }
 
@@ -112,7 +112,7 @@
   border: 1px solid #35444e;
   border-radius: 5px;
   background: #18232c;
-  font-size: 12px;
+  font-size: .75rem;
   cursor: pointer;
 }
 
@@ -188,7 +188,7 @@
 
 .search-result-title {
   color: #eaf1f8;
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 650;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -200,7 +200,7 @@
   align-items: baseline;
   gap: 5px 9px;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: .6875rem;
   line-height: 1.5;
   color: #9cacbf;
   overflow-wrap: anywhere;
@@ -223,7 +223,7 @@
 .search-result .search-snippet {
   margin-top: 6px;
   color: #99aabb;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.5;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -258,7 +258,7 @@
   padding: 36px 16px;
   text-align: center;
   color: #a5b4c4;
-  font-size: 13px;
+  font-size: .8125rem;
 }
 
 .search-more {
@@ -274,7 +274,7 @@
   border-radius: 0;
   background: #18232c;
   color: #b6dfd4;
-  font-size: 12px;
+  font-size: .75rem;
   cursor: pointer;
 }
 
@@ -284,7 +284,7 @@
 
 .search-more span {
   color: #8ca1b3;
-  font-size: 11px;
+  font-size: .6875rem;
 }
 
 .search-suggestions {
@@ -299,7 +299,7 @@
 
 .search-suggestions>span {
   width: 100%;
-  font-size: 11px;
+  font-size: .6875rem;
   color: #8fa2b4;
 }
 
@@ -310,7 +310,7 @@
   border-radius: 5px;
   color: #b6dfd4;
   background: #18232c;
-  font-size: 12px;
+  font-size: .75rem;
   overflow-wrap: anywhere;
   cursor: pointer;
 }

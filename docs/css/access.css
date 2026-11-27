@@ -72,7 +72,7 @@
 
 .access-heading h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere
@@ -112,14 +112,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: .75rem;
   font-weight: 500;
   color: var(--ui-text)
 }
 
 .access-code-label span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: .6875rem;
   font-weight: 400;
   flex: none
 }
@@ -134,7 +134,7 @@
   background: var(--ui-page);
   color: var(--ui-text);
   font-family: Segoe UI, Arial, sans-serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: normal;
   outline: none;
   letter-spacing: 0;
@@ -143,7 +143,7 @@
 
 .access-screen .first-pin-box input::placeholder {
   color: var(--ui-subtle);
-  font-size: 13px;
+  font-size: .8125rem;
   opacity: 1
 }
 
@@ -174,7 +174,7 @@
   border-radius: 6px;
   background: var(--ui-highlight);
   color: var(--ui-on-accent);
-  font-size: 13px;
+  font-size: .8125rem;
   font-weight: 600;
   transition: background .15s ease, border-color .15s ease;
 }
@@ -210,7 +210,7 @@
   margin: 0 !important;
   min-height: 0;
   text-align: left;
-  font-size: 12px !important;
+  font-size: .75rem !important;
   line-height: 1.5;
   overflow-wrap: anywhere
 }
@@ -270,7 +270,7 @@
   border-radius: 6px;
   background: var(--ui-page);
   color: var(--ui-text);
-  font-size: 19px;
+  font-size: 1.1875rem;
   line-height: 1
 }
 
@@ -292,14 +292,14 @@
 
 #lock .key[data-key=C],
 #lock .key[data-key="\232b"] {
-  font-size: 15px;
+  font-size: .9375rem;
   color: var(--ui-muted)
 }
 
 #lock .lock-error {
   min-height: 42px;
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: .75rem;
   line-height: 1.5;
   color: #f2a7b7;
   overflow-wrap: anywhere
@@ -330,7 +330,7 @@
   }
 
   .access-heading h2 {
-    font-size: 18px
+    font-size: 1.125rem
   }
 }
 
@@ -342,4 +342,4 @@
   }
 }
 
-.access-session-filters{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.access-session-filters label{display:grid;gap:8px;font-size:14px;flex:1;min-width:160px}.access-session-filters input,.access-session-filters select{min-height:40px;padding:8px 12px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-page);color:var(--ui-text)}
+.access-session-filters{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}.access-session-filters label{display:grid;gap:8px;font-size:.875rem;flex:1;min-width:160px}.access-session-filters input,.access-session-filters select{min-height:40px;padding:8px 12px;border:1px solid var(--ui-border);border-radius:8px;background:var(--ui-page);color:var(--ui-text)}
