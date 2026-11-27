@@ -56,7 +56,7 @@ function changeWorkspaceFromSettings() {
 function interfacePreferenceKey(){return 'wolfguard-interface:'+(typeof WolfGuardCloud!=='undefined'?WolfGuardCloud.currentUser()?.id||'local':'local');}
 function applyInterfacePreferences(value){
   if(!value){try{value=JSON.parse(localStorage.getItem(interfacePreferenceKey())||'{}');}catch{value={};}}
-  const allowed={theme:['midnight','slate','contrast'],density:['comfortable','compact'],text:['100','110','120'],motion:['system','reduced']};
+  const allowed={theme:['midnight','slate','contrast','light','auto'],density:['comfortable','compact'],text:['100','110','120'],motion:['system','reduced']};
   const result={};for(const [key,values]of Object.entries(allowed))result[key]=values.includes(value[key])?value[key]:values[0];
   const root=document.documentElement;root.dataset.uiTheme=result.theme;root.dataset.uiDensity=result.density;root.dataset.uiMotion=result.motion;root.style.setProperty('--reading-scale',Number(result.text)/100);
   return result;
@@ -271,7 +271,7 @@ async function openSettings(initialTab = 'account') {
             </div>
           </div>
           <h4 class="settings-group-title">Personnalisation</h4>
-          ${[['theme','Ambiance',[['midnight','Bleu nuit'],['slate','Ardoise'],['contrast','Contraste renforcé']]],['density','Densité des tableaux',[['comfortable','Confortable'],['compact','Compacte']]],['text','Taille de lecture',[['100','Standard'],['110','110 %'],['120','120 %']]],['motion','Animations',[['system','Selon le système'],['reduced','Réduites']]]].map(([id,label,options])=>'<div class="settings-row"><label class="settings-row-title" for="interface-'+id+'">'+label+'</label><select class="settings-select settings-control" id="interface-'+id+'" data-interface-option="'+id+'">'+options.map(([value,text])=>'<option value="'+value+'">'+text+'</option>').join('')+'</select></div>').join('')}
+          ${[['theme','Ambiance',[['midnight','Bleu nuit'],['light','Clair'],['auto','Automatique (selon le système)'],['slate','Ardoise'],['contrast','Contraste renforcé']]],['density','Densité des tableaux',[['comfortable','Confortable'],['compact','Compacte']]],['text','Taille de lecture',[['100','Standard'],['110','110 %'],['120','120 %']]],['motion','Animations',[['system','Selon le système'],['reduced','Réduites']]]].map(([id,label,options])=>'<div class="settings-row"><label class="settings-row-title" for="interface-'+id+'">'+label+'</label><select class="settings-select settings-control" id="interface-'+id+'" data-interface-option="'+id+'">'+options.map(([value,text])=>'<option value="'+value+'">'+text+'</option>').join('')+'</select></div>').join('')}
           <h4 class="settings-group-title">Réinitialisation</h4>
           <div class="settings-row">
             ${settingsIcon('rotate-ccw')}

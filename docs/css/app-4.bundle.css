@@ -1295,6 +1295,35 @@ button {
   outline-offset: 2px !important
 }
 
+/* Light ambiance. The dark interface is inverted as a whole (hue kept with a
+   180° rotation), then what must keep its own colors is inverted back: pictures,
+   video, canvases (remote desktop), the reading page of a memo and the
+   rich editor. "Automatique" follows the system setting. */
+:root[data-ui-theme="light"] {
+  filter: invert(1) hue-rotate(180deg);
+  background: #fff
+}
+
+:root[data-ui-theme="light"] :is(img, video, canvas, picture, .word-page, .memo-paper) {
+  filter: invert(1) hue-rotate(180deg)
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-ui-theme="auto"] {
+    filter: invert(1) hue-rotate(180deg);
+    background: #fff
+  }
+
+  :root[data-ui-theme="auto"] :is(img, video, canvas, picture, .word-page, .memo-paper) {
+    filter: invert(1) hue-rotate(180deg)
+  }
+}
+
+@media print {
+  :root[data-ui-theme] { filter: none !important }
+  :root[data-ui-theme] :is(img, video, canvas, picture, .word-page, .memo-paper) { filter: none !important }
+}
+
 /* css/workspaces.css */
 /* V2.4 - UNIFIED EXPLORER */
 .content.explorer-content {
