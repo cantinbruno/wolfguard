@@ -1,16 +1,9 @@
 'use strict';
 
 /* V3.3.4 - Restored helpers */
+const emptyVaultData = () => ({username: '', password: '', url: '', host: '', notes: '', totp: '', custom: []});
 async function vaultData(item, autoMigrate = true) {
-  if(item?.secretsRestricted)return {username:'',password:'',url:'',host:'',notes:'',custom:[]};
-  if (!item) return {
-    username: '',
-    password: '',
-    url: '',
-    host: '',
-    notes: '',
-    custom: []
-  };
+  if (item?.secretsRestricted || !item) return emptyVaultData();
   if (item.vaultBlobEnc) {
     try {
       const parsed = JSON.parse(await decSecret(item.vaultBlobEnc));
@@ -20,18 +13,12 @@ async function vaultData(item, autoMigrate = true) {
         url: parsed.url || '',
         host: parsed.host || '',
         notes: parsed.notes || '',
+        totp: parsed.totp || '',
         custom: Array.isArray(parsed.custom) ? parsed.custom : []
       };
     } catch (e) {
       console.warn('Lecture coffre chiffré impossible', e);
-      return {
-        username: '',
-        password: '',
-        url: '',
-        host: '',
-        notes: '',
-        custom: []
-      };
+      return emptyVaultData();
     }
   }
   let password = '';
@@ -44,6 +31,7 @@ async function vaultData(item, autoMigrate = true) {
     url: item.url || '',
     host: item.host || '',
     notes: item.notes || '',
+    totp: '',
     custom: Array.isArray(item.custom) ? item.custom : []
   };
   if (autoMigrate && item.type === 'vault') {
@@ -143,6 +131,8 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
       <div class="vault-view-body"><div class="info-box"><div class="label">Nom</div><div class="value secret-line"><span>${esc(item.title||'Sans titre')}</span><button type="button" id="copyVaultTitle" class="ghost" aria-label="Copier le nom">Copier</button></div></div>
         <div class="info-box"><div class="label">Identifiant</div><div class="value secret-line"><span>${esc(d.username||'—')}</span>${d.username?'<button type="button" id="copyUsername" class="ghost" aria-label="Copier l’identifiant">Copier</button>':''}</div></div>
         <div class="info-box"><div class="label">Mot de passe</div><div class="value secret-line"><span id="passMask" class="secret-mask">${password?'••••••••••••':'Aucun mot de passe'}</span><button type="button" id="showPassword" class="ghost" aria-label="Afficher le mot de passe" aria-controls="passMask" aria-pressed="false" ${password?'':'disabled'}>Afficher</button><button type="button" id="copyPassword" class="ghost" aria-label="Copier le mot de passe" ${password?'':'disabled'}>Copier</button></div></div>
+        ${password?'<div class="info-box password-health"><div class="label">Robustesse</div><div class="value"><div class="strength-meter" id="strengthMeter" data-score="0"><span></span></div><div class="health-line"><span id="strengthText"></span><button type="button" id="checkPwned" class="ghost" title="Seuls 5 caractères d’une empreinte du mot de passe sont envoyés à haveibeenpwned.com, jamais le mot de passe.">Vérifier les fuites</button></div><div class="health-line" id="reuseText" role="status"></div><div class="health-line" id="pwnedText" role="status" aria-live="polite"></div></div></div>':''}
+        ${d.totp?'<div class="info-box"><div class="label">Code à usage unique (TOTP)</div><div class="value secret-line"><span id="totpCode" class="totp-code" aria-label="Code TOTP actuel">••• •••</span><span id="totpTimer" class="muted"></span><button type="button" id="copyTotp" class="ghost" aria-label="Copier le code TOTP">Copier</button></div></div>':''}
         <div class="info-box"><div class="label">URL</div><div class="value secret-line"><span>${esc(d.url||'—')}</span>${d.url?'<button type="button" id="copyUrl" class="ghost" aria-label="Copier l’URL">Copier</button>':''}</div></div>
         <div class="info-box"><div class="label">IP / Hostname</div><div class="value secret-line"><span>${esc(d.host||'—')}</span>${d.host?'<button type="button" id="copyHost" class="ghost" aria-label="Copier l’hôte">Copier</button>':''}</div></div>
         ${(d.custom||[]).length?`<div class="custom-grid">${d.custom.map(c=>`<div class="info-box"><div class="label">${esc(c.k||'Champ')}</div><div class="value">${esc(c.v||'—')}</div></div>`).join('')}</div>`:''}
@@ -192,6 +182,7 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
   bindCopy($('#copyUsername'), d.username);
   bindCopy($('#copyPassword'), password);
   bindCopy($('#copyUrl'), d.url);
+  wireVaultHealth(item, password, d.totp, key);
   await renderItemRelations(item, $('#detailHost .vault-view-body'));
 }
 
@@ -210,7 +201,8 @@ async function renderVaultEdit(item, isCurrent=()=>true) {
         <div class="field"><label>Nom</label><input id="fTitle" value="${esc(item.title)}"></div>
         <div class="field"><label>Dossier</label><select id="fFolder"><option value="">Racine</option>${folderSelectOptions(folders,item.folderId)}</select></div>
         <div class="field"><label>Identifiant</label><input id="fUser" value="${esc(d.username||'')}"></div>
-        <div class="field"><label>Mot de passe</label><input id="fPass" type="password" autocomplete="new-password" spellcheck="false" value="${esc(d.password||'')}"><div class="password-tools"><button class="secondary" data-wg-click="openPasswordGenerator()">⚙ Générer</button><button class="secondary" data-wg-click="copySecret($('#fPass').value)">Copier</button></div></div>
+        <div class="field"><label>Mot de passe</label><input id="fPass" type="password" autocomplete="new-password" spellcheck="false" value="${esc(d.password||'')}"><div class="password-tools"><button class="secondary" data-wg-click="openPasswordGenerator()">⚙ Générer</button><button class="secondary" data-wg-click="copySecret($('#fPass').value)">Copier</button></div><div class="strength-meter" id="editStrength" data-score="0"><span></span></div><div class="field-hint" id="editStrengthText" aria-live="polite"></div></div>
+        <div class="field"><label for="fTotp">Secret TOTP (clé ou lien otpauth://)</label><input id="fTotp" type="password" autocomplete="off" spellcheck="false" value="${esc(d.totp||'')}" placeholder="Facultatif : code à usage unique de ce compte"></div>
         <div class="field third"><label>URL</label><input id="fUrl" value="${esc(d.url||'')}"></div>
         <div class="field third"><label>IP / Hostname</label><input id="fHost" value="${esc(d.host||'')}"></div>
         <div class="custom-editor"><div class="field wide"><label>Champs personnalisés</label><div id="customFields">${(d.custom||[]).map(customRow).join('')}</div><button class="secondary" style="margin-top:8px" data-wg-click="addCustom()">＋ Ajouter un champ</button></div></div>
@@ -219,6 +211,13 @@ async function renderVaultEdit(item, isCurrent=()=>true) {
       <div class="vault-edit-footer"><button class="primary" data-wg-click="saveVault('${item.id}')">Enregistrer</button><button class="secondary" data-wg-click="duplicateItem('${item.id}')">Dupliquer</button><button class="danger" data-wg-click="deleteItem('${item.id}')">Supprimer</button></div>
     </div>`;
   $('#detailHost').workspaceEditBase=structuredClone(item);
+  const refreshStrength = () => {
+    const result = WolfGuardVaultTools.passwordStrength($('#fPass').value);
+    $('#editStrength').dataset.score = String(result.score);
+    $('#editStrengthText').textContent = result.empty ? '' : result.label + ' · ≈' + result.bits + ' bits';
+  };
+  $('#fPass').addEventListener('input', refreshStrength);
+  refreshStrength();
 }
 
 function customRow(x = {
@@ -244,11 +243,13 @@ async function persistVault(id) {
     url: $('#fUrl').value,
     host: $('#fHost').value,
     notes: $('#fNotes').value,
+    totp: $('#fTotp').value.trim(),
     custom: [...document.querySelectorAll('#customFields .kv-row')].map(r => ({
       k: r.querySelector('.ck').value,
       v: r.querySelector('.cv').value
     })).filter(a => a.k || a.v)
   };
+  if (d.totp && !WolfGuardVaultTools.parseTotp(d.totp)) throw new Error('Le secret TOTP est invalide : colle la clé Base32 (au moins 16 caractères) ou le lien otpauth://.');
   x.vaultBlobEnc = await encSecret(JSON.stringify(d));
   x.encryptionVersion = 2;
   delete x.username;
@@ -262,4 +263,75 @@ async function persistVault(id) {
   if(!itemActionSessionValid(key)||state.item!==id)return;
   state.mode = 'view';
   await renderWorkspace();
+}
+
+// Other vault entries that use exactly the same password.
+async function findPasswordReuse(excludeId, password) {
+  if (!password) return [];
+  const names = [];
+  for (const other of await all('items')) {
+    if (other.id === excludeId || other.type !== 'vault' || other.deletedAt || other.secretsRestricted) continue;
+    const data = await vaultData(other, false);
+    if (data.password && data.password === password) names.push(other.title || 'Sans titre');
+  }
+  return names;
+}
+
+// Strength, reuse, breach check and the live TOTP code of the open entry.
+function wireVaultHealth(item, password, totpInput, key) {
+  const tools = WolfGuardVaultTools;
+  const meter = $('#strengthMeter');
+  if (meter) {
+    const result = tools.passwordStrength(password);
+    meter.dataset.score = String(result.score);
+    meter.setAttribute('role', 'img');
+    meter.setAttribute('aria-label', 'Robustesse : ' + result.label);
+    $('#strengthText').textContent = result.label + ' · ≈' + result.bits + ' bits';
+    findPasswordReuse(item.id, password).then(names => {
+      const line = $('#reuseText');
+      if (!line || !line.isConnected || !itemActionSessionValid(key) || !names.length) return;
+      line.dataset.state = 'bad';
+      line.textContent = '⚠ Même mot de passe que : ' + names.slice(0, 5).join(', ') + (names.length > 5 ? ' et ' + (names.length - 5) + ' autre(s)' : '') + '.';
+    }).catch(() => {});
+    $('#checkPwned').onclick = async () => {
+      if (!itemActionSessionValid(key)) return;
+      const button = $('#checkPwned'), out = $('#pwnedText');
+      button.disabled = true;
+      out.dataset.state = '';
+      out.textContent = 'Vérification…';
+      try {
+        const count = await tools.pwnedCount(password);
+        if (!out.isConnected) return;
+        out.dataset.state = count ? 'bad' : 'good';
+        out.textContent = count ? '⚠ Présent dans ' + count.toLocaleString('fr-FR') + ' fuites connues : change ce mot de passe.' : 'Aucune fuite connue pour ce mot de passe.';
+      } catch {
+        if (out.isConnected) out.textContent = 'Vérification impossible (connexion ou service indisponible).';
+      } finally {
+        if (button.isConnected) button.disabled = false;
+      }
+    };
+  }
+  const config = totpInput ? tools.parseTotp(totpInput) : null;
+  const codeNode = $('#totpCode');
+  if (!codeNode) return;
+  if (!config) { codeNode.textContent = 'Secret TOTP invalide'; $('#copyTotp').disabled = true; return; }
+  let current = '', timer = 0;
+  const tick = async () => {
+    const node = $('#totpCode');
+    if (!node || !node.isConnected || !itemActionSessionValid(key)) { clearInterval(timer); return; }
+    const result = await tools.totpCode(config);
+    if (!node.isConnected) return;
+    current = result.code;
+    node.textContent = result.code.replace(/^(\d{3})(\d+)$/, '$1 $2');
+    $('#totpTimer').textContent = result.remaining + ' s';
+  };
+  timer = setInterval(tick, 1000);
+  tick();
+  $('#copyTotp').onclick = async () => {
+    if (!itemActionSessionValid(key) || !current) return;
+    const button = $('#copyTotp'), copied = await copySecret(current);
+    if (!button.isConnected) return;
+    button.textContent = copied ? 'Copié' : 'Réessayer';
+    setTimeout(() => { if (button.isConnected) button.textContent = 'Copier'; }, 1800);
+  };
 }

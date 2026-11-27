@@ -12,7 +12,7 @@
     saveLibraryItem: id => saveLibraryItem(id), addLibraryCommand: () => addLibraryCommand(),
     editorObjectClick: event => editorObjectClick(event), insertImageFromFile: input => insertImageFromFile(input),
     importWorkspaceModule: (button, id) => importWorkspaceModule(button, id),
-    newVault: () => newVault(), newFolder: () => newFolder(),
+    newVault: () => newVault(), newFolder: () => newFolder(), openVaultImport: () => openVaultImport(),
     applyEditorBlockStyle: value => applyEditorBlockStyle(value),
     syncRichEditorSelection: () => syncRichEditorSelection(), applyEditorTextColor: value => applyEditorTextColor(value),
     fmt: (command, value) => fmt(command, value), insertEditorLink: () => insertEditorLink(),

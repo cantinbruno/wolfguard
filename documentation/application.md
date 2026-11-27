@@ -65,3 +65,13 @@ Données propose Importer et Exporter. Un code de transfert de huit chiffres chi
 Les enregistrements multiples du même éditeur sont empêchés. Les erreurs conservent les formulaires ; les lectures du coffre affichent le dernier état confirmé pendant les écritures de fond. Une panne de connexion à l’ouverture du lien privé propose Réessayer.
 
 Vérification synthétique sans fenêtre : `python tests/rapport_improvements_test.py`. Groupes et Blocage : voir [Droits](droits.md) et [Sécurité](securite.md).
+
+## Coffre-fort : robustesse, TOTP et import
+
+Source : `app/js/views/vault-tools.js` (fonctions sans dépendance, testées par `tests/vault-tools.test.mjs`), `vault.js` et `vault-import.js`.
+
+- **Robustesse** : une barre et un libellé (Très faible à Très fort, estimation en bits) s’affichent pendant la saisie et sur la fiche. Il s’agit d’une estimation (taille du jeu de caractères, répétitions, suites, mots courants), pas d’une garantie.
+- **Réutilisation** : la fiche signale les autres accès du coffre qui ont exactement le même mot de passe. La comparaison se fait dans le navigateur, après déchiffrement.
+- **Fuites connues** : le bouton « Vérifier les fuites » interroge `api.pwnedpasswords.com` par k-anonymat : seuls 5 caractères de l’empreinte SHA-1 sont envoyés, sans cookie ni référent, et uniquement sur clic. Ce service est le seul domaine externe autorisé par la politique de sécurité de la page (voir [Sécurité](securite.md)).
+- **TOTP** : champ « Secret TOTP » (clé Base32 ou lien `otpauth://`, SHA-1, SHA-256 ou SHA-512, 6 à 8 chiffres, période de 10 à 120 s). Le code courant et le compte à rebours s’affichent sur la fiche, avec copie. Le secret est chiffré avec le reste de la fiche ; un secret invalide bloque l’enregistrement et laisse le brouillon ouvert.
+- **Import CSV** : bouton « Importer des accès (CSV) » de la barre du coffre. Formats reconnus par leurs en-têtes : Bitwarden, KeePass, 1Password, Chrome, Edge, Firefox et CSV générique. Le fichier (5 Mo, 5 000 lignes maximum) est lu dans le navigateur, un aperçu sans mot de passe indique les accès prêts, les doublons ignorés (même nom, identifiant et URL) et les secrets TOTP invalides, puis chaque accès est chiffré à l’import dans le dossier ouvert. Le fichier n’est pas conservé : il faut le supprimer soi-même.

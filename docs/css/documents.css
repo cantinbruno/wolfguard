@@ -1802,3 +1802,58 @@
   min-height: 20px !important;
   line-height: 18px !important;
 }
+
+/* Vault: password strength, reuse and breach warnings, live TOTP code */
+.strength-meter {
+  --strength: var(--ui-muted);
+  height: 6px;
+  margin-top: 9px;
+  border-radius: 3px;
+  background: var(--ui-border);
+  overflow: hidden
+}
+
+.strength-meter span {
+  display: block;
+  height: 100%;
+  width: 8%;
+  background: var(--strength);
+  transition: width .2s ease
+}
+
+.strength-meter[data-score="0"] { --strength: #ff9b9b }
+.strength-meter[data-score="1"] { --strength: #ffb877 }
+.strength-meter[data-score="2"] { --strength: #f2dc7a }
+.strength-meter[data-score="3"] { --strength: #9be3a8 }
+.strength-meter[data-score="4"] { --strength: #7ee9c4 }
+.strength-meter[data-score="0"] span { width: 20% }
+.strength-meter[data-score="1"] span { width: 40% }
+.strength-meter[data-score="2"] span { width: 60% }
+.strength-meter[data-score="3"] span { width: 80% }
+.strength-meter[data-score="4"] span { width: 100% }
+
+.field-hint,
+.health-line {
+  margin-top: 6px;
+  font-size: .8125rem;
+  color: var(--ui-muted)
+}
+
+.health-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap
+}
+
+.health-line:empty { display: none }
+.health-line[data-state="bad"] { color: #ff9b9b }
+.health-line[data-state="good"] { color: #91edbd }
+
+.totp-code {
+  font-family: Consolas, monospace;
+  font-size: 1.375rem;
+  letter-spacing: .12em;
+  font-variant-numeric: tabular-nums
+}

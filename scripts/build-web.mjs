@@ -79,7 +79,8 @@ html = html.replace('</head>', '<link rel="stylesheet" href="browser/access.css"
 html = html.replace('</head>', '<link rel="manifest" href="phone-manifest.json"><meta name="theme-color" content="#111c2c">\n</head>');
 html = html.replace('</head>', '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">\n</head>');
 html = html.replace('<script src="js/ui/workspace-users.js"></script>','<script src="js/ui/workspace-users.js"></script><script src="browser/permissions.bundle.js"></script><script src="browser/access-control.js"></script><script src="browser/permission-editor.js"></script>');
-html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site");
+// The API, and the Have I Been Pwned range endpoint (k-anonymity: five hash characters only).
+html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-web-cantin.cantin-bruno.chatgpt.site https://api.pwnedpasswords.com");
 if(!html.includes("worker-src 'self'")||!html.includes("manifest-src 'self'"))throw new Error('Les notifications doivent être autorisées dans la politique de sécurité source.');
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
 html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/tab-session.bundle.js"></script>\n<script src="browser/shared-workspace.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');

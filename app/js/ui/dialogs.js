@@ -7,6 +7,7 @@ function modal(title, body) {
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();
   if (typeof workspaceGroups !== 'undefined') workspaceGroups.unmount();
+  if (typeof workspaceJournal !== 'undefined') workspaceJournal.unmount();
   $('#modalRoot').innerHTML = `<div class="modal-wrap"><div class="modal"><h2>${esc(title)}</h2>${body}</div></div>`;
   $('#modalRoot').querySelector('.modal-wrap').onclick = e => {
     if (e.target.classList.contains('modal-wrap')) closeModal()
@@ -19,6 +20,7 @@ function closeModal() {
   if (typeof workspaceAccess !== 'undefined') workspaceAccess.unmount();
   if (typeof workspaceUsers !== 'undefined') workspaceUsers.unmount();
   if (typeof workspaceGroups !== 'undefined') workspaceGroups.unmount();
+  if (typeof workspaceJournal !== 'undefined') workspaceJournal.unmount();
   $('#modalRoot').innerHTML = ''
 }
 

@@ -112,6 +112,7 @@ function workspaceToolbarHTML(section, layout) {
     </div>
     <button type="button" class="primary workspace-icon" title="${create[1]}" aria-label="${create[1]}" data-wg-click="${create[0]}()">${PROTOCOL_ICONS.plus}</button>
     <button type="button" class="secondary workspace-icon" title="Nouveau dossier" aria-label="Nouveau dossier" data-wg-click="newFolder()">${PROTOCOL_ICONS.folder}</button>
+    ${section==='vault'?`<button type="button" class="secondary workspace-icon" title="Importer des accès (CSV)" aria-label="Importer des accès (CSV)" data-wg-click="openVaultImport()">${settingsIcon('upload')}</button>`:''}
   </div>`;
 }
 async function setWorkspaceLayout(layout) {

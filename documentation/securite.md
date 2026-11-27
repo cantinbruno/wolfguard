@@ -37,6 +37,7 @@ Les coffres personnels et le filtrage des documents restent contrôlés côté s
 ## Frontières à conserver
 
 - CSP, empreintes SRI, nettoyage des contenus riches et absence de CDN dans l’application.
+- Un seul service externe est joignable depuis la page, en plus de l’API : `api.pwnedpasswords.com` (vérification des fuites du coffre par k-anonymat, sur clic). Toute nouvelle origine dans `connect-src` doit être décidée et documentée.
 - Validation des JSON : taille, profondeur, UTF-8 et types ; contrôle des modes et autorisations sur chaque API sensible.
 - API sans cache, restrictions d’intégration, HSTS (`max-age=63072000; includeSubDomains`) et origines CORS autorisées.
 - Agent : association, authentification et droits effectifs du poste ; cloisonnement des modes bureau/terminal/fichiers.

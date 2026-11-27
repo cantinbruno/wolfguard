@@ -26,6 +26,7 @@ const suites={
     ['python','remote_files_test.py'],
     ['python','original_app_test.py'],
     ['python','vault_workspace_test.py'],
+    ['python','vault_features_test.py'],
     ['python','scan_workspace_test.py'],
     ['python','certfr_workspace_test.py'],
     ['python','timeout_test.py'],
@@ -60,7 +61,8 @@ const suites={
     ['python','private_entry_test.py'],
     ['python','security_test.py'],
     ['python','session_resume_test.py'],
-    ['python','access_workspace_test.py']
+    ['python','access_workspace_test.py'],
+    ['python','vault_features_test.py']
   ],
   'node': [
     ['node', allNode]
