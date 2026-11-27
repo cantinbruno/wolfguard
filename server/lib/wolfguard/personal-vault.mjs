@@ -1,5 +1,5 @@
 import {open} from './access.mjs';
-import {can,vaultHomeId} from './permissions.mjs';
+import {vaultHomeId} from './permissions.mjs';
 export function vaultHome(user){return {id:vaultHomeId(user.id),name:user.username,section:'vault',parentId:null,ownerUserId:user.id,systemVaultHome:true};}
 // The account registry is the source of truth: a stable home exists as soon as
 // an account exists, including pending/disabled accounts. No snapshot race or
@@ -8,7 +8,7 @@ export async function allVaultHomes(env){
   const rows=await env.DB.prepare("SELECT id,name_cipher FROM users ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END,created_at,id").all();
   return Promise.all(rows.results.map(async row=>vaultHome({id:row.id,username:await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env)})));
 }
-export async function addVaultIdentity(user,env,now,includeAll=true){
+export async function addVaultIdentity(user){
   if(!user.id)return user;
   user.vaultHome=vaultHome(user);user.vaultFolders=[user.vaultHome];return user;
 }

@@ -29,7 +29,7 @@ const suites={
     ['python','vault_features_test.py'],
     ['python','share_workspace_test.py'],
     ['python','memo_templates_test.py'],
-    ['python','scan_workspace_test.py'],
+    ['python','global_search_test.py'],
     ['python','certfr_workspace_test.py'],
     ['python','timeout_test.py'],
     ['python','security_test.py'],

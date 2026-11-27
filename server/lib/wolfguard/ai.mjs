@@ -1,8 +1,8 @@
-import {accessibleAgent,administrator} from './agent-access.mjs';
+import {accessibleAgent} from './agent-access.mjs';
 import {chatInput} from './ai-input.mjs';
 export {chatInput} from './ai-input.mjs';
 import {seal,open} from './access.mjs';
-import {can,canAgent,requirePermission} from './permissions.mjs';
+import {can,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 
 const validId=value=>typeof value==='string'&&/^[a-f0-9]{32}$/.test(value);

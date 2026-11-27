@@ -86,3 +86,7 @@ Les modèles sont ajoutés une seule fois, avec les autres migrations atomiques 
 ## État du parc
 
 Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemble des postes visibles avec tes droits : nombre de postes, en ligne et hors ligne, protégés et à surveiller, alertes non acquittées, menaces bloquées sur 24 h et agents à mettre à jour. La liste « Postes à surveiller » classe les postes par risque avec leurs raisons (hors ligne, protection à vérifier, alertes, agent ancien). L’état de protection n’apparaît qu’avec le droit `edr.read`. Aucune nouvelle route serveur : la vue réutilise `agents`, `edr` et la publication de l’agent. Source : `app/js/ui/fleet-overview.js`, test `tests/fleet-overview.test.mjs`.
+
+## Recherche globale
+
+`Ctrl+K` (ou `Cmd+K`) ouvre la recherche sur les fiches du Mémo, les outils, le Coffre-fort et les onglets des Paramètres. Le filtre propose Tout, Mes fiches, Coffre-fort, Outils et Paramètres. Le coffre n’est indexé que par son titre, son dossier et ses étiquettes : un identifiant, un mot de passe ou une note n’est jamais recherché. Les onglets de paramètres proposés suivent les droits du compte ; choisir un résultat ouvre l’onglet. Sources : `app/js/search/engine.js`, `controller.js`, test `tests/global_search_test.py`.

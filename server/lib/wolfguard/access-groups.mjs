@@ -108,10 +108,10 @@ export async function accessGroupAPI(request,env,now,session,h){
     if(next.groups.length>=512)fail(409,'Maximum 512 groupes d’autorisations.');if(operation==='duplicate'&&!group)fail(404,'Groupe introuvable.');const policy=operation==='duplicate'?group.policy:guest();permit(policy);next.groups.push({id:'access-'+crypto.randomUUID(),name:name(),policy});
   }else{
     if(!group)fail(404,'Groupe introuvable.');permit(group.policy);
-    if(operation==='assign'||operation==='unassign'){if(!Array.isArray(data.userIds)||!data.userIds.length||data.userIds.length>100)fail(400,'Sélection de comptes invalide.');for(const id of new Set(data.userIds)){validUser(id);const current=new Set(next.memberships[id]||[]);operation==='assign'?current.add(group.id):current.delete(group.id);next.memberships[id]=[...current];affected.add(id);}}
+    if(operation==='assign'||operation==='unassign'){if(!Array.isArray(data.userIds)||!data.userIds.length||data.userIds.length>100)fail(400,'Sélection de comptes invalide.');for(const id of new Set(data.userIds)){validUser(id);const current=new Set(next.memberships[id]||[]);if(operation==='assign')current.add(group.id);else current.delete(group.id);next.memberships[id]=[...current];affected.add(id);}}
     else if(operation==='nest'||operation==='unnest'){
       if(!Array.isArray(data.groupIds)||!data.groupIds.length||data.groupIds.length>256||data.groupIds.some(id=>typeof id!=='string'||!next.groups.some(row=>row.id===id)))fail(400,'Sélection de groupes invalide.');
-      const children=new Set(group.includedGroupIds||[]);for(const id of data.groupIds){permit(next.groups.find(row=>row.id===id).policy);operation==='nest'?children.add(id):children.delete(id);}group.includedGroupIds=[...children];
+      const children=new Set(group.includedGroupIds||[]);for(const id of data.groupIds){permit(next.groups.find(row=>row.id===id).policy);if(operation==='nest')children.add(id);else children.delete(id);}group.includedGroupIds=[...children];
     }
     else if(group.preset)fail(409,'Ce groupe automatique suit sa section et ne peut pas être modifié manuellement.');
     else if(operation==='rename')group.name=name();

@@ -14,7 +14,11 @@ test('SRI matches the LF bytes published by Git from a Windows workspace',()=>{
     assert.equal(createHash('sha384').update(bytes).digest('base64'),match[2],match[1]);
     checked++;
   }
-  assert.ok(checked>50);
+  // Application scripts and styles are grouped into a few bundles; vendor
+  // libraries and browser modules stay separate.
+  assert.ok(checked>=15,String(checked));
+  assert.match(html,/js\/app-1\.bundle\.js/);
+  assert.match(html,/css\/app-\d+\.bundle\.css/);
 });
 
 test('workspace encryption authenticates metadata and uses nonextractable keys and fresh IVs',async()=>{

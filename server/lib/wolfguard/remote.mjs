@@ -1,4 +1,4 @@
-import {accessibleAgent,administrator} from './agent-access.mjs';
+import {accessibleAgent} from './agent-access.mjs';
 import {REMOTE_LIVE,desktopInput,desktopFrame} from './remote-spec.mjs';
 import {terminalView,handleTerminalAPI} from './terminal.mjs';
 import {handleFileAPI,clearFileCommands} from './files.mjs';
@@ -27,7 +27,7 @@ export async function claimRemote(env,agent,now,h){
   const row=await env.DB.prepare("UPDATE remote_sessions SET status='preparing',lease_hash=?,agent_until=? WHERE id=? AND status='requested' RETURNING id,expires_at,mode").bind(await h.digest(lease),now+15000,candidate.id).first();
   return row?{id:row.id,lease,expiresAt:row.expires_at,...(row.mode!=='desktop'?{mode:row.mode}:{})}:null;
 }
-import {can,canAgent,requirePermission} from './permissions.mjs';
+import {can,requirePermission} from './permissions.mjs';
 export async function handleRemoteAPI(request,env,now,h){
   const {fail,json,body,seal,open}=h,path=new URL(request.url).pathname;
   const agentRoute=path.startsWith('/api/agent/remote/'),auth=agentRoute?await h.agentAuth():await h.authorize(request,env,now);

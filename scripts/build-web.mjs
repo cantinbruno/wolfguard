@@ -4,6 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash, createCipheriv, randomBytes} from 'node:crypto';
 import {siteAccessFile} from './private-paths.mjs';
+import vm from 'node:vm';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'app');
@@ -84,6 +85,38 @@ html = html.replace("connect-src 'self'", "connect-src 'self' https://wolfguard-
 if(!html.includes("worker-src 'self'")||!html.includes("manifest-src 'self'"))throw new Error('Les notifications doivent être autorisées dans la politique de sécurité source.');
 html = html.replace('class="connection-gate access-screen"', 'class="connection-gate access-screen hidden"');
 html = html.replace(/<script src="js\/app\.js[^\"]*"><\/script>/, '<script src="browser/crypto.bundle.js"></script>\n<script src="browser/storage.bundle.js"></script>\n<script src="browser/cloud.bundle.js"></script>\n<script src="browser/tab-session.bundle.js"></script>\n<script src="browser/shared-workspace.bundle.js"></script>\n<script src="browser/actions.js"></script>\n<script src="browser/adapter.js"></script>');
+// Fewer requests at startup: each run of consecutive application scripts or
+// stylesheets is concatenated in its original order into one file. Vendor
+// libraries and browser bundles stay separate; the original files are kept
+// for the other pages. A name declared at top level in two files of the same
+// run would change meaning once merged, so the build refuses it.
+let bundleIndex=0;
+function bundleRuns(source,{pattern,folder,extension,tag,join}){
+  return source.replace(pattern,run=>{
+    const files=[...run.matchAll(/(?:src|href)="([^"?]+)(?:\?[^"]*)?"/g)].map(match=>match[1]);
+    if(files.length<2)return run;
+    if(extension==='.js'){
+      const owners=new Map();
+      for(const file of files){
+        const text=readFileSync(path.join(output,file),'utf8');
+        // Generated modules wrap all their code in one function: nothing leaks.
+        if(text.startsWith('// Generated from'))continue;
+        for(const match of text.matchAll(/^(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)|^(?:const|let|class)\s+([A-Za-z_$][\w$]*)/gm)){
+          const name=match[1]||match[2];
+          if(owners.has(name)&&owners.get(name)!==file)throw new Error('Regroupement impossible : « '+name+' » est déclaré dans '+owners.get(name)+' et '+file+'.');
+          owners.set(name,file);
+        }
+      }
+    }
+    const name=folder+'/app-'+(++bundleIndex)+'.bundle'+extension;
+    const content=files.map(file=>'/* '+file+' */\n'+readFileSync(path.join(output,file),'utf8').replace(/^﻿/,'')).join(join);
+    if(extension==='.js')new vm.Script(content,{filename:name});
+    writeFileSync(path.join(output,name),content);
+    return tag(name)+'\n';
+  });
+}
+html=bundleRuns(html,{pattern:/(?:<script src="js\/[^"]+"><\/script>[ \t]*\r?\n)+/g,folder:'js',extension:'.js',tag:name=>'<script src="'+name+'"></script>',join:'\n;\n'});
+html=bundleRuns(html,{pattern:/(?:<link rel="stylesheet" href="css\/[^"]+">[ \t]*\r?\n)+/g,folder:'css',extension:'.css',tag:name=>'<link rel="stylesheet" href="'+name+'">',join:'\n'});
 html = html.replace(/((?:src|href)=")([^\"]+\.(?:js|css)(?:\?[^\"]*)?)(")/g,(_match,before,url,after)=>before+url+(url.includes('?')?'&':'?')+'wg='+revision+after);
 if (!html.includes('browser/adapter.js')) throw new Error('Point de démarrage de l’application introuvable.');
 const adapter=path.join(output,'browser/adapter.js');

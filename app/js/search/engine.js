@@ -273,6 +273,14 @@ window.WorkspaceSearch = class WorkspaceSearch {
         engine.addAll(batch);
         await new Promise(resolve => setTimeout(resolve, 0));
       }
+      // Settings tabs are searchable too; opening one shows that tab.
+      const settingsDocuments = (this.options.settingsEntries?.() || []).map(entry => ({
+        id: 'settings:' + entry.tab, type: 'setting', facets: [], section: 'settings', title: entry.title, technology: '', body: entry.keywords,
+        path: 'Paramètres', port: '', keywords: entry.keywords, pathIndexed: 'Paramètres', favorite: false, updatedAt: '',
+        fingerprint: 'settings:' + entry.tab, titleFold: WorkspaceSearch.canonical(entry.title), technologyTerms: []
+      }));
+      for (const document of settingsDocuments) documents.set(document.id, document);
+      engine.addAll(settingsDocuments);
       if (revision !== this.revision) throw new DOMException('Search cancelled', 'AbortError');
       const cache = {
         engine,
@@ -358,7 +366,7 @@ window.WorkspaceSearch = class WorkspaceSearch {
 
   matches(document, parsed) {
     const filters = parsed.filters;
-    if (this.scope !== 'all' && primarySectionFor(document.section) !== this.scope) return false;
+    if (this.scope !== 'all' && (document.section === 'settings' ? 'settings' : primarySectionFor(document.section)) !== this.scope) return false;
     if (filters.types.some(type => ['command', 'memo', 'template', 'personal'].includes(type) ? !(document.facets || []).includes(type === 'personal' ? 'reference' : type) : document.section !== type)) return false;
     if (filters.ports.some(port => !document.port.split(/[^\d]+/).includes(port))) return false;
     if (filters.tech.some(term => !document.technologyTerms.some(word => word === term || (term.length >= 2 && !/^\d/.test(term) && word.startsWith(term))))) return false;
@@ -483,7 +491,9 @@ window.WorkspaceSearch = class WorkspaceSearch {
     const scopes = {
       all: 'Tout',
       library: 'Mes fiches',
-      tools: 'Outils'
+      vault: 'Coffre-fort',
+      tools: 'Outils',
+      settings: 'Paramètres'
     };
     const count = this.rows.length;
     const status = this.label || `${count} r\u00e9sultat${count === 1 ? '' : 's'}`;

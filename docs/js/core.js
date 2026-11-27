@@ -48,6 +48,7 @@ const timestamp = value => {
 };
 const typeLabel = t => ({
   vault: 'Coffre-fort',
+  setting: 'Paramètre',
   memo: 'Fiche',
   personal: 'Note',
   procedure: 'Procédure',

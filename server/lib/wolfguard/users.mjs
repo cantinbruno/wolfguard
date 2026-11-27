@@ -55,10 +55,10 @@ export async function usersMatchingCode(code,env,pinHash){
   for(const row of rows.results)if(await pinHash(code,row.pin_salt,env)===row.pin_hash)matches.push(row);
   return {lookup,matches};
 }
-async function availableCode(code,id,env,pinHash,fail){
+async function availableCode(code,id,env){
   return codeLookup(code,env);
 }
-export async function publicUser(row,env,viewer){
+export async function publicUser(row,env){
   const username=await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env);
   const base={id:row.id,username,vaultHome:vaultHome({id:row.id,username}),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,complete:!!row.otp_secret_cipher,required:requiresMFA(env)}};
 

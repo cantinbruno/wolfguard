@@ -5,7 +5,7 @@ import {handleEndpointAPI} from './endpoints.mjs';
 import {handleAI,claimAI,updateAI} from './ai.mjs';
 import {claimRemote,handleRemoteAPI,expireRemote} from './remote.mjs';
 import {cachedAnalysis,analyzeScan} from './certfr.mjs';
-import {can,canAgent,requirePermission} from './permissions.mjs';
+import {can,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {objectJSON} from './request.mjs';
 const encode=new TextEncoder();

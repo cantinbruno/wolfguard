@@ -109,6 +109,8 @@ Les noms de modules de la colonne serveur sont relatifs à `server/lib/wolfguard
 
 `scripts/build-web.mjs` copie l’interface dans `docs/`, produit les bundles navigateur, les empreintes SRI et la porte d’entrée chiffrée. Il copie le modèle de permissions du serveur vers `browser/permissions.js` et génère `app/js/agent-update-command.js` et `app/js/agent-uninstall-command.js`. Modifier d’abord les sources (`server/lib/wolfguard/permissions.mjs`, `agent/update-command.mjs`, `agent/uninstall-command.mjs`), puis reconstruire.
 
+Pour accélérer l’ouverture, le build regroupe chaque suite de scripts `js/` et de feuilles `css/` consécutifs de `index.html` en un fichier `app-N.bundle.js` ou `app-N.bundle.css`, dans l’ordre d’origine (environ 20 scripts et 2 feuilles chargés au lieu de 102 et 51). Les bibliothèques de `vendor/` et les modules de `browser/` restent séparés, les fichiers d’origine restent publiés pour les autres pages. Le build refuse un regroupement si un même nom est déclaré au niveau global dans deux fichiers d’une suite, et vérifie la syntaxe de chaque paquet. Le moteur PDF et les gros référentiels (`data/*.json`) sont déjà chargés à la demande.
+
 Le build applique aussi les protections du site publié : CSP sans `unsafe-inline` ni `unsafe-eval` pour les scripts, `script-src-attr 'none'`, refus de tout gestionnaire `on…=` dans le HTML et les scripts, SRI `sha384` sur chaque script et feuille de style, normalisation LF avant calcul des empreintes et document principal chiffré en AES-256-GCM avec la clé du lien privé.
 
 Les archives et exécutables publiés dans `app/downloads/` et `docs/downloads/` proviennent du packaging. Ne pas les remplacer manuellement avec une version de test.

@@ -3,7 +3,7 @@ import {handleAgentAPI} from './agents.mjs';
 import {scanSpec} from './scan-spec.mjs';
 import {addressContext,assertAddressAllowed,connectionStatement,rememberConnection,handleAccessAPI,stopRemoteOwners} from './access.mjs';
 import {objectJSON} from './request.mjs';
-import {findUser,publicUser,workspaceMaterial,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode,revokeUserSessions} from './users.mjs';
+import {findUser,publicUser,handleUsersAPI,handleAccountAPI,ensureOwnerAccount,provisionOwnerAccount,usersMatchingCode,revokeUserSessions} from './users.mjs';
 import {matchesOTP,consumeOTP,requiresMFA,prepareOTPEnrollment,confirmOTPEnrollment} from './otp.mjs';
 import {seal as sealRecord,open as openRecord} from './access.mjs';
 import {userPolicy} from './permission-store.mjs';

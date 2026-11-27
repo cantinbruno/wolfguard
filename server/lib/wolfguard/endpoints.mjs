@@ -1,5 +1,5 @@
-import {accessibleAgent,administrator} from './agent-access.mjs';
-import {can,canAgent,requirePermission} from './permissions.mjs';
+import {accessibleAgent} from './agent-access.mjs';
+import {can,requirePermission} from './permissions.mjs';
 import {userPolicy} from './permission-store.mjs';
 import {endpointSnapshot,endpointPolicy,endpointHealth,independentWindowsProtection,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMANDS} from './endpoint-spec.mjs';
 import {antivirusCommand} from './antivirus-spec.mjs';

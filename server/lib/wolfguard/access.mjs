@@ -2,7 +2,7 @@ import {closeRemote} from './remote.mjs';
 import {can} from './permissions.mjs';
 import {threatList,threatMatch} from './threat-list.mjs';
 import {logEvent} from './journal.mjs';
-const encoder=new TextEncoder(),IDLE_MS=60*60000;
+const encoder=new TextEncoder();
 const hex=value=>[...new Uint8Array(value)].map(n=>n.toString(16).padStart(2,'0')).join('');
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
 const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
