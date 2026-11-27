@@ -1,5 +1,7 @@
 import { antivirusSnapshot } from './antivirus-spec.mjs';
-export const ENDPOINT_COMMANDS = ['enable-protection', 'quick-scan', 'refresh'];
+export const ENDPOINT_COMMANDS = ['enable-protection', 'quick-scan', 'refresh', 'collect-logs'];
+// Upper bound of an agent journal sent back by collect-logs.
+export const AGENT_LOG_MAX_CHARS = 64000;
 export const DEFAULT_ENDPOINT_POLICY = Object.freeze({ mode: 'protect', realtime: true, firewall: true });
 const text = (value, max = 500) =>
   typeof value === 'string' ? value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, max) : '';

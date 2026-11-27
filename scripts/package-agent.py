@@ -28,7 +28,7 @@ POSIX_FILES={key:value for key,value in FILES.items() if key in ['agent/agent.mj
 for name in ['install-service.mjs','endpoint.mjs','endpoint-posix.mjs','ai.mjs','remote.mjs','files.mjs','terminal.mjs','remote-runtime.mjs','remote-native.mjs','remote-windows.mjs','remote-windows-encoder.mjs','remote-macos.mjs','remote-linux.mjs','remote-portal.mjs','remote-dependencies.json']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
-for name in ['topology.mjs','version.mjs','auto-update.mjs','update-command.mjs']:
+for name in ['topology.mjs','version.mjs','auto-update.mjs','update-command.mjs','recent-log.mjs']:
     FILES['agent/'+name]='agent/'+name
     POSIX_FILES['agent/'+name]='agent/'+name
 FILES['agent/topology.ps1']='agent/topology.ps1'

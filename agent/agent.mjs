@@ -11,6 +11,7 @@ import {createInterface} from 'node:readline/promises';
 import {runNetworkScan,fixedProcess} from './network.mjs';
 import {AGENT_VERSION} from './version.mjs';
 import {createAutoUpdater} from './auto-update.mjs';
+import {rememberStatus} from './recent-log.mjs';
 
 export const API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site';
 export class AgentClient {
@@ -38,12 +39,14 @@ const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(20
   onStatus(outcome==='failed'?'Le scan a échoué. Consulte le rapport sur le site.':outcome==='cancelled'?'Scan arrêté.':'Scan terminé. Les résultats sont disponibles sur le site.',{state:outcome,completed:latest.completed,total:latest.total});return latest;
 }
 export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,remoteRunner=executeRemoteSession,protectionRunner=runEndpointProtection,updateChecker=client.origin===API&&process.env.WOLFGUARD_AGENT_HOME?createAutoUpdater():null}={}){
+  // Every status message is also kept for the on-request journal (Récupérer le journal).
+  const report=onStatus;onStatus=(message,...rest)=>{rememberStatus(message);return report(message,...rest);};
   const protectionController=new AbortController(),combined=signal?AbortSignal.any([signal,protectionController.signal]):protectionController.signal;
   const protection=protectionRunner(client,{signal:combined,onStatus}).catch(error=>{if(error.status===401||error.status===403)protectionController.abort();});
   try{
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
   while(!combined.aborted){
-    try{const {job,remote,ai}=await client.post('poll',{version:AGENT_VERSION,capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','remote-consent-v1','ai-chat-v1','endpoint-protection-v1',...(updateChecker?['auto-update-v1']:[])]}, {signal:combined});if(combined.aborted)break;if(remote)await remoteRunner(client,remote,{signal:combined,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal:combined,onStatus});else if(job)await executeJob(client,job,{signal:combined,onStatus,passiveCollector,securityCollector});else{onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});if(updateChecker)await updateChecker({signal:combined,onStatus});}}
+    try{const {job,remote,ai}=await client.post('poll',{version:AGENT_VERSION,capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','remote-consent-v1','agent-logs-v1','ai-chat-v1','endpoint-protection-v1',...(updateChecker?['auto-update-v1']:[])]}, {signal:combined});if(combined.aborted)break;if(remote)await remoteRunner(client,remote,{signal:combined,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal:combined,onStatus});else if(job)await executeJob(client,job,{signal:combined,onStatus,passiveCollector,securityCollector});else{onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});if(updateChecker)await updateChecker({signal:combined,onStatus});}}
     catch(error){if(combined.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
     try{await delay(pollMs,undefined,{signal:combined});}catch{break;}
   }

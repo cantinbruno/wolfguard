@@ -8,6 +8,8 @@ import {endpointPolicy,endpointSnapshot,DEFAULT_ENDPOINT_POLICY,ENDPOINT_COMMAND
 import {antivirusCommand} from '../server/lib/wolfguard/antivirus-spec.mjs';
 import {getAntivirusManager} from './antivirus.mjs';
 import {hostname,userInfo} from 'node:os';
+import {collectAgentLogs} from './recent-log.mjs';
+import {AGENT_VERSION} from './version.mjs';
 
 export async function collectEndpoint({platform=process.platform,run=fixedProcess,signal,antivirus}={}){
   if(platform!=='win32')return endpointSnapshot(await collectPosixEndpoint({platform,run,signal}));
@@ -37,6 +39,7 @@ export async function executeEndpointAction(action,policy=DEFAULT_ENDPOINT_POLIC
     return (antivirus||getAntivirusManager()).execute(action,{signal});
   }
   if(!ENDPOINT_COMMANDS.includes(action))throw new Error('Action de protection inconnue.');
+  if(action==='collect-logs')return {ok:true,message:'Journal de l’agent envoyé.',logs:await collectAgentLogs({platform,version:AGENT_VERSION})};
   if(action==='quick-scan'&&platform==='win32')return (antivirus||getAntivirusManager()).execute('av-scan',{signal});
   if(action==='refresh')return {ok:true,message:'Actualisation de la protection demandée.'};
   if(platform!=='win32')return executePosixEndpoint(action,policy,{platform,run,signal});

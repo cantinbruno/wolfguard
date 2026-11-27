@@ -77,3 +77,9 @@ La procédure [Signature Windows](signature-windows.md) reste facultative et exi
 L’ancienne page EDR et son raccourci sont supprimés. Les commandes antivirus et la politique sont dans Protection, les fichiers isolés dans Quarantaine, les événements et l’acquittement dans Journal. Les onglets appartiennent à la même fiche et conservent le poste ciblé. Une actualisation garde les champs en cours et le focus ; changer de poste ou fermer la fiche demande confirmation pour une politique modifiée. Les commandes ne passent jamais sur le poste sélectionné pour un autre outil.
 
 Contrôles sans fenêtre : `python tests/antivirus_workspace_test.py`, `python tests/edr_workspace_test.py`, `python tests/agent_journal_test.py` et `python tests/agents_console_test.py`, avec postes synthétiques uniquement.
+
+## Journal de l’agent
+
+Dans la fiche du poste, onglet Protection, **Récupérer le journal** demande à l’agent ses messages récents (les 400 derniers depuis son démarrage) et, sous Windows, la fin du fichier `agent.log` du lanceur (32 Ko au plus). Les jetons, empreintes longues et valeurs de type mot de passe sont masqués sur le poste avant l’envoi ; le journal est limité à 64 000 caractères et chiffré sur le serveur. Il se consulte depuis « Dernières actions » (**Voir le journal**) et se télécharge en `.txt`. La liste des actions n’affiche jamais son contenu ; `GET /api/edr/command-logs` le lit à la demande avec le droit `edr.manage` sur ce poste.
+
+Le bouton n’apparaît que pour un agent qui annonce la capacité `agent-logs-v1`, c’est-à-dire après sa mise à jour automatique. Sources : `agent/recent-log.mjs`, `agent/endpoint.mjs`, `server/lib/wolfguard/endpoints.mjs`, `app/js/ui/agent-protection.js` ; test `tests/agent-logs.test.mjs`.

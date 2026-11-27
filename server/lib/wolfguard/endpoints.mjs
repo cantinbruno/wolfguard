@@ -7,8 +7,16 @@ import {
   endpointHealth,
   independentWindowsProtection,
   DEFAULT_ENDPOINT_POLICY,
-  ENDPOINT_COMMANDS
+  ENDPOINT_COMMANDS,
+  AGENT_LOG_MAX_CHARS
 } from './endpoint-spec.mjs';
+
+// Command results listed in the console never carry a journal, only its presence.
+const withoutLogs = result => {
+  if (!result || typeof result.logs !== 'string') return result;
+  const { logs, ...rest } = result;
+  return { ...rest, hasLogs: logs.length > 0 };
+};
 import { antivirusCommand } from './antivirus-spec.mjs';
 import { retainRecentLogs, LOG_RETENTION_MS } from './retention.mjs';
 
@@ -89,7 +97,8 @@ export async function handleEndpointAPI(request, env, now, h) {
     const agent = await agentAuth();
     if (request.method !== 'POST') fail(405, 'Méthode inconnue.');
     if (path === '/api/agent/edr/result') {
-      const data = await body();
+      // A journal (collect-logs) can be larger than an ordinary result.
+      const data = await body(AGENT_LOG_MAX_CHARS * 4 + 16000);
       if (!idOK(data.id) || !/^[a-f0-9]{64}$/.test(data.lease || '') || typeof data.ok !== 'boolean')
         fail(400, 'Résultat de protection invalide.');
       const command = await env.DB.prepare(
@@ -105,7 +114,8 @@ export async function handleEndpointAPI(request, env, now, h) {
       const result = {
         ok: data.ok,
         message: typeof data.message === 'string' ? data.message.slice(0, 700) : '',
-        code: typeof data.code === 'string' ? data.code.slice(0, 80) : ''
+        code: typeof data.code === 'string' ? data.code.slice(0, 80) : '',
+        ...(command.action === 'collect-logs' && typeof data.logs === 'string' ? {logs: data.logs.slice(-AGENT_LOG_MAX_CHARS)} : {})
       };
       await env.DB.prepare(
         "UPDATE endpoint_commands SET status=?,updated_at=?,result_cipher=? WHERE id=? AND status='running'"
@@ -223,6 +233,18 @@ export async function handleEndpointAPI(request, env, now, h) {
     }
     return json({ endpoints, serverTime: now });
   }
+  if (path === '/api/edr/command-logs' && request.method === 'GET') {
+    const commandId = url.searchParams.get('id');
+    if (!idOK(commandId)) fail(400, 'Action invalide.');
+    const row = await env.DB.prepare("SELECT * FROM endpoint_commands WHERE id=? AND action='collect-logs' AND status='completed'")
+      .bind(commandId)
+      .first();
+    if (!row) fail(404, 'Journal introuvable ou pas encore reçu.');
+    await permit(row.agent_id, 'edr.manage');
+    requirePermission(user, 'edr.manage', fail, now);
+    const result = row.result_cipher ? await open(row.result_cipher, row.id + ':endpoint-result') : null;
+    return json({id: row.id, agentId: row.agent_id, receivedAt: row.updated_at, logs: typeof result?.logs === 'string' ? result.logs : ''});
+  }
   if (path === '/api/edr/events' && request.method === 'GET') {
     const id = url.searchParams.get('agentId');
     await permit(id);
@@ -263,7 +285,8 @@ export async function handleEndpointAPI(request, env, now, h) {
           status: row.expires_at <= now && ['queued', 'running'].includes(row.status) ? 'expired' : row.status,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
-          result: row.result_cipher ? await open(row.result_cipher, row.id + ':endpoint-result') : null
+          // The journal itself is read on demand through /api/edr/command-logs.
+          result: row.result_cipher ? withoutLogs(await open(row.result_cipher, row.id + ':endpoint-result')) : null
         }))
       )
     });

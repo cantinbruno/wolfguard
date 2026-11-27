@@ -182,6 +182,7 @@ export async function handleAgentAPI(request, env, now, h) {
           'remote-terminal-v1',
           'remote-files-v1',
           'remote-consent-v1',
+          'agent-logs-v1',
           'ai-chat-v1',
           'endpoint-protection-v1',
           'auto-update-v1'

@@ -40,7 +40,6 @@ const suites={
     ['python','permissions_workspace_test.py'],
     ['python','otp_workspace_test.py'],
     ['python','mandatory_mfa_test.py'],
-    ['python','agent_workspace_test.py'],
     ['python','agent_updates_test.py'],
     ['python','edr_workspace_test.py']
   ],

@@ -23051,6 +23051,10 @@ button.agents-alerts:focus-visible{outline:2px solid var(--agents-accent);outlin
 .agent-protection-shortcuts{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 12px}.agent-protection-shortcuts .settings-btn{font-size:.875rem}
 @media(max-width:640px){.agent-quarantine-intro{flex-direction:column;gap:8px}.agent-protection-policy label{align-items:flex-start;flex-direction:column;gap:8px}.agent-protection-policy label.agent-protection-checkbox{flex-direction:row}.agent-protection-policy select{width:100%;font-size:1rem}.agent-quarantine-search input{font-size:1rem}.agent-protection-history>div{flex-direction:column}.agent-protection-panel{gap:14px}.agent-protection-actions .settings-btn{flex:1 1 auto}}
 
+/* Agent journal viewer */
+.agent-log-view {max-height: 60vh; overflow: auto; margin: 10px 0; padding: 12px; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-code, #0a1421); color: var(--ui-text); font: .75rem/1.5 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere}
+.agent-protection-history [data-protection-logs] {margin-left: auto}
+
 /* css/users-management.css */
 /* One account workspace: directory, identity and permissions. */
 .users-manager{--users-accent:#adc8e8;min-width:0}

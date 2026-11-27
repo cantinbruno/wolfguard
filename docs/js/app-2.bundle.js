@@ -12159,7 +12159,7 @@ window.WolfGuardFleetGroups=(()=>{
 'use strict';
 
 window.WolfGuardAgentProtection=(()=>{
-  const names={'av-install':'Installation du moteur','av-scan':'Analyse des disques','av-update':'Actualisation des signatures','av-pause':'Suspension de la surveillance','av-resume':'Activation de la surveillance',refresh:'Collecte de l’état'};
+  const names={'collect-logs':'Journal de l’agent','av-install':'Installation du moteur','av-scan':'Analyse des disques','av-update':'Actualisation des signatures','av-pause':'Suspension de la surveillance','av-resume':'Activation de la surveillance',refresh:'Collecte de l’état'};
   const states={queued:'En attente du poste',running:'En cours',completed:'Confirmée par le poste',failed:'Échec signalé par le poste',expired:'Expirée',cancelled:'Annulée'};
   const time=value=>value?new Date(value).toLocaleString('fr-FR'):'Non renseigné';
   function create({signal,can,onRefresh}){
@@ -12200,13 +12200,13 @@ window.WolfGuardAgentProtection=(()=>{
         if(av?.message)html+='<p class="agent-protection-description">'+esc(av.message)+'</p>';
         if(av?.scope?.length)html+='<p class="agent-protection-description"><strong>Disques surveillés</strong> '+av.scope.map(path=>'<code>'+esc(path)+'</code>').join(' ')+'</p>';
         if(!av)html+='<p class="agent-protection-description">Mettez à jour l’agent pour disposer des commandes antivirus.</p>';
-        else if(manage())html+='<div class="agent-protection-actions">'+(!av.installed?button('av-install','Réessayer l’installation',working||queued)+(working?button('av-pause','Annuler l’opération',pauseQueued):''):button('av-scan','Analyser les disques',working||queued)+button('av-update','Actualiser les signatures',working||queued)+button(av.enabled?'av-pause':'av-resume',av.enabled?'Suspendre la surveillance':'Activer la surveillance',av.enabled?pauseQueued:working||queued||row?.policy.mode==='observe'))+button('refresh','Collecter l’état',queued)+'</div>';
+        else if(manage())html+='<div class="agent-protection-actions">'+(!av.installed?button('av-install','Réessayer l’installation',working||queued)+(working?button('av-pause','Annuler l’opération',pauseQueued):''):button('av-scan','Analyser les disques',working||queued)+button('av-update','Actualiser les signatures',working||queued)+button(av.enabled?'av-pause':'av-resume',av.enabled?'Suspendre la surveillance':'Activer la surveillance',av.enabled?pauseQueued:working||queued||row?.policy.mode==='observe'))+button('refresh','Collecter l’état',queued)+(model.agent.capabilities?.includes('agent-logs-v1')?button('collect-logs','Récupérer le journal',queued):'')+'</div>';
         html+='<p class="agent-record-caption">Analyse progressive des fichiers nouveaux ou modifiés, sans blocage avant ouverture. Les protections du système restent actives. Les signatures sont vérifiées chaque heure.</p></section>';
         const policy=draft||row?.policy||{mode:'protect',realtime:true,firewall:true},disabled=!manage()||!known||busy||!model.agent.capabilities?.includes('endpoint-protection-v1');
         html+='<section class="agent-record-card agent-protection-policy"><header><h3>'+settingsIcon('sliders-horizontal')+'Politique du poste</h3></header><form data-protection-policy><fieldset '+(disabled?'disabled':'')+'><label>Mode de protection<select data-protection-field="mode"><option value="protect" '+(policy.mode==='protect'?'selected':'')+'>Protéger</option><option value="observe" '+(policy.mode==='observe'?'selected':'')+'>Observer</option></select></label><label class="agent-protection-checkbox"><input type="checkbox" data-protection-field="realtime" '+(policy.realtime?'checked':'')+'>Maintenir la surveillance WolfGuard</label><label class="agent-protection-checkbox"><input type="checkbox" data-protection-field="firewall" '+(policy.firewall?'checked':'')+'>Maintenir le pare-feu activé</label><p class="agent-record-caption">Observer suspend les analyses automatiques WolfGuard et conserve les protections du système.</p><div class="agent-protection-actions"><button type="submit" class="settings-btn primary" '+(!draft?'disabled':'')+'>Enregistrer la politique</button>'+(draft?'<button type="button" class="settings-btn" data-discard-protection>Annuler les modifications</button>':'')+'</div></fieldset></form>'+(draft&&row?.revision!==draftRevision?'<p class="agent-record-notice">La politique a changé sur le serveur. Annulez les modifications pour recharger sa nouvelle version.</p>':'')+'</section>';
         const monitor=row?.snapshot?.systemMonitor;
         if(monitor)html+='<details class="agent-record-disclosure" data-protection-disclosure="system" '+(opened.has('system')?'open':'')+'><summary>Surveillance système</summary><dl>'+[['Processus',monitor.processes],['Services',monitor.services],['Connexions',monitor.connections],['Éléments au démarrage',monitor.startupEntries],['Journaux accessibles',(monitor.eventLogs||[]).join(', ')||'Aucun confirmé']].map(([name,value])=>'<div><dt>'+name+'</dt><dd>'+esc(String(value))+'</dd></div>').join('')+'</dl>'+(monitor.limitations||[]).map(value=>'<p class="agent-record-caption">'+esc(value)+'</p>').join('')+'</details>';
-        if(commands.length)html+='<section class="agent-protection-history"><h4>Dernières actions</h4>'+commands.map(command=>'<div><span><strong>'+esc(actionName(command.action))+'</strong><small>'+esc(command.result?.message||time(command.createdAt))+'</small></span><span class="agent-protection-state" data-state="'+esc(command.status)+'">'+esc(states[command.status]||command.status)+'</span></div>').join('')+'</section>';
+        if(commands.length)html+='<section class="agent-protection-history"><h4>Dernières actions</h4>'+commands.map(command=>'<div><span><strong>'+esc(actionName(command.action))+'</strong><small>'+esc(command.result?.message||time(command.createdAt))+'</small></span>'+(command.action==='collect-logs'&&command.status==='completed'&&command.result?.hasLogs?'<button type="button" class="settings-btn" data-protection-logs="'+esc(command.id)+'">Voir le journal</button>':'')+'<span class="agent-protection-state" data-state="'+esc(command.status)+'">'+esc(states[command.status]||command.status)+'</span></div>').join('')+'</section>';
       }
       if(host.innerHTML===html)return;
       host.innerHTML=html;
@@ -12223,6 +12223,16 @@ window.WolfGuardAgentProtection=(()=>{
         finally{if(current===revision){loading=false;draw();}}
       })().finally(()=>{if(current===revision)historyWork=null;});
       return historyWork;
+    }
+    async function showAgentLog(commandId){
+      if(!manage())return;
+      const name=model.agent.name||'poste';
+      try{
+        const result=await request('/command-logs?id='+encodeURIComponent(commandId));
+        modal('Journal de l’agent · '+name,'<p class="muted">Reçu le '+esc(time(result.receivedAt))+'. Les jetons et secrets reconnus sont masqués sur le poste avant l’envoi.</p><pre class="agent-log-view" id="agentLogView"></pre><div class="actions"><button class="secondary" id="agentLogDownload">Télécharger (.txt)</button><button class="secondary" data-wg-click="closeModal()">Fermer</button></div>');
+        $('#agentLogView').textContent=result.logs||'(journal vide)';
+        $('#agentLogDownload').onclick=()=>{const url=URL.createObjectURL(new Blob([result.logs||''],{type:'text/plain;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='WolfGuard-journal-'+name.replace(/[^A-Za-z0-9_-]+/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);};
+      }catch(problem){if(live()){error=problem.message||'Journal indisponible.';draw();}}
     }
     async function execute(action){
       if(!manage()||!fresh()||historyStale||busy||confirming)return;
@@ -12251,7 +12261,7 @@ window.WolfGuardAgentProtection=(()=>{
       model=value;mode=pane;
       if(!active()){close();return;}
       if(host!==target){host=target;host.classList.add('agent-protection-panel');
-        host.onclick=event=>{const action=event.target.closest('[data-protection-action]');if(action&&!action.disabled){execute(action.dataset.protectionAction);return;}if(event.target.closest('[data-discard-protection]')){draft=null;draw();}};
+        host.onclick=event=>{const logs=event.target.closest('[data-protection-logs]');if(logs){showAgentLog(logs.dataset.protectionLogs);return;}const action=event.target.closest('[data-protection-action]');if(action&&!action.disabled){execute(action.dataset.protectionAction);return;}if(event.target.closest('[data-discard-protection]')){draft=null;draw();}};
         host.oninput=event=>{const field=event.target.dataset.protectionField;if(field==='search'){query=event.target.value.toLocaleLowerCase();draw();return;}if(!['mode','realtime','firewall'].includes(field)||!manage()||busy)return;if(!draft){draft={...model.endpoint.policy};draftRevision=model.endpoint.revision;}draft[field]=field==='mode'?event.target.value:event.target.checked;draw();};
         host.onsubmit=savePolicy;
       }

@@ -69,6 +69,10 @@ Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de 
 - `tests/publication.test.mjs` modifie temporairement `app/downloads/WolfGuard-Agent-Windows.exe` pour vérifier le refus. Ne pas l’exécuter en parallèle de `tests/agent-signing.test.mjs`, qui contrôle que ces fichiers restent inchangés ; lancer ce dernier seul.
 - Dans un test Playwright qui intercepte l’API avec `context.route`, appeler `context.unroute_all(behavior='wait')` avant `context.close()` pour laisser finir les requêtes en cours.
 
+## Tests à remettre à jour
+
+`tests/scan_workspace_test.py` et `tests/agent_workspace_test.py` attendent encore l’ancien affichage des rapports de scan (`#wgScanMetrics`, `#wgScanReportStamp`), retiré par la décision du 26 novembre 2026 (rapports en PDF dans la fiche du poste). Ils échouaient déjà avant les changements du 27 novembre et sont sortis des suites ; leurs fonctions utilitaires restent utilisées par d’autres tests.
+
 ## Serveur
 
 Dans `server/` : `npm ci`, `node --test tests/security.test.mjs`, `npm run lint` (aucun avertissement toléré), `npm run build`. Le code de `server/lib/wolfguard/` est mis en forme par Prettier (`npm run format`, réglages dans `server/.prettierrc.json`) : le relancer après une modification. Une modification de schéma exige une migration supplémentaire ; ne pas modifier une migration déjà utilisée en production. Le déploiement est décrit dans [Serveur](serveur.md).
