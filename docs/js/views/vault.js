@@ -136,6 +136,7 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
         <div class="info-box"><div class="label">URL</div><div class="value secret-line"><span>${esc(d.url||'—')}</span>${d.url?'<button type="button" id="copyUrl" class="ghost" aria-label="Copier l’URL">Copier</button>':''}</div></div>
         <div class="info-box"><div class="label">IP / Hostname</div><div class="value secret-line"><span>${esc(d.host||'—')}</span>${d.host?'<button type="button" id="copyHost" class="ghost" aria-label="Copier l’hôte">Copier</button>':''}</div></div>
         ${(d.custom||[]).length?`<div class="custom-grid">${d.custom.map(c=>`<div class="info-box"><div class="label">${esc(c.k||'Champ')}</div><div class="value">${esc(c.v||'—')}</div></div>`).join('')}</div>`:''}
+        ${typeof WolfGuardCloud!=='undefined'&&WolfGuardCloud.enabled&&WolfGuardCloud.hasSession()?'<div class="info-box"><div class="label">Partage</div><div class="value secret-line"><span>Lien chiffré à usage unique, sans compte pour le destinataire.</span><button type="button" id="shareVault" class="ghost">Créer un lien…</button></div></div>':''}
         <div class="info-box vault-notes"><div class="label">Notes</div><div class="value">${esc(d.notes||'Aucune note.')}</div></div>
         
       </div>
@@ -183,6 +184,7 @@ async function renderVaultDetail(item, isCurrent=()=>true) {
   bindCopy($('#copyPassword'), password);
   bindCopy($('#copyUrl'), d.url);
   wireVaultHealth(item, password, d.totp, key);
+  $('#shareVault')?.addEventListener('click', () => { if (itemActionSessionValid(key)) openVaultShare(item.id); });
   await renderItemRelations(item, $('#detailHost .vault-view-body'));
 }
 

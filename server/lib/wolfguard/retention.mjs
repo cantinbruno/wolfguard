@@ -12,6 +12,7 @@ export async function retainRecentLogs(env,now){
     env.DB.prepare('DELETE FROM scan_intelligence WHERE NOT EXISTS(SELECT 1 FROM scan_jobs WHERE scan_jobs.id=scan_intelligence.job_id)'),
     env.DB.prepare('DELETE FROM permission_audit WHERE created_at<?').bind(cutoff),
     env.DB.prepare('DELETE FROM app_logs WHERE created_at<?').bind(cutoff),
+    env.DB.prepare('DELETE FROM shared_secrets WHERE expires_at<=?').bind(now),
     // Throttle rows of addresses that have been quiet for a day.
     env.DB.prepare('DELETE FROM login_throttle WHERE blocked_until<? AND lease_until<? AND updated_at<?').bind(now,now,now-86400000)
   ]).catch(error=>{runs.delete(env.DB);throw error;});

@@ -57,6 +57,8 @@ sequenceDiagram
 | `/api/chat/*` | Session | `chat-api.mjs`, `chat-history.mjs` |
 | `POST /api/touch`, `POST /api/logout`, `POST /api/rotation` | Session | `core.mjs` |
 | `GET /api/logs` | Session administrateur | `core.mjs`, `journal.mjs` |
+| `POST /api/share/create`, `POST /api/share/revoke` | Session + `vault.secrets` | `share.mjs` |
+| `POST /api/share/open` | Aucune (lien à usage unique de 128 bits) | `share.mjs` |
 | `/api/duo/*`, `/api/push/*`, `/api/mfa/phone/*` | Retirées (Duo et notifications téléphone), réponse `410` | `core.mjs` |
 
 ## Modèle de données
@@ -69,6 +71,7 @@ Les migrations sont dans `server/drizzle/` (une migration par changement, jamais
 | Comptes et MFA | `users`, `user_invitations` (les tables Duo et téléphone sont supprimées par la migration 0022) |
 | Droits | `access_groups`, `fleet_groups`, `permission_audit` |
 | Accès réseau et journal | `access_connections`, `access_blocks`, `app_logs` |
+| Liens de partage | `shared_secrets` (texte chiffré uniquement, supprimé à l’ouverture ou à l’expiration) |
 | Postes et scans | `scan_agents`, `scan_pairings`, `scan_jobs`, `scan_intelligence` |
 | Protection | `endpoint_states`, `endpoint_events`, `endpoint_policies`, `endpoint_commands` |
 | Prise en main | `remote_sessions`, `remote_inputs`, `terminal_commands`, `remote_file_commands` |

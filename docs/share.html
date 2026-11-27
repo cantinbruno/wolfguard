@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; connect-src https://wolfguard-web-cantin.cantin-bruno.chatgpt.site; base-uri 'none'; form-action 'none'">
+  <title>Secret partagé avec toi</title>
+  <link rel="stylesheet" href="css/agent-download.css?wg=8cc36e549732b80d" integrity="sha384-2sNAshhMLnEbA7dbXIhQxngikddLqFeqv07J9Ws71+S/dkJGD9fShAuR5QHGQYAq" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/share.css?wg=8cc36e549732b80d" integrity="sha384-PePn8NbYm3DC9ILkbHExYb+rC7sbGVK/SifMZO5zt4xjIR48wBh1oCh8d914ajkH" crossorigin="anonymous">
+  <script src="js/share-crypto.js?wg=8cc36e549732b80d" defer integrity="sha384-XH3e78PAgLY65I+51Ql8y/CRdNBlhN1D5SXHDPR7u7zbcFy2JGoqXLSB6Cpptpai" crossorigin="anonymous"></script>
+  <script src="js/share.js?wg=8cc36e549732b80d" defer integrity="sha384-TOJpzVWPfi+QHCDXXKFm0wp3JC6p6q9+dvI1w7hEDMgTcS7fElKkQGzEn5PAJYkG" crossorigin="anonymous"></script>
+</head>
+<body>
+  <main>
+    <span class="brand">WOLFGUARD</span>
+    <span class="eyebrow">PARTAGE SÉCURISÉ</span>
+    <h1>Un secret est partagé avec toi</h1>
+    <p id="shareIntro">Ce lien ne fonctionne qu’une seule fois : dès que tu affiches le secret, il est détruit côté serveur. Ouvre-le seulement quand tu es prêt à le copier.</p>
+    <button id="shareOpen" type="button">Afficher le secret</button>
+    <p id="shareStatus" role="status" aria-live="polite"></p>
+    <dl id="shareFields" hidden></dl>
+    <p class="note" id="shareNote" hidden>Ce lien est maintenant détruit : copie ces informations avant de fermer la page, elles ne seront plus affichées.</p>
+  </main>
+</body>
+</html>

@@ -23,6 +23,7 @@ Le projet Sites est identifié dans `server/.openai/hosting.json` ; ses bindings
 | Rapprochement des avis publics | `certfr.mjs` |
 | Conservation des journaux et répartition du stockage | `retention.mjs`, `storage-usage.mjs` |
 | Journal de l’application (Paramètres → Journal) | `journal.mjs` |
+| Liens de partage à usage unique | `share.mjs` |
 | IA via un poste et discussion | `ai.mjs`, `ai-input.mjs`, `chat-api.mjs`, `chat-history.mjs` |
 
 L’ordre des contrôles d’une requête et la carte des routes sont décrits dans [Architecture](architecture.md#traitement-dune-requête-api). Le reste de `server/` est la chaîne fournie par Sites : `app/` (route API unique et page racine qui répond 404), `worker/index.ts`, `lib/connector*` (liaison de la plateforme), `scripts/` (installation et compilation), `db/` et `drizzle/` (schéma et migrations), `vendor/` (thème CSS). Les suffixes `*-spec.mjs` définissent des contrats et limites utilisés par les API et agents. Lire le contrat avant de changer un format de message ou les limites d’un transfert.

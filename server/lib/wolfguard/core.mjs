@@ -15,6 +15,7 @@ import {addVaultIdentity,allVaultHomes,withVaultHomes} from './personal-vault.mj
 import {SESSION_MS,SESSION_MAX_MS} from './session-policy.mjs';
 import {retainRecentLogs} from './retention.mjs';
 import {logEvent,listEvents} from './journal.mjs';
+import {handleShareAPI} from './share.mjs';
 import {administrator} from './agent-access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
@@ -305,6 +306,9 @@ export async function handleAPI(request,env,clock=Date.now) {
             response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});
           }
         }else{const row=await verify(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
+      }else if(path==='/api/share/open'){
+        // Public on purpose: the recipient has no account. The link id is 128 random bits and works once.
+        response=await handleShareAPI(request,env,now,null,{fail,json,body:()=>smallJSON(request,256),digest,random});
       }else if(path==='/api/edr'||path.startsWith('/api/edr/')||path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')||path==='/api/ai'||path.startsWith('/api/ai/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
@@ -314,6 +318,7 @@ export async function handleAPI(request,env,clock=Date.now) {
         else if(path==='/api/chat/settings'||path==='/api/chat/completions')response=await handleChatAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,80*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
         else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();await logEvent(env,now,{kind:'logout',details:{user:session.user.username,ip:session.access.ip}});await stopRemoteOwners(env,[{token_hash:session.hash}],now);response=json({ok:true});}
+        else if(path==='/api/share/create'||path==='/api/share/revoke')response=await handleShareAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/share/create'?32*1024:256),digest,random});
         else if(path==='/api/logs'&&request.method==='GET'){
           if(!administrator(session.user,now))fail(403,'Le journal est réservé aux administrateurs.');
           await retainRecentLogs(env,now);

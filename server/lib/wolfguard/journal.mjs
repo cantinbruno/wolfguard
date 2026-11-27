@@ -3,7 +3,7 @@
 import {seal,open} from './access.mjs';
 
 const LEVELS=new Set(['info','warning','error']);
-const KINDS=new Set(['login','login-failed','logout','ip-blocked','ip-unblocked','session-revoked','error']);
+const KINDS=new Set(['login','login-failed','logout','ip-blocked','ip-unblocked','session-revoked','share-created','share-opened','error']);
 const hex=bytes=>[...bytes].map(n=>n.toString(16).padStart(2,'0')).join('');
 const random=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
 

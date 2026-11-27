@@ -113,6 +113,10 @@ export const loginThrottle=sqliteTable('login_throttle',{
   key:text('key').primaryKey(),failures:integer('failures').notNull().default(0),blockedUntil:integer('blocked_until').notNull().default(0),
   lease:text('lease'),leaseUntil:integer('lease_until').notNull().default(0),updatedAt:integer('updated_at').notNull()
 });
+// One-time secret links: ciphertext only, deleted when opened or expired.
+export const sharedSecrets=sqliteTable('shared_secrets',{
+  idHash:text('id_hash').primaryKey(),cipher:text('cipher').notNull(),createdBy:text('created_by').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
+},table=>[index('shared_secrets_owner').on(table.createdBy,table.expiresAt),index('shared_secrets_expiry').on(table.expiresAt)]);
 // Application journal shown in Settings, kept 30 days.
 export const appLogs=sqliteTable('app_logs',{
   id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),level:text('level').notNull(),kind:text('kind').notNull(),detailsCipher:text('details_cipher').notNull()

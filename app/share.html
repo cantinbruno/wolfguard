@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; connect-src https://wolfguard-web-cantin.cantin-bruno.chatgpt.site; base-uri 'none'; form-action 'none'">
+  <title>Secret partagé avec toi</title>
+  <link rel="stylesheet" href="css/agent-download.css">
+  <link rel="stylesheet" href="css/share.css">
+  <script src="js/share-crypto.js" defer></script>
+  <script src="js/share.js" defer></script>
+</head>
+<body>
+  <main>
+    <span class="brand">WOLFGUARD</span>
+    <span class="eyebrow">PARTAGE SÉCURISÉ</span>
+    <h1>Un secret est partagé avec toi</h1>
+    <p id="shareIntro">Ce lien ne fonctionne qu’une seule fois : dès que tu affiches le secret, il est détruit côté serveur. Ouvre-le seulement quand tu es prêt à le copier.</p>
+    <button id="shareOpen" type="button">Afficher le secret</button>
+    <p id="shareStatus" role="status" aria-live="polite"></p>
+    <dl id="shareFields" hidden></dl>
+    <p class="note" id="shareNote" hidden>Ce lien est maintenant détruit : copie ces informations avant de fermer la page, elles ne seront plus affichées.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+dl{margin:22px 0 0;display:grid;gap:14px}
+dl[hidden],.note[hidden]{display:none}
+.share-field{border:1px solid #2c4056;border-radius:10px;padding:12px 14px;background:#101b29}
+dt{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9bb1ca;margin-bottom:6px}
+dd{margin:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+dd code{font-family:Consolas,monospace;font-size:15px;color:#edf3fa;overflow-wrap:anywhere;white-space:pre-wrap;min-width:0}
+dd button{width:auto;flex-shrink:0;padding:6px 12px;font-size:13px;margin:0}
+.share-actions{display:flex;gap:8px;flex-shrink:0}
+.note{border-top:1px solid #2c4056;padding-top:16px;margin-top:22px;color:#e5d2a0}

@@ -27,6 +27,7 @@ const suites={
     ['python','original_app_test.py'],
     ['python','vault_workspace_test.py'],
     ['python','vault_features_test.py'],
+    ['python','share_workspace_test.py'],
     ['python','scan_workspace_test.py'],
     ['python','certfr_workspace_test.py'],
     ['python','timeout_test.py'],

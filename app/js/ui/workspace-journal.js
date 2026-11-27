@@ -6,7 +6,7 @@ const workspaceJournal=(()=>{
   const LABELS={
     'login':'Connexion','login-failed':'Code ou OTP incorrect','logout':'Déconnexion',
     'ip-blocked':'Adresse IP bloquée','ip-unblocked':'Adresse IP débloquée',
-    'session-revoked':'Session déconnectée','error':'Erreur du serveur'
+    'session-revoked':'Session déconnectée','share-created':'Lien de partage créé','share-opened':'Lien de partage ouvert','error':'Erreur du serveur'
   };
   const LEVELS={info:'Information',warning:'Avertissement',error:'Erreur'};
   let generation=0,controller=null,mountedRoot=null;
@@ -16,6 +16,7 @@ const workspaceJournal=(()=>{
     if(d.user)parts.push(d.user);
     if(d.by)parts.push('par '+d.by);
     if(d.ip)parts.push('IP '+d.ip);
+    if(Number.isSafeInteger(d.hours))parts.push('valable '+d.hours+' h');
     if(Number.isSafeInteger(d.failures))parts.push(d.failures+' échec'+(d.failures>1?'s':'')+' de suite');
     if(Number.isSafeInteger(d.disconnected)&&d.disconnected)parts.push(d.disconnected+' session'+(d.disconnected>1?'s':'')+' fermée'+(d.disconnected>1?'s':''));
     if(d.reference)parts.push('référence '+d.reference);
