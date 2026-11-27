@@ -85,7 +85,7 @@ Les modèles sont ajoutés une seule fois, avec les autres migrations atomiques 
 
 ## État du parc
 
-Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemble des postes visibles avec tes droits : nombre de postes, en ligne et hors ligne, protégés et à surveiller, alertes non acquittées, menaces bloquées sur 24 h et agents à mettre à jour. La liste « Postes à surveiller » classe les postes par risque avec leurs raisons (hors ligne, protection à vérifier, alertes, agent ancien). L’état de protection n’apparaît qu’avec le droit `edr.read`. Aucune nouvelle route serveur : la vue réutilise `agents`, `edr` et la publication de l’agent. Source : `app/js/ui/fleet-overview.js`, test `tests/fleet-overview.test.mjs`.
+Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemble des postes visibles avec tes droits : nombre de postes, en ligne et hors ligne, protégés et à surveiller, alertes non acquittées, menaces bloquées sur 24 h et agents à mettre à jour. La liste « Postes à surveiller » classe les postes par risque avec leurs raisons (hors ligne, protection à vérifier, alertes, agent ancien). L’état de protection n’apparaît qu’avec le droit `edr.read`. Le bouton **Exporter en PDF** produit un rapport A4 paysage : synthèse, postes à surveiller, puis tous les postes classés par risque. Aucune nouvelle route serveur : la vue réutilise `agents`, `edr` et la publication de l’agent. Source : `app/js/ui/fleet-overview.js`, test `tests/fleet-overview.test.mjs`.
 
 ## Recherche globale
 

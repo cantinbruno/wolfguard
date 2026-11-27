@@ -97,6 +97,10 @@ def run():
             # Security → État du parc summarizes the same four workstations.
             page.locator('#agentsOverview').click();expect(page.locator('#fleetOverview .fleet-tile').first).to_contain_text('Postes',timeout=15000)
             expect(page.locator('#fleetOverview .fleet-tile strong').first).to_have_text('4');expect(page.locator('#fleetOverview')).to_have_attribute('aria-busy','false')
+            with page.expect_download(timeout=30000) as fleet_download:page.locator('#fleetOverviewPdf').click()
+            from pypdf import PdfReader
+            fleet_text=''.join(page_.extract_text() for page_ in PdfReader(fleet_download.value.path()).pages)
+            assert 'État du parc' in fleet_text and 'Tous les postes' in fleet_text and fleet_download.value.suggested_filename.startswith('WolfGuard-etat-du-parc-'),fleet_text[:200]
             page.get_by_role('button',name='Fermer',exact=True).click();expect(page.locator('#fleetOverview')).to_have_count(0)
             expect(page.locator('#agentsAdd')).to_have_count(0)
             page.locator('#agentsManage').click()

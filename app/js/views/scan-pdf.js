@@ -134,5 +134,10 @@ const webScanPDF = (() => {
     const data=await pdf.createPdf(definition(model,mark)).getBuffer();
     return new Uint8Array(data);
   }
-  return {definition,create};
+  // Any other report: the caller builds the document from the WolfGuard logo.
+  async function render(makeDefinition){
+    const [pdf,mark]=await Promise.all([engine(),logo()]);
+    return new Uint8Array(await pdf.createPdf(makeDefinition(mark)).getBuffer());
+  }
+  return {definition,create,render};
 })();

@@ -26,7 +26,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Tests du poste | Aucun test qui ouvre une fenêtre, prend le focus ou injecte clavier/souris sans demande explicite. Les tests Playwright sans fenêtre utilisent des profils temporaires. |
 | Dépôt | Aucune mention d’outil de développement personnel dans le dépôt, aucune ligne de co-auteur dans les commits, aucune mention de version de l’application. Rien de payant. |
 | Prise en main à distance | Bureau, Terminal et Fichiers exigent à chaque session l’accord explicite de l’utilisateur du poste par popup. Refus par défaut après 60 secondes, sans dialogue possible ou pour un agent trop ancien (capacité `remote-consent-v1` absente). Aucune action avant l’accord. |
-| Rapports | Uniquement en PDF dans l’Historique de la fiche du poste, sans prévisualisation, export direct ni historique global. |
+| Rapports | En PDF uniquement : rapports de scan dans l’Historique de la fiche du poste, et rapport consolidé du parc depuis Sécurité → État du parc (demande du 27 novembre). Pas de prévisualisation ni d’historique global. |
 
 ## Historique des demandes
 
