@@ -684,24 +684,29 @@ export async function handleAPI(request, env, clock = Date.now) {
       const verify = (code, env2, now2, verifier, pinVerifier) =>
         verifyPIN(code, env2, now2, verifier, pinVerifier, throttle);
       // Pre-login routes require the private-link key as well, so the API address
-      // alone is not enough to try codes. Without a configured link (local tests),
-      // the check is skipped.
-      const requireEntry = async () => {
+      // alone is not enough to try codes. The key travels in the JSON body (field
+      // `entry`), never in a header: a browser then needs no CORS preflight for it,
+      // and an older API simply ignores the extra field. Without a configured
+      // link (local tests), the check is skipped.
+      const requireEntry = async key => {
         if (!env.ENTRY_LINK_HASH) return;
-        const key = request.headers.get('X-WG-Entry') || '';
-        if (!/^[a-f0-9]{64}$/.test(key) || !equal(await digest(key), env.ENTRY_LINK_HASH))
+        if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key) || !equal(await digest(key), env.ENTRY_LINK_HASH))
           fail(404, 'Adresse inconnue.');
+      };
+      const entryJSON = async () => {
+        const data = await smallJSON(request);
+        await requireEntry(data.entry);
+        return data;
       };
       if (!path.startsWith('/api/agent/')) await ensureOwnerAccount(env, now);
       if (path === '/api/status' && request.method === 'GET') {
         await provisionOwnerAccount(env, now);
         response = json({ initialized: !!(await state(env)) });
       } else if (path.startsWith('/api/account/')) {
-        await requireEntry();
         response = await handleAccountAPI(request, env, now, {
           fail,
           json,
-          body: () => smallJSON(request),
+          body: entryJSON,
           digest,
           pinHash,
           random
@@ -710,11 +715,10 @@ export async function handleAPI(request, env, clock = Date.now) {
         // Duo and phone notifications are retired: the Authenticator code is the only second factor.
         fail(410, 'La connexion utilise le code de ton Authenticator.');
       } else if (path === '/api/setup' && request.method === 'POST') {
-        await requireEntry();
         const activation = request.headers.get('X-WG-Activation') || '';
         if (!/^[a-f0-9]{64}$/.test(activation) || !equal(await digest(activation), env.BOOTSTRAP_HASH))
           fail(403, 'Lien d’activation invalide.');
-        const { code } = await smallJSON(request);
+        const { code } = await entryJSON();
         if (!codeOK(code)) fail(400, 'Choisis un code de 8 chiffres.');
         const salt = random(16),
           hash = await pinHash(code, salt, env);
@@ -726,8 +730,7 @@ export async function handleAPI(request, env, clock = Date.now) {
         if (!inserted) fail(409, 'Le partage est déjà activé. Saisis ton code habituel.');
         response = json({ token: await issueSession(env, 1, now, request), version: 0, exists: false });
       } else if (path === '/api/login' && request.method === 'POST') {
-        await requireEntry();
-        const { code, username, otp } = await smallJSON(request),
+        const { code, username, otp } = await entryJSON(),
           current = await state(env);
         if (current?.users_enabled || current?.owner_user_id) {
           const row = await verify(code, env, now, async () => {
@@ -980,7 +983,7 @@ export async function handleAPI(request, env, clock = Date.now) {
     headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     headers.set(
       'Access-Control-Allow-Headers',
-      'Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity, X-WG-Entry'
+      'Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity'
     );
     headers.set('Access-Control-Expose-Headers', 'X-WG-Version, Retry-After');
   }

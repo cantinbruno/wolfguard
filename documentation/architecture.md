@@ -47,7 +47,7 @@ sequenceDiagram
 | --- | --- | --- |
 | `POST /api/entry` | Clé du lien privé | `core.mjs` |
 | `GET /api/status` | Aucune | `core.mjs` |
-| `POST /api/setup`, `POST /api/login` | Clé du lien privé (`X-WG-Entry`), puis code et OTP | `core.mjs`, `users.mjs`, `otp.mjs` |
+| `POST /api/setup`, `POST /api/login` | Clé du lien privé (champ `entry` du corps JSON), puis code et OTP | `core.mjs`, `users.mjs`, `otp.mjs` |
 | `POST /api/account/inspect`, `/api/account/complete` | Clé du lien privé et ticket d’invitation | `users.mjs` |
 | `/api/agent/*` | Jeton d’agent (`Authorization: Agent …`) | `agents.mjs`, `remote.mjs`, `endpoints.mjs`, `ai.mjs` |
 | `/api/agents*`, `/api/scans*`, `/api/remote/*`, `/api/edr*`, `/api/ai*` | Session + droits par poste | `agents.mjs`, `fleet-groups.mjs`, `remote.mjs`, `terminal.mjs`, `files.mjs`, `endpoints.mjs` |

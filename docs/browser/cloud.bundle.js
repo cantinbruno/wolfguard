@@ -25,8 +25,6 @@ function restoreSession(value) {
   user=value.user||null;usersEnabled=!!value.usersEnabled;
 }
 function detach() { token = ''; version = 0;user=null;usersEnabled=false; }
-// Pre-login calls prove the private link: its key is already in this tab's URL.
-function entryHeader(){const key=/^\?access=([a-f0-9]{64})$/.exec(globalThis.location?.search||'')?.[1];return key?{'X-WG-Entry':key}:{};}
 async function request(path,{method='GET',body,headers={},anonymous=false,signal,skipVersion}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
   const cancel=()=>controller.abort();
@@ -35,7 +33,7 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
   let response;
   try{
     if(controller.signal.aborted)throw new DOMException('Requête annulée.','AbortError');
-    response=await fetch(API_ORIGIN+'/api/'+path,{method,headers:{...(credential&&!anonymous?{Authorization:'Bearer '+credential}:{}),...(anonymous?entryHeader():{}),...headers},...(body===undefined?{}:{body}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+    response=await fetch(API_ORIGIN+'/api/'+path,{method,headers:{...(credential&&!anonymous?{Authorization:'Bearer '+credential}:{}),...headers},...(body===undefined?{}:{body}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
@@ -59,7 +57,12 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
   }
   finally{clearTimeout(timeout);signal?.removeEventListener('abort',cancel);}
 }
-const post = async(path,value,options={}) => (await request(path,{...options,method:'POST',body:JSON.stringify(value),headers:{'Content-Type':'application/json',...options.headers}})).data;
+// Pre-login calls prove the private link with the key already in this tab's URL.
+// It travels in the JSON body: no extra header means no CORS difference with an
+// API that has not been updated yet, which simply ignores the field.
+const ENTRY_ROUTES=new Set(['login','setup','account/inspect','account/complete']);
+const entryKey=()=>/^\?access=([a-f0-9]{64})$/.exec(globalThis.location?.search||'')?.[1];
+const post = async(path,value,options={}) => (await request(path,{...options,method:'POST',body:JSON.stringify(options.anonymous&&ENTRY_ROUTES.has(path)&&entryKey()?{...value,entry:entryKey()}:value),headers:{'Content-Type':'application/json',...options.headers}})).data;
 async function status(){const {data}=await request('status',{anonymous:true});initialized=!!data.initialized;return initialized;}
 function acceptIdentity(data){
   if(Object.hasOwn(data,'user'))user=data.user;

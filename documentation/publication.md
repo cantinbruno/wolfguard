@@ -49,6 +49,16 @@ Après le push, comparer `git rev-parse HEAD` et `git rev-parse origin/main`. Po
 
 En cas de rejet du push, examiner le motif et l’état distant. Ne pas forcer l’historique. Conserver le commit local et signaler clairement ce qui reste à publier.
 
+## Ordre de déploiement
+
+GitHub Pages publie le site dès le push, alors que l’API se déploie à part et peut avoir du retard. **Un changement du site doit donc rester compatible avec l’API actuellement en production** :
+
+- n’ajouter aucun en-tête HTTP personnalisé aux requêtes vers l’API : l’ancienne API ne l’autorise pas dans ses règles CORS, le navigateur refuse alors la requête avant de l’envoyer et l’application affiche « Connexion au stockage partagé impossible » ;
+- n’exiger aucun nouveau champ ; un champ supplémentaire est ignoré par une API plus ancienne, donc les informations nouvelles passent dans le corps JSON ;
+- une nouvelle route n’est appelée que par une action de l’utilisateur, jamais au chargement.
+
+`tests/private_entry_test.py` vérifie que seuls les en-têtes `x-wg-*` historiques sont envoyés. Déployer l’API ensuite active les contrôles côté serveur.
+
 ## Deux déploiements différents
 
 | Cible | Source | Publication |

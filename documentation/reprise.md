@@ -20,6 +20,7 @@ Un dépôt avec des modifications en attente n’est pas un motif pour s’arrê
 - Données : import/export chiffré autorisé. L’import ajoute des copies sans remplacer les comptes, droits ou données existantes. Préserver les copies techniques.
 - L’agent Windows ne doit pas être annoncé comme signé par Windows sans vérification Authenticode.
 - Le domaine, le lien privé et les clés ne sont pas à recréer ou à déplacer pour une tâche ordinaire.
+- Un changement du site reste compatible avec l’API déjà en production (aucun nouvel en-tête HTTP, voir [Publication](publication.md#ordre-de-déploiement)).
 - Rien de payant : ne pas proposer ni mettre en place un service payant.
 - Aucune mention de version ni de journal des changements : l’application évolue trop vite pour cela.
 

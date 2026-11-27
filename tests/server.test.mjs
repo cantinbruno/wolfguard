@@ -193,16 +193,21 @@ test('failed codes are throttled per address with a capped delay: one address ca
   s.env.DB.db.close();
 });
 
-test('pre-login routes require the private-link key once a link is configured',async()=>{
+test('pre-login routes require the private-link key (JSON field "entry") once a link is configured',async()=>{
   const s=setup(),key=randomBytes(32).toString('hex');await activate(s);
   s.env.ENTRY_LINK_HASH=createHash('sha256').update(key).digest('hex');
-  for(const headers of [{},{'X-WG-Entry':'f'.repeat(64)},{'X-WG-Entry':'not-hex'}]){
-    const r=await s.api('login','POST',{code:'07942685'},null,headers);assert.equal(r.status,404);assert.equal((await r.json()).error,'Adresse inconnue.');
+  for(const extra of [{},{entry:'f'.repeat(64)},{entry:'not-hex'},{entry:42},{entry:null}]){
+    const r=await s.api('login','POST',{code:'07942685',...extra});assert.equal(r.status,404);assert.equal((await r.json()).error,'Adresse inconnue.');
   }
   assert.equal((await s.api('account/inspect','POST',{ticket:'a'.repeat(64)})).status,404);
-  assert.equal((await s.api('login','POST',{code:'07942685'},null,{'X-WG-Entry':key})).status,200);
+  assert.equal((await s.api('setup','POST',{code:'07942685'},null,{'X-WG-Activation':s.activation})).status,404);
+  assert.equal((await s.api('login','POST',{code:'07942685',entry:key})).status,200);
   // A wrong code without the key is not even counted as an attempt.
   assert.equal((await s.env.DB.prepare("SELECT COUNT(*) n FROM login_throttle WHERE failures>0").first()).n,0);
+  // No custom request header is needed: an API that is not updated yet has no CORS rule for one,
+  // and a browser would then refuse the request before it is sent.
+  const preflight=await s.api('login','OPTIONS');
+  assert.ok(!preflight.headers.get('Access-Control-Allow-Headers').includes('X-WG-Entry'));
   s.env.DB.db.close();
 });
 

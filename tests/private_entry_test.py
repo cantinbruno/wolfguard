@@ -39,9 +39,10 @@ def run():
             context.add_init_script("globalThis.cspViolations=[];document.addEventListener('securitypolicyviolation',event=>cspViolations.push({directive:event.effectiveDirective,blocked:event.blockedURI}));")
             # Stub inference only: the real private-entry CSP must permit the
             # module worker and its message exchange without downloading weights.
-            calls=[];errors=[]
+            calls=[];errors=[];custom_headers=set()
             def proxy(route):
                 calls.append(urlsplit(route.request.url).path)
+                custom_headers.update(name for name in route.request.headers if name.startswith('x-wg-'))
                 route.fulfill(response=route.fetch(url=backend+urlsplit(route.request.url).path+('?' + urlsplit(route.request.url).query if urlsplit(route.request.url).query else '')))
             context.route(API+'/**',proxy)
             page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
@@ -73,6 +74,9 @@ def run():
             manifest=context.new_cdp_session(page).send('Page.getAppManifest')
             assert manifest['url'].endswith('/phone-manifest.json') and not manifest['errors'],manifest
             assert not page.evaluate('cspViolations'),page.evaluate('cspViolations')
+            # Only the custom headers an API from before the private-key check allows: any other one
+            # would make the browser refuse the request before it is sent ("connexion impossible").
+            assert custom_headers<={'x-wg-version','x-wg-size','x-wg-rotation','x-wg-activation','x-wg-activity'},custom_headers
             page.reload();expect(page.locator('#app')).to_be_visible(timeout=30000)
             page.wait_for_function('()=>!document.querySelector("#app").inert')
             page.set_viewport_size({'width':390,'height':844});page.reload()
