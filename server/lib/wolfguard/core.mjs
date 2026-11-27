@@ -13,7 +13,10 @@ import {handleChatHistory} from './chat-history.mjs';
 import {deliveryMaterial,canonicalMaterial,openEnvelope,sealEnvelope,projectWorkspace,mergeScopedWorkspace} from './workspace-access.mjs';
 import {workspaceUsage} from './storage-usage.mjs';
 import {addVaultIdentity,allVaultHomes,withVaultHomes} from './personal-vault.mjs';
-import {SESSION_MS} from './session-policy.mjs';
+import {SESSION_MS,SESSION_MAX_MS} from './session-policy.mjs';
+import {retainRecentLogs} from './retention.mjs';
+import {logEvent,listEvents} from './journal.mjs';
+import {administrator} from './agent-access.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024, BLOCK = 65536;
 // Only reported user activity renews the four-hour idle deadline.
@@ -36,15 +39,23 @@ export async function pinHash(code,salt,env) {
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:bytes(salt),iterations:100000},material,256));
 }
 async function state(env) { return env.DB.prepare('SELECT * FROM vault WHERE id = 1').first(); }
-async function verifyPIN(code,env,now,verifier,pinVerifier) {
+// Failed attempts are counted per keyed IP hash: one address can no longer
+// lock every account out. The delay grows by 5 s per failure, capped at 15 min,
+// and one verification at a time runs per address.
+const THROTTLE_STEP_MS=5000,THROTTLE_MAX_MS=15*60000;
+const throttleDelay=failures=>Math.min(failures*THROTTLE_STEP_MS,THROTTLE_MAX_MS);
+async function verifyPIN(code,env,now,verifier,pinVerifier,access={key:'ip:unknown',ip:null}) {
+  const key=access.key;
   if(!codeOK(code))fail(400,'Saisis les 8 chiffres du code.');
+  const row=await state(env);if(!row)fail(428,'Active d’abord le partage sur ton appareil principal.');
   const lease=random(16);
-  // Count attempts before expensive verification, including crashed requests.
-  const row=await env.DB.prepare('UPDATE vault SET failures=failures+1, blocked_until=?+(failures+1)*5000, lease=?, lease_until=? WHERE id=1 AND blocked_until<=? AND lease_until<=? RETURNING *')
-    .bind(now,lease,now+30000,now,now).first();
-  if(!row){
-    const current=await state(env);if(!current)fail(428,'Active d’abord le partage sur ton appareil principal.');
-    const until=Math.max(current.blocked_until,current.lease_until);
+  await env.DB.prepare('INSERT INTO login_throttle(key,failures,blocked_until,lease_until,updated_at) VALUES(?,0,0,0,?) ON CONFLICT(key) DO NOTHING').bind(key,now).run();
+  // Count the attempt before expensive verification, including crashed requests.
+  const slot=await env.DB.prepare('UPDATE login_throttle SET failures=failures+1,blocked_until=?+MIN((failures+1)*?,?),lease=?,lease_until=?,updated_at=? WHERE key=? AND blocked_until<=? AND lease_until<=? RETURNING failures')
+    .bind(now,THROTTLE_STEP_MS,THROTTLE_MAX_MS,lease,now+30000,now,key,now,now).first();
+  if(!slot){
+    const current=await env.DB.prepare('SELECT blocked_until,lease_until FROM login_throttle WHERE key=?').bind(key).first();
+    const until=Math.max(current?.blocked_until||0,current?.lease_until||0);
     fail(429,'Patiente avant de réessayer.',{retryAfter:Math.max(1,Math.ceil((until-now)/1000))});
   }
   let valid=false,result;
@@ -55,11 +66,13 @@ async function verifyPIN(code,env,now,verifier,pinVerifier) {
     }else valid=equal(await pinHash(code,verifier===undefined?row.pin_salt:verifier?.pin_salt||'0'.repeat(32),env),verifier===undefined?row.pin_hash:verifier?.pin_hash||'0'.repeat(64));
   }
   finally {
-    const deadline=now+row.failures*5000;
-    await env.DB.prepare('UPDATE vault SET failures=?, blocked_until=?, lease=NULL, lease_until=0 WHERE id=1 AND lease=?')
-      .bind(valid?(result?.partial?row.failures-1:0):row.failures,valid?0:deadline,lease).run();
+    await env.DB.prepare('UPDATE login_throttle SET failures=?,blocked_until=?,lease=NULL,lease_until=0,updated_at=? WHERE key=? AND lease=?')
+      .bind(valid?(result?.partial?slot.failures-1:0):slot.failures,valid?0:now+throttleDelay(slot.failures),now,key,lease).run();
   }
-  if(!valid)fail(401,'Code personnel ou OTP incorrect.',{retryAfter:row.failures*5});
+  if(!valid){
+    await logEvent(env,now,{level:'warning',kind:'login-failed',details:{failures:slot.failures,ip:access.ip||null}});
+    fail(401,'Code personnel ou OTP incorrect.',{retryAfter:throttleDelay(slot.failures)/1000});
+  }
   return {...row,...(typeof result==='object'?{loginUser:result.user,otpRequired:!!result.partial&&!result.setupRequired&&!result.pushRequired,otpSetupRequired:!!result.setupRequired,recoveryCodes:result.recoveryCodes,pushRequired:!!result.pushRequired,pushDevice:result.device,backupUsed:!!result.backupUsed}:{})};
 }
 async function issueSession(env,generation,now,request,user=null) {
@@ -73,14 +86,14 @@ async function issueSession(env,generation,now,request,user=null) {
   if(existing?.token_cipher){
     const previous=await openRecord(existing.token_cipher,'WolfGuard session v1:'+user.id,env);
     if(await digest(previous)!==existing.token_hash)fail(503,'Session illisible.');
-    const valid=await env.DB.prepare('UPDATE sessions SET active_at=MAX(active_at,?),expires_at=MAX(expires_at,?) WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,now+SESSION_MS,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
+    const valid=await env.DB.prepare('UPDATE sessions SET active_at=MAX(active_at,?),expires_at=MAX(expires_at,?),created_at=? WHERE token_hash=? AND generation=(SELECT generation FROM vault WHERE id=1) AND EXISTS(SELECT 1 FROM users WHERE id=? AND disabled_at IS NULL AND credential_pending=0 AND code_version=? AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)) RETURNING token_hash').bind(now,now+SESSION_MS,now,existing.token_hash,user.id,user.code_version,user.otp_secret_cipher||null,Object.hasOwn(user,'push_device_id')?1:0,user.push_device_id||null).first();
     if(!valid)fail(401,'Ce compte a changé. Reconnecte-toi.');
     await rememberConnection(env,request,existing.token_hash,now,context);
     return previous;
   }
   const issued=await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE active_at IS NULL OR generation<>? OR user_id=?').bind(generation,user?.id||null),
-    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version,token_cipher) SELECT ?,?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,user?await sealRecord(token,'WolfGuard session v1:'+user.id,env):null,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
+    env.DB.prepare('INSERT INTO sessions (token_hash,generation,expires_at,active_at,user_id,user_version,token_cipher,created_at) SELECT ?,?,?,?,?,?,?,? WHERE (SELECT generation FROM vault WHERE id=1)=? AND (? IS NULL OR EXISTS(SELECT 1 FROM users WHERE id=? AND code_version=? AND disabled_at IS NULL AND credential_pending=0 AND otp_secret_cipher IS ? AND (?=0 OR (SELECT id FROM push_devices WHERE user_id=users.id) IS ?)))').bind(hash,generation,now+SESSION_MS,now,user?.id||null,user?.code_version||0,user?await sealRecord(token,'WolfGuard session v1:'+user.id,env):null,now,generation,user?.id||null,user?.id||null,user?.code_version||0,user?.otp_secret_cipher||null,user&&Object.hasOwn(user,'push_device_id')?1:0,user?.push_device_id||null),
     await connectionStatement(env,request,hash,now,context)
   ]);
   if(Number(issued[1]?.meta?.changes)!==1){await env.DB.prepare('DELETE FROM access_connections WHERE token_hash=?').bind(hash).run();fail(401,'Ce compte a changé. Reconnecte-toi.');}
@@ -96,8 +109,8 @@ async function authorize(request,env,now) {
   const activeAt=activity===null?0:Math.max(0,now-Number(activity));
   // Compare the stored deadline with its own activity timestamp. A newer pulse
   // can renew it after this request captured `now`; that must not revoke it.
-  const session=await env.DB.prepare('UPDATE sessions SET active_at=MAX(active_at,?),expires_at=MAX(expires_at,?) WHERE token_hash=? AND expires_at>? AND expires_at<=active_at+? AND active_at IS NOT NULL AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
-    .bind(activeAt,activity===null?0:activeAt+SESSION_MS,hash,now,SESSION_MS,context.hash||'').first();
+  const session=await env.DB.prepare('UPDATE sessions SET active_at=MAX(active_at,?),expires_at=MAX(expires_at,?) WHERE token_hash=? AND expires_at>? AND expires_at<=active_at+? AND active_at IS NOT NULL AND COALESCE(created_at,active_at)>? AND generation=(SELECT generation FROM vault WHERE id=1) AND NOT EXISTS(SELECT 1 FROM access_blocks WHERE ip_hash=?) AND ((SELECT users_enabled FROM vault WHERE id=1)=0 OR EXISTS(SELECT 1 FROM users WHERE id=sessions.user_id AND disabled_at IS NULL AND credential_pending=0 AND code_version=sessions.user_version)) RETURNING *, (SELECT role FROM users WHERE id=sessions.user_id) AS user_role, (SELECT name_cipher FROM users WHERE id=sessions.user_id) AS user_name, (SELECT otp_secret_cipher IS NOT NULL FROM users WHERE id=sessions.user_id) AS user_otp, EXISTS(SELECT 1 FROM push_devices WHERE user_id=sessions.user_id) AS user_push')
+    .bind(activeAt,activity===null?0:activeAt+SESSION_MS,hash,now,SESSION_MS,now-SESSION_MAX_MS,context.hash||'').first();
   if(!session){await assertAddressAllowed(env,context,fail);fail(401,'Session expirée ou déconnectée. Saisis à nouveau ton code.');}
   if(session.user_id&&!session.token_cipher)await env.DB.prepare('UPDATE sessions SET token_cipher=? WHERE token_hash=? AND token_cipher IS NULL').bind(await sealRecord(token,'WolfGuard session v1:'+session.user_id,env),hash).run();
   if(!browserPushEnabled(env))session.user_push=0;
@@ -115,6 +128,7 @@ async function finishLogin(request,env,now,row,user,extra={}){
   if(!row.users_enabled&&user.id!==row.owner_user_id)fail(403,'Ce compte est indisponible.');
   const token=await issueSession(env,row.generation,now,request,user);
   await env.DB.prepare('UPDATE users SET last_login=? WHERE id=?').bind(now,user.id).run();
+  await logEvent(env,now,{kind:'login',details:{user:(await publicUser(user,env)).username,ip:(await addressContext(request,env)).ip}});
   return json({token,version:row.version,exists:!!row.object_key,user:await addVaultIdentity(await publicUser(user,env,user),env,now),usersEnabled:!!row.users_enabled,...(row.users_enabled?{workspace:await deliveryMaterial(row,user,env)}:{}),...extra});
 }
 function ivFor(nonce,index){ const iv=new Uint8Array(12);iv.set(bytes(nonce));new DataView(iv.buffer).setUint32(8,index);return iv; }
@@ -234,9 +248,20 @@ export async function handleAPI(request,env,clock=Date.now) {
     } else {
       if(!env.DB||!env.BUCKET||!/^[a-f0-9]{64}$/.test(env.AUTH_PEPPER||'')||!/^[a-f0-9]{64}$/.test(env.STORAGE_KEY||'')||!/^[a-f0-9]{64}$/.test(env.BOOTSTRAP_HASH||''))fail(503,'Stockage partagé indisponible.');
       const path=new URL(request.url).pathname,now=clock();
+      const access=await addressContext(request,env),throttle={key:'ip:'+(access.hash||'unknown'),ip:access.ip};
+      const verify=(code,env2,now2,verifier,pinVerifier)=>verifyPIN(code,env2,now2,verifier,pinVerifier,throttle);
+      // Pre-login routes require the private-link key as well, so the API address
+      // alone is not enough to try codes. Without a configured link (local tests),
+      // the check is skipped.
+      const requireEntry=async()=>{
+        if(!env.ENTRY_LINK_HASH)return;
+        const key=request.headers.get('X-WG-Entry')||'';
+        if(!/^[a-f0-9]{64}$/.test(key)||!equal(await digest(key),env.ENTRY_LINK_HASH))fail(404,'Adresse inconnue.');
+      };
       if(!path.startsWith('/api/agent/'))await ensureOwnerAccount(env,now);
       if(path==='/api/status'&&request.method==='GET'){await provisionOwnerAccount(env,now);response=json({initialized:!!(await state(env))});}
       else if(path.startsWith('/api/account/')){
+        await requireEntry();
         response=await handleAccountAPI(request,env,now,{fail,json,body:()=>smallJSON(request),digest,pinHash,random});
       }else if(path.startsWith('/api/duo/')){
         fail(410,'La connexion utilise maintenant le code MFA de ton Authenticator.');
@@ -246,6 +271,7 @@ export async function handleAPI(request,env,clock=Date.now) {
       }else if(path.startsWith('/api/mfa/phone/')){
         response=await handlePhoneEnrollment(request,env,now,{fail,json,body:()=>smallJSON(request)});
       }else if(path==='/api/setup'&&request.method==='POST'){
+        await requireEntry();
         const activation=request.headers.get('X-WG-Activation')||'';
         if(!/^[a-f0-9]{64}$/.test(activation)||!equal(await digest(activation),env.BOOTSTRAP_HASH))fail(403,'Lien d’activation invalide.');
         const {code}=await smallJSON(request);if(!codeOK(code))fail(400,'Choisis un code de 8 chiffres.');
@@ -254,10 +280,11 @@ export async function handleAPI(request,env,clock=Date.now) {
         if(!inserted)fail(409,'Le partage est déjà activé. Saisis ton code habituel.');
         response=json({token:await issueSession(env,1,now,request),version:0,exists:false});
       }else if(path==='/api/login'&&request.method==='POST'){
+        await requireEntry();
         const {code,username,otp}=await smallJSON(request),current=await state(env);
         if(current?.users_enabled||current?.owner_user_id){
 
-          const row=await verifyPIN(code,env,now,async()=>{
+          const row=await verify(code,env,now,async()=>{
             // Keep legacy clients compatible; new clients send only the code.
             let user,lookup;
             if(username!==undefined){user=await findUser(username,env);if(!user||user.credential_pending||!equal(await pinHash(code,user.pin_salt,env),user.pin_hash))return false;}
@@ -290,17 +317,23 @@ export async function handleAPI(request,env,clock=Date.now) {
           if(requiresPhone(env)&&user.disabled_at===null&&!await pushDevice(env,user.id))response=json({...await phoneEnrollment(env,user,row.generation,now),...(row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{})});
           else response=await finishLogin(request,env,now,row,user,row.recoveryCodes?{recoveryCodes:row.recoveryCodes}:{});
           }
-        }else{const row=await verifyPIN(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
+        }else{const row=await verify(code,env,now);response=json({token:await issueSession(env,row.generation,now,request),version:row.version,exists:!!row.object_key,usersEnabled:false});}
       }else if(path==='/api/edr'||path.startsWith('/api/edr/')||path.startsWith('/api/agents')||path.startsWith('/api/agent/')||path.startsWith('/api/remote/')||path==='/api/scans'||path.startsWith('/api/scans/')||path==='/api/ai'||path.startsWith('/api/ai/')){
         response=await handleAgentAPI(request,env,now,{fail,json,random,digest,authorize,storageKey,scanSpec});
       }else{
         const session=await authorize(request,env,now);
         if(path==='/api/users/duo')fail(410,'La configuration Duo a été retirée. Utilise les paramètres Authenticator.');
-        else if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'||path.startsWith('/api/users/groups')?256*1024:2048),random,pinHash,verifyPIN,issueSession,digest,purgeVault:id=>purgePersonalVault(id,env)});
+        else if(path==='/api/me'||path==='/api/users'||path.startsWith('/api/users/'))response=await handleUsersAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,path==='/api/users/permissions'||path.startsWith('/api/users/groups')?256*1024:2048),random,pinHash,verifyPIN:verify,issueSession,digest,purgeVault:id=>purgePersonalVault(id,env)});
         else if(path==='/api/chat/history'||path.startsWith('/api/chat/history/'))response=await handleChatHistory(request,env,now,session,{fail,json,body:()=>smallJSON(request,160*1024)});
         else if(path==='/api/chat/settings'||path==='/api/chat/completions')response=await handleChatAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request,80*1024)});
         else if(path==='/api/access'||path.startsWith('/api/access/'))response=await handleAccessAPI(request,env,now,session,{fail,json,body:()=>smallJSON(request)});
-        else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();await stopRemoteOwners(env,[{token_hash:session.hash}],now);response=json({ok:true});}
+        else if(path==='/api/logout'&&request.method==='POST'){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();await logEvent(env,now,{kind:'logout',details:{user:session.user.username,ip:session.access.ip}});await stopRemoteOwners(env,[{token_hash:session.hash}],now);response=json({ok:true});}
+        else if(path==='/api/logs'&&request.method==='GET'){
+          if(!administrator(session.user,now))fail(403,'Le journal est réservé aux administrateurs.');
+          await retainRecentLogs(env,now);
+          const params=new URL(request.url).searchParams,before=params.has('before')?Number(params.get('before')):null;
+          response=json({events:await listEvents(env,{before:Number.isSafeInteger(before)?before:null,kind:params.get('kind')||null,limit:100})});
+        }
         else if(path==='/api/touch'&&request.method==='POST')response=json({ok:true,user:session.user});
         else if(path==='/api/storage/usage'&&request.method==='GET'){
           const row=await state(env);
@@ -322,22 +355,32 @@ export async function handleAPI(request,env,clock=Date.now) {
         else if(path==='/api/rotation'&&request.method==='POST'){
           if((await state(env)).owner_user_id)fail(409,'Modifie ton code personnel depuis les paramètres de sécurité.');
           const {oldCode,newCode,version}=await smallJSON(request);if(!codeOK(newCode))fail(400,'Choisis un code de 8 chiffres.');
-          const row=await verifyPIN(oldCode,env,now);if(row.version!==version||row.generation!==session.generation)fail(409,'La copie distante a changé. Rouvre WolfGuard.');
+          const row=await verify(oldCode,env,now);if(row.version!==version||row.generation!==session.generation)fail(409,'La copie distante a changé. Rouvre WolfGuard.');
           const token=random(32),salt=random(16),hash=await pinHash(newCode,salt,env);
           await env.DB.batch([env.DB.prepare('DELETE FROM rotations WHERE expires_at<=?').bind(now),env.DB.prepare('INSERT INTO rotations (token_hash,pin_salt,pin_hash,generation,version,expires_at) VALUES (?,?,?,?,?,?)').bind(await digest(token),salt,hash,row.generation,row.version,now+60000)]);
           response=json({rotation:token});
         }else fail(404,'Adresse inconnue.');
       }
     }
-  } catch(error){if(env.DEBUG_TEST_ERRORS)console.error(error);response=json({error:error instanceof Failure?error.message:'Stockage partagé temporairement indisponible.',...(error instanceof Failure?error.extra:{})},error instanceof Failure?error.status:503);}
+  } catch(error){
+    if(env.DEBUG_TEST_ERRORS)console.error(error);
+    if(error instanceof Failure)response=json({error:error.message,...error.extra},error.status);
+    else{
+      // Unexpected failure: keep a reference for support, never internal details.
+      const reference=random(4),path=new URL(request.url).pathname;
+      console.error(JSON.stringify({reference,path,name:error?.name,message:String(error?.message||'').slice(0,300)}));
+      await logEvent(env,clock(),{level:'error',kind:'error',details:{reference,path,name:error?.name||'Error',message:String(error?.message||'').slice(0,300)}});
+      response=json({error:'Stockage partagé temporairement indisponible. Référence : '+reference+'.',reference},503);
+    }
+  }
   const headers=new Headers(response.headers);
   headers.set('Cache-Control','no-store, max-age=0');headers.set('Pragma','no-cache');headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('Vary','Origin');
   headers.set('X-Robots-Tag','noindex, nofollow, noarchive, nosnippet');
   headers.set('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
   headers.set('X-Frame-Options','DENY');
   headers.set('Permissions-Policy','camera=(), microphone=(), geolocation=()');
-  if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=31536000');
-  if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
+  if(new URL(request.url).protocol==='https:')headers.set('Strict-Transport-Security','max-age=63072000; includeSubDomains');
+  if(cors){headers.set('Access-Control-Allow-Origin',origin);headers.set('Access-Control-Allow-Methods','GET, POST, PUT, OPTIONS');headers.set('Access-Control-Allow-Headers','Authorization, Content-Type, X-WG-Version, X-WG-Size, X-WG-Rotation, X-WG-Activation, X-WG-Activity, X-WG-Entry');headers.set('Access-Control-Expose-Headers','X-WG-Version, Retry-After');}
   if(response.status===429||response.status===401){const data=await response.clone().json().catch(()=>null);if(Number.isSafeInteger(data?.retryAfter)&&data.retryAfter>0)headers.set('Retry-After',String(data.retryAfter));}
   return new Response(response.body,{status:response.status,headers});
 }

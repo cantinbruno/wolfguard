@@ -95,3 +95,22 @@ test('progressive antivirus traversal resumes beyond the previous batch without 
 test('Windows antivirus ACL can be secured without requesting audit privileges',{skip:process.platform!=='win32'},async()=>{
   const base=path.resolve('.cache'),root=await mkdtemp(path.join(base,'report-acl-'));try{execFileSync('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.resolve('agent/antivirus-windows.ps1'),'-Operation','secure','-Directory',root],{windowsHide:true,timeout:15000,stdio:'pipe'});}finally{assert.ok(root.startsWith(base+path.sep));await rm(root,{recursive:true,force:true});}
 });
+
+test('the application journal records logins, failures and IP blocks, is readable by administrators only and keeps 30 days',async()=>{
+  const s=await setup();try{
+    await s.initialize();
+    assert.equal((await s.api('login',{code:'00000000'})).status,401);s.advance(5001);
+    const owner=await s.login('cantin.bruno@gmx.fr','09876543'),member=(await s.createMember('journal-member@example.test','12345678',owner.token),await s.login('journal-member@example.test','12345678'));
+    assert.equal((await s.api('access/block',{ip:'198.51.100.77'},owner.token)).status,200);
+    assert.equal((await s.api('logs',undefined,member.token)).status,403);
+    const response=await s.api('logs',undefined,owner.token);assert.equal(response.status,200);
+    const {events}=await response.json(),kinds=events.map(event=>event.kind);
+    for(const kind of ['login','login-failed','ip-blocked'])assert.ok(kinds.includes(kind),kind);
+    assert.equal(events.find(event=>event.kind==='ip-blocked').details.ip,'198.51.100.77');
+    assert.ok(!JSON.stringify(s.env.DB.db.prepare('SELECT * FROM app_logs').all()).includes('198.51.100.77'),'details are encrypted at rest');
+    s.advance(LOG_RETENTION_MS+3600001);
+    const later=await s.login('cantin.bruno@gmx.fr','09876543');
+    const recent=(await(await s.api('logs',undefined,later.token)).json()).events;
+    assert.ok(recent.every(event=>event.createdAt>=s.clock()-LOG_RETENTION_MS),'events older than 30 days are removed');
+  }finally{s.env.DB.db.close();}
+});

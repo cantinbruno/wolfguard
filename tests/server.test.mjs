@@ -175,3 +175,55 @@ test('code rotation changes credential and encrypted snapshot together, then rev
   assert.deepEqual((await open(await (await s.api('vault','GET',undefined,fresh.token)).json(),'09876543')).payload,payload);
   s.env.DB.db.close();
 });
+
+test('failed codes are throttled per address with a capped delay: one address cannot lock out another',async()=>{
+  const s=setup();await activate(s);
+  const from=ip=>({'CF-Connecting-IP':ip});
+  // The attacker's delay grows by 5 s per failure but never beyond 15 minutes.
+  for(let i=1;i<=200;i++){
+    const r=await s.api('login','POST',{code:'00000000'},null,from('203.0.113.9'));
+    assert.equal(r.status,401);assert.equal((await r.json()).retryAfter,Math.min(i*5,900));
+    s.advance(Math.min(i*5000,900000)+1);
+  }
+  assert.equal((await s.api('login','POST',{code:'00000000'},null,from('203.0.113.9'))).status,401);
+  assert.equal((await s.api('login','POST',{code:'07942685'},null,from('203.0.113.9'))).status,429);
+  // Another address is unaffected and can log in immediately.
+  assert.equal((await s.api('login','POST',{code:'07942685'},null,from('198.51.100.4'))).status,200);
+  const vault=await s.env.DB.prepare('SELECT failures,blocked_until FROM vault').first();assert.deepEqual({...vault},{failures:0,blocked_until:0});
+  s.env.DB.db.close();
+});
+
+test('pre-login routes require the private-link key once a link is configured',async()=>{
+  const s=setup(),key=randomBytes(32).toString('hex');await activate(s);
+  s.env.ENTRY_LINK_HASH=createHash('sha256').update(key).digest('hex');
+  for(const headers of [{},{'X-WG-Entry':'f'.repeat(64)},{'X-WG-Entry':'not-hex'}]){
+    const r=await s.api('login','POST',{code:'07942685'},null,headers);assert.equal(r.status,404);assert.equal((await r.json()).error,'Adresse inconnue.');
+  }
+  assert.equal((await s.api('account/inspect','POST',{ticket:'a'.repeat(64)})).status,404);
+  assert.equal((await s.api('login','POST',{code:'07942685'},null,{'X-WG-Entry':key})).status,200);
+  // A wrong code without the key is not even counted as an attempt.
+  assert.equal((await s.env.DB.prepare("SELECT COUNT(*) n FROM login_throttle WHERE failures>0").first()).n,0);
+  s.env.DB.db.close();
+});
+
+test('activity renews a session for up to 24 hours, then a new login is required',async()=>{
+  const s=setup();await activate(s);const {token}=await login(s);
+  for(let hour=3;hour<24;hour+=3){s.advance(3*3600000);assert.equal((await s.api('touch','POST',{},token,{'X-WG-Activity':'0'})).status,200,'hour '+hour);}
+  s.advance(3*3600000);
+  assert.equal((await s.api('touch','POST',{},token,{'X-WG-Activity':'0'})).status,401);
+  assert.equal((await login(s)).token.length,64);
+  s.env.DB.db.close();
+});
+
+test('unexpected API failures return a support reference and are journaled without internal details',async()=>{
+  const s=setup();await activate(s);
+  const original=s.env.BUCKET.get;s.env.BUCKET.get=async()=>{throw new Error('synthetic storage outage');};
+  const {token}=await login(s);
+  await s.upload(payload,0,token);
+  const r=await s.api('vault','GET',undefined,token);s.env.BUCKET.get=original;
+  assert.equal(r.status,503);const body=await r.json();assert.match(body.reference,/^[a-f0-9]{8}$/);assert.ok(body.error.includes(body.reference));
+  assert.ok(!JSON.stringify(body).includes('synthetic'));
+  const row=await s.env.DB.prepare("SELECT kind,level,details_cipher FROM app_logs WHERE kind='error'").first();
+  assert.equal(row.level,'error');assert.ok(!row.details_cipher.includes('synthetic'),'details are encrypted at rest');
+  s.env.DB.db.close();
+});

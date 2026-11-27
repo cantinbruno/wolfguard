@@ -24,6 +24,8 @@ export function restoreSession(value) {
   user=value.user||null;usersEnabled=!!value.usersEnabled;
 }
 export function detach() { token = ''; version = 0;user=null;usersEnabled=false; }
+// Pre-login calls prove the private link: its key is already in this tab's URL.
+function entryHeader(){const key=/^\?access=([a-f0-9]{64})$/.exec(globalThis.location?.search||'')?.[1];return key?{'X-WG-Entry':key}:{};}
 async function request(path,{method='GET',body,headers={},anonymous=false,signal,skipVersion}={}) {
   const credential=token,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),45000);
   const cancel=()=>controller.abort();
@@ -32,7 +34,7 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
   let response;
   try{
     if(controller.signal.aborted)throw new DOMException('Requête annulée.','AbortError');
-    response=await fetch(API_ORIGIN+'/api/'+path,{method,headers:{...(credential&&!anonymous?{Authorization:'Bearer '+credential}:{}),...headers},...(body===undefined?{}:{body}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
+    response=await fetch(API_ORIGIN+'/api/'+path,{method,headers:{...(credential&&!anonymous?{Authorization:'Bearer '+credential}:{}),...(anonymous?entryHeader():{}),...headers},...(body===undefined?{}:{body}),credentials:'omit',cache:'no-store',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal});
     if(!response.ok){
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
@@ -122,7 +124,7 @@ export async function touch({activityAge}={}){
 }
 export async function agentRequest(path,value,{signal}={}){
   if(!enabled||!token)throw new Error('Ouvre WolfGuard sur le site et saisis ton code pour utiliser les agents.');
-    if(!/^(?:storage\/usage|edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|groups(?:\/(?:bootstrap|prepare|create|duplicate|rename|remove|assign|unassign|memberships|policy|nest|unnest|effective))?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock|reputation(?:\/refresh)?))?|agents(?:\/(?:pair|revoke|restricted|groups(?:\/(?:bootstrap|create|duplicate|rename|remove|move|color))?))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9%:.=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
+    if(!/^(?:logs(?:\?(?:before=\d{1,16}(?:&kind=[a-z-]{1,20})?|kind=[a-z-]{1,20}))?|storage\/usage|edr(?:\/(?:events|policy|command|acknowledge))?|users(?:\/(?:permissions(?:\/audit)?|groups(?:\/(?:bootstrap|prepare|create|duplicate|rename|remove|assign|unassign|memberships|policy|nest|unnest|effective))?|create|invite|revoke-invitation|update|reset-code|reset-otp|delete|disconnect|verify-code|restricted|push(?:\/(?:register|remove|test))?|otp(?:\/(?:setup|enable|disable|replace(?:\/(?:confirm|cancel))?))?))?|ai(?:\/cancel)?|access(?:\/(?:disconnect|block|unblock|reputation(?:\/refresh)?))?|agents(?:\/(?:pair|revoke|restricted|groups(?:\/(?:bootstrap|create|duplicate|rename|remove|move|color))?))?|scans(?:\/(?:result|intelligence|cancel|delete))?|remote\/(?:start|session|input|stop|files\/(?:command|result)|terminal\/(?:command|cancel)))(?:\?[a-zA-Z0-9%:.=&_-]+)?$/.test(path))throw new Error('Adresse agent invalide.');
   const credential=token,replacement=path==='users/otp/replace/confirm'?{credential}:null;
   if(replacement)changingFactor=replacement;
   try{

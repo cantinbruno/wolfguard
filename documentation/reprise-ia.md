@@ -14,7 +14,7 @@ Un dépôt sale n’est pas un motif pour abandonner. Utiliser si nécessaire un
 
 ## Repères de comportement
 
-- Session : expiration après **4 heures d’inactivité**, sans maximum absolu de durée. Le polling ne compte pas comme activité.
+- Session : expiration après **4 heures d’inactivité**, et au plus 24 heures après la connexion. Le polling ne compte pas comme activité.
 - MFA : Authenticator TOTP ; remplacement du téléphone sans désactiver le facteur actuel avant validation du nouveau.
 - Partage et permissions conservés. Tous les droits viennent de groupes d’accès cumulatifs dans Paramètres → Groupes, sans réglage individuel. Chaque section ou paramètre possède `GG_Acces_<Nom>_lecture` et `GG_Acces_<Nom>_ecriture`; sans appartenance, la section est invisible. `GG_Acces_Application_administrateur` donne l’accès complet. Les sections de postes créent, renomment et suppriment automatiquement leurs deux groupes. Reprise sans élargissement des anciens accès ; coffres personnels isolés et ouverts directement dans le dossier de l’adresse mail. Voir [Droits](droits.md).
 - Données : import/export chiffré autorisé depuis le rapport du 26 novembre. L’import ajoute des copies sans remplacer les comptes, droits ou données existantes. Préserver les copies techniques.

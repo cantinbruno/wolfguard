@@ -142,7 +142,9 @@ async function setSettingsTab(name, focus = false) {
   workspaceAccess.unmount();
   workspaceUsers.unmount();
   workspaceGroups.unmount();
+  workspaceJournal.unmount();
   if(name==='data')loadSettingsStorageUsage(dialog);
+  if (name === 'journal') workspaceJournal.mount(dialog.querySelector('#settings-journal'));
   if (name === 'access' || name === 'blocking') workspaceAccess.mount(dialog.querySelector('#settings-'+name),name);
   if (name === 'groups') workspaceGroups.mount(dialog.querySelector('#settings-groups'));
   if (name === 'users') workspaceUsers.mount(dialog.querySelector('#settings-users'));
@@ -167,7 +169,7 @@ async function openSettings(initialTab = 'account') {
   const filename = multipleDatabases ? 'Bases par section' : portableFileName || 'Bases par section';
   const admin=typeof WolfGuardCloud==='undefined'||WolfGuardCloud.isAdmin();
   const canUsers=admin||WolfGuardCloud.can?.('users.read'),canAccess=admin||WolfGuardCloud.can?.('access.read');
-  const tabName = ['account', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'blocking', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:['access','blocking'].includes(initialTab)?canAccess:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'account';
+  const tabName = ['account', 'data', 'interface', 'modules', 'users', 'groups', 'access', 'blocking', 'journal', 'about'].includes(initialTab)&&(initialTab==='users'?canUsers:['access','blocking'].includes(initialTab)?canAccess:initialTab==='journal'?admin:initialTab==='groups'?WolfGuardCloud.can('users.permissions'):true) ? initialTab : 'account';
 
   modal('Paramètres', `
     <button type="button" class="settings-btn settings-btn-icon settings-close" id="closeSettingsBtn" title="Fermer les paramètres" aria-label="Fermer les paramètres">${settingsIcon('x')}</button>
@@ -182,6 +184,7 @@ async function openSettings(initialTab = 'account') {
           <button type="button" class="settings-tab" id="settings-tab-groups" data-settings-tab="groups" role="tab" aria-controls="settings-groups" aria-selected="false" tabindex="-1" ${(typeof WolfGuardCloud!=='undefined'&&WolfGuardCloud.can('users.permissions'))?'':'disabled'}>${settingsIcon('users')}<span>Groupes</span></button>
           <button type="button" class="settings-tab" id="settings-tab-access" data-settings-tab="access" role="tab" aria-controls="settings-access" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('shield-check')}<span>Connexions</span></button>
           <button type="button" class="settings-tab" id="settings-tab-blocking" data-settings-tab="blocking" role="tab" aria-controls="settings-blocking" aria-selected="false" tabindex="-1" ${canAccess?'':'disabled'}>${settingsIcon('shield-alert')}<span>Blocage</span></button>
+          <button type="button" class="settings-tab" id="settings-tab-journal" data-settings-tab="journal" role="tab" aria-controls="settings-journal" aria-selected="false" tabindex="-1" ${admin?'':'disabled aria-disabled="true" title="Réservé à l’administrateur"'}>${settingsIcon('history')}<span>Journal</span></button>
           <button type="button" class="settings-tab" id="settings-tab-modules" data-settings-tab="modules" role="tab" aria-controls="settings-modules" aria-selected="false" tabindex="-1">${settingsIcon('folder-open')}<span>Sections</span></button>
           <button type="button" class="settings-tab" id="settings-tab-about" data-settings-tab="about" role="tab" aria-controls="settings-about" aria-selected="false" tabindex="-1">${settingsIcon('info')}<span>À propos</span></button>
         </nav>
@@ -235,6 +238,7 @@ async function openSettings(initialTab = 'account') {
         <section class="settings-panel hidden" id="settings-users" data-settings-panel="users" role="tabpanel" aria-labelledby="settings-tab-users"></section>
         <section class="settings-panel hidden" id="settings-access" data-settings-panel="access" role="tabpanel" aria-labelledby="settings-tab-access"></section>
         <section class="settings-panel hidden" id="settings-blocking" data-settings-panel="blocking" role="tabpanel" aria-labelledby="settings-tab-blocking"></section>
+        <section class="settings-panel hidden" id="settings-journal" data-settings-panel="journal" role="tabpanel" aria-labelledby="settings-tab-journal"></section>
         <section class="settings-panel hidden" id="settings-modules" data-settings-panel="modules" role="tabpanel" aria-labelledby="settings-tab-modules">${moduleManagerHTML()}</section>
 
         <section class="settings-panel hidden" id="settings-data" data-settings-panel="data" role="tabpanel" aria-labelledby="settings-tab-data">

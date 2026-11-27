@@ -6,9 +6,11 @@ Référence de maintenance, à vérifier dans les sources et les tests lors d’
 
 L’ouverture du frontend exige le lien privé. La clé de ce lien n’est pas publiée et le serveur n’en conserve qu’une empreinte pour `POST /api/entry`. Cette étape ne délivre pas une session de données. Le code personnel comporte huit chiffres ; la MFA protège ensuite les comptes qui l’exigent.
 
-Le serveur vérifie le code avec un sel, un secret indépendant et PBKDF2-SHA-256. Les échecs imposent un délai partagé croissant et un bail empêche de vérifier en parallèle pour le contourner. Les sessions sont des jetons aléatoires de 256 bits dont l’empreinte est stockée en base.
+Le serveur vérifie le code avec un sel, un secret indépendant et PBKDF2-SHA-256. Les échecs sont comptés **par adresse IP** (empreinte HMAC, table `login_throttle`) : le délai croît de 5 s par échec, plafonné à 15 min, et une seule vérification à la fois tourne par adresse. Une adresse ne peut donc plus bloquer la connexion des autres. Les routes d’avant connexion (`/api/login`, `/api/setup`, `/api/account/*`) exigent en plus la clé du lien privé dans l’en-tête `X-WG-Entry` : l’adresse de l’API seule ne permet pas d’essayer des codes. Les sessions sont des jetons aléatoires de 256 bits dont l’empreinte est stockée en base.
 
-L’expiration est **4 heures après la dernière activité réelle**, sans plafond absolu de durée. Le navigateur suit l’horloge civile et monotone. Le serveur renouvelle l’échéance via `POST /api/touch` avec un âge d’activité valide ; le polling seul ne renouvelle pas. Un jeton expiré ne se réactive pas. Le verrouillage, la révocation, les changements de code ou de droits restent applicables. Sources : `browser/adapter.js`, `browser/tab-session.js`, `server/lib/wolfguard/core.mjs`, `session-policy.mjs`.
+Les itérations PBKDF2 restent à 100 000 : c’est le maximum accepté par Web Crypto dans les Workers Cloudflare, et l’index HMAC `pin_lookup` qui retrouve le compte d’après son code rend toute hausse sans effet face à un vol simultané de la base et du secret serveur.
+
+L’expiration est **4 heures après la dernière activité réelle**, et au plus **24 heures après la connexion** (colonne `sessions.created_at`, vérifiée par le serveur et le navigateur). Une nouvelle connexion complète (code et MFA) redémarre ce plafond. Le navigateur suit l’horloge civile et monotone. Le serveur renouvelle l’échéance via `POST /api/touch` avec un âge d’activité valide ; le polling seul ne renouvelle pas. Un jeton expiré ne se réactive pas. Le verrouillage, la révocation, les changements de code ou de droits restent applicables. Sources : `browser/adapter.js`, `browser/tab-session.js`, `server/lib/wolfguard/core.mjs`, `session-policy.mjs`.
 
 Une erreur réseau, un délai dépassé ou une indisponibilité temporaire pendant `POST /api/touch` conserve la session et déclenche une nouvelle tentative automatique. L’activité non confirmée est renvoyée avec son âge réel. Une réponse qui refuse la session verrouille toujours l’application ; le délai local d’inactivité continue de s’appliquer pendant la coupure. Régression : `tests/session_resume_test.py`.
 
@@ -36,7 +38,7 @@ Les coffres personnels et le filtrage des documents restent contrôlés côté s
 
 - CSP, empreintes SRI, nettoyage des contenus riches et absence de CDN dans l’application.
 - Validation des JSON : taille, profondeur, UTF-8 et types ; contrôle des modes et autorisations sur chaque API sensible.
-- API sans cache, restrictions d’intégration, HSTS en HTTPS et origines CORS autorisées.
+- API sans cache, restrictions d’intégration, HSTS (`max-age=63072000; includeSubDomains`) et origines CORS autorisées.
 - Agent : association, authentification et droits effectifs du poste ; cloisonnement des modes bureau/terminal/fichiers.
 - Publication : exclusion des données, secrets, profils personnels, fichiers privés et liens symboliques.
 - SHA-256 contrôle les fichiers livrés mais ne remplace pas Authenticode. Voir [Signature Windows](agents/signature-windows.md).
@@ -76,3 +78,7 @@ Compléments du même jour : intégration continue GitHub Actions sans la clé r
 Résultat après corrections : 338/338 tests Node, `npm run test:security`, `tests/security_test.py`, `tests/access_workspace_test.py`, `tests/session_resume_test.py` et `tests/private_entry_test.py` réussis. Les changements de `server/` ne sont en production qu’après un déploiement Sites.
 
 Pistes non traitées, à arbitrer : `expire()` relit à chaque `agent/poll` les scans actifs et les droits de leurs auteurs (coût proportionnel au nombre de postes, mais nécessaire à la révocation immédiate) .
+
+## Journal de l’application
+
+Paramètres → **Journal** (administrateurs uniquement, `GET /api/logs`) liste les connexions, déconnexions, codes ou OTP incorrects, blocages et déblocages d’IP, sessions fermées et erreurs inattendues du serveur. Les détails sont chiffrés en AES-256-GCM dans la table `app_logs` et supprimés après 30 jours (`retention.mjs`). Une erreur inattendue renvoie à l’utilisateur un message générique avec une **référence** de 8 caractères, retrouvable dans le journal, sans détail interne. Source : `server/lib/wolfguard/journal.mjs`, `app/js/ui/workspace-journal.js`.

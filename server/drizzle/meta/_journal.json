@@ -148,6 +148,13 @@
       "when": 1795204372800,
       "tag": "0020_stiff_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1795783850634,
+      "tag": "0021_white_ghost_rider",
+      "breakpoints": true
     }
   ]
 }

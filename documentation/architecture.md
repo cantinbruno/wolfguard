@@ -37,7 +37,7 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 2. **Origine CORS** : seules `wolfguard.wavetools.fr`, `cantinbruno.github.io` et l’origine de l’API sont acceptées.
 3. **Configuration** : D1, R2 et les secrets au format attendu, sinon `503`.
 4. **Routage** : routes publiques d’entrée et de connexion, routes des postes (authentification propre), puis routes à session (`authorize`).
-5. **Session** : jeton `Bearer` de 256 bits comparé par empreinte, inactivité de 4 h, génération de l’espace, compte actif, MFA complète et IP non bloquée, vérifiés dans la même requête SQL.
+5. **Session** : jeton `Bearer` de 256 bits comparé par empreinte, inactivité de 4 h, plafond de 24 h, génération de l’espace, compte actif, MFA complète et IP non bloquée, vérifiés dans la même requête SQL.
 6. **Droits** : `can()` et `requirePermission()` (`permissions.mjs`) sur chaque action, puis les droits par poste (`agent-access.mjs`).
 7. **Réponse** : `Cache-Control: no-store`, CSP `default-src 'none'`, `X-Frame-Options: DENY`, HSTS en HTTPS, `Retry-After` sur 401/429. Les erreurs inattendues renvoient un message générique en `503`.
 
@@ -48,8 +48,9 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | Route | Authentification | Module |
 | --- | --- | --- |
 | `POST /api/entry` | Clé du lien privé | `core.mjs` |
-| `GET /api/status`, `POST /api/setup`, `POST /api/login` | Aucune, puis code et OTP | `core.mjs`, `users.mjs`, `otp.mjs` |
-| `POST /api/account/inspect`, `/api/account/complete` | Ticket d’invitation | `users.mjs` |
+| `GET /api/status` | Aucune | `core.mjs` |
+| `POST /api/setup`, `POST /api/login` | Clé du lien privé (`X-WG-Entry`), puis code et OTP | `core.mjs`, `users.mjs`, `otp.mjs` |
+| `POST /api/account/inspect`, `/api/account/complete` | Clé du lien privé et ticket d’invitation | `users.mjs` |
 | `/api/push/*`, `/api/mfa/phone/*` | Parcours historique de notification ; `/api/push/*` répond `410` si `MFA_BROWSER_PUSH_ENABLED=0` | `push.mjs` |
 | `/api/agent/*` | Jeton d’agent (`Authorization: Agent …`) | `agents.mjs`, `remote.mjs`, `endpoints.mjs`, `ai.mjs` |
 | `/api/agents*`, `/api/scans*`, `/api/remote/*`, `/api/edr*`, `/api/ai*` | Session + droits par poste | `agents.mjs`, `fleet-groups.mjs`, `remote.mjs`, `terminal.mjs`, `files.mjs`, `endpoints.mjs` |
@@ -58,6 +59,7 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | `GET /api/vault`, `PUT /api/vault`, `GET /api/storage/usage` | Session, projection selon les droits | `core.mjs`, `workspace-access.mjs`, `storage-usage.mjs` |
 | `/api/chat/*` | Session | `chat-api.mjs`, `chat-history.mjs` |
 | `POST /api/touch`, `POST /api/logout`, `POST /api/rotation` | Session | `core.mjs` |
+| `GET /api/logs` | Session administrateur | `core.mjs`, `journal.mjs` |
 | `/api/duo/*`, `/api/users/duo` | Retirées, réponse `410` | `core.mjs` |
 
 ## Modèle de données
@@ -66,10 +68,10 @@ Les migrations sont dans `server/drizzle/` (une migration par changement, jamais
 
 | Domaine | Tables D1 |
 | --- | --- |
-| Espace et sessions | `vault`, `sessions`, `rotations` |
+| Espace et sessions | `vault`, `sessions`, `rotations`, `login_throttle` (essais par IP) |
 | Comptes et MFA | `users`, `user_invitations`, `push_devices`, `push_requests`, `duo_config`, `duo_requests` (historiques) |
 | Droits | `access_groups`, `fleet_groups`, `permission_audit` |
-| Accès réseau | `access_connections`, `access_blocks` |
+| Accès réseau et journal | `access_connections`, `access_blocks`, `app_logs` |
 | Postes et scans | `scan_agents`, `scan_pairings`, `scan_jobs`, `scan_intelligence` |
 | Protection | `endpoint_states`, `endpoint_events`, `endpoint_policies`, `endpoint_commands` |
 | Prise en main | `remote_sessions`, `remote_inputs`, `terminal_commands`, `remote_file_commands` |

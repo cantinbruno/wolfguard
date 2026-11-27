@@ -14,7 +14,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. GitHub Actions recompile et teste chaque push, sans la clé réelle du lien. Surveillance Windows désactivée et ses scripts supprimés. |
 | Documentation | Guides et consignes uniquement dans `documentation/`, sans README ni AGENTS.md à la racine et sans README dans `server/`. Les règles Continue renvoient directement aux consignes centralisées. |
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |
-| Sessions | 4 heures **d’inactivité**, pas 4 heures de durée totale. Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
+| Sessions | 4 heures **d’inactivité**, et au plus **24 heures** après la connexion (demande du 27 novembre). Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
 | MFA | Authenticator ; option « Changer de téléphone ». L’ancien facteur reste actif jusqu’à confirmation du nouveau. Les codes de secours restent nécessaires à la récupération MFA. |
 | Données | Import/export chiffré des fiches autorisées dans Données, avec code de transfert. Import par ajout de copies, sans remplacement des données, comptes ou droits. Préserver les copies techniques de récupération. |
 | Autorisations | Tous les droits sont configurés uniquement sur des groupes d’accès dans Paramètres → Groupes, sans surcharge individuelle ni raccourci depuis le parc. Un utilisateur peut cumuler plusieurs groupes. Chaque section ou paramètre reçoit automatiquement `GG_Acces_<Nom>_lecture` et `GG_Acces_<Nom>_ecriture` ; sans groupe correspondant, elle est invisible. `GG_Acces_Application_administrateur` donne l’accès complet. Les groupes des sections de postes suivent leur création, renommage et suppression. Le propriétaire reste protégé. |
@@ -29,6 +29,10 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Rapports | Uniquement en PDF dans l’Historique de la fiche du poste, sans prévisualisation, export direct ni historique global. |
 
 ## Historique des demandes
+
+### 27 novembre 2026 — Sécurité et session
+
+Limiter les essais de code par adresse IP (plus de blocage commun à tous les comptes), exiger la clé du lien privé avant toute tentative de connexion, plafonner une session à 24 h en plus des 4 h d’inactivité, durcir HSTS, et ajouter dans Paramètres un onglet Journal dont les événements sont supprimés après un mois. Rien de payant. Ne plus mentionner d’IA dans le dépôt ni dans les commits.
 
 ### 26 novembre 2026 — Intégration continue et nettoyage
 

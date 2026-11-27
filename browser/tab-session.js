@@ -2,12 +2,14 @@
 // stored here; IndexedDB holds only a temporary, non-extractable CryptoKey.
 export const SESSION_MS = 4 * 60 * 60 * 1000;
 export const IDLE_MS = SESSION_MS;
+// Absolute cap, mirrored by the server: 24 hours after the login.
+export const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 const HANDLE = 'wolfguard-tab-session-v1';
 const PREFIX = 'tab-session:';
 const validId = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 export function validClock(clock, now = Date.now()) {
   return Number.isSafeInteger(clock?.started) && Number.isSafeInteger(clock?.active) && clock.started > 0 &&
-    clock.started <= clock.active && clock.active <= now && now - clock.active < IDLE_MS;
+    clock.started <= clock.active && clock.active <= now && now - clock.active < IDLE_MS && now - clock.started < SESSION_MAX_MS;
 }
 export function createTabSession(storage) {
   let ticket = null, record = null, generation = 0, pending = Promise.resolve(), syncedAt = 0;

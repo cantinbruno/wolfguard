@@ -37,7 +37,7 @@ test('malformed objects fail consistently through both authentication and agent 
       const response=await handleAPI(new Request('https://test.invalid/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body}),s.env,s.clock);
       assert.equal(response.status,400,path+': '+body);
     }
-    assert.equal(s.env.DB.db.prepare('SELECT failures FROM vault').get().failures,0);
+    assert.equal(s.env.DB.db.prepare('SELECT COUNT(*) n FROM login_throttle WHERE failures>0').get().n,0);
   }finally{s.env.DB.db.close();}
 });
 
@@ -139,7 +139,7 @@ test('explicitly expired tokens are refused and never revived by the next legiti
 
 test('API responses including errors enforce HTTPS, no embedding and no caching without breaking CORS',async()=>{
   const response=await handleAPI(new Request('https://api.test/api/status',{headers:{Origin:'https://wolfguard.wavetools.fr'}}),{});
-  assert.equal(response.headers.get('Strict-Transport-Security'),'max-age=31536000');
+  assert.equal(response.headers.get('Strict-Transport-Security'),'max-age=63072000; includeSubDomains');
   assert.equal(response.headers.get('X-Frame-Options'),'DENY');
   assert.match(response.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
   assert.match(response.headers.get('Cache-Control'),/no-store/);

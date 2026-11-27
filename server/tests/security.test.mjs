@@ -33,7 +33,7 @@ test('large encrypted records retain authentication without overflowing the call
 test('API security headers apply to errors and preserve the frontend CORS allowlist',async()=>{
   const response=await handleAPI(new Request('https://api.test/api/status',{headers:{Origin:'https://wolfguard.wavetools.fr'}}),{});
   assert.equal(response.status,503);
-  assert.equal(response.headers.get('Strict-Transport-Security'),'max-age=31536000');
+  assert.equal(response.headers.get('Strict-Transport-Security'),'max-age=63072000; includeSubDomains');
   assert.equal(response.headers.get('X-Frame-Options'),'DENY');
   assert.match(response.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
   assert.equal(response.headers.get('Access-Control-Allow-Origin'),'https://wolfguard.wavetools.fr');

@@ -13,6 +13,8 @@ const webWorkspace = (() => {
   const agentChoiceKey=()=> 'wolfguard-agent-choice-v1'+(cloud?.currentUser()?.id?':'+cloud.currentUser().id:'');
   // Only real interaction renews the four-hour inactivity deadline.
   const SESSION_MS = 4 * 60 * 60 * 1000;
+  // Absolute cap, mirrored by the server: 24 hours after the login.
+  const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
   function updateMFAIndicator(){
     const button=$('#settingsBtn'),mfa=cloud?.currentUser()?.mfa,pending=!!(session&&cloud?.enabled&&cloud.hasUsers()&&mfa&&!mfa.complete);
     button?.classList.toggle('web-mfa-pending',pending);if(button)button.title=pending?'Paramètres · MFA à configurer':'Paramètres';
@@ -86,8 +88,9 @@ const webWorkspace = (() => {
     }
   }
   function sessionExpired() {
-    return !session || !sessionClock || inactiveFor() >= SESSION_MS;
+    return !session || !sessionClock || inactiveFor() >= SESSION_MS || sessionAge() >= SESSION_MAX_MS;
   }
+  const sessionAge=()=>Math.max(0,Date.now()-sessionClock.started,performance.now()-sessionClock.monotonicStart);
   const inactiveFor=()=>Math.max(0,Date.now()-sessionClock.active,performance.now()-sessionClock.monotonicActive);
   async function pulseCloudSession(){
     if(!session||sessionExpired()||cloudPulse)return;
@@ -116,7 +119,7 @@ const webWorkspace = (() => {
   }
   function armSessionTimer() {
     if(!session || !sessionClock){clearTimeout(autoLockTimer);autoLockTimer=null;sessionTimerDue=0;return;}
-    const remaining=SESSION_MS-inactiveFor();
+    const remaining=Math.min(SESSION_MS-inactiveFor(),SESSION_MAX_MS-sessionAge());
     const due=Date.now()+Math.max(0,remaining);
     // Keep the earlier timer: its callback checks the latest real activity.
     // Mouse movement must not allocate a new four-hour timer per pixel.

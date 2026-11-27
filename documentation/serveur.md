@@ -22,6 +22,7 @@ Le projet Sites est identifié dans `server/.openai/hosting.json` ; ses bindings
 | Outils distants | `remote.mjs`, `terminal.mjs`, `files.mjs`, `endpoints.mjs` |
 | Rapprochement des avis publics | `certfr.mjs` |
 | Conservation des journaux et répartition du stockage | `retention.mjs`, `storage-usage.mjs` |
+| Journal de l’application (Paramètres → Journal) | `journal.mjs` |
 | IA via un poste et discussion | `ai.mjs`, `ai-input.mjs`, `chat-api.mjs`, `chat-history.mjs` |
 | Notifications navigateur historiques (coupées par `MFA_BROWSER_PUSH_ENABLED=0`) | `push.mjs` |
 

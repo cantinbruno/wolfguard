@@ -439,7 +439,7 @@ test('Authenticator enrollment, encrypted secrets, OTP gates, replay protection 
     assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);
     assert.deepEqual(await(await s.api('login',{code:'09876543'})).json(),{otpRequired:true});
     assert.equal((await s.api('login',{code:'09876543',otp:'invalid'})).status,401);
-    assert.equal(s.env.DB.db.prepare('SELECT failures FROM vault').get().failures,2);s.advance(10001);
+    assert.equal(s.env.DB.db.prepare('SELECT failures FROM login_throttle').get().failures,2);s.advance(10001);
     s.advance(60000);step=Math.floor(s.clock()/30000);otp=await otpAt(enrollment.secret,step);
     const good=await s.api('login',{code:'09876543',otp});assert.equal(good.status,200);const logged=await good.json();assert.ok(logged.token);assert.notDeepEqual(logged.workspace,s.material);
     assert.equal((await s.api('login',{code:'09876543',otp})).status,401);s.advance(5001);

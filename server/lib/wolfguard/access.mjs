@@ -1,6 +1,7 @@
 import {closeRemote} from './remote.mjs';
 import {can} from './permissions.mjs';
 import {threatList,threatMatch} from './threat-list.mjs';
+import {logEvent} from './journal.mjs';
 const encoder=new TextEncoder(),IDLE_MS=60*60000;
 const hex=value=>[...new Uint8Array(value)].map(n=>n.toString(16).padStart(2,'0')).join('');
 const bytes=value=>Uint8Array.from(value.match(/../g)||[],n=>parseInt(n,16));
@@ -115,6 +116,7 @@ export async function handleAccessAPI(request,env,now,session,h){
     if(!owners.results.length)fail(404,'Cette connexion est déjà terminée.');
     await stopRemoteOwners(env,owners.results,now);
     await env.DB.prepare('DELETE FROM access_connections WHERE id=?').bind(data.id).run();
+    await logEvent(env,now,{kind:'session-revoked',details:{by:session.user.username}});
     return json({ok:true,current:owners.results.some(row=>row.token_hash===session.hash)});
   }
   if(path==='/api/access/block'){
@@ -129,11 +131,14 @@ export async function handleAccessAPI(request,env,now,session,h){
     ]);
     await stopRemoteOwners(env,owners.results,now);
     await env.DB.prepare('DELETE FROM access_connections WHERE ip_hash=?').bind(hash).run();
+    await logEvent(env,now,{level:'warning',kind:'ip-blocked',details:{ip,by:session.user.username,disconnected:owners.results.length}});
     return json({ok:true,disconnected:owners.results.length});
   }
   if(path==='/api/access/unblock'){
     if(typeof data.id!=='string'||!/^[a-f0-9]{32}$/.test(data.id))fail(400,'Blocage invalide.');
-    await env.DB.prepare('DELETE FROM access_blocks WHERE id=?').bind(data.id).run();return json({ok:true});
+    const removed=await env.DB.prepare('DELETE FROM access_blocks WHERE id=? RETURNING ip_hash,ip_cipher').bind(data.id).first();
+    if(removed)await logEvent(env,now,{kind:'ip-unblocked',details:{ip:await open(removed.ip_cipher,'WolfGuard access v1:ip:'+removed.ip_hash,env),by:session.user.username}});
+    return json({ok:true});
   }
   fail(404,'Adresse d’accès inconnue.');
 }

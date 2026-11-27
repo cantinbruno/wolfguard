@@ -9,7 +9,7 @@ export const vault = sqliteTable('vault', {
 });
 export const sessions = sqliteTable('sessions', {
   tokenHash: text('token_hash').primaryKey(), tokenCipher:text('token_cipher'), generation: integer('generation').notNull(),
-  expiresAt: integer('expires_at').notNull(), activeAt: integer('active_at').notNull(),userId:text('user_id'),userVersion:integer('user_version').notNull().default(0)
+  expiresAt: integer('expires_at').notNull(), activeAt: integer('active_at').notNull(),userId:text('user_id'),userVersion:integer('user_version').notNull().default(0),createdAt:integer('created_at')
 },table=>[uniqueIndex('sessions_one_account').on(table.userId).where(sql`${table.userId} IS NOT NULL`)]);
 export const users = sqliteTable('users', {
   id:text('id').primaryKey(),nameHash:text('name_hash').notNull().unique(),nameCipher:text('name_cipher').notNull(),role:text('role').notNull(),
@@ -120,3 +120,13 @@ export const fleetGroups=sqliteTable('fleet_groups',{
 export const accessGroups=sqliteTable('access_groups',{
   id:integer('id').primaryKey(),generation:integer('generation').notNull(),revision:integer('revision').notNull(),configCipher:text('config_cipher').notNull(),updatedAt:integer('updated_at').notNull()
 });
+
+// Failed code attempts are counted per keyed IP hash, never globally.
+export const loginThrottle=sqliteTable('login_throttle',{
+  key:text('key').primaryKey(),failures:integer('failures').notNull().default(0),blockedUntil:integer('blocked_until').notNull().default(0),
+  lease:text('lease'),leaseUntil:integer('lease_until').notNull().default(0),updatedAt:integer('updated_at').notNull()
+});
+// Application journal shown in Settings, kept 30 days.
+export const appLogs=sqliteTable('app_logs',{
+  id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),level:text('level').notNull(),kind:text('kind').notNull(),detailsCipher:text('details_cipher').notNull()
+},table=>[index('app_logs_time').on(table.createdAt)]);
