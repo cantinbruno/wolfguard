@@ -37,7 +37,10 @@ async function request(path,{method='GET',body,headers={},anonymous=false,signal
       const data=await response.json().catch(()=>({}));
       const error=new Error(data.error || 'Le stockage partagé est indisponible. Réessaie.');
       const hiddenAddress=response.status===404&&data.error==='Adresse inconnue.';
-      if(hiddenAddress&&!local)location.replace('https://site-introuvable.invalid/');
+      // The fake "not found" redirect protects the entry address only. A signed-in request already passed it,
+      // so an unknown route there means the deployed API is older than this site (explained to the user).
+      if(hiddenAddress&&!local&&!credential)location.replace('https://site-introuvable.invalid/');
+      if(hiddenAddress&&credential)error.message='Cette fonction n’est pas encore disponible sur le serveur. Le serveur doit être mis à jour.';
       error.code=response.status===409?'CLOUD_CONFLICT':hiddenAddress||response.status===401||response.status===403&&['ACCESS_BLOCKED','ACCOUNT_DISABLED'].includes(data.code)?'CLOUD_ACCESS':'CLOUD_ERROR';
       if(response.status===401&&data.retryAfter&&path.startsWith('users/otp/'))error.code='CLOUD_ERROR';
       if(error.code==='CLOUD_ACCESS'&&credential&&(credential!==token||changingFactor?.credential===credential&&path!=='users/otp/replace/confirm'))error.code='CLOUD_STALE_SESSION';
