@@ -42,7 +42,7 @@ const agentsWorkspace = (() => {
     mobileTable.addEventListener('change',tableKeyboard,{signal});
     root.innerHTML = `<header class="agents-heading">
       <div class="agents-heading-intro"><span class="agents-heading-icon" aria-hidden="true">${settingsIcon('shield-check')}</span><div><span class="agents-eyebrow">PARC INFORMATIQUE</span><h1>Sécurité des postes</h1></div></div>
-      <div class="agents-heading-actions"><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
+      <div class="agents-heading-actions"><button type="button" id="agentsOverview">${settingsIcon('layout-dashboard')}État du parc</button><button type="button" id="agentsManage" class="agents-primary">${settingsIcon('plus')}Ajouter un poste</button><button type="button" id="agentsUninstall">${settingsIcon('trash-2')}Désinstaller</button></div>
     </header>
     <div class="agents-status-bar"><div class="agents-fleet-summary" id="agentsFleetSummary"></div><p id="agentsStatus" role="status" aria-live="polite">Chargement des agents…</p></div>
     <div class="agents-console">
@@ -71,6 +71,7 @@ const agentsWorkspace = (() => {
     find('#agentsManage').hidden = !can('agents.pair');
     find('#agentsUninstall').hidden = !can('agents.revoke');
     find('#agentsUninstall').onclick = () => openAgentRemovalInterface();
+    find('#agentsOverview').onclick = () => fleetOverview.open();
     find('#agentsManage').onclick = () => openAgentsInterface({onAdded:agent=>{if(!live())return;if(!agents.some(row=>row.id===agent.id))agents.push(agent);draw();openDetails(agent.id);}});
 
     function protection(agent) {

@@ -540,3 +540,24 @@ html:has(.agents-tool-panel[open]) {overflow: hidden}
 .agents-section-colors{display:flex;gap:12px;margin:20px 0}.agents-section-colors button{width:36px;height:36px;border:2px solid #fff8;border-radius:50%;cursor:pointer}.agents-section-colors button:focus-visible{outline:3px solid var(--ui-text);outline-offset:3px}
 
 .agents-reports-panel{max-width:1280px;width:calc(100vw - 48px);max-height:calc(100dvh - 48px);padding:0;overflow:auto}.agents-reports-panel #agentsReportsHost{padding:20px;min-width:0}
+
+/* Security → État du parc */
+.fleet-overview {min-width: min(860px, 100%)}
+.fleet-tiles {display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 4px 0 18px}
+.fleet-tile {display: flex; flex-direction: column; gap: 4px; padding: 14px; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-surface)}
+.fleet-tile strong {font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ui-text)}
+.fleet-tile span {font-size: .8125rem; color: var(--ui-muted)}
+.fleet-tile[data-tone="good"] strong {color: #91edbd}
+.fleet-tile[data-tone="warn"] strong {color: #f2dc7a}
+.fleet-tile[data-tone="bad"] strong {color: #ff9b9b}
+.fleet-subtitle {font-size: 1rem; margin: 6px 0 10px}
+.fleet-table-scroll {overflow-x: auto; border: 1px solid var(--ui-border); border-radius: 10px}
+.fleet-table {width: 100%; border-collapse: collapse; font-size: .8125rem}
+.fleet-table th, .fleet-table td {padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--ui-border); vertical-align: top}
+.fleet-table tbody tr:last-child > * {border-bottom: 0}
+.fleet-table thead th {color: var(--ui-muted); font-weight: 600}
+.fleet-health {display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--ui-border); white-space: nowrap}
+.fleet-health[data-health="protected"] {color: #91edbd; border-color: #91edbd55}
+.fleet-health[data-health="attention"] {color: #ff9b9b; border-color: #ff9b9b55}
+.fleet-ok {color: #91edbd}
+.fleet-updated {margin-top: 12px; font-size: .75rem}

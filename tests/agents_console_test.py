@@ -93,7 +93,11 @@ def run():
             page.evaluate('window.__securityRoot = document.querySelector(".agents-workspace")')
             expect(page.locator('[data-fleet-agent]')).to_have_count(4)
             # The only fleet action opens enrollment, independently of existing posts.
-            expect(page.locator('.agents-heading-actions button')).to_have_count(2)
+            expect(page.locator('.agents-heading-actions button')).to_have_count(3)
+            # Security → État du parc summarizes the same four workstations.
+            page.locator('#agentsOverview').click();expect(page.locator('#fleetOverview .fleet-tile').first).to_contain_text('Postes',timeout=15000)
+            expect(page.locator('#fleetOverview .fleet-tile strong').first).to_have_text('4');expect(page.locator('#fleetOverview')).to_have_attribute('aria-busy','false')
+            page.get_by_role('button',name='Fermer',exact=True).click();expect(page.locator('#fleetOverview')).to_have_count(0)
             expect(page.locator('#agentsAdd')).to_have_count(0)
             page.locator('#agentsManage').click()
             expect(page.locator('#wgAgentManage,#wgAgentFleetPanel,[data-agent-revoke]')).to_have_count(0)

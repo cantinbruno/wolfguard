@@ -82,3 +82,7 @@ Source : `app/js/views/vault-tools.js` (fonctions sans dépendance, testées par
 Le Mémo contient un dossier **Modèles** à la racine avec six fiches prêtes à remplir : procédure, compte rendu d’incident, mise en service d’un poste, compte rendu de réunion, fiche équipement ou serveur, demande de changement. Le bouton « Utiliser ce modèle » (ou « Dupliquer » du clic droit) crée une fiche ordinaire à la racine du Mémo, avec un titre neutre, et l’ouvre en modification ; le modèle reste intact.
 
 Les modèles sont ajoutés une seule fois, avec les autres migrations atomiques de `ensureUnifiedLibrary()` (`app/js/data/memo-templates.js`, marqueur `memo-templates-version`). Un modèle ou un dossier supprimé n’est jamais recréé, une modification n’est jamais écrasée. Vérifications : `node --test tests/memo-templates.test.mjs` et `python tests/memo_templates_test.py`.
+
+## État du parc
+
+Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemble des postes visibles avec tes droits : nombre de postes, en ligne et hors ligne, protégés et à surveiller, alertes non acquittées, menaces bloquées sur 24 h et agents à mettre à jour. La liste « Postes à surveiller » classe les postes par risque avec leurs raisons (hors ligne, protection à vérifier, alertes, agent ancien). L’état de protection n’apparaît qu’avec le droit `edr.read`. Aucune nouvelle route serveur : la vue réutilise `agents`, `edr` et la publication de l’agent. Source : `app/js/ui/fleet-overview.js`, test `tests/fleet-overview.test.mjs`.
