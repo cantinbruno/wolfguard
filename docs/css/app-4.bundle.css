@@ -23762,3 +23762,80 @@ button.agents-alerts:focus-visible{outline:2px solid var(--agents-accent);outlin
   #agentToolHost .scan-setup-footer { padding: 16px; }
   #agentToolHost .edr-policy { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* css/vault-detail.css */
+/* Coffre : fiche en une colonne lisible, une ligne par champ (libellé à gauche, valeur et actions à droite). */
+.vault-view .vault-view-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: min(100%, 880px);
+  margin: 18px auto 28px;
+  padding: 6px 22px;
+  overflow: visible;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .03);
+}
+
+.vault-view .vault-view-body .info-box,
+.vault-view .vault-view-body .custom-grid .info-box {
+  display: grid;
+  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 18px;
+  min-height: 0;
+  max-height: none;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 0;
+  background: none;
+}
+
+.vault-view .vault-view-body > .info-box:last-child,
+.vault-view .vault-view-body > .custom-grid:last-child .info-box:last-child { border-bottom: 0 }
+
+.vault-view .vault-view-body .custom-grid { display: contents }
+
+.vault-view .vault-view-body .info-box .label {
+  margin: 0;
+  font-size: .78rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  opacity: .65;
+}
+
+.vault-view .vault-view-body .info-box .value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.vault-view .vault-view-body .secret-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-view .vault-view-body .secret-line > span:first-child { flex: 1 1 auto; min-width: 0 }
+.vault-view .vault-view-body .secret-line .ghost { flex: none; min-width: 0; padding: 6px 12px }
+
+.vault-view .vault-view-body .password-health .value { display: grid; gap: 6px }
+.vault-view .vault-view-body .password-health .health-line { display: flex; align-items: center; gap: 12px; justify-content: space-between }
+
+.vault-view .vault-view-body .vault-notes {
+  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+  .vault-view .vault-view-body { padding: 4px 14px; margin: 12px 0 }
+  .vault-view .vault-view-body .info-box,
+  .vault-view .vault-view-body .vault-notes { grid-template-columns: minmax(0, 1fr) }
+  .vault-view .vault-view-body .secret-line { flex-wrap: wrap }
+}
+
+.vault-view .vault-view-body .password-health .strength-meter,
+.vault-view .vault-view-body .password-health .health-line { margin: 0; min-height: 0 }
+.vault-view .vault-view-body .password-health .value { gap: 8px }
