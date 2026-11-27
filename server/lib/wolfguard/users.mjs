@@ -1,7 +1,6 @@
 import {accessGroupAPI} from './access-groups.mjs';
 import {seal,open,stopRemoteOwners} from './access.mjs';
 import {handleOTP,requiresMFA} from './otp.mjs';
-import {handlePushSettings,requiresPhone,pushDevice} from './push.mjs';
 import {userPolicy,policyCipher,permissionAPI} from './permission-store.mjs';
 import {profilePolicy,requirePermission,canManagePolicy} from './permissions.mjs';
 import {vaultHome,addVaultIdentity} from './personal-vault.mjs';
@@ -60,9 +59,8 @@ async function availableCode(code,id,env,pinHash,fail){
   return codeLookup(code,env);
 }
 export async function publicUser(row,env,viewer){
-  const phone=Object.hasOwn(row,'has_phone')?!!row.has_phone:!!await pushDevice(env,row.id);
   const username=await open(row.name_cipher,'WolfGuard users v1:name:'+row.id,env);
-  const base={id:row.id,username,vaultHome:vaultHome({id:row.id,username}),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,phone,complete:!!row.otp_secret_cipher&&(!requiresPhone(env)||phone),required:requiresMFA(env),primary:requiresPhone(env)||phone?'push':'authenticator',backup:'authenticator'}};
+  const base={id:row.id,username,vaultHome:vaultHome({id:row.id,username}),role:row.role,permissions:await userPolicy(row,env),permission_revision:row.permission_revision||1,disabled:row.disabled_at!==null,credentialPending:!!row.credential_pending,inviteExpiresAt:row.invite_expires_at,createdAt:row.created_at,lastLogin:row.last_login,mfa:{authenticator:!!row.otp_secret_cipher,complete:!!row.otp_secret_cipher,required:requiresMFA(env)}};
 
   return base;
 }
@@ -143,7 +141,6 @@ export async function handleUsersAPI(request,env,now,session,h){
   }
   if(!vault.users_enabled)fail(409,'Crée d’abord le compte administrateur à la connexion.');
   if(path==='/api/users/otp'||path.startsWith('/api/users/otp/'))return handleOTP(request,env,now,session,{...h,revokeOthers});
-  if(path==='/api/users/push'||path.startsWith('/api/users/push/'))return handlePushSettings(request,env,now,session,{...h,revokeOthers});
   if(path==='/api/users/change-code'&&request.method==='POST'){
     const data=await body(),row=await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(session.user.id).first();
     if(!codeOK(data.code))fail(400,'Le nouveau code doit contenir 8 chiffres.');
@@ -163,7 +160,7 @@ export async function handleUsersAPI(request,env,now,session,h){
   const operationPermission={create:'create',invite:'create','revoke-invitation':'create',update:'read','reset-code':'reset','reset-otp':'mfa',disconnect:'sessions',delete:'delete'};
   requirePermission(session.user,request.method==='GET'?'users.read':'users.'+(operationPermission[path.slice('/api/users/'.length)]||'manage'),fail,now);
   if(path==='/api/users'&&request.method==='GET'){
-    const rows=await env.DB.prepare(`SELECT u.*,EXISTS(SELECT 1 FROM push_devices p WHERE p.user_id=u.id) AS has_phone,
+    const rows=await env.DB.prepare(`SELECT u.*,
       (SELECT COUNT(*) FROM sessions s WHERE s.user_id=u.id AND s.user_version=u.code_version AND s.active_at IS NOT NULL AND s.generation=?) AS session_count
       FROM users u ORDER BY u.created_at,u.id`).bind(session.generation).all(),users=[];
     for(const row of rows.results)users.push({...await publicUser(row,env,session.user),current:row.id===session.user.id,sessions:row.session_count});
@@ -228,7 +225,6 @@ export async function handleUsersAPI(request,env,now,session,h){
   if(path==='/api/users/reset-otp'){
     if(isOwner)fail(409,'Désactive ton Authenticator dans Sécurité avec ton code OTP.');
     await env.DB.prepare('UPDATE users SET otp_secret_cipher=NULL,otp_pending_cipher=NULL,otp_pending_until=NULL,otp_last_step=-1,otp_recovery_cipher=NULL,code_version=code_version+1 WHERE id=?').bind(target.id).run();
-    await env.DB.batch([env.DB.prepare('DELETE FROM push_requests WHERE user_id=?').bind(target.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(target.id)]);
     await revokeUserSessions(env,target.id,now);return json({ok:true});
   }
   if(path==='/api/users/disconnect'){await revokeUserSessions(env,target.id,now);return json({ok:true,reconnect:target.id===session.user.id});}
@@ -238,7 +234,6 @@ export async function handleUsersAPI(request,env,now,session,h){
     await h.purgeVault(target.id);
     const removed=await env.DB.prepare('DELETE FROM users WHERE id=? AND id<>(SELECT owner_user_id FROM vault WHERE id=1) RETURNING id').bind(target.id).first();
     if(!removed)fail(409,'Il faut conserver au moins un administrateur actif.');
-    await env.DB.batch([env.DB.prepare('DELETE FROM push_requests WHERE user_id=?').bind(target.id),env.DB.prepare('DELETE FROM push_devices WHERE user_id=?').bind(target.id)]);
     await revokeUserSessions(env,target.id,now);
     // The personal vault belongs to the deleted account: its home folder and
     // all records inside disappear with the user.

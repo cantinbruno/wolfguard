@@ -17,7 +17,7 @@ const allNode=()=>readdirSync(tests).filter(name=>name.endsWith('.test.mjs')&&na
 const suites={
   'all': [
     ['publication'],
-    ['node',['migration.test.mjs', 'cloud.test.mjs', 'phone.test.mjs', 'ai.test.mjs', 'browser-ai.test.mjs', 'access.test.mjs', 'users.test.mjs', 'permissions.test.mjs', 'shared-workspace.test.mjs', 'security.test.mjs', 'hardening.test.mjs', 'publication.test.mjs', 'server.test.mjs', 'organization.test.mjs', 'mail_cleanup.test.mjs', 'form_cleanup.test.mjs', 'memo-references.test.mjs', 'agent.test.mjs', 'topology.test.mjs', 'agent-update.test.mjs', 'scan-report.test.mjs', 'certfr.test.mjs', 'agent-posix.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'files.test.mjs', 'terminal.test.mjs', 'private-entry.test.mjs', 'report-integration.test.mjs', 'fleet-groups.test.mjs', 'antivirus.test.mjs', 'antivirus-api.test.mjs', 'antivirus-auto.test.mjs']],
+    ['node',['migration.test.mjs', 'cloud.test.mjs', 'ai.test.mjs', 'browser-ai.test.mjs', 'access.test.mjs', 'users.test.mjs', 'permissions.test.mjs', 'shared-workspace.test.mjs', 'security.test.mjs', 'hardening.test.mjs', 'publication.test.mjs', 'server.test.mjs', 'organization.test.mjs', 'mail_cleanup.test.mjs', 'form_cleanup.test.mjs', 'memo-references.test.mjs', 'agent.test.mjs', 'topology.test.mjs', 'agent-update.test.mjs', 'scan-report.test.mjs', 'certfr.test.mjs', 'agent-posix.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'files.test.mjs', 'terminal.test.mjs', 'private-entry.test.mjs', 'report-integration.test.mjs', 'fleet-groups.test.mjs', 'antivirus.test.mjs', 'antivirus-api.test.mjs', 'antivirus-auto.test.mjs']],
     ['python','private_entry_test.py'],
     ['python','startup_render_test.py'],
     ['python','session_resume_test.py'],
@@ -49,7 +49,6 @@ const suites={
     ['python','permissions_workspace_test.py'],
     ['python','otp_workspace_test.py'],
     ['python','mandatory_mfa_test.py'],
-    ['python','phone_workspace_test.py'],
     ['python','agent_workspace_test.py'],
     ['python','agent_updates_test.py'],
     ['python','edr_workspace_test.py']

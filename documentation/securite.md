@@ -22,7 +22,7 @@ TOTP utilise six chiffres et des périodes de 30 secondes, avec consommation ato
 
 Le remplacement Authenticator exige le code personnel et l’ancien OTP ou un code de secours. Le nouvel enrôlement est temporaire ; l’ancien facteur reste actif jusqu’à confirmation du nouveau. La confirmation remplace le secret, renouvelle les codes de secours et invalide les anciennes sessions. Une annulation ou expiration laisse l’ancien facteur actif. Source : `server/lib/wolfguard/otp.mjs`.
 
-Le parcours web courant utilise Authenticator ; la présence de modules historiques Web Push ne signifie pas qu’une seconde validation push est requise dans l’interface.
+Authenticator est le seul second facteur. Duo et la validation par notification sur téléphone ont été retirés le 27 novembre 2026 : leurs routes répondent `410` et leurs tables sont supprimées (migration 0022).
 
 Dans Mon compte, un seul bloc « Double authentification » réunit le statut MFA, une phrase sur le code à six chiffres, le bouton « Changer de téléphone » et le rappel des codes de secours. Les étapes et titres répétés sont retirés de la vue courante. Un espace au-dessus et au-dessous de l’encadré le sépare des traits et des sections voisines. Les formulaires de configuration, de vérification et de remplacement restent accessibles dans ce bloc, avec les mêmes contrôles et confirmations.
 

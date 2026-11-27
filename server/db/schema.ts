@@ -26,12 +26,6 @@ export const userInvitations = sqliteTable('user_invitations', {
 export const permissionAudit=sqliteTable('permission_audit',{
   id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),detailsCipher:text('details_cipher').notNull()
 });
-export const pushDevices=sqliteTable('push_devices',{
-  id:text('id').primaryKey(),userId:text('user_id').notNull().unique(),subscriptionCipher:text('subscription_cipher').notNull(),publicKey:text('public_key').notNull(),createdAt:integer('created_at').notNull()
-});
-export const pushRequests=sqliteTable('push_requests',{
-  id:text('id').primaryKey(),ticketHash:text('ticket_hash').notNull().unique(),userId:text('user_id').notNull(),userVersion:integer('user_version').notNull(),deviceId:text('device_id').notNull(),generation:integer('generation').notNull(),nonce:text('nonce').notNull(),state:text('state').notNull(),displayCode:text('display_code').notNull(),detailsCipher:text('details_cipher').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
-},table=>[uniqueIndex('push_requests_one_pending_user').on(table.userId).where(sql`${table.state} = 'pending'`)]);
 export const rotations = sqliteTable('rotations', {
   tokenHash: text('token_hash').primaryKey(), pinSalt: text('pin_salt').notNull(), pinHash: text('pin_hash').notNull(),
   generation: integer('generation').notNull(), version: integer('version').notNull(), expiresAt: integer('expires_at').notNull()
@@ -85,13 +79,6 @@ export const chatHistoryState=sqliteTable('chat_history_state',{
 export const chatConversations=sqliteTable('chat_conversations',{
   id:text('id').primaryKey(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),epoch:integer('epoch').notNull(),revision:integer('revision').notNull(),titleCipher:text('title_cipher').notNull(),contentCipher:text('content_cipher').notNull(),updatedAt:integer('updated_at').notNull()
 },table=>[index('chat_conversations_user_updated').on(table.userId,table.updatedAt)]);
-
-export const duoConfig=sqliteTable('duo_config',{
-  id:integer('id').primaryKey(),enabled:integer('enabled').notNull().default(0),configCipher:text('config_cipher'),revision:integer('revision').notNull().default(0)
-});
-export const duoRequests=sqliteTable('duo_requests',{
-  id:text('id').primaryKey(),stateHash:text('state_hash').notNull().unique(),ticketHash:text('ticket_hash').notNull().unique(),userId:text('user_id').notNull().references(()=>users.id,{onDelete:'cascade'}),userVersion:integer('user_version').notNull(),generation:integer('generation').notNull(),configRevision:integer('config_revision').notNull(),otpBinding:text('otp_binding').notNull(),nonce:text('nonce').notNull(),status:text('status').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull()
-},table=>[index('duo_requests_user_created').on(table.userId,table.createdAt)]);
 
 export const chatApiConfig=sqliteTable('chat_api_config',{
   id:integer('id').primaryKey(),keyCipher:text('key_cipher'),revision:integer('revision').notNull().default(0)

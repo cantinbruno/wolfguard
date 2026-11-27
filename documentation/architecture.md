@@ -51,7 +51,6 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | `GET /api/status` | Aucune | `core.mjs` |
 | `POST /api/setup`, `POST /api/login` | Clé du lien privé (`X-WG-Entry`), puis code et OTP | `core.mjs`, `users.mjs`, `otp.mjs` |
 | `POST /api/account/inspect`, `/api/account/complete` | Clé du lien privé et ticket d’invitation | `users.mjs` |
-| `/api/push/*`, `/api/mfa/phone/*` | Parcours historique de notification ; `/api/push/*` répond `410` si `MFA_BROWSER_PUSH_ENABLED=0` | `push.mjs` |
 | `/api/agent/*` | Jeton d’agent (`Authorization: Agent …`) | `agents.mjs`, `remote.mjs`, `endpoints.mjs`, `ai.mjs` |
 | `/api/agents*`, `/api/scans*`, `/api/remote/*`, `/api/edr*`, `/api/ai*` | Session + droits par poste | `agents.mjs`, `fleet-groups.mjs`, `remote.mjs`, `terminal.mjs`, `files.mjs`, `endpoints.mjs` |
 | `/api/me`, `/api/users*` | Session + `users.*` | `users.mjs`, `access-groups.mjs`, `otp.mjs` |
@@ -60,7 +59,7 @@ L’IA de développement Continue/Ollama est installée dans VS Code. Elle est d
 | `/api/chat/*` | Session | `chat-api.mjs`, `chat-history.mjs` |
 | `POST /api/touch`, `POST /api/logout`, `POST /api/rotation` | Session | `core.mjs` |
 | `GET /api/logs` | Session administrateur | `core.mjs`, `journal.mjs` |
-| `/api/duo/*`, `/api/users/duo` | Retirées, réponse `410` | `core.mjs` |
+| `/api/duo/*`, `/api/push/*`, `/api/mfa/phone/*` | Retirées (Duo et notifications téléphone), réponse `410` | `core.mjs` |
 
 ## Modèle de données
 
@@ -69,7 +68,7 @@ Les migrations sont dans `server/drizzle/` (une migration par changement, jamais
 | Domaine | Tables D1 |
 | --- | --- |
 | Espace et sessions | `vault`, `sessions`, `rotations`, `login_throttle` (essais par IP) |
-| Comptes et MFA | `users`, `user_invitations`, `push_devices`, `push_requests`, `duo_config`, `duo_requests` (historiques) |
+| Comptes et MFA | `users`, `user_invitations` (les tables Duo et téléphone sont supprimées par la migration 0022) |
 | Droits | `access_groups`, `fleet_groups`, `permission_audit` |
 | Accès réseau et journal | `access_connections`, `access_blocks`, `app_logs` |
 | Postes et scans | `scan_agents`, `scan_pairings`, `scan_jobs`, `scan_intelligence` |
@@ -121,4 +120,4 @@ Les 25 fiches de civilisations AoE IV et leurs ouvertures terrestres sont défin
 
 Les dossiers de code n’ont pas été renommés : GitHub Pages publie `main:/docs`, et le build, les imports, le packaging, les agents installés (mises à jour depuis `docs/downloads/`) et les tests utilisent leurs chemins actuels. Un renommage casserait le site public ou les agents déjà déployés sans bénéfice fonctionnel.
 
-Nettoyage du 26 novembre 2026 : retrait de sept catalogues de `app/js/data/` qui n’étaient plus chargés par aucune page (`command-basics*`, `coverage-catalog`, `fex-catalog`, `procedure-catalog*`, `protocol-catalog`), des scripts de surveillance et de synchronisation désactivés, d’outils visant un dossier d’anciennes versions disparu, d’une copie de `migrate-desktop.mjs` dans `server/scripts/`, et du gabarit d’interface du serveur (`components/`, `hooks/`, `examples/`, `components.json`, `lib/utils.ts`, `app/chatgpt-auth.ts`) avec ses dépendances npm. L’historique Git conserve ces fichiers. La documentation est rassemblée dans `documentation/`, avec des points d’entrée courts, et les sorties générées restent hors du contexte automatique de Continue.
+Nettoyages des 26 et 27 novembre 2026 : retrait de sept catalogues de `app/js/data/` qui n’étaient plus chargés par aucune page (`command-basics*`, `coverage-catalog`, `fex-catalog`, `procedure-catalog*`, `protocol-catalog`), la validation par notification sur téléphone (`approve.html`, `push-*.js`, `server/lib/wolfguard/push.mjs`, `server/vendor/webpush.mjs`, tables Duo et téléphone), des scripts de surveillance et de synchronisation désactivés, d’outils visant un dossier d’anciennes versions disparu, d’une copie de `migrate-desktop.mjs` dans `server/scripts/`, et du gabarit d’interface du serveur (`components/`, `hooks/`, `examples/`, `components.json`, `lib/utils.ts`, `app/chatgpt-auth.ts`) avec ses dépendances npm. L’historique Git conserve ces fichiers. La documentation est rassemblée dans `documentation/`, avec des points d’entrée courts, et les sorties générées restent hors du contexte automatique de Continue.

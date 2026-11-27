@@ -31,9 +31,6 @@ if(process.env.WG_TEST_CHAT_API==='1')env.CHAT_TEST_FETCH=async(_url,options)=>{
 };
 env.ENTRY_LINK_HASH=process.env.WG_TEST_ENTRY_HASH;
 env.MFA_REQUIRED=process.env.WG_TEST_MFA_REQUIRED;
-env.MFA_PUSH_PRIMARY=process.env.WG_TEST_PUSH_PRIMARY;
-env.MFA_PHONE_REQUIRED=process.env.WG_TEST_PHONE_REQUIRED;
-env.MFA_BROWSER_PUSH_ENABLED=process.env.WG_TEST_BROWSER_PUSH;
 // Existing browser regressions remain deterministic and never contact CERT-FR.
 env.CERTFR_FETCH=async()=>Response.json([]);
 if(process.env.WG_TEST_CERTFR==='1')env.CERTFR_FETCH=async url=>{
@@ -41,16 +38,9 @@ if(process.env.WG_TEST_CERTFR==='1')env.CERTFR_FETCH=async url=>{
   if(url.endsWith('/alerte/json/'))return Response.json([]);
   return Response.json({reference:'CERTFR-2026-AVI-0001',title:'Vulnérabilité dans OpenSSH',summary:'Conditions de configuration à vérifier.',content:'Installer le correctif de l’éditeur.',affected_systems:[{product:{name:'OpenSSH'},description:'OpenSSH versions 8.5p1 à 9.7p1'}],cves:[{name:'CVE-2024-6387'}],risks:[{description:'Exécution de code à distance'}]});
 };
-const pushMessages=[];
-if(process.env.WG_TEST_PUSH==='1'){
-  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
-  env.PUSH_VAPID_PUBLIC_KEY=Buffer.from(await crypto.subtle.exportKey('raw',pair.publicKey)).toString('base64url');
-  env.PUSH_TEST_SEND=async message=>{pushMessages.push(message);};
-}
 let offset=0,fixtureCode='';
 const server=createServer(async(req,res)=>{
   try{
-    if(req.url==='/__test/push-messages'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(pushMessages));return;}
     if(req.url==='/__test/fail-upload'){env.BUCKET.failNext=true;res.end('ok');return;}
     if(req.url.startsWith('/__test/advance/')){offset+=Number(req.url.split('/').pop());res.end('ok');return;}
     const disconnect=new AbortController();res.on('close',()=>{if(!res.writableFinished)disconnect.abort();});
