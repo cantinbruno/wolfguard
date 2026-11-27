@@ -14901,7 +14901,6 @@ async function openSettings(initialTab = 'account') {
             <div class="settings-row-copy"><div class="settings-row-title">Session actuelle</div><div class="settings-row-desc">Verrouillage automatique après 4 heures sans activité</div></div>
             <button type="button" class="settings-btn settings-control" id="lockNowBtn">${settingsIcon('lock')}Verrouiller</button>
           </div>
-          <div class="settings-security-note">${settingsIcon('circle-alert')}<div>Conservez votre code : il est nécessaire pour retrouver l’accès au coffre chiffré.</div></div>
         </section>
         <section class="settings-panel hidden" id="settings-about" data-settings-panel="about" role="tabpanel" aria-labelledby="settings-tab-about">
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>

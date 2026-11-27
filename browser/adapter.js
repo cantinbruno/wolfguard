@@ -825,7 +825,6 @@ const webWorkspace = (() => {
     const security=$('#changeCodeBtn').closest('.settings-row');
     security.querySelector('.settings-row-title').textContent=cloud.enabled?'Mon code personnel':'Code d’accès';
     security.querySelector('.settings-row-desc').textContent=cloud.enabled?'8 chiffres · Compte '+(cloud.currentUser()?.username||''):'8 chiffres · Chiffrement de la base complète';
-    const note=$('.settings-security-note div'); if (note) note.textContent=cloud.enabled?'Ton adresse e-mail identifie ton compte. La connexion utilise ton code personnel, puis les facteurs MFA activés sur ton compte.':'Conserve ton code : il ne peut pas être récupéré.';
     if(cloud.enabled&&cloud.hasUsers()){
       const mfa=document.createElement('section');mfa.id='webMFASettings';mfa.className='web-mfa-settings';
       mfa.innerHTML='<header><div class="web-mfa-heading">'+settingsIcon('shield-check')+'<h3>Double authentification</h3></div><strong id="webMFAState" role="status">Vérification…</strong></header><p id="webMFADescription"></p><div id="webMFASteps"></div>';
