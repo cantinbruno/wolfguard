@@ -157,9 +157,9 @@ async function ensureUnifiedLibrary() {
       const field=operation.store==='settings'?'key':'id',rows=normalized[operation.store],index=rows.findIndex(row=>row[field]===operation.record[field]);
       if(index>=0)rows[index]=operation.record;else rows.push(operation.record);
     }
-    const aoe4=buildAOE4Civilizations(normalized);
+    const aoe4=buildAOE4Civilizations(normalized),templates=buildMemoTemplates(normalized);
     if(db!==migrationDatabase||state.vaultKey!==migrationKey)throw new Error('Session modifiée pendant la préparation des référentiels.');
-    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations,...citations.operations,...aoe4.operations];
+    const operations=[...unified.operations,...cleanupOperations,...organization.operations,...technology.operations,...consolidation.operations,...references.operations,...citations.operations,...aoe4.operations,...templates.operations];
     if (!operations.length) return;
     if (db?.native) {
       await db.batch(operations);

@@ -78,7 +78,7 @@ def run(backend=None):
             print('PASS: sauvegarde avant rangement indisponible, migration annulee sans modification partielle')
             unlock(first)
             expect(first.locator('#webSaveState')).to_contain_text('Synchronisé')
-            assert first.evaluate("async()=>(await all('items')).filter(item=>!item.referenceCatalogId&&!item.aoe4CivilizationId).length")==3
+            assert first.evaluate("async()=>(await all('items')).filter(item=>!item.referenceCatalogId&&!item.aoe4CivilizationId&&!item.memoTemplateId).length")==3
             assert first.evaluate("async()=>(await all('items')).filter(item=>item.referenceCatalogId===MEMO_PORT_REFERENCE).length")==1
             assert first.evaluate("async()=>(await get('folders','memo-root')).name")=='01 · Réseaux'
             assert first.evaluate("async()=>{const s=await import('./browser/storage.js'),c=await import('./browser/crypto.js');const copy=(await s.recoveries()).find(row=>row.key==='memo-form-cleanup-before-v3');return (await c.open(copy.envelope,'07942685').catch(()=>c.openWithKey(copy.envelope,state.vaultKey,Uint8Array.from(atob(copy.envelope.salt),c=>c.charCodeAt(0))))).payload.folders.find(row=>row.id==='memo-root').name}")=='Réseau'

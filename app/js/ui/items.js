@@ -89,10 +89,18 @@ async function duplicateItem(id) {
   c.id = uid();
   c.title = (x.title || 'Sans titre') + ' - copie';
   c.createdAt = c.updatedAt = now();
+  // A template becomes an ordinary memo outside the templates folder, ready to fill in.
+  const fromTemplate = !!x.memoTemplateId;
+  if (fromTemplate) {
+    c.title = x.memoTemplateTitle || 'Nouvelle fiche';
+    c.folderId = workspaceRootFolder('library');
+    c.tags = (c.tags || []).filter(tag => tag !== 'Modèle');
+    for (const field of ['memoTemplateId', 'memoTemplateTitle', 'memoTemplateVersion']) delete c[field];
+  }
   await put('items', c);
   state.folder = c.folderId || null;
   state.item = c.id;
-  state.mode = 'view';
+  state.mode = fromTemplate ? 'edit' : 'view';
   await renderWorkspace()
 }
 async function deleteItem(id) {
