@@ -3214,6 +3214,55 @@ function buildMemoTemplates(snapshot, stamp = new Date().toISOString()) {
 }
 
 ;
+/* js/data/memo-history.js */
+'use strict';
+
+// Previous versions of a memo, kept inside the memo itself: they are encrypted
+// with it, follow its rights and travel with it. Bounded so that one memo
+// cannot fill the shared workspace.
+const MEMO_HISTORY_LIMIT = 10, MEMO_HISTORY_ENTRY_CHARS = 200000, MEMO_HISTORY_TOTAL_CHARS = 600000;
+const MEMO_HISTORY_FIELDS = ['title', 'description', 'content', 'commandBlocks'];
+
+function memoVersion(item, stamp) {
+  return {
+    at: item.updatedAt || item.createdAt || stamp,
+    title: String(item.title || ''),
+    description: String(item.description || ''),
+    content: String(item.content || ''),
+    commandBlocks: Array.isArray(item.commandBlocks) ? structuredClone(item.commandBlocks) : []
+  };
+}
+
+const memoHistoryValid = entry => entry && typeof entry === 'object' && typeof entry.at === 'string' && typeof entry.content === 'string' && typeof entry.title === 'string';
+
+function memoChanged(previous, next) {
+  return MEMO_HISTORY_FIELDS.some(field => JSON.stringify(previous[field] ?? (field === 'commandBlocks' ? [] : '')) !== JSON.stringify(next[field] ?? (field === 'commandBlocks' ? [] : '')));
+}
+
+// Returns `next` with the version of `previous` added in front of its history.
+function withMemoHistory(previous, next, stamp = new Date().toISOString()) {
+  const history = (Array.isArray(previous.history) ? previous.history : []).filter(memoHistoryValid);
+  if (!memoChanged(previous, next)) return {...next, history};
+  const entry = memoVersion(previous, stamp);
+  let list = JSON.stringify(entry).length <= MEMO_HISTORY_ENTRY_CHARS ? [entry, ...history] : history;
+  list = list.slice(0, MEMO_HISTORY_LIMIT);
+  while (list.length && JSON.stringify(list).length > MEMO_HISTORY_TOTAL_CHARS) list = list.slice(0, -1);
+  return {...next, history: list};
+}
+
+// The chosen version becomes the current one; the current one goes to history.
+function restoreMemoVersion(item, index, stamp = new Date().toISOString()) {
+  const history = (Array.isArray(item.history) ? item.history : []).filter(memoHistoryValid);
+  const version = history[index];
+  if (!version) throw new Error('Cette version n’existe plus.');
+  const next = {...item, title: version.title || item.title, description: version.description, content: version.content, commandBlocks: structuredClone(version.commandBlocks || []), updatedAt: stamp};
+  const restored = withMemoHistory(item, next, stamp);
+  // The restored entry itself is not kept twice.
+  restored.history = restored.history.filter(entry => entry !== version && !(entry.at === version.at && entry.content === version.content && entry.title === version.title));
+  return restored;
+}
+
+;
 /* js/data/library-migration.js */
 'use strict';
 
@@ -3939,6 +3988,7 @@ const sectionTransition = (() => {
 'use strict';
 
 const ITEM_ACTION_ICONS = {
+  history: '<svg class="lucide lucide-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
   template: '<svg class="lucide lucide-file-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/></svg>',
   copy: '<svg class="lucide lucide-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
   edit: '<svg class="lucide lucide-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>',
@@ -3958,7 +4008,8 @@ function itemActionsHTML(item, buttonClass = 'workspace-icon', copyButton = null
   const button = (action, label, style) => `<button type="button" class="${style} item-action-button ${buttonClass}" data-item-action="${action}" data-item-id="${esc(item.id)}" title="${esc(label)}" aria-label="${esc(label)}">${ITEM_ACTION_ICONS[action]}</button>`;
   // A memo template offers a copy outside the templates folder, ready to fill in.
   const template=item.memoTemplateId&&(!window.WolfGuardAccess||WolfGuardAccess.can('library.create'))?button('template','Utiliser ce modèle','primary'):'';
-  return template + (item.secretsRestricted?'':copyButton ?? button('copy', itemCopyLabel(item), template?'secondary':'primary')) + (allowed('edit')?button('edit', 'Modifier', 'secondary'):'') + (allowed('delete')?button('delete', 'Supprimer', 'secondary item-delete-btn'):'');
+  const history=item.type!=='vault'&&item.history?.length?button('history','Historique ('+item.history.length+')','secondary'):'';
+  return template + history + (item.secretsRestricted?'':copyButton ?? button('copy', itemCopyLabel(item), template?'secondary':'primary')) + (allowed('edit')?button('edit', 'Modifier', 'secondary'):'') + (allowed('delete')?button('delete', 'Supprimer', 'secondary item-delete-btn'):'');
 }
 
 function itemContentText(content) {
@@ -4022,6 +4073,10 @@ document.addEventListener('click', async event => {
     }
     if (action === 'delete') {
       await deleteItem(id);
+      return;
+    }
+    if (action === 'history') {
+      await openMemoHistory(id);
       return;
     }
     if (action === 'template') {
@@ -9489,7 +9544,8 @@ async function persistLibraryItem(id) {
   if (!itemActionSessionValid(key) || state.item !== id) return;
   const source = structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);
   if (!source || !itemActionSessionValid(key)) return;
-  const item = libraryItemFromEditor(source);
+  // The replaced version goes to the memo history (bounded, encrypted with the memo).
+  const item = withMemoHistory(source, libraryItemFromEditor(source), now());
   const commandBlocks = item.commandBlocks;
   if (JSON.stringify(libraryCommands(source)) !== JSON.stringify(commandBlocks) && source.quality) item.quality = {
     ...source.quality,
@@ -15335,3 +15391,44 @@ const fleetOverview = (() => {
 
   return {open, summarize, pdfDefinition};
 })();
+
+;
+/* js/ui/memo-history-view.js */
+'use strict';
+
+// "Historique" of a memo: previous versions with a preview and restore.
+async function openMemoHistory(id) {
+  const key = state.vaultKey;
+  const item = await get('items', id);
+  if (!item || !itemActionSessionValid(key)) return;
+  const history = (item.history || []).filter(memoHistoryValid);
+  const canEdit = !window.WolfGuardAccess || (WolfGuardAccess.can('library.edit') && item.accessLevel !== 'read');
+  const rows = history.map((version, index) => {
+    const text = itemContentText(version.content).replace(/\s+/g, ' ').trim();
+    return '<li class="memo-version"><div class="memo-version-head"><strong>' + esc(new Date(version.at).toLocaleString('fr-FR')) + '</strong><span class="muted">' + esc(version.title) + '</span></div>'
+      + '<p class="memo-version-preview">' + esc(text.slice(0, 280) || 'Contenu vide') + (text.length > 280 ? '…' : '') + '</p>'
+      + (canEdit ? '<button type="button" class="secondary" data-memo-restore="' + index + '">Restaurer cette version</button>' : '') + '</li>';
+  }).join('');
+  modal('Historique de la fiche', (history.length
+    ? '<p class="muted">Les ' + history.length + ' dernières versions enregistrées, de la plus récente à la plus ancienne. Restaurer une version la remet en place et conserve la version actuelle dans l’historique.</p><ol class="memo-history">' + rows + '</ol>'
+    : '<p class="muted">Aucune version précédente : l’historique commence au prochain enregistrement de cette fiche.</p>')
+    + '<div class="actions"><button class="secondary" data-wg-click="closeModal()">Fermer</button></div>');
+  for (const button of document.querySelectorAll('[data-memo-restore]')) {
+    button.onclick = async () => {
+      if (!itemActionSessionValid(key)) return;
+      if (!await appConfirm('Remplacer le contenu actuel par cette version ? La version actuelle restera dans l’historique.', {title: 'Restaurer cette version ?', confirmLabel: 'Restaurer'})) return;
+      const current = await get('items', id);
+      if (!current || !itemActionSessionValid(key)) return;
+      try {
+        const restored = restoreMemoVersion(current, Number(button.dataset.memoRestore), now());
+        if (db?.saveEditedItem) await db.saveEditedItem(restored, current); else await put('items', restored);
+        closeModal();
+        appNotify('Version restaurée.');
+        state.item = id; state.mode = 'view';
+        await renderWorkspace();
+      } catch (error) {
+        appNotify(error.message || 'Restauration impossible.', {kind: 'error'});
+      }
+    };
+  }
+}

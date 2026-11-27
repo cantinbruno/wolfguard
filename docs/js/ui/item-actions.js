@@ -1,6 +1,7 @@
 'use strict';
 
 const ITEM_ACTION_ICONS = {
+  history: '<svg class="lucide lucide-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>',
   template: '<svg class="lucide lucide-file-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/></svg>',
   copy: '<svg class="lucide lucide-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
   edit: '<svg class="lucide lucide-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></svg>',
@@ -20,7 +21,8 @@ function itemActionsHTML(item, buttonClass = 'workspace-icon', copyButton = null
   const button = (action, label, style) => `<button type="button" class="${style} item-action-button ${buttonClass}" data-item-action="${action}" data-item-id="${esc(item.id)}" title="${esc(label)}" aria-label="${esc(label)}">${ITEM_ACTION_ICONS[action]}</button>`;
   // A memo template offers a copy outside the templates folder, ready to fill in.
   const template=item.memoTemplateId&&(!window.WolfGuardAccess||WolfGuardAccess.can('library.create'))?button('template','Utiliser ce modèle','primary'):'';
-  return template + (item.secretsRestricted?'':copyButton ?? button('copy', itemCopyLabel(item), template?'secondary':'primary')) + (allowed('edit')?button('edit', 'Modifier', 'secondary'):'') + (allowed('delete')?button('delete', 'Supprimer', 'secondary item-delete-btn'):'');
+  const history=item.type!=='vault'&&item.history?.length?button('history','Historique ('+item.history.length+')','secondary'):'';
+  return template + history + (item.secretsRestricted?'':copyButton ?? button('copy', itemCopyLabel(item), template?'secondary':'primary')) + (allowed('edit')?button('edit', 'Modifier', 'secondary'):'') + (allowed('delete')?button('delete', 'Supprimer', 'secondary item-delete-btn'):'');
 }
 
 function itemContentText(content) {
@@ -84,6 +86,10 @@ document.addEventListener('click', async event => {
     }
     if (action === 'delete') {
       await deleteItem(id);
+      return;
+    }
+    if (action === 'history') {
+      await openMemoHistory(id);
       return;
     }
     if (action === 'template') {

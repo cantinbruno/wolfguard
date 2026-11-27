@@ -96,3 +96,9 @@ Dans la section Sécurité, le bouton **État du parc** ouvre une vue d’ensemb
 - Le focus clavier est toujours visible (contour de 2 px de la couleur d’accent) sur les liens, boutons, champs et éléments focalisables, même là où un style retirait le contour ; un clic à la souris n’affiche pas ce contour (`:focus-visible`, fin de `app/css/base.css`).
 - Les tailles de texte sont exprimées en `rem` : à réglage par défaut du navigateur, le rendu est identique, et une taille de texte plus grande choisie dans le navigateur s’applique à toute l’application, en plus du réglage « Taille du texte » de l’onglet Interface.
 - Les couleurs principales des trois ambiances (texte, texte secondaire, texte discret et accent sur les fonds) dépassent le seuil WCAG AA de 4,5:1 (5,5:1 au minimum). Les couleurs fixées dans certains composants ne sont pas toutes vérifiées.
+
+## Historique des fiches
+
+Chaque enregistrement d’une fiche du Mémo qui change son titre, sa description, son contenu ou ses commandes conserve la version précédente. Le bouton **Historique (n)** de la fiche liste les versions avec leur date et un aperçu ; « Restaurer cette version » la remet en place après confirmation, et la version remplacée reste dans l’historique. Restaurer exige le droit de modifier la fiche.
+
+Les versions sont stockées dans la fiche elle-même : chiffrées avec elle, soumises aux mêmes droits et transférées avec elle. Limites : 10 versions, 200 000 caractères par version (une version plus grosse, avec de grandes images par exemple, n’est pas gardée) et 600 000 caractères au total par fiche. Sources : `app/js/data/memo-history.js`, `app/js/ui/memo-history-view.js` ; tests `tests/memo-history.test.mjs` et `tests/memo_history_test.py`.

@@ -332,7 +332,8 @@ async function persistLibraryItem(id) {
   if (!itemActionSessionValid(key) || state.item !== id) return;
   const source = structuredClone($('#detailHost')?.workspaceEditBase)||await get('items', id);
   if (!source || !itemActionSessionValid(key)) return;
-  const item = libraryItemFromEditor(source);
+  // The replaced version goes to the memo history (bounded, encrypted with the memo).
+  const item = withMemoHistory(source, libraryItemFromEditor(source), now());
   const commandBlocks = item.commandBlocks;
   if (JSON.stringify(libraryCommands(source)) !== JSON.stringify(commandBlocks) && source.quality) item.quality = {
     ...source.quality,
