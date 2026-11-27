@@ -71,7 +71,7 @@ Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de 
 
 ## Serveur
 
-Dans `server/` : `npm ci`, `node --test tests/security.test.mjs`, `npm run lint` (aucun avertissement toléré), `npm run build`. Une modification de schéma exige une migration supplémentaire ; ne pas modifier une migration déjà utilisée en production. Le déploiement est décrit dans [Serveur](serveur.md).
+Dans `server/` : `npm ci`, `node --test tests/security.test.mjs`, `npm run lint` (aucun avertissement toléré), `npm run build`. Le code de `server/lib/wolfguard/` est mis en forme par Prettier (`npm run format`, réglages dans `server/.prettierrc.json`) : le relancer après une modification. Une modification de schéma exige une migration supplémentaire ; ne pas modifier une migration déjà utilisée en production. Le déploiement est décrit dans [Serveur](serveur.md).
 
 ## Fin de tâche
 
