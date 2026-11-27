@@ -59,6 +59,8 @@ L’API filtre l’adresse `CF-Connecting-IP` de l’edge, jamais un `X-Forwarde
 
 Un instantané IPv4/IPv6 avec dates et copyright est livré dans `threat-seed.mjs`. R2 conserve les mises à jour sous `security/spamhaus-drop-v1.json`. Les requêtes de production vérifient quotidiennement la source ; une mise à jour manuelle est limitée à une par heure, sous `access.block`. Les sources sont fixes, HTTPS, sans redirection, bornées à 2 Mo et 5 secondes par source. Une erreur conserve la dernière liste ; après 72 h la réputation automatique cesse de bloquer. Les blocages manuels persistent. Ce filtrage protège l’accès API, sans constituer un pare-feu sur les fichiers statiques publics.
 
+Les réseaux sont indexés une fois par longueur de préfixe : une vérification coûte environ une microseconde, quel que soit le nombre de réseaux listés.
+
 Vérifications : `node --test tests/threat-list.test.mjs tests/access.test.mjs` et `python tests/access_workspace_test.py`.
 
 ## Revue du 26 novembre 2026

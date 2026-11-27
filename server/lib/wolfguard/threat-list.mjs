@@ -69,11 +69,22 @@ export async function threatList(env,now=Date.now(),{refresh=false,force=false}=
   const expired=now-updatedAt>3*DAY;
   return {sources,updatedAt,expired,error:entry.error,lastAttempt:entry.value.lastAttempt||updatedAt};
 }
+// Networks are indexed by address size and prefix length once per list, so a
+// lookup checks one set per distinct prefix length instead of every network.
+function compile(source){
+  let index=compiled.get(source);
+  if(!index){
+    index=new Map();
+    for(const network of source.networks.map(row=>parseNetwork(row.cidr)).filter(Boolean)){
+      const key=network.bits+'/'+network.shift;
+      if(!index.has(key))index.set(key,{bits:network.bits,shift:network.shift,networks:new Set()});
+      index.get(key).networks.add(network.network);
+    }
+    index=[...index.values()];compiled.set(source,index);
+  }
+  return index;
+}
 export function threatMatch(list,ip){
   const parsed=address(ip);if(list.expired||!parsed)return false;
-  return list.sources.some(source=>{
-    let networks=compiled.get(source);
-    if(!networks){networks=source.networks.map(row=>parseNetwork(row.cidr)).filter(Boolean);compiled.set(source,networks);}
-    return networks.some(network=>parsed.bits===network.bits&&(parsed.n>>network.shift)===network.network);
-  });
+  return list.sources.some(source=>compile(source).some(group=>group.bits===parsed.bits&&group.networks.has(parsed.n>>group.shift)));
 }

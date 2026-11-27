@@ -1,0 +1,45 @@
+# Static security analysis of the JavaScript and TypeScript code (free for
+# public repositories). Results appear under Security → Code scanning.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyse CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # The generated site, vendored libraries and data files are not our code.
+          config: |
+            paths-ignore:
+              - docs
+              - app/vendor
+              - server/vendor
+              - app/data
+              - server/drizzle
+              - server/lib/wolfguard/threat-seed.mjs
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

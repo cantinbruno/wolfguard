@@ -17,6 +17,8 @@ Chaque push et chaque pull request vers `main` déclenchent `.github/workflows/c
 
 La clé réelle du lien privé et les secrets Sites ne sont jamais fournis à GitHub. Le build de CI est jeté : GitHub Pages continue de servir le `docs/` commité. Un échec de CI ne bloque pas Pages ; corriger puis pousser un nouveau commit. Le résultat se lit dans l’onglet **Actions** du dépôt ou par l’API publique `https://api.github.com/repos/cantinbruno/wolfguard/actions/runs`.
 
+`.github/workflows/codeql.yml` lance en plus l’analyse de sécurité CodeQL du code JavaScript et TypeScript à chaque push et chaque lundi ; les alertes apparaissent dans l’onglet Security → Code scanning du dépôt.
+
 Un fichier de `.github/workflows/` ne peut être poussé qu’avec un identifiant Git ayant le droit `workflow`.
 
 ## Vérifier puis publier
