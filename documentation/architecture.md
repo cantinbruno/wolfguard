@@ -27,8 +27,6 @@ sequenceDiagram
   P->>A: résultats chiffrés au repos
 ```
 
-L’IA de développement Continue/Ollama est installée dans VS Code. Elle est distincte des anciens endpoints IA présents pour compatibilité dans l’application.
-
 ## Traitement d’une requête API
 
 `server/app/api/[...segments]/route.ts` transmet toutes les requêtes à `handleAPI` (`server/lib/wolfguard/core.mjs`). L’ordre des contrôles est le suivant :

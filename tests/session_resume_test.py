@@ -9,6 +9,7 @@ import os
 import subprocess
 from playwright.sync_api import sync_playwright, expect
 from site_fixture import WolfGuardTestHandler
+from node_runtime import node_executable
 
 ROOT = Path(__file__).resolve().parents[1]
 CODE = '07942685'
@@ -112,7 +113,7 @@ def check_network_sessions(browser, url, backend):
 
 
 def run():
-    node = Path(os.environ['LOCALAPPDATA']) / 'WolfGuardWeb/runtime/node.exe'
+    node = node_executable()
     server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT/'docs')))
     url = f'http://127.0.0.1:{server.server_port}/'
     backend_process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ,'WG_TEST_ORIGIN':url.rstrip('/')})

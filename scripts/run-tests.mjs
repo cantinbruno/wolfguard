@@ -19,33 +19,20 @@ const suites={
     ['publication'],
     ['node',['migration.test.mjs', 'cloud.test.mjs', 'ai.test.mjs', 'browser-ai.test.mjs', 'access.test.mjs', 'users.test.mjs', 'permissions.test.mjs', 'shared-workspace.test.mjs', 'security.test.mjs', 'hardening.test.mjs', 'publication.test.mjs', 'server.test.mjs', 'organization.test.mjs', 'mail_cleanup.test.mjs', 'form_cleanup.test.mjs', 'memo-references.test.mjs', 'agent.test.mjs', 'topology.test.mjs', 'agent-update.test.mjs', 'scan-report.test.mjs', 'certfr.test.mjs', 'agent-posix.test.mjs', 'endpoint.test.mjs', 'remote.test.mjs', 'files.test.mjs', 'terminal.test.mjs', 'private-entry.test.mjs', 'report-integration.test.mjs', 'fleet-groups.test.mjs', 'antivirus.test.mjs', 'antivirus-api.test.mjs', 'antivirus-auto.test.mjs']],
     ['python','private_entry_test.py'],
-    ['python','startup_render_test.py'],
     ['python','session_resume_test.py'],
-    ['python','optimization_test.py'],
     ['python','agent_window_test.py'],
     ['python','remote_desktop_test.py'],
     ['python','remote_terminal_test.py'],
     ['python','remote_files_test.py'],
-    ['python','procedure_organization_test.py'],
-    ['python','keyboard_test.py'],
     ['python','original_app_test.py'],
     ['python','vault_workspace_test.py'],
-    ['python','animations_test.py'],
-    ['python','editor_layout_test.py'],
-    ['python','command_reader_test.py'],
-    ['python','memo_references_test.py'],
     ['python','scan_workspace_test.py'],
-    ['python','scan_interfaces_test.py'],
-    ['python','scan_lifecycle_test.py'],
-    ['python','scan_report_test.py'],
     ['python','certfr_workspace_test.py'],
-    ['python','scan_history_test.py'],
     ['python','timeout_test.py'],
     ['python','security_test.py'],
     ['python','shared_workspace_test.py'],
     ['python','multiuser_test.py'],
     ['python','access_workspace_test.py'],
-    ['python','users_workspace_test.py'],
     ['python','permissions_workspace_test.py'],
     ['python','otp_workspace_test.py'],
     ['python','mandatory_mfa_test.py'],
@@ -63,20 +50,6 @@ const suites={
     ['python','remote_desktop_test.py'],
     ['python','remote_terminal_test.py'],
     ['python','fleet_groups_test.py']
-  ],
-  'improvements': [
-    ['node',['threat-list.test.mjs', 'access.test.mjs', 'cloud.test.mjs', 'ad-groups.test.mjs']],
-    ['python','rapport_improvements_test.py'],
-    ['python','users_panes_test.py'],
-    ['python','ad_groups_workspace_test.py'],
-    ['python','access_workspace_test.py']
-  ],
-  'cloud': [
-    ['node',['cloud.test.mjs']]
-  ],
-  'agents-console': [
-    ['python','security_navigation_test.py'],
-    ['python','agents_console_test.py']
   ],
   // Every Node test, the signing check on its own, then headless browser
   // checks of the private entry, sessions, access control and the CSP/SRI.

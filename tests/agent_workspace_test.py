@@ -13,6 +13,7 @@ API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 CODE='07942685'
 from site_fixture import WolfGuardTestHandler, open_security, open_agent_manager
 from scan_workspace_test import pdf_text
+from node_runtime import node_executable
 
 class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
@@ -34,7 +35,7 @@ def select_fleet(page, agent_id):
 
 
 def run():
-    node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+    node=node_executable()
     backend_process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
     backend='http://127.0.0.1:'+str(json.loads(backend_process.stdout.readline())['port'])
     server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')));Thread(target=server.serve_forever,daemon=True).start()

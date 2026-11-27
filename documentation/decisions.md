@@ -12,7 +12,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |
 | Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. GitHub Actions recompile et teste chaque push, sans la clé réelle du lien. Surveillance Windows désactivée et ses scripts supprimés. |
-| Documentation | Guides et consignes uniquement dans `documentation/`, sans README ni AGENTS.md à la racine et sans README dans `server/`. Les règles Continue renvoient directement aux consignes centralisées. |
+| Documentation | Guides et consignes dans `documentation/`, avec un court `README.md` à la racine qui y renvoie (demande du 27 novembre). Pas de README dans `server/`. |
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |
 | Sessions | 4 heures **d’inactivité**, et au plus **24 heures** après la connexion (demande du 27 novembre). Les rafraîchissements et requêtes de fond ne sont pas de l’activité utilisateur. |
 | MFA | Authenticator ; option « Changer de téléphone ». L’ancien facteur reste actif jusqu’à confirmation du nouveau. Les codes de secours restent nécessaires à la récupération MFA. |
@@ -24,7 +24,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Paramètres | Fenêtres des paramètres et de la fiche poste centrées, plafonnées à 1280 × 820 px avec une marge de 48 px sur ordinateur ; affichage adapté au plein écran sur téléphone. Un seul onglet « Mon compte » réunit identité, rôle, groupes, code personnel, Authenticator et session. Les anciennes ouvertures `security` et `audit` reviennent sur « Mon compte ». La section « Protection de l’application » reste supprimée. |
 | Windows | Procédure Authenticode préparée ; l’obtention payante d’un certificat a été abandonnée. Ne pas relancer cet achat ni inventer une signature reconnue. |
 | Tests du poste | Aucun test qui ouvre une fenêtre, prend le focus ou injecte clavier/souris sans demande explicite. Les tests Playwright sans fenêtre utilisent des profils temporaires. |
-| IA locale | Continue dans VS Code et Ollama sur ce PC, modèle `wolfguard-code:9b`. Préserver le profil local et ses réglages. |
+| Dépôt | Aucune mention d’outil de développement personnel dans le dépôt, aucune ligne de co-auteur dans les commits, aucune mention de version de l’application. Rien de payant. |
 | Prise en main à distance | Bureau, Terminal et Fichiers exigent à chaque session l’accord explicite de l’utilisateur du poste par popup. Refus par défaut après 60 secondes, sans dialogue possible ou pour un agent trop ancien (capacité `remote-consent-v1` absente). Aucune action avant l’accord. |
 | Rapports | Uniquement en PDF dans l’Historique de la fiche du poste, sans prévisualisation, export direct ni historique global. |
 
@@ -32,7 +32,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 
 ### 27 novembre 2026 — Sécurité et session
 
-Limiter les essais de code par adresse IP (plus de blocage commun à tous les comptes), exiger la clé du lien privé avant toute tentative de connexion, plafonner une session à 24 h en plus des 4 h d’inactivité, durcir HSTS, et ajouter dans Paramètres un onglet Journal dont les événements sont supprimés après un mois. Rien de payant. Ne plus mentionner d’IA dans le dépôt ni dans les commits.
+Limiter les essais de code par adresse IP (plus de blocage commun à tous les comptes), exiger la clé du lien privé avant toute tentative de connexion, plafonner une session à 24 h en plus des 4 h d’inactivité, durcir HSTS, et ajouter dans Paramètres un onglet Journal dont les événements sont supprimés après un mois. Rien de payant. Ne plus mentionner d’outil de développement personnel dans le dépôt ni dans les commits.
 
 ### 26 novembre 2026 — Intégration continue et nettoyage
 

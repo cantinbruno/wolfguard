@@ -50,7 +50,7 @@ Le détail des contrôles par sujet est dans [Développement](developpement.md).
 
 ## Parcours de reprise
 
-1. [Reprise IA](reprise-ia.md) et [consignes du dépôt](instructions-ia.md) : règles à appliquer à chaque session.
+1. [Reprendre le projet](reprise.md) : règles de travail à appliquer à chaque session.
 2. [Architecture](architecture.md) : composants, flux d’une requête et fichiers à modifier.
 3. [Décisions à conserver](decisions.md) : règles fonctionnelles en vigueur et historique des demandes.
 4. [Développement et tests](developpement.md), puis [Publication](publication.md).
@@ -68,11 +68,10 @@ Le détail des contrôles par sujet est dans [Développement](developpement.md).
 | Installateurs, services et prise en main | [Agents](agents/README.md) et [journal des agents](agents/journal.md) |
 | Procédure facultative Authenticode | [Signature Windows](agents/signature-windows.md) |
 | Suivi du rapport du 21 novembre 2026 | [Intégration du rapport](integration-rapport.md) |
-| Continue, Ollama et réglages de ce PC | [IA locale](ia-locale.md) |
 | Nettoyage et dépannage | [Maintenance](maintenance.md) |
 
 ## Règles de documentation
 
-- Aucun README ni AGENTS.md à la racine ou dans `server/` : tout reste ici. Les notices `agent/LIRE-MOI*.txt` et les licences de `app/vendor/` et `server/vendor/` restent à côté des fichiers distribués.
+- Le `README.md` de la racine est un simple renvoi vers cette page ; aucun README dans `server/`. Les notices `agent/LIRE-MOI*.txt` et les licences de `app/vendor/` et `server/vendor/` restent à côté des fichiers distribués.
 - Mettre à jour la page concernée dans le même commit que le changement de comportement ; ne pas créer de copie concurrente.
 - Les faits de sécurité se vérifient dans le code et les tests cités. Une date de contrôle n’est pas une garantie permanente.

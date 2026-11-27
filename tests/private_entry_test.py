@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright,expect
 import hashlib,json,os,subprocess
 from site_fixture import PRIVATE_ACCESS_FILE
+from node_runtime import node_executable
 
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
@@ -25,7 +26,7 @@ class Quiet(SimpleHTTPRequestHandler):
 def run():
     key=json.loads(PRIVATE_ACCESS_FILE.read_text())['key']
     env={**os.environ,'WG_TEST_ENTRY_HASH':hashlib.sha256(key.encode()).hexdigest()}
-    node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+    node=node_executable()
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],env=env,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')))

@@ -9,13 +9,14 @@ import json,os,subprocess,time
 from playwright.sync_api import sync_playwright,expect
 from shared_workspace_test import Quiet,ready,API,CODE
 from otp_workspace_test import otp
+from node_runtime import node_executable
 
 ROOT=Path(__file__).resolve().parents[1]
 
 def run():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
-    node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+    node=node_executable()
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin,'WG_TEST_MFA_REQUIRED':'1','WG_TEST_MANUAL_USERS':'1'})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def api(path,data,token=None,method='POST',headers=None):

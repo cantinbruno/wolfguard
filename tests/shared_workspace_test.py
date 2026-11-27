@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 CODE='07942685'
 from site_fixture import WolfGuardTestHandler
+from node_runtime import node_executable
 
 class Quiet(WolfGuardTestHandler):
     def log_message(self,*args):pass
@@ -27,7 +28,7 @@ def unlock(page,code=CODE):
 def run(backend=None):
     process=None
     if not backend:
-        node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+        node=node_executable()
         process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
         backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     server=ThreadingHTTPServer(('127.0.0.1',4178),partial(Quiet,directory=str(ROOT/'docs')))

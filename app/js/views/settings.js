@@ -65,7 +65,6 @@ window.addEventListener('wolfguard-user-changed',()=>applyInterfacePreferences()
 applyInterfacePreferences();
 
 /* SETTINGS */
-const WOLFGUARD_APP_VERSION = '4.3.2';
 const SETTINGS_ICON_PATHS = {
   "chevron-right": '<path d="m9 6 6 6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
@@ -224,7 +223,6 @@ async function openSettings(initialTab = 'account') {
           <header class="settings-panel-head"><div class="settings-heading">${settingsIcon('info')}<h3>À propos</h3></div></header>
           <div class="settings-about-brand"><img class="wolf-logo" src="images/logo-loup.svg" alt="" width="72" height="72"><div><h4>WolfGuard</h4><p>Documentation IT, coffre chiffré et sécurité des postes dans un même espace de travail.</p></div></div>
           <dl class="settings-about-facts">
-            <div><dt>Version de l’application</dt><dd>${WOLFGUARD_APP_VERSION}</dd></div>
             <div><dt>Édition utilisée</dt><dd>${desktopBridge.available?'Application Windows':'Application web'}</dd></div>
             <div><dt>Agents compatibles</dt><dd>Windows, Linux et macOS</dd></div>
             <div><dt>Mises à jour des agents</dt><dd>Automatiques · toutes les 5 minutes lorsque le poste est disponible</dd></div>
@@ -283,7 +281,7 @@ async function openSettings(initialTab = 'account') {
         </section>
       </div>
     </div>
-    <footer class="settings-footer"><span id="settingsFeedback" class="settings-feedback" role="status" aria-live="polite"></span><span class="settings-version">Version ${WOLFGUARD_APP_VERSION}</span></footer>
+    <footer class="settings-footer"><span id="settingsFeedback" class="settings-feedback" role="status" aria-live="polite"></span></footer>
   `);
 
   const dialog = $('#modalRoot .modal');

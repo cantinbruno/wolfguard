@@ -11,6 +11,7 @@ import base64,json,os,subprocess,time
 from PIL import Image,ImageDraw
 from playwright.sync_api import sync_playwright,expect
 from scan_workspace_test import Quiet
+from node_runtime import node_executable
 
 ROOT=Path(__file__).resolve().parents[1]
 API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
@@ -18,7 +19,7 @@ API='https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
 def run():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
-    node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+    node=node_executable()
     process=subprocess.Popen([str(node),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     pixels=Image.new('RGB',(1600,450),'#152638');draw=ImageDraw.Draw(pixels)

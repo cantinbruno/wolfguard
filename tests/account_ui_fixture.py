@@ -8,13 +8,14 @@ from urllib.parse import urlsplit
 import json,os,subprocess
 from playwright.sync_api import sync_playwright,expect
 from shared_workspace_test import Quiet,ready,unlock,API,CODE
+from node_runtime import node_executable
 ROOT=Path(__file__).resolve().parents[1]
 
 @contextmanager
 def account_ui():
     server=ThreadingHTTPServer(('127.0.0.1',0),partial(Quiet,directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever,daemon=True).start();origin=f'http://127.0.0.1:{server.server_port}'
-    process=subprocess.Popen([str(Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
+    process=subprocess.Popen([str(node_executable()),str(ROOT/'tests/server-fixture.mjs')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,env={**os.environ,'WG_TEST_ORIGIN':origin})
     backend='http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     try:
         with sync_playwright() as p:

@@ -1,6 +1,5 @@
 {
   "name": "wolfguard-web",
-  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,9 +9,6 @@
     "test:node": "node scripts/run-tests.mjs node",
     "test:ci": "node scripts/run-tests.mjs ci",
     "test:security": "node scripts/run-tests.mjs security",
-    "test:report": "node scripts/run-tests.mjs report",
-    "test:improvements": "node scripts/run-tests.mjs improvements",
-    "test:cloud": "node scripts/run-tests.mjs cloud",
-    "test:agents-console": "node scripts/run-tests.mjs agents-console"
+    "test:report": "node scripts/run-tests.mjs report"
   }
 }

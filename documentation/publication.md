@@ -2,7 +2,7 @@
 
 ## Ce qui est automatique
 
-L’IA doit terminer chaque changement autorisé par les vérifications adaptées, un commit et un **push Git explicite**. GitHub Pages publie ensuite le dossier `docs/` de `main`.
+Chaque changement terminé se conclut par les vérifications adaptées, un commit et un **push Git explicite**. GitHub Pages publie ensuite le dossier `docs/` de `main`.
 
 La tâche Windows `WolfGuard-Web-AutoPublish` est désactivée et ses scripts de surveillance ont été supprimés. **Ne pas la réactiver** ni recréer de surveillance. Le « push auto » de fin de tâche ne signifie pas surveiller et publier tout le dossier en continu.
 
@@ -29,7 +29,7 @@ git diff --cached
 
 Repérer les changements déjà préparés avant la tâche. Ne jamais utiliser `git add .` ou `git commit -am` pour publier un travail dans un dépôt qui contient d’autres modifications.
 
-Pour une modification de `app/`, `browser/` ou d’un agent distribué : lancer `npm run build`, vérifier les sorties attendues dans `docs/`, puis les tests adaptés. Pour une modification limitée à la documentation et aux règles IA : vérifier les liens et chemins, le contrôle de publication et les différences ; aucune reconstruction du site n’est nécessaire.
+Pour une modification de `app/`, `browser/` ou d’un agent distribué : lancer `npm run build`, vérifier les sorties attendues dans `docs/`, puis les tests adaptés. Pour une modification limitée à la documentation et aux règles de reprise : vérifier les liens et chemins, le contrôle de publication et les différences ; aucune reconstruction du site n’est nécessaire.
 
 ```powershell
 node scripts/check-publication.mjs
@@ -58,6 +58,6 @@ Un push de `server/` dans GitHub ne déploie pas l’API. Utiliser le flux Sites
 
 ## Confidentialité et nettoyage
 
-La clé du lien privé, les fichiers `.env`, bases, secrets de signature et profils personnels Continue ne doivent pas être préparés. Vérifier les chemins sans afficher leurs valeurs.
+La clé du lien privé, les fichiers `.env`, bases, secrets de signature et profils personnels ne doivent pas être préparés. Vérifier les chemins sans afficher leurs valeurs.
 
 Après intégration, contrôles et push : supprimer les worktrees temporaires et leurs artefacts devenus inutiles. Vérifier les chemins absolus avant toute suppression et préserver tout travail non intégré. Ne pas nettoyer globalement `.cache/` lorsqu’un autre chantier l’utilise.

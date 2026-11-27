@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 import json,os,subprocess,zipfile
 from playwright.sync_api import expect
 from account_ui_fixture import account_ui,ROOT
+from node_runtime import node_executable
 
 def run():
     with TemporaryDirectory(prefix='browser-file-transfer-',dir=ROOT/'.cache') as directory:
@@ -14,7 +15,7 @@ def run():
         tree=source/'Mon dossier';(tree/'sous-dossier').mkdir(parents=True);(tree/'sous-dossier'/'été.txt').write_text('Dossier transféré',encoding='utf-8')
         with account_ui() as (page,context,origin,errors):
             code=page.evaluate("async()=>(await WolfGuardCloud.agentRequest('agents/pair',{})).code")
-            node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+            node=node_executable()
             agent=subprocess.Popen([str(node),str(ROOT/'tests/files-agent-runner.mjs')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
             agent.stdin.write(json.dumps({'backend':context.backend,'code':code,'root':str(remote)}));agent.stdin.close();assert agent.stdout.readline().strip()=='ready'
             try:

@@ -9,13 +9,14 @@ import json, os, subprocess, time
 from playwright.sync_api import sync_playwright, expect
 from shared_workspace_test import Quiet, ready, unlock, API
 from site_fixture import open_security, open_security_tool
+from node_runtime import node_executable
 
 ROOT = Path(__file__).resolve().parents[1]
 
 def run():
     server = ThreadingHTTPServer(('127.0.0.1', 4178), partial(Quiet, directory=str(ROOT/'docs')))
     Thread(target=server.serve_forever, daemon=True).start()
-    node = Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+    node = node_executable()
     process = subprocess.Popen([str(node), str(ROOT/'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     backend = 'http://127.0.0.1:'+str(json.loads(process.stdout.readline())['port'])
     def agent_api(route, data, token):

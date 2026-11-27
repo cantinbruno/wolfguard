@@ -2,6 +2,7 @@
 from pathlib import Path
 from zipfile import ZipFile
 import json,os,struct,subprocess,tempfile
+from node_runtime import node_executable
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -33,7 +34,7 @@ def run():
                 else:assert (payload/name).read_bytes()==archive.read(name),name
         assert (payload/'agent/agent.mjs').is_file()
         assert (payload/'server/lib/wolfguard/scan-spec.mjs').is_file()
-        node=Path(os.environ['LOCALAPPDATA'])/'WolfGuardWeb/runtime/node.exe'
+        node=node_executable()
         # Exercise the actual background launch environment. The helper receives
         # synthetic pixels only; no desktop, input, installation or pairing.
         fixture=target/'encoder-fixture.mjs'

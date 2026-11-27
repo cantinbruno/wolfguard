@@ -9,14 +9,13 @@
 | Le frontend est à jour mais pas l’API | Le serveur Sites demande un déploiement séparé. |
 | Expiration après quatre heures malgré une utilisation continue | Contrôler activité réelle, `X-WG-Activity`, `POST /api/touch` et tests de reprise ; ne pas remettre une durée absolue. |
 | L’agent image Windows ne démarre pas | Vérifier les ressources natives et la version effectivement installée ; voir [Agents](agents/README.md). |
-| Mauvais modèle dans Continue | Vérifier le profil local et la sélection pour ce projet ; voir [IA locale](ia-locale.md). |
 | Une ancienne notice contredit le code | Mettre à jour la page centrale et les tests concernés, sans ajouter un second guide divergent. |
 
 ## Fichiers privés
 
 La configuration privée du lien et des protections de WolfGuard est hors dépôt, dans `%LOCALAPPDATA%/WolfGuardWeb/private/` sous Windows, ou le chemin géré par `scripts/private-paths.mjs`. `WOLFGUARD_PRIVATE_DIR` peut définir une autre racine.
 
-Les clés de signature, jetons, fichiers de données, profils Continue privés et bases existantes sont à préserver. Un répertoire ancien n’est pas automatiquement supprimable : vérifier son usage et ses changements non intégrés.
+Les clés de signature, jetons, fichiers de données, profils personnels privés et bases existantes sont à préserver. Un répertoire ancien n’est pas automatiquement supprimable : vérifier son usage et ses changements non intégrés.
 
 ## Nettoyage
 

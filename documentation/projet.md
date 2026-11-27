@@ -2,7 +2,7 @@
 
 Application web de gestion de mémos, coffres personnels et postes associés.
 
-**Commencer par [la documentation](README.md).** Pour reprendre le développement avec l’IA locale, lire [Reprise IA](reprise-ia.md), puis les [consignes du dépôt](instructions-ia.md).
+**Commencer par [la documentation](README.md).** Pour reprendre le travail, lire [Reprendre le projet](reprise.md).
 
 | Dossier | Rôle |
 | --- | --- |

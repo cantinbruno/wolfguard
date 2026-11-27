@@ -9,6 +9,7 @@ import json, os, subprocess, time
 from playwright.sync_api import sync_playwright, expect
 from scan_workspace_test import Quiet
 from site_fixture import open_security
+from node_runtime import node_executable
 
 ROOT = Path(__file__).resolve().parents[1]
 API = 'https://wolfguard-web-cantin.cantin-bruno.chatgpt.site'
@@ -19,7 +20,7 @@ def run():
     server = ThreadingHTTPServer(('127.0.0.1', 0), partial(Quiet, directory=str(ROOT / 'docs')))
     Thread(target=server.serve_forever, daemon=True).start()
     origin = f'http://127.0.0.1:{server.server_port}'
-    node = Path(os.environ['LOCALAPPDATA']) / 'WolfGuardWeb/runtime/node.exe'
+    node = node_executable()
     process = subprocess.Popen([str(node), str(ROOT / 'tests/server-fixture.mjs')], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env={**os.environ, 'WG_TEST_ORIGIN': origin})
     backend = 'http://127.0.0.1:' + str(json.loads(process.stdout.readline())['port'])
     agents = [dict(id=letter * 32, name=name, platform=platform, online=online, lastSeen=int(time.time()*1000), capabilities=capabilities) for letter, name, platform, online, capabilities in [

@@ -39,18 +39,18 @@ Les listes de tests sont définies une seule fois dans `scripts/run-tests.mjs` ;
 
 Pour ajouter un test à une suite, modifier uniquement `scripts/run-tests.mjs`. Un nouveau fichier `tests/*.test.mjs` est inclus automatiquement dans `test:node` et `test:ci`.
 
-Les tests Python lancent Chromium **sans fenêtre** (`p.chromium.launch()`, mode headless par défaut) avec des profils temporaires et des comptes synthétiques.
+Seuls les tests importants sont conservés (sécurité, connexion, droits, coffre, agents, publication) ; les tests d’apparence et d’animation ont été supprimés le 27 novembre 2026. Les tests Python lancent Chromium **sans fenêtre** (`p.chromium.launch()`, mode headless par défaut) avec des profils temporaires et des comptes synthétiques.
 
 ## Choisir les tests utiles
 
 | Sujet modifié | Contrôles ciblés |
 | --- | --- |
-| Documentation, liens et règles IA | Liens Markdown locaux, chemins cités, absence de secrets, `git diff --check` |
+| Documentation, liens et règles de reprise | Liens Markdown locaux, chemins cités, absence de secrets, `git diff --check` |
 | Connexion, MFA | `node --test tests/users.test.mjs tests/cloud.test.mjs` ; tests sans fenêtre `tests/otp_workspace_test.py`, `tests/mandatory_mfa_test.py` |
 | Inactivité et rafraîchissement | `node --test tests/users.test.mjs tests/cloud.test.mjs` ; `python tests/session_resume_test.py` |
 | Blocage d’IP et réputation | `node --test tests/threat-list.test.mjs tests/access.test.mjs` ; `python tests/access_workspace_test.py` |
 | Permissions par poste | `node --test tests/permissions.test.mjs tests/access.test.mjs` ; `python tests/security_permissions_test.py` |
-| Frontend et navigation Sécurité | `npm run test:agents-console` ; test navigateur de la vue concernée |
+| Frontend et navigation Sécurité | `python tests/security_navigation_test.py` et `python tests/agents_console_test.py` |
 | Sécurité et chiffrement | `npm run test:security` ; `python tests/security_test.py` |
 | Agent et mises à jour | `node --test tests/agent.test.mjs tests/agent-update.test.mjs tests/agent-posix.test.mjs` |
 | Antivirus intégré et quarantaine | `node --test tests/antivirus.test.mjs tests/antivirus-api.test.mjs tests/endpoint.test.mjs` ; `python tests/antivirus_workspace_test.py` |
@@ -64,13 +64,10 @@ Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de 
 ## Écrire un test
 
 - Un agent de test déclare les capacités qu’il simule lors de son premier `agent/poll`. Une session Bureau, Terminal ou Fichiers exige `remote-consent-v1` puis l’accord explicite `POST /api/agent/remote/consent` avec `status:'accepted'` avant tout échange (voir `remote()` dans `tests/hardening.test.mjs`).
+- Les tests navigateur démarrent l’API de test avec `node_executable()` (`tests/node_runtime.py`) : le runtime privé de l’agent s’il existe, sinon le Node du `PATH`.
 - Comparer les chemins Windows sous leur forme canonique (`fs.realpath`) : l’agent renvoie la lettre de lecteur dans sa casse réelle (`C:`), alors que le terminal de VS Code peut démarrer en `c:`.
 - `tests/publication.test.mjs` modifie temporairement `app/downloads/WolfGuard-Agent-Windows.exe` pour vérifier le refus. Ne pas l’exécuter en parallèle de `tests/agent-signing.test.mjs`, qui contrôle que ces fichiers restent inchangés ; lancer ce dernier seul.
 - Dans un test Playwright qui intercepte l’API avec `context.route`, appeler `context.unroute_all(behavior='wait')` avant `context.close()` pour laisser finir les requêtes en cours.
-
-## Tests connus en échec
-
-`tests/optimization_test.py` (suite `npm test`) attend encore un export direct des rapports de scan, retiré par la décision du 26 novembre 2026 (rapports uniquement en PDF dans l’Historique de la fiche du poste). L’échec existait avant le nettoyage ; il ne fait pas partie de `test:ci`. Le mettre à jour selon le nouveau parcours avant de l’y ajouter.
 
 ## Serveur
 

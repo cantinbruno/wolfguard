@@ -61,7 +61,7 @@ Vérifications : `node --test tests/threat-list.test.mjs tests/access.test.mjs` 
 
 ## Revue du 26 novembre 2026
 
-Revue ciblée du code par l’IA de développement, sans audit indépendant ni test d’intrusion.
+Revue ciblée du code, sans audit indépendant ni test d’intrusion.
 
 | Point contrôlé | Constat | Suite donnée |
 | --- | --- | --- |
