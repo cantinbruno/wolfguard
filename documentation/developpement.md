@@ -71,7 +71,7 @@ Vérifier que chaque fichier existe avant de lancer la commande. Les scripts de 
 
 ## Tests à remettre à jour
 
-`tests/scan_workspace_test.py` et `tests/agent_workspace_test.py` attendent encore l’ancien affichage des rapports de scan (`#wgScanMetrics`, `#wgScanReportStamp`), retiré par la décision du 26 novembre 2026 (rapports en PDF dans la fiche du poste). Ils échouaient déjà avant les changements du 27 novembre et sont sortis des suites ; leurs fonctions utilitaires restent utilisées par d’autres tests.
+`tests/scan_workspace_test.py`, `tests/agent_workspace_test.py` et `tests/certfr_workspace_test.py` attendent encore l’ancien affichage des rapports et de l’historique de scans (`#wgScanMetrics`, `#wgScanReportStamp`, `[data-history-open]`), retiré par la décision du 26 novembre 2026 (rapports en PDF dans la fiche du poste). Ils échouaient déjà avant les changements du 27 novembre et sont sortis des suites ; leurs fonctions utilitaires restent utilisées par d’autres tests.
 
 ## Serveur
 

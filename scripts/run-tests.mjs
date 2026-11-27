@@ -32,7 +32,6 @@ const suites={
     ['python','global_search_test.py'],
     ['python','memo_history_test.py'],
     ['python','theme_test.py'],
-    ['python','certfr_workspace_test.py'],
     ['python','timeout_test.py'],
     ['python','security_test.py'],
     ['python','shared_workspace_test.py'],

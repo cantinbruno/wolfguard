@@ -57,3 +57,16 @@ test('a manager asks for the journal; the console lists it without its content a
     assert.ok([403,404].includes((await s.api('edr/command-logs?id='+command.id,undefined,member.token)).status),'a member without edr.manage cannot read it');
   }finally{s.env.DB.db.close();}
 });
+
+test('an idle agent polls less often after a quiet period',async()=>{
+  const {runAgent}=await import('../agent/agent.mjs');
+  const times=[],client={origin:'https://example.invalid',async post(){times.push(Date.now());return {job:null,remote:null,ai:null};}};
+  const controller=new AbortController();
+  const run=runAgent(client,{signal:controller.signal,pollMs:20,idleAfterMs:150,idlePollMs:200,protectionRunner:async()=>{},updateChecker:null,onStatus(){}});
+  await new Promise(resolve=>setTimeout(resolve,1100));
+  controller.abort();await run;
+  const gaps=times.slice(1).map((time,index)=>time-times[index]);
+  assert.ok(gaps[0]<120,'fast polling at the start: '+gaps.slice(0,3));
+  assert.ok(gaps.at(-1)>=170,'slow polling once idle: '+gaps.slice(-3));
+  assert.ok(times.length<30,'far fewer polls than the fast rate would give: '+times.length);
+});

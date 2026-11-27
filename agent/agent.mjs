@@ -38,17 +38,20 @@ const monitor=(async()=>{while(!finished&&!cancel.signal.aborted){await delay(20
   const outcome=latest.error?'failed':cancel.signal.aborted||remoteStopped?'cancelled':'completed';
   onStatus(outcome==='failed'?'Le scan a échoué. Consulte le rapport sur le site.':outcome==='cancelled'?'Scan arrêté.':'Scan terminé. Les résultats sont disponibles sur le site.',{state:outcome,completed:latest.completed,total:latest.total});return latest;
 }
-export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,remoteRunner=executeRemoteSession,protectionRunner=runEndpointProtection,updateChecker=client.origin===API&&process.env.WOLFGUARD_AGENT_HOME?createAutoUpdater():null}={}){
+export async function runAgent(client,{signal,onStatus=()=>{},passiveCollector,securityCollector,pollMs=4000,idleAfterMs=120000,idlePollMs=Math.min(10000,pollMs*2.5),remoteRunner=executeRemoteSession,protectionRunner=runEndpointProtection,updateChecker=client.origin===API&&process.env.WOLFGUARD_AGENT_HOME?createAutoUpdater():null}={}){
   // Every status message is also kept for the on-request journal (Récupérer le journal).
   const report=onStatus;onStatus=(message,...rest)=>{rememberStatus(message);return report(message,...rest);};
   const protectionController=new AbortController(),combined=signal?AbortSignal.any([signal,protectionController.signal]):protectionController.signal;
   const protection=protectionRunner(client,{signal:combined,onStatus}).catch(error=>{if(error.status===401||error.status===403)protectionController.abort();});
   try{
   onStatus('Connexion à WolfGuard…',{state:'connecting'});
+  // Polling every few seconds is only needed around work: after two idle minutes the
+  // agent asks less often (still well inside the server's 20 s online window).
+  let lastWork=Date.now();
   while(!combined.aborted){
-    try{const {job,remote,ai}=await client.post('poll',{version:AGENT_VERSION,capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','remote-consent-v1','agent-logs-v1','ai-chat-v1','endpoint-protection-v1',...(updateChecker?['auto-update-v1']:[])]}, {signal:combined});if(combined.aborted)break;if(remote)await remoteRunner(client,remote,{signal:combined,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal:combined,onStatus});else if(job)await executeJob(client,job,{signal:combined,onStatus,passiveCollector,securityCollector});else{onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});if(updateChecker)await updateChecker({signal:combined,onStatus});}}
+    try{const {job,remote,ai}=await client.post('poll',{version:AGENT_VERSION,capabilities:['security-audit-v1','network-scan-v2','network-target-v1','network-scan-v3','network-auto-map-v1','network-topology-v1','remote-desktop-v1','remote-terminal-v1','remote-files-v1','remote-consent-v1','agent-logs-v1','ai-chat-v1','endpoint-protection-v1',...(updateChecker?['auto-update-v1']:[])]}, {signal:combined});if(combined.aborted)break;if(remote||ai||job)lastWork=Date.now();if(remote)await remoteRunner(client,remote,{signal:combined,onStatus,directory:agentDirectory()});else if(ai)await executeAI(client,ai,{signal:combined,onStatus});else if(job)await executeJob(client,job,{signal:combined,onStatus,passiveCollector,securityCollector});else{onStatus('Agent connecté. Prêt à recevoir un scan ou une prise en main depuis le site.',{state:'connected'});if(updateChecker)await updateChecker({signal:combined,onStatus});}}
     catch(error){if(combined.aborted)break;if(error.status===401||error.status===403)throw error;onStatus('Connexion interrompue. Nouvelle tentative automatique.',{state:'offline'});}
-    try{await delay(pollMs,undefined,{signal:combined});}catch{break;}
+    try{await delay(Date.now()-lastWork>idleAfterMs?idlePollMs:pollMs,undefined,{signal:combined});}catch{break;}
   }
   }finally{protectionController.abort();await protection;}
 }

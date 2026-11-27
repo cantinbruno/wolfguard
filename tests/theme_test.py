@@ -19,6 +19,9 @@ def run():
             page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
             page.goto(origin+'/');enter_code(page,CODE,creating=True);expect(page.locator('#app')).to_be_visible(timeout=20000);page.wait_for_function('()=>!document.querySelector("#app").inert')
             assert page.evaluate(FILTER)=='none' and page.evaluate("document.documentElement.dataset.uiTheme")=='midnight','dark by default'
+            # The embedded interface font (Inter) really loads from the site itself.
+            assert page.evaluate("document.fonts.load('16px \"Inter Variable\"').then(fonts=>fonts.length>0&&document.fonts.check('16px \"Inter Variable\"'))"),'Inter Variable is loaded'
+            assert 'Inter Variable' in page.evaluate("getComputedStyle(document.body).fontFamily")
             # The setting offers both new ambiances and saves the choice.
             page.locator('#settingsBtn').click();page.locator('#settings-tab-interface').click()
             options=page.locator('select[data-ui-setting=theme] option,#settings-interface select option').all_inner_texts()
