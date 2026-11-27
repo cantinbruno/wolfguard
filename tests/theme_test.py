@@ -22,6 +22,12 @@ def run():
             # The embedded interface font (Inter) really loads from the site itself.
             assert page.evaluate("document.fonts.load('16px \"Inter Variable\"').then(fonts=>fonts.length>0&&document.fonts.check('16px \"Inter Variable\"'))"),'Inter Variable is loaded'
             assert 'Inter Variable' in page.evaluate("getComputedStyle(document.body).fontFamily")
+            # The application fills exactly the window on every main screen: the page itself never
+            # grows with its content (inner panes scroll) and never ends before the bottom of the window.
+            for section in ['library','vault','tools','security']:
+                page.locator(f'.workspace-section-button[data-section={section}]').click();page.wait_for_function('()=>!sectionTransition.active');page.wait_for_timeout(300)
+                sizes=page.evaluate("({page:document.documentElement.scrollHeight,app:document.querySelector('#app').getBoundingClientRect().height,window:innerHeight})")
+                assert sizes['page']<=sizes['window']+1 and abs(sizes['app']-sizes['window'])<=1,(section,sizes)
             # The setting offers both new ambiances and saves the choice.
             page.locator('#settingsBtn').click();page.locator('#settings-tab-interface').click()
             options=page.locator('select[data-ui-setting=theme] option,#settings-interface select option').all_inner_texts()

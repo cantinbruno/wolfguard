@@ -123,8 +123,7 @@ def run():
             expect(page.locator('#agentsMetrics')).to_have_count(0)
             page.screenshot(path=str(ROOT/'.cache/fleet-desktop.png'))
             fleet_bounds=page.locator('.agents-table-scroll').bounding_box()
-            # Four workstations in Inter (shorter lines than the former font) still fill a substantial table.
-            assert fleet_bounds['y']<500 and fleet_bounds['height']>300,fleet_bounds
+            assert fleet_bounds['y']<500 and fleet_bounds['height']>400,fleet_bounds
             assert all(row['height'] <= 80 for row in page.locator('[data-agent-row]').evaluate_all('rows => rows.map(row => ({height: row.getBoundingClientRect().height}))'))
             for width in [390,320]:
                 page.set_viewport_size({'width':width,'height':1000})
