@@ -16,6 +16,12 @@ Tout changement de droit ou d’imbrication révoque les sessions et opérations
 
 Vérifications : `node --test tests/ad-groups.test.mjs` et `python tests/ad_groups_workspace_test.py`, avec comptes, machines et annuaire de groupes synthétiques, sans interaction avec le poste réel. Référence du modèle de groupes : [Microsoft Learn — Groupes de sécurité Active Directory](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-groups).
 
+## Rôles simples
+
+Dans **Utilisateurs et droits → Droits**, chaque compte se règle d’abord par un **rôle** : Invité (rien de visible), Observateur (lecture partout), Éditeur (écriture partout, utilisateurs et droits en lecture) ou Administrateur (accès complet). Un rôle n’est qu’un ensemble prêt à l’emploi des groupes automatiques (administrateur, sections, sections de postes) : le choisir coche exactement ces groupes, puis **Enregistrer les appartenances** l’applique avec le même circuit qu’avant (révision des droits, déconnexion des sessions, journal des droits). Les groupes métier et les groupes d’autorisation précise du compte ne sont jamais modifiés par un changement de rôle.
+
+Le volet **Personnaliser avec les groupes** reste disponible pour ajuster section par section ; une combinaison qui ne correspond à aucun rôle s’affiche comme **Personnalisé**. Le propriétaire reste protégé et n’a pas de rôle à choisir. Aucune modification de l’API n’est nécessaire : les rôles vivent dans `app/js/data/user-roles.js`. Test : `node --test tests/user-roles.test.mjs` et `python tests/access_groups_workspace_test.py`.
+
 ## Sections et comptes
 
 Les profils suivants restent des préréglages pour les autorisations des groupes ; les appartenances et les refus explicites déterminent les accès effectifs :

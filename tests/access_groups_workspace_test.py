@@ -31,6 +31,13 @@ def run():
         expect(viewer.locator('.tree-overview-row')).to_have_class('tree-row tree-overview-row active')
         viewer.evaluate('()=>selectFolder(null)');assert viewer.evaluate('state.folder===WolfGuardCloud.currentUser().vaultHome.id')
         owner.locator('#settings-tab-users').click();owner.locator('[data-select-user]').filter(has_text='team-member@example.test').click();expect(owner.locator('[data-user-access-group]:checked')).to_have_count(2)
+        # Roles: a simple choice on top of the groups; the original combination stays "Personnalisé".
+        expect(owner.locator('[data-user-role=custom]')).to_be_checked()
+        saved=owner.evaluate("[...document.querySelectorAll('[data-user-access-group]:checked')].map(box=>box.dataset.userAccessGroup)")
+        owner.locator('.user-role-option',has_text='Observateur').click();expect(owner.locator('[data-user-role=observer]')).to_be_checked();expect(owner.locator('#wgUserApplyGroup')).to_be_enabled()
+        owner.locator('.user-role-option',has_text='Administrateur').click();expect(owner.locator('[data-user-access-group]:checked')).to_have_count(1);expect(owner.locator('label',has_text='GG_Acces_Application_administrateur').locator('input')).to_be_checked()
+        owner.evaluate("(ids)=>{document.querySelectorAll('[data-user-access-group]').forEach(box=>{box.checked=ids.includes(box.dataset.userAccessGroup)});document.querySelector('#wgPermissionHost').dispatchEvent(new Event('change'))}",saved)
+        expect(owner.locator('[data-user-role=custom]')).to_be_checked();expect(owner.locator('#wgUserApplyGroup')).to_be_disabled()
         expect(owner.locator('#settings-users [data-permission-profile],#settings-users [data-section],#settings-users [data-group-right-id]')).to_have_count(0)
         draft=owner.locator('label',has_text='GG_Acces_Memo_ecriture').locator('input');draft.check();owner.locator('#settings-tab-interface').click();expect(owner.locator('.app-dialog')).to_be_visible();owner.locator('.app-dialog-cancel').click();expect(owner.locator('#settings-users')).to_be_visible();draft.uncheck()
         owner.set_viewport_size({'width':1920,'height':1080});box=owner.locator('.settings-modal').bounding_box();assert box['width']<=1281 and box['height']<=821,box

@@ -347,3 +347,13 @@
 .groups-manager .group-pane-tabs{position:sticky;top:var(--group-heading-height,100px);z-index:2}
 @media(min-width:851px){.access-groups-workspace{grid-template-columns:minmax(250px,30%) minmax(0,1fr)}}
 @media(max-width:1000px){.groups-manager>.settings-panel-head{flex-wrap:wrap}.groups-manager>.settings-panel-head>.actions{flex-wrap:wrap}}
+
+.user-roles{border:0;margin:0 0 12px;padding:0}
+.user-roles legend{font-weight:700;margin-bottom:4px}
+.user-roles p{margin:0 0 8px;opacity:.8}
+.user-role-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.user-role-option{display:flex;gap:8px;align-items:flex-start;padding:10px;border:1px solid var(--line,rgba(255,255,255,.14));border-radius:10px;cursor:pointer}
+.user-role-option:has(input:checked){border-color:var(--accent,#6aa9ff);background:rgba(106,169,255,.1)}
+.user-role-option small{display:block;opacity:.75}
+.user-advanced-groups{margin:0 0 12px}
+.user-advanced-groups>summary{cursor:pointer;font-weight:600;padding:6px 0}
