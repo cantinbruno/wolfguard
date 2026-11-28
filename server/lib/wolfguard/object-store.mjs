@@ -6,8 +6,7 @@
 // Only ciphertext and public cache files are stored here.
 const RAW_CHUNK = 384 * 1024; // base64 makes ~512 KB per row, far below D1's 2 MB row limit
 const READ_AHEAD = 4;
-const KEEP_SNAPSHOTS = 5; // newest immutable snapshots kept as encrypted recovery history, plus the current one
-const REMOTE_MAX_AGE = 6 * 3600 * 1000; // abandoned remote-session frames
+const KEEP_SNAPSHOTS = 1; // one previous immutable snapshot kept as encrypted recovery history, plus the current one
 
 const encoder = new TextEncoder();
 
@@ -159,7 +158,7 @@ export class D1ObjectStore {
       this.db.prepare('DELETE FROM objects WHERE key=?').bind(key)
     ]);
   }
-  // Keeps the 5 newest snapshots (and always the current vault object); drops abandoned remote frames.
+  // Keeps one previous snapshot (and always the current vault object); drops remote frames of ended sessions.
   async prune(key) {
     const db = this.db;
     if (key.startsWith('snapshots/')) {
@@ -171,11 +170,12 @@ export class D1ObjectStore {
         db.prepare('DELETE FROM objects WHERE key IN (' + old + ')')
       ]);
     } else if (key.startsWith('remote/')) {
-      const cutoff = this.clock() - REMOTE_MAX_AGE,
-        old = "SELECT key FROM objects WHERE key LIKE 'remote/%' AND created_at<?";
+      // A desktop frame only lives while its session is live; anything else is deleted at once.
+      const old =
+        "SELECT key FROM objects WHERE key LIKE 'remote/%' AND key NOT IN (SELECT 'remote/'||id||'/frame' FROM remote_sessions WHERE status IN ('requested','preparing','active'))";
       await db.batch([
-        db.prepare('DELETE FROM object_chunks WHERE key IN (' + old + ')').bind(cutoff),
-        db.prepare("DELETE FROM objects WHERE key LIKE 'remote/%' AND created_at<?").bind(cutoff)
+        db.prepare('DELETE FROM object_chunks WHERE key IN (' + old + ')'),
+        db.prepare('DELETE FROM objects WHERE key IN (' + old + ')')
       ]);
     }
   }

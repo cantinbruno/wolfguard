@@ -45,17 +45,20 @@ test('a failing upload leaves no visible object and no orphan chunks', async()=>
   assert.equal(db.db.prepare('SELECT COUNT(*) n FROM object_chunks').get().n,1);
 });
 
-test('only the 5 newest snapshots are kept, plus the one the vault points to; remote frames expire', async()=>{
+test('only one previous snapshot is kept besides the current one; frames of ended sessions vanish at once', async()=>{
   let now=1000;const db=new D1(),store=new D1ObjectStore(db,()=>now);
-  for(let i=0;i<9;i++){now+=1000;await store.put('snapshots/s'+i,'v'+i);}
-  const kept=db.db.prepare("SELECT key FROM objects WHERE key LIKE 'snapshots/%' ORDER BY key").all().map(r=>r.key);
-  assert.deepEqual(kept,['snapshots/s4','snapshots/s5','snapshots/s6','snapshots/s7','snapshots/s8']);
-  db.db.prepare('INSERT INTO vault(id,pin_salt,pin_hash,generation,version,object_key,failures,blocked_until,lease_until) VALUES(1,?,?,1,1,?,0,0,0)').run('s','h','snapshots/s4');
-  for(let i=9;i<12;i++){now+=1000;await store.put('snapshots/s'+i,'v'+i);}
-  const after=db.db.prepare("SELECT key FROM objects WHERE key LIKE 'snapshots/%' ORDER BY key").all().map(r=>r.key);
-  assert.ok(after.includes('snapshots/s4'),'the current vault object is never pruned');assert.equal(after.length,6);
-  await store.put('remote/old','frame');now+=7*3600*1000;await store.put('remote/new','frame');
-  assert.equal(await store.get('remote/old'),null);assert.ok(await store.get('remote/new'));
+  const keys=()=>db.db.prepare("SELECT key FROM objects WHERE key LIKE 'snapshots/%' ORDER BY key").all().map(r=>r.key);
+  for(let i=0;i<6;i++){now+=1000;await store.put('snapshots/s'+i,'v'+i);}
+  assert.deepEqual(keys(),['snapshots/s5'],'without a current object only the newest is kept');
+  db.db.prepare('INSERT INTO vault(id,pin_salt,pin_hash,generation,version,object_key,failures,blocked_until,lease_until) VALUES(1,?,?,1,1,?,0,0,0)').run('s','h','snapshots/s5');
+  for(let i=6;i<9;i++){now+=1000;await store.put('snapshots/s'+i,'v'+i);}
+  assert.deepEqual(keys(),['snapshots/s5','snapshots/s8'],'the current vault object plus the single newest other one');
+  assert.ok(db.db.prepare("SELECT COUNT(*) n FROM object_chunks WHERE key LIKE 'snapshots/%'").get().n===2,'pruned snapshots leave no chunks');
+  const columns=db.db.prepare('PRAGMA table_info(remote_sessions)').all().filter(c=>c.notnull&&c.dflt_value===null&&c.name!=='id'&&c.name!=='status').map(c=>c.name);
+  const add=(id,status)=>db.db.prepare('INSERT INTO remote_sessions(id,status,'+columns.join(',')+') VALUES(?,?,'+columns.map(()=>"'x'").join(',')+')').run(id,status);
+  add('live','active');add('ended','closed');
+  await store.put('remote/live/frame','f');await store.put('remote/ended/frame','f');
+  assert.ok(await store.get('remote/live/frame'),'a live session keeps its frame');assert.equal(await store.get('remote/ended/frame'),null,'an ended session frame is deleted at once');
 });
 
 test('one store per database keeps caches keyed on it alive between requests', ()=>{

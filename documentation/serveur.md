@@ -77,7 +77,7 @@ Un agent local sans accès aux outils Sites peut préparer et pousser le code, m
 
 Quand aucun bucket R2 n’est lié (`env.BUCKET` absent), `handleAPI` utilise `lib/wolfguard/object-store.mjs` : une couche `get`/`put`/`delete` identique à celle de R2 (métadonnées `customMetadata`/`httpMetadata`, lecture en flux), enregistrée dans les tables `objects` et `object_chunks` (migration `0024`). Un objet est découpé en blocs de 384 Kio encodés en base64, écrits sous une révision neuve puis publiés par un seul lot atomique : un remplacement n’est jamais visible à moitié et un envoi interrompu ne laisse aucun bloc orphelin. Seuls des octets chiffrés et des caches publics y sont stockés.
 
-Limites à connaître : une base D1 gratuite est limitée à 500 Mo et 100 000 lignes écrites par jour. Pour rester dans ces limites, seuls les **5 snapshots les plus récents** sont conservés comme historique de récupération chiffré (plus celui que le coffre utilise), et les images du bureau à distance abandonnées depuis plus de 6 heures sont supprimées. Avec un vrai bucket R2, rien de cela ne s’applique : l’historique complet reste conservé. Tests : `node --test tests/object-store.test.mjs`.
+Limites à connaître : une base D1 gratuite est limitée à 500 Mo et 100 000 lignes écrites par jour. Pour rester dans ces limites, un **seul snapshot précédent** est conservé comme sauvegarde chiffrée (en plus de celui que le coffre utilise), et l’image du bureau à distance est supprimée dès que sa session n’est plus active. Avec un vrai bucket R2, rien de cela ne s’applique : l’historique complet reste conservé. Tests : `node --test tests/object-store.test.mjs`.
 
 ## Groupes d’autorisations
 
