@@ -121,3 +121,11 @@ export const sharedSecrets=sqliteTable('shared_secrets',{
 export const appLogs=sqliteTable('app_logs',{
   id:text('id').primaryKey(),createdAt:integer('created_at').notNull(),level:text('level').notNull(),kind:text('kind').notNull(),detailsCipher:text('details_cipher').notNull()
 },table=>[index('app_logs_time').on(table.createdAt)]);
+// Object storage kept in D1 (used when no R2 bucket is bound). Ciphertext only; each object is
+// stored as base64 chunks under a revision so a replacement is never half-visible.
+export const objects=sqliteTable('objects',{
+  key:text('key').primaryKey(),rev:text('rev').notNull(),size:integer('size').notNull(),metaJson:text('meta_json').notNull(),createdAt:integer('created_at').notNull()
+},table=>[index('objects_created').on(table.createdAt)]);
+export const objectChunks=sqliteTable('object_chunks',{
+  key:text('key').notNull(),rev:text('rev').notNull(),idx:integer('idx').notNull(),data:text('data').notNull()
+},table=>[primaryKey({columns:[table.key,table.rev,table.idx]})]);

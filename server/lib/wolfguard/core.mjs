@@ -40,6 +40,7 @@ import { retainRecentLogs } from './retention.mjs';
 import { logEvent, listEvents } from './journal.mjs';
 import { handleShareAPI } from './share.mjs';
 import { administrator } from './agent-access.mjs';
+import { d1ObjectStore } from './object-store.mjs';
 const encoder = new TextEncoder();
 const MAX_BYTES = 46 * 1024 * 1024,
   BLOCK = 65536;
@@ -644,6 +645,8 @@ export async function handleAPI(request, env, clock = Date.now) {
   // Permission projections share reads only within this request. A later move
   // or rights change is always read again by the next API/agent poll.
   env = Object.create(env);
+  // Without an R2 bucket, objects live in D1 (same interface, see object-store.mjs).
+  if (!env.BUCKET && env.DB) env.BUCKET = d1ObjectStore(env.DB, clock);
   const origin = request.headers.get('Origin'),
     own = new URL(request.url).origin;
   const allowed = new Set(['https://wolfguard.wavetools.fr', 'https://cantinbruno.github.io', own]);

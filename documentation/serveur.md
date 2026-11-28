@@ -73,6 +73,12 @@ Une modification de schéma demande une migration additionnelle dans la chaîne 
 
 Un agent local sans accès aux outils Sites peut préparer et pousser le code, mais doit annoncer explicitement que le déploiement API reste à faire. Un `git push` n’est pas un déploiement Sites.
 
+## Stockage des objets dans D1 (sans R2)
+
+Quand aucun bucket R2 n’est lié (`env.BUCKET` absent), `handleAPI` utilise `lib/wolfguard/object-store.mjs` : une couche `get`/`put`/`delete` identique à celle de R2 (métadonnées `customMetadata`/`httpMetadata`, lecture en flux), enregistrée dans les tables `objects` et `object_chunks` (migration `0024`). Un objet est découpé en blocs de 384 Kio encodés en base64, écrits sous une révision neuve puis publiés par un seul lot atomique : un remplacement n’est jamais visible à moitié et un envoi interrompu ne laisse aucun bloc orphelin. Seuls des octets chiffrés et des caches publics y sont stockés.
+
+Limites à connaître : une base D1 gratuite est limitée à 500 Mo et 100 000 lignes écrites par jour. Pour rester dans ces limites, seuls les **5 snapshots les plus récents** sont conservés comme historique de récupération chiffré (plus celui que le coffre utilise), et les images du bureau à distance abandonnées depuis plus de 6 heures sont supprimées. Avec un vrai bucket R2, rien de cela ne s’applique : l’historique complet reste conservé. Tests : `node --test tests/object-store.test.mjs`.
+
 ## Groupes d’autorisations
 
 `access-groups.mjs` gère les groupes d’accès et les appartenances multiples dans la table chiffrée `access_groups` (migration `0020_stiff_purifiers.sql`). `users/groups` expose lecture, reprise, création, duplication, renommage, politique, ajout, retrait et remplacement atomique des appartenances. Les écritures utilisent une révision commune et refusent les clients obsolètes. Les groupes automatiques suivent la nomenclature `GG_Acces_<Nom>_lecture|ecriture`, avec `GG_Acces_Application_administrateur` pour l’accès complet. Les politiques antérieures sont reprises sans élargissement dans des groupes conservés. `fleet_groups` reste distinct pour l’organisation des postes, mais sa création, son renommage et sa suppression réconcilient immédiatement les deux groupes d’accès associés, retirent les appartenances obsolètes et révoquent les sessions concernées.
