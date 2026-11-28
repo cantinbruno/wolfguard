@@ -26,30 +26,40 @@ const randomRevision = () =>
   [...crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
 function readable(db, key, rev, size) {
-  const total = Math.ceil(size / RAW_CHUNK);
-  let next = 0;
+  // Chunks are read in order until they run out; the byte total must then match the recorded size,
+  // so the chunk size itself is free to differ (objects imported from a backup use smaller rows).
+  let next = 0,
+    received = 0,
+    finished = false;
   return new ReadableStream({
     async pull(controller) {
-      if (next >= total) {
-        controller.close();
-        return;
-      }
+      if (finished) return;
       const rows = (
         await db
           .prepare('SELECT idx,data FROM object_chunks WHERE key=? AND rev=? AND idx>=? ORDER BY idx LIMIT ?')
           .bind(key, rev, next, READ_AHEAD)
           .all()
       ).results;
-      if (!rows.length || rows[0].idx !== next) {
-        controller.error(new Error('Objet incomplet.'));
+      if (!rows.length) {
+        finished = true;
+        if (received !== size) controller.error(new Error('Objet incomplet.'));
+        else controller.close();
         return;
       }
       for (const row of rows) {
         if (row.idx !== next) {
+          finished = true;
           controller.error(new Error('Objet incomplet.'));
           return;
         }
-        controller.enqueue(fromBase64(row.data));
+        const bytes = fromBase64(row.data);
+        received += bytes.length;
+        if (received > size) {
+          finished = true;
+          controller.error(new Error('Objet incomplet.'));
+          return;
+        }
+        controller.enqueue(bytes);
         next++;
       }
     }

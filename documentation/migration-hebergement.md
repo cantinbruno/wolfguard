@@ -137,3 +137,32 @@ git diff --check
 Ajouter des tests de persistance, restauration, concurrence et refus d’accès adaptés à la destination réellement retenue. Pour les modifications frontend ou agents distribués, reconstruire avec `npm run build` et suivre les contrôles complémentaires de [Développement](developpement.md). Pour le serveur actuel, utiliser ses tests et sa compilation décrits dans [Serveur](serveur.md).
 
 Suivre le commit sélectif et le push de [Publication](publication.md). Préserver le travail déjà présent, notamment les fichiers non suivis sans rapport avec cette tâche. Une compilation locale, une sauvegarde Git ou un test avec une base temporaire ne prouve pas qu’une migration de production est réussie.
+
+## Destination préparée : Cloudflare Workers + D1 seul
+
+Le propriétaire a choisi un compte Cloudflare gratuit et **D1 sans R2** (R2 exige une carte). Une copie de test complète est en ligne ; la production n’a pas changé.
+
+| Élément | Valeur |
+| --- | --- |
+| Worker | `wolfguard-api` sur `https://wolfguard-api.wgapi-k4x7q2.workers.dev` (sous-domaine neutre) |
+| Base | D1 `wolfguard-db`, région WEUR, liaison `DB`, aucune liaison `BUCKET` |
+| Code | `server/standalone/worker.mjs` : seulement `/api/*` via `handleAPI`, le reste répond 404. Modèle de configuration : `server/standalone/wrangler.example.toml` (copier en `wrangler.toml`, ignoré par Git, avec l’identifiant D1) |
+| Objets | `server/lib/wolfguard/object-store.mjs` (voir [Serveur](serveur.md)) |
+
+Préparation et restauration, depuis la racine (Windows, même profil que la sauvegarde) :
+
+```powershell
+node scripts/migration-restore/restore.mjs prepare <archive.enc> <dossier>   # data.sql + objects.sql, sans secret
+cd server/standalone
+npx wrangler d1 execute wolfguard-db --remote --yes --file <dossier>/data.sql
+# migrations 0021 à 0024 (sans les marqueurs de rupture), puis :
+npx wrangler d1 execute wolfguard-db --remote --yes --file <dossier>/objects.sql
+npx wrangler deploy
+node scripts/migration-restore/restore.mjs secrets <archive.enc> wolfguard-api server/standalone
+```
+
+`prepare` n’importe que le snapshot courant (celui de `vault.object_key`) et les caches `security/` : la base fait 1,1 Mo, le snapshot 3,5 Mo, alors que les 1 024 anciennes versions (3,59 Go) ne tiendraient pas dans D1. Les lignes sont réécrites en texte normal quand c’est possible, car D1 refuse une instruction SQL de plus de 100 Ko. La commande `secrets` envoie les cinq secrets et les réglages MFA directement à `wrangler secret bulk` : rien n’est écrit ni affiché.
+
+Contrôles effectués le 28 novembre : intégrité SQLite et clés étrangères valides ; migrations 0021 à 0024 appliquées sur le schéma réel ; snapshot relu depuis D1, identique octet pour octet et déchiffré avec la vraie clé de stockage ; `GET /api/status` → `{"initialized":true}` sur les deux hôtes ; la racine répond 404 ; sans clé d’entrée, `/api/login` répond 404 « Adresse inconnue. ». Non vérifié : connexion avec le code du propriétaire et sa MFA, transition des agents, volume d’écritures quotidien.
+
+**Reste à faire avant de basculer** : une copie finale (les données ont pu changer depuis la sauvegarde de 12 h 06), la transition des agents (identifiants épinglés à l’ancienne origine ; l’ancien serveur refuse toute redirection), puis le changement d’adresse dans `browser/cloud.js`, `browser/private-entry.js`, `scripts/build-web.mjs` (CSP) et `agent/agent.mjs`, avec un retour arrière possible tant que l’ancien hébergement existe.

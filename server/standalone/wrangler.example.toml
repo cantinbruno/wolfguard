@@ -1,0 +1,12 @@
+# Copy to wrangler.toml (ignored by Git) and put the real D1 id. No R2 bucket: objects live in D1.
+# Secrets (AUTH_PEPPER, STORAGE_KEY, WORKSPACE_KEY_ENCRYPTION_KEY, ENTRY_LINK_HASH, BOOTSTRAP_HASH, MFA_*)
+# are set with `wrangler secret bulk`, never in this file.
+name = "wolfguard-api"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wolfguard-db"
+database_id = "REPLACE_WITH_D1_ID"

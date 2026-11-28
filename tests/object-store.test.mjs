@@ -83,3 +83,14 @@ test('the API works end to end with no R2 bucket: ciphertext saved to D1, read b
   assert.equal((await upload(encrypted.envelope,1,login.token)).status,200);
   assert.equal(db.db.prepare('SELECT COUNT(*) n FROM objects').get().n,2,'immutable snapshots are kept as recovery history');
 });
+
+test('an object is read back whatever the chunk size, and truncation is detected', async()=>{
+  const db=new D1(),store=new D1ObjectStore(db),data=bytes(200*1024);
+  // Rows written by hand in small, uneven chunks (as a backup import does).
+  const sizes=[48*1024,48*1024,48*1024,48*1024,8*1024];let offset=0,index=0;
+  for(const size of sizes){db.db.prepare('INSERT INTO object_chunks(key,rev,idx,data) VALUES(?,?,?,?)').run('snapshots/x','r1',index++,Buffer.from(data.subarray(offset,offset+size)).toString('base64'));offset+=size;}
+  db.db.prepare('INSERT INTO objects(key,rev,size,meta_json,created_at) VALUES(?,?,?,?,?)').run('snapshots/x','r1',data.length,'{}',1);
+  assert.ok(sameBytes(await read(await store.get('snapshots/x')),data));
+  db.db.prepare('DELETE FROM object_chunks WHERE idx=4').run();
+  await assert.rejects(async()=>read(await store.get('snapshots/x')),/incomplet/i);
+});
