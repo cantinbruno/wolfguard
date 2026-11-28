@@ -62,9 +62,12 @@ const report = {
   migration_state: {
     cutover_done: false, destination_selected: false, new_accounts_allowed: false, paid_services_allowed: false,
     use_of_this_pc_as_server_confirmed: false,
-    production_database_export_created_by_this_handoff: false,
-    production_object_export_created_by_this_handoff: false,
-    production_secret_values_retrieved_by_this_handoff: false
+    production_database_backup_verified: snapshot?.backup_state?.database_export_verified === true,
+    production_object_backup_verified: snapshot?.backup_state?.object_export_verified === true,
+    production_secret_backup_verified: snapshot?.backup_state?.secret_export_verified === true,
+    encrypted_backup_file_present: snapshot?.backup_state?.backup_path ? existsSync(snapshot.backup_state.backup_path) : false,
+    backup_observed_at: snapshot?.backup_state?.verified_at || null,
+    temporary_export_removed: snapshot?.backup_state?.temporary_export_removed === true
   }
 };
 

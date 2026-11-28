@@ -22,7 +22,7 @@ for(const name of new Set(files)) {
   if(lstatSync(filename).isSymbolicLink()) {issues.add(name);continue;}
   if(/\.zip$/i.test(name)&&!['app','docs'].some(folder=>['Windows','Linux','macOS'].some(platform=>name===folder+'/downloads/WolfGuard-Agent-'+platform+'.zip'))){issues.add(name);continue;}
   if(/\.exe$/i.test(name)&&!['app/downloads/WolfGuard-Agent-Windows.exe','docs/downloads/WolfGuard-Agent-Windows.exe'].includes(name)){issues.add(name);continue;}
-  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi)$/i.test(name)){issues.add(name);continue;}
+  if(/(?:^|\/)(?:\.local-archive|\.cache|\.env(?:\..*)?|backups|donnees)(?:\/|$)|\.(?:sqlite\w*|db|itw|wgweb|wgmodule|pem|pfx|p12|key|dpapi|enc)$/i.test(name)){issues.add(name);continue;}
   if(/(?:^|\/)site-access(?:-before-[^/]*)?\.json$/i.test(name)){issues.add(name);continue;}
   const bytes=readFileSync(filename);
   if(bytes.subarray(0,15).toString()==='SQLite format 3'){issues.add(name);continue;}
