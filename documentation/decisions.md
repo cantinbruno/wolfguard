@@ -11,6 +11,7 @@ Avant de reprendre un chantier, examiner aussi les changements Git en attente : 
 | Sujet | Décision |
 | --- | --- |
 | Hébergement | Frontend GitHub Pages, domaine `wolfguard.wavetools.fr`. API Sites distincte ; ne pas remplacer le DNS ni recréer un Site. |
+| Migration d’hébergement | Migration de l’API hors de Sites autorisée le 28 novembre 2026, sans service payant ni nouveau compte. Destination non choisie ; usage permanent du PC non confirmé. Préserver données, clés, comptes, droits et associations des agents. L’hébergement actuel reste actif jusqu’à une restauration validée. Voir [Reprise de migration](migration-hebergement.md). |
 | Publication | Vérifications, commit et `git push origin main` explicite après chaque tâche terminée. GitHub Actions recompile et teste chaque push, sans la clé réelle du lien. Surveillance Windows désactivée et ses scripts supprimés. |
 | Documentation | Guides et consignes dans `documentation/`, avec un court `README.md` à la racine qui y renvoie (demande du 27 novembre). Pas de README dans `server/`. |
 | Données | Conserver le partage et ses permissions. Le serveur peut déchiffrer les espaces pour les filtrer ; ne pas présenter cela comme du chiffrement de bout en bout. |

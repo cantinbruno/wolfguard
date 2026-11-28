@@ -65,6 +65,7 @@ Le détail des contrôles par sujet est dans [Développement](developpement.md).
 | Antivirus intégré, composants et validation | [Antivirus WolfGuard](antivirus.md) |
 | Groupes d’utilisateurs et droits des sections | [Droits](droits.md) |
 | API, routes, stockage, migrations et déploiement | [Serveur](serveur.md) |
+| Reprise de la migration hors de Sites | [Migration d’hébergement](migration-hebergement.md) |
 | Installateurs, services et prise en main | [Agents](agents/README.md) et [journal des agents](agents/journal.md) |
 | Procédure facultative Authenticode | [Signature Windows](agents/signature-windows.md) |
 | Suivi du rapport du 21 novembre 2026 | [Intégration du rapport](integration-rapport.md) |

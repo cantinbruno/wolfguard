@@ -2,6 +2,8 @@
 
 Le dossier `server/` contient le source de l’API, sa chaîne Worker/Vinext, ses migrations D1 et sa configuration d’hébergement. Sa documentation est regroupée sur cette page.
 
+Une migration hors de Sites a été demandée ; sa préparation, les accès disponibles et les éléments restant à résoudre sont dans [Migration d’hébergement](migration-hebergement.md). Les descriptions ci-dessous correspondent au serveur actuel, toujours en service.
+
 ## Hébergement à préserver
 
 Le frontend reste sur GitHub Pages : `https://wolfguard.wavetools.fr/`. Le serveur existant est `https://wolfguard-web-cantin.cantin-bruno.chatgpt.site`.
